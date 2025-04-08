@@ -21,7 +21,6 @@ public class YourSayUserController{
     YourSayUserRepository yourSayUserRepository;
 
 
-
     @POST
     @ResponseStatus(value = 201)
     public Uni<YourSayUser> saveYourSayUser(YourSayUser YourSayUser) {

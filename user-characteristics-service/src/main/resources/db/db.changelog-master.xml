@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="1741734897048-1" author="mhutc">
+        <createTable tableName="user_characteristic">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_user_characteristic"/>
+            </column>
+            <column name="userId" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="postcode" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ukCounty" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="raceEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="incomeRangeEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="countryOfBirthEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="politicalPersuasionEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sexAtBirthEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="heightEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="eyeColorEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="weightRangeEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="parentEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="universityEducated" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="universitySubjectEnum" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="propertyOwner" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="1741734897048-2" author="mhutc">
+        <addUniqueConstraint columnNames="userId" constraintName="uc_user_characteristic_userid"
+                             tableName="user_characteristic"/>
+    </changeSet>
+
+    <changeSet id="1741734897048-3" author="mhutc"><insert tableName="user_characteristic">
+        <!-- Record 1 -->
+        <column name="userId" valueNumeric="1001"/>
+        <column name="postcode" value="AB12CD"/>
+        <column name="ukCounty" value="GREATER_MANCHESTER"/>
+        <column name="raceEnum" value="WHITE"/>
+        <column name="incomeRangeEnum" value="BETWEEN_50K_AND_100K"/>
+        <column name="countryOfBirthEnum" value="UNITED_KINGDOM"/>
+        <column name="politicalPersuasionEnum" value="LEFT"/>
+        <column name="sexAtBirthEnum" value="MALE"/>
+        <column name="heightEnum" value="FEET_6_1_TO_6_3"/>
+        <column name="eyeColorEnum" value="BLUE"/>
+        <column name="weightRangeEnum" value="KG_70_79"/>
+        <column name="parentEnum" value="MUM"/>
+        <column name="universityEducated" valueBoolean="true"/>
+        <column name="universitySubjectEnum" value="ENGINEERING"/>
+        <column name="propertyOwner" valueBoolean="true"/>
+    </insert>
+
+        <insert tableName="user_characteristic">
+            <!-- Record 2 -->
+            <column name="userId" valueNumeric="1002"/>
+            <column name="postcode" value="CD34EF"/>
+            <column name="ukCounty" value="BRISTOL"/>
+            <column name="raceEnum" value="ASIAN"/>
+            <column name="incomeRangeEnum" value="BETWEEN_20K_AND_50K"/>
+            <column name="countryOfBirthEnum" value="INDIA"/>
+            <column name="politicalPersuasionEnum" value="RIGHT"/>
+            <column name="sexAtBirthEnum" value="FEMALE"/>
+            <column name="heightEnum" value="FEET_5_4_TO_5_6"/>
+            <column name="eyeColorEnum" value="GREEN"/>
+            <column name="weightRangeEnum" value="KG_50_59"/>
+            <column name="parentEnum" value="DAD"/>
+            <column name="universityEducated" valueBoolean="false"/>
+            <column name="universitySubjectEnum" value="NA"/>
+            <column name="propertyOwner" valueBoolean="false"/>
+        </insert>
+
+        <insert tableName="user_characteristic">
+            <!-- Record 3 -->
+            <column name="userId" valueNumeric="1003"/>
+            <column name="postcode" value="EF56GH"/>
+            <column name="ukCounty" value="LANCASHIRE"/>
+            <column name="raceEnum" value="BLACK"/>
+            <column name="incomeRangeEnum" value="ABOVE_100000"/>
+            <column name="countryOfBirthEnum" value="UNITED_STATES"/>
+            <column name="politicalPersuasionEnum" value="LEFT"/>
+            <column name="sexAtBirthEnum" value="FEMALE"/>
+            <column name="heightEnum" value="FEET_5_7_TO_5_9"/>
+            <column name="eyeColorEnum" value="HAZEL"/>
+            <column name="weightRangeEnum" value="KG_80_89"/>
+            <column name="parentEnum" value="NO"/>
+            <column name="universityEducated" valueBoolean="true"/>
+            <column name="universitySubjectEnum" value="BUSINESS"/>
+            <column name="propertyOwner" valueBoolean="false"/>
+        </insert>
+
+        <insert tableName="user_characteristic">
+            <!-- Record 4 -->
+            <column name="userId" valueNumeric="1004"/>
+            <column name="postcode" value="GH78IJ"/>
+            <column name="ukCounty" value="CARDIFF"/>
+            <column name="raceEnum" value="HISPANIC"/>
+            <column name="incomeRangeEnum" value="BETWEEN_100K_AND_200K"/>
+            <column name="countryOfBirthEnum" value="MEXICO"/>
+            <column name="politicalPersuasionEnum" value="RIGHT"/>
+            <column name="sexAtBirthEnum" value="MALE"/>
+            <column name="heightEnum" value="FEET_6_4_TO_6_6"/>
+            <column name="eyeColorEnum" value="BROWN"/>
+            <column name="weightRangeEnum" value="KG_90_99"/>
+            <column name="parentEnum" value="DAD"/>
+            <column name="universityEducated" valueBoolean="true"/>
+            <column name="universitySubjectEnum" value="LAW"/>
+            <column name="propertyOwner" valueBoolean="true"/>
+        </insert>
+
+        <insert tableName="user_characteristic">
+            <!-- Record 5 -->
+            <column name="userId" valueNumeric="1005"/>
+            <column name="postcode" value="IJ90KL"/>
+            <column name="ukCounty" value="FIFE"/>
+            <column name="raceEnum" value="PACIFIC_ISLANDER"/>
+            <column name="incomeRangeEnum" value="BETWEEN_500K_and_100000"/>
+            <column name="countryOfBirthEnum" value="CANADA"/>
+            <column name="politicalPersuasionEnum" value="LEFT"/>
+            <column name="sexAtBirthEnum" value="FEMALE"/>
+            <column name="heightEnum" value="FEET_4_5_TO_4_9"/>
+            <column name="eyeColorEnum" value="GRAY"/>
+            <column name="weightRangeEnum" value="KG_30_39"/>
+            <column name="parentEnum" value="NO"/>
+            <column name="universityEducated" valueBoolean="false"/>
+            <column name="universitySubjectEnum" value="NA"/>
+            <column name="propertyOwner" valueBoolean="false"/>
+        </insert>
+
+    </changeSet>
+
+
+</databaseChangeLog>

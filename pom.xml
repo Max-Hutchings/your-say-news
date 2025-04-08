@@ -9,8 +9,11 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>user-service</module>
         <module>api-gateway</module>
+        <module>user-service</module>
+        <module>user-characteristics-service</module>
+        <module>post-service</module>
+        <module>vote-service</module>
     </modules>
 
     <properties>
