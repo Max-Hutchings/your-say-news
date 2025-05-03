@@ -10,11 +10,14 @@
     </changeSet>
     <changeSet id="1739221636389-2" author="mhutc">
         <createTable tableName="your_say_user">
-            <column name="id" type="BIGINT">
+            <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_your_say_user"/>
             </column>
             <column name="email" type="VARCHAR(255)">
                 <constraints nullable="false"/>
+            </column>
+            <column name="password" type="VARCHAR(255)">
+                <constraints nullable="true" />
             </column>
             <column name="username" type="VARCHAR(255)">
                 <constraints nullable="false"/>
@@ -49,7 +52,7 @@
     <changeSet id="1739221636389-5" author="mhutc">
         <!-- Insert test user Alice -->
         <insert tableName="your_say_user">
-            <column name="id" valueNumeric="1"/> <!-- Primary key for Alice -->
+<!--            <column name="id" valueNumeric="1"/> &lt;!&ndash; Primary key for Alice &ndash;&gt;-->
             <column name="email" value="alice@example.com"/> <!-- Alice's email address -->
             <column name="username" value="alice"/> <!-- Username for Alice -->
             <column name="f_name" value="Alice"/> <!-- First name -->

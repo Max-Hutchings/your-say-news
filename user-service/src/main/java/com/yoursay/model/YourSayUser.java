@@ -21,6 +21,9 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name="email", nullable = false, unique = true)
     private String email;
 
+    @Column(name="password", nullable = true, unique = false)
+    private String password;
+
     @Column(name="username", nullable = false, unique = true)
     private String username;
 
@@ -45,6 +48,7 @@ public class YourSayUser extends PanacheEntityBase {
 
     public YourSayUser(){}
 
+
     public YourSayUser(String email, String username, String fName, String lName, LocalDate dateOfBirth) {
         this.email = email;
         this.username = username;
@@ -62,6 +66,18 @@ public class YourSayUser extends PanacheEntityBase {
         this.dateOfBirth = dateOfBirth;
         this.createdDate = createdDate;
         this.role = role;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public LocalDate getCreatedDate() {

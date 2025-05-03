@@ -40,17 +40,28 @@ public interface RoutingClient {
 
     @GET
     @Path("/{service}/{url}")
-    Uni<String> routeGet(@HeaderParam("Authorization") String token, @PathParam("service") String service, @PathParam("url") String url);
+    Uni<String> routeGet(@HeaderParam("Authorization") String token,
+                         @PathParam("service") String service,
+                         @PathParam("url") String url);
 
     @POST
     @Path("/{service}/{url}")
-    Uni<String> routePost(@HeaderParam("Authorization") String token, @PathParam("service") String service, @PathParam("url") String url, String body);
+    Uni<String> routePost(@HeaderParam("Authorization") String token,
+                          @PathParam("service") String service,
+                          @PathParam("url") String url,
+                          String body);
 
     @PUT
     @Path("/{service}/{url}")
-    Uni<String> routePut(@HeaderParam("Authorization") String token, @PathParam("service") String service, @PathParam("url") String url, String body);
+    Uni<String> routePut(@HeaderParam("Authorization") String token,
+                         @PathParam("service") String service,
+                         @PathParam("url") String url,
+                         String body);
 
     @DELETE
     @Path("/{service}/{url}")
-    Uni<String> routeDelete(@HeaderParam("Authorization") String token, @PathParam("service") String service, @PathParam("url") String url, String body);
+    Uni<String> routeDelete(@HeaderParam("Authorization") String token,
+                            @PathParam("service") String service,
+                            @PathParam("url") String url,
+                            String body);
 }

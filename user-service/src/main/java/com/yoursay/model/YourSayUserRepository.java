@@ -13,13 +13,14 @@ public class YourSayUserRepository implements PanacheRepository<YourSayUser> {
     }
 
     public Uni<YourSayUser> findByEmail(String email) {
-        return find("email", email)
+        return YourSayUser.find("email", email)
             .firstResult();
     }
 
-    public Uni<YourSayUser> saveYourSayUser(YourSayUser YourSayUser) {
-        return YourSayUser.persist(YourSayUser)
-            .replaceWith(YourSayUser);
+    public Uni<YourSayUser> saveYourSayUser(YourSayUser yourSayUser) {
+        return yourSayUser
+                .persist()
+                .chain(() -> findByEmail(yourSayUser.getEmail()));
     }
 
     public Uni<YourSayUser> deleteYourSayUser(Long id) {
