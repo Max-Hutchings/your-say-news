@@ -65,7 +65,7 @@ public class YourSayUserController{
 
     @POST
     @Path("/login")
-    public Uni<YourSayUser> login(LoginRequest req) {
+    public Uni<Response> login(LoginRequest req) {
         return yourSayUserRepository.findByEmail(req.email)
                 // if no user ⇒ 404
                 .onItem().ifNull().failWith(
@@ -76,7 +76,9 @@ public class YourSayUserController{
                 .flatMap(user -> {
                     if (BCrypt.checkpw(req.password, user.getPassword())) {
                         // good password → emit user
-                        return Uni.createFrom().item(user);
+
+                        NewCookie authCookie = httpCookieGenerator.generateNewAuthCookie(user);
+                        return Uni.createFrom().item(Response.status(Response.Status.OK).cookie(authCookie).entity(user).build());
                     } else {
                         // bad password → signal 401
                         return Uni.createFrom().failure(

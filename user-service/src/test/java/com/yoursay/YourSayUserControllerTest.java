@@ -11,20 +11,12 @@ import io.restassured.response.Response;
 import io.vertx.core.Vertx;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mindrot.jbcrypt.BCrypt;
-
-
 import java.time.LocalDate;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 
-
-import static io.quarkus.hibernate.reactive.panache.common.runtime.SessionOperations.withTransaction;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
@@ -134,9 +126,6 @@ public class YourSayUserControllerTest {
             .statusCode(200);
     }
 
-
-
-
     @Test
     public void testSaveYourSayUser() {
         // Prepare a fresh user JSON
@@ -164,7 +153,6 @@ public class YourSayUserControllerTest {
                 .body("createdDate", equalTo(LocalDate.now().toString()))
                 .cookie("YourSayUserId", not(emptyOrNullString()));;
     }
-
 
     private void safeTestUserWithPasswordHashed(){
         Map<String, Object> newUser = Map.of(
