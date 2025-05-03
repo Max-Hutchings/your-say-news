@@ -1,7 +1,9 @@
 package com.yoursay.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
+import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.*;
 
 
@@ -21,6 +23,8 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name="email", nullable = false, unique = true)
     private String email;
 
+    @JsonbTransient
+    @JsonIgnore
     @Column(name="password", nullable = true, unique = false)
     private String password;
 

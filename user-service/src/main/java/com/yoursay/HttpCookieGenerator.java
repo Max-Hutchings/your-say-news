@@ -9,8 +9,8 @@ import java.util.Date;
 @ApplicationScoped
 public class HttpCookieGenerator {
 
-    private static final String HTTP_ONLY_COOKIE_NAME = "YourSayUserId";
-    private static final int EXPIRY_DAYS = 7; // cookie lifespan in days
+    public static final String HTTP_ONLY_COOKIE_NAME = "YourSayUserId";
+    public static final int EXPIRY_DAYS = 7; // cookie lifespan in days
 
     public NewCookie generateNewAuthCookie(YourSayUser user) {
 
@@ -21,10 +21,11 @@ public class HttpCookieGenerator {
 
         return new NewCookie.Builder(HTTP_ONLY_COOKIE_NAME)
                 .value(user.getId().toString())
-                .path("/")     // Makes the cookie valid for the entire app
+//                .path("/")     // Makes the cookie valid for the entire app
                 .expiry(expiryDate)
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
+                .sameSite(NewCookie.SameSite.NONE)
                 .build();
     }
 }

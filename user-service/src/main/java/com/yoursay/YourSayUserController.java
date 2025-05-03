@@ -5,7 +5,6 @@ import com.yoursay.model.YourSayUser;
 import com.yoursay.model.YourSayUserRepository;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
-import io.vertx.ext.auth.User;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -13,9 +12,6 @@ import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.ResponseStatus;
 import org.mindrot.jbcrypt.BCrypt;
-
-import java.time.Duration;
-import java.time.LocalDate;
 import java.util.List;
 
 @Path("/api/your-say-user")
@@ -40,7 +36,6 @@ public class YourSayUserController{
     @ResponseStatus(value = 201)
     public Uni<Response> saveYourSayUser(YourSayUser yourSayUser) {
         Log.infof("Endpoint called: Save YourSayUser %s", yourSayUser.getEmail());
-        Log.info(yourSayUser.toString());
 
         userSavePreparer.prepareUserForSave(yourSayUser);
 
@@ -56,8 +51,6 @@ public class YourSayUserController{
                 ));
     }
 
-
-
     public static class LoginRequest{
         public String email;
         public String password;
@@ -66,6 +59,7 @@ public class YourSayUserController{
     @POST
     @Path("/login")
     public Uni<Response> login(LoginRequest req) {
+        Log.infof("Endpoint called: login %s", req.email);
         return yourSayUserRepository.findByEmail(req.email)
                 // if no user ⇒ 404
                 .onItem().ifNull().failWith(
@@ -91,6 +85,42 @@ public class YourSayUserController{
                 .onFailure().invoke(e ->
                         Log.errorf("Login failed for %s: %s", req.email, e.getMessage()));
     }
+
+
+    /**
+     * Allows the client to send a request and server return the user if the client already has a HTTP-only cookie
+     * with the users id
+     * @param userIdCookie
+     * @return User - client can log user in
+     * @return Unauthorised HTTP Response if no Cookie exists -- client wont log user in
+     * @return Bad Request if there is a malfunction with the auth token -- error
+     * @return Not found HTTP Response if there is no user with that id -- error
+     */
+    @GET
+    @Path("/check-logged-in")
+    public Uni<Response> checkLoggedIn(@CookieParam(HttpCookieGenerator.HTTP_ONLY_COOKIE_NAME) String userIdCookie) {
+        Log.infof("Endpoint called: checkLoggedIn");
+        if (userIdCookie == null) {
+            throw new WebApplicationException("Not authenticated", Response.Status.UNAUTHORIZED);
+        }
+        Long userId;
+        try {
+            userId = Long.valueOf(userIdCookie);
+        } catch (NumberFormatException e) {
+            throw new WebApplicationException("Invalid auth token", Response.Status.BAD_REQUEST);
+        }
+
+        // lookup user by ID
+        return yourSayUserRepository.findYourSayUserById(userId)
+                .onItem().ifNull().failWith(
+                        new WebApplicationException("User not found", Response.Status.NOT_FOUND))
+                .onItem().transform(user -> {
+                    NewCookie authCookie = httpCookieGenerator.generateNewAuthCookie(user);
+                    return Response.ok(user).cookie(authCookie).build();
+                }
+                );
+    }
+
 
 
 
