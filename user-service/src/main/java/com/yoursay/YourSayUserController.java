@@ -14,7 +14,7 @@ import org.jboss.resteasy.reactive.ResponseStatus;
 import org.mindrot.jbcrypt.BCrypt;
 import java.util.List;
 
-@Path("/api/your-say-user")
+@Path("/your-say-user")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class YourSayUserController{
@@ -35,12 +35,14 @@ public class YourSayUserController{
     @Path("/sign-up")
     @ResponseStatus(value = 201)
     public Uni<Response> saveYourSayUser(YourSayUser yourSayUser) {
-        Log.infof("Endpoint called: Save YourSayUser %s", yourSayUser.getEmail());
+        Log.infof("Endpoint called: Save YourSayUser %s", yourSayUser);
 
         userSavePreparer.prepareUserForSave(yourSayUser);
+        Log.infof(yourSayUser.toString());
 
-        return yourSayUserRepository.saveYourSayUser(yourSayUser)
-                .onItem().transform(savedUser -> {
+        Uni<YourSayUser> uniUser = yourSayUserRepository.saveYourSayUser(yourSayUser);
+        return
+                uniUser.onItem().transform(savedUser -> {
                     NewCookie authCookie = httpCookieGenerator.generateNewAuthCookie(savedUser);
                     return Response.status(Response.Status.CREATED).cookie(authCookie).entity(savedUser).build();
                 })
@@ -59,18 +61,20 @@ public class YourSayUserController{
     @POST
     @Path("/login")
     public Uni<Response> login(LoginRequest req) {
-        Log.infof("Endpoint called: login %s", req.email);
-        return yourSayUserRepository.findByEmail(req.email)
-                // if no user ⇒ 404
+        Log.infof("Endpoint called: login %s %s", req.email, req.password);
+        Uni<YourSayUser> uniUser = yourSayUserRepository.findByEmail(req.email).onItem().invoke(yourSayUser -> {Log.info(yourSayUser.toString());});
+
+        uniUser// if no user ⇒ 404
                 .onItem().ifNull().failWith(
                         new WebApplicationException("User not found",
-                                Response.Status.NOT_FOUND))
-
+                                Response.Status.NOT_FOUND));
+        return uniUser
                 // check password
                 .flatMap(user -> {
+                    Log.info(req.password);
+                    Log.info(user.getPassword());
                     if (BCrypt.checkpw(req.password, user.getPassword())) {
                         // good password → emit user
-
                         NewCookie authCookie = httpCookieGenerator.generateNewAuthCookie(user);
                         return Uni.createFrom().item(Response.status(Response.Status.OK).cookie(authCookie).entity(user).build());
                     } else {

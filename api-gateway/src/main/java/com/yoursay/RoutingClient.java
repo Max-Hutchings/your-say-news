@@ -8,19 +8,7 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import java.util.List;
 import java.util.Set;
 
-/**
- * To use it via injection.
- * <p>
- * {@code
- *
- * @Inject
- * @RestClient MyRemoteService myRemoteService;
- * <p>
- * public void doSomething() {
- * Set<MyRemoteService.Extension> restClientExtensions = myRemoteService.getExtensionsById("io.quarkus:quarkus-hibernate-validator");
- * }
- * }
- */
+
 @RegisterRestClient(baseUri = "https://your-say.com/")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
@@ -39,29 +27,28 @@ public interface RoutingClient {
 
 
     @GET
-    @Path("/{service}/{url}")
-    Uni<String> routeGet(@HeaderParam("Authorization") String token,
-                         @PathParam("service") String service,
-                         @PathParam("url") String url);
+    @Path("/{service}")
+    Uni<String> routeGet(
+                         @PathParam("service") String service
+                         );
 
     @POST
-    @Path("/{service}/{url}")
-    Uni<String> routePost(@HeaderParam("Authorization") String token,
+    @Path("/{service}")
+    Uni<String> routePost(
                           @PathParam("service") String service,
-                          @PathParam("url") String url,
+
                           String body);
 
     @PUT
-    @Path("/{service}/{url}")
-    Uni<String> routePut(@HeaderParam("Authorization") String token,
+    @Path("/{service}")
+    Uni<String> routePut(
                          @PathParam("service") String service,
-                         @PathParam("url") String url,
+
                          String body);
 
     @DELETE
-    @Path("/{service}/{url}")
-    Uni<String> routeDelete(@HeaderParam("Authorization") String token,
+    @Path("/{service}")
+    Uni<String> routeDelete(
                             @PathParam("service") String service,
-                            @PathParam("url") String url,
                             String body);
 }

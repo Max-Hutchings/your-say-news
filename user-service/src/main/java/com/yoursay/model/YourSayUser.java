@@ -23,8 +23,6 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name="email", nullable = false, unique = true)
     private String email;
 
-    @JsonbTransient
-    @JsonIgnore
     @Column(name="password", nullable = true, unique = false)
     private String password;
 
@@ -150,10 +148,17 @@ public class YourSayUser extends PanacheEntityBase {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("YourSayUser{");
-        sb.append("id=").append(id);
-        sb.append(", email='").append(email).append('\'');
-        sb.append('}');
-        return sb.toString();
+        return "YourSayUser{" +
+                "id=" + id +
+                ", email='" + email + '\'' +
+                ", password='" + password + '\'' +
+                ", username='" + username + '\'' +
+                ", fName='" + fName + '\'' +
+                ", lName='" + lName + '\'' +
+                ", dateOfBirth=" + dateOfBirth +
+                ", createdDate=" + createdDate +
+                ", active=" + active +
+                ", role=" + role +
+                '}';
     }
 }

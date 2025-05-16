@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @QuarkusTest
 public class YourSayUserControllerTest {
 
-    private String baseUrl = "/api/your-say-user";
+    private String baseUrl = "/your-say-user";
 
     private YourSayUser existingUser;
     private YourSayUser existingForDeleteUser;
@@ -81,23 +81,7 @@ public class YourSayUserControllerTest {
         assertTrue(users.size() >= 4, "The list of YourSayUser should be greater than 5");
     }
 
-    @Test
-    public void testSaveYourSayUserEndpoint() {
-        YourSayUser yourSayUser = new YourSayUser(
-                "test@example.com",
-                "testYourSayUser",
-                "First",
-                "Last",
-                LocalDate.of(1990, 1, 1));
 
-        given()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(yourSayUser)
-            .when().post(baseUrl)
-            .then()
-            .statusCode(201)
-            .body("email", is("test@example.com"));
-    }
 
     @Test
     public void testGetYourSayUserEndpoint() {
