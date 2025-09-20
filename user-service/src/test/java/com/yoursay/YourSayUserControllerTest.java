@@ -8,9 +8,14 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import io.restassured.filter.Filter;
+import io.restassured.filter.FilterContext;
+import io.restassured.specification.FilterableRequestSpecification;
+import io.restassured.specification.FilterableResponseSpecification;
 import io.vertx.core.Vertx;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.NewCookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
@@ -35,6 +40,9 @@ public class YourSayUserControllerTest {
 
     @Inject
     Vertx vertx;
+
+    @Inject
+    HttpCookieGenerator cookieGenerator;
 
     private static final String RAW_PASSWORD = "Test123!";
 
@@ -64,6 +72,37 @@ public class YourSayUserControllerTest {
 
     static {
         RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
+    }
+
+    @Test
+    public void testCheckLoggedIn(){
+
+        YourSayUser user = new YourSayUser(
+                51L,
+                "bob@example.com",
+                "bobby",
+                "Bob",
+                "Brown",
+                LocalDate.of(1985, 3, 15),
+                LocalDate.of(2025, 2, 10),
+                UserRole.USER
+        );
+        user.setActive(true);
+
+
+
+        NewCookie cookie = cookieGenerator.generateNewAuthCookie(user);
+
+        String fullUrl = baseUrl + "/check-logged-in";
+
+        Response response = given()
+                .cookie(cookie.getName(), cookie.getValue())
+                .when().get(fullUrl)
+                .then()
+                .statusCode(200)
+                .extract().response();
+
+        Log.info("Response status: " + response.getStatusCode());
     }
 
     @Test
