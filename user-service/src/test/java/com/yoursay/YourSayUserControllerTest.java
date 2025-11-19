@@ -1,20 +1,16 @@
 package com.yoursay;
 
-import com.yoursay.model.UserRole;
-import com.yoursay.model.YourSayUser;
-import com.yoursay.model.YourSayUserRepository;
+import com.yoursay.user.HttpCookieGenerator;
+import com.yoursay.user.model.UserRole;
+import com.yoursay.user.model.YourSayUser;
+import com.yoursay.user.model.YourSayUserRepository;
 import io.quarkus.logging.Log;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import io.restassured.filter.Filter;
-import io.restassured.filter.FilterContext;
-import io.restassured.specification.FilterableRequestSpecification;
-import io.restassured.specification.FilterableResponseSpecification;
 import io.vertx.core.Vertx;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -6,7 +6,7 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
         objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
     <changeSet id="1741444326624-1" author="mhutc">
-        <createTable tableName="Post">
+        <createTable tableName="post">
             <column autoIncrement="true" name="id" type="BIGINT">
                 <constraints nullable="false" primaryKey="true" primaryKeyName="pk_post"/>
             </column>
@@ -22,7 +22,7 @@
             <column name="posted_date" type="DATE">
                 <constraints nullable="false"/>
             </column>
-            <column name="imageUrl" type="VARCHAR(255)"/>
+            <column name="image_url" type="VARCHAR(255)"/>
         </createTable>
     </changeSet>
 
@@ -31,33 +31,33 @@
 
     <changeSet id="test-data-1" author="generated">
         <!-- Insert first test post -->
-        <insert tableName="Post">
+        <insert tableName="post">
             <column name="id" value="1000" />
             <column name="user_id" value="1"/>
             <column name="title" value="Hello World"/>
             <column name="description" value="This is the first test post."/>
             <column name="posted_date" valueDate="2025-03-08"/>
-            <column name="imageUrl" value="http://example.com/image1.jpg"/>
+            <column name="image_url" value="http://example.com/image1.jpg"/>
         </insert>
 
         <!-- Insert second test post -->
-        <insert tableName="Post">
+        <insert tableName="post">
             <column name="id" value="1001" />
             <column name="user_id" value="1"/>
             <column name="title" value="Another Day"/>
             <column name="description" value="This is another test post."/>
             <column name="posted_date" valueDate="2025-03-07"/>
-            <column name="imageUrl" value="http://example.com/image2.jpg"/>
+            <column name="image_url" value="http://example.com/image2.jpg"/>
         </insert>
 
         <!-- Insert third test post -->
-        <insert tableName="Post">
+        <insert tableName="post">
             <column name="id" value="1002" />
             <column name="user_id" value="1"/>
             <column name="title" value="Test Post"/>
             <column name="description" value="Testing test data insertion."/>
             <column name="posted_date" valueDate="2025-03-06"/>
-            <column name="imageUrl" value="http://example.com/image3.jpg"/>
+            <column name="image_url" value="http://example.com/image3.jpg"/>
         </insert>
     </changeSet>
 
