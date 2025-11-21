@@ -1,7 +1,7 @@
 package com.yoursay.usercharacteristic.model.Enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.yoursay.user.model.Enums.Race;
+
 
 public enum CountryOfBirth {
     AFGHANISTAN,
