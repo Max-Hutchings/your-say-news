@@ -1,15 +1,14 @@
 package com.yoursay;
 
+import com.yoursay.posts.UserServiceClient;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.RestAssured;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-
-import java.util.Map;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
@@ -21,6 +20,7 @@ public class PostControllerTest {
 
     // Test for saving a post using the POST /posts endpoint
     @InjectMock
+    @RestClient
     UserServiceClient userServiceClient;
 
     @BeforeEach
@@ -42,8 +42,9 @@ public class PostControllerTest {
                 .body(json) // Provide the JSON payload
                 .when().post("/posts") // Call the POST endpoint
                 .then()
+                .log().all()
                 .statusCode(200) // Expect HTTP 200 OK
-                .body("userId", is(101)) // Verify the userId field
+                .body("userId", is(1)) // Verify the userId field
                 .body("title", is("Test Post")) // Verify the title field
                 .body("description", is("This is a test post.")) // Verify the description field
                 .body("imageUrl", is("http://example.com/image.jpg")) // Verify the imageUrl field

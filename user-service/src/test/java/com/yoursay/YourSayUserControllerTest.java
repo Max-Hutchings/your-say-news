@@ -1,117 +1,109 @@
 package com.yoursay;
 
-import com.yoursay.model.UserRole;
-import com.yoursay.model.YourSayUser;
-import io.quarkus.logging.Log;
+
 import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.RestAssured;
-import io.restassured.response.Response;
-import jakarta.ws.rs.core.MediaType;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
+import io.quarkus.test.security.SecurityAttribute;
+import io.quarkus.test.security.TestSecurity;
+import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.List;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.*;
+
 
 @QuarkusTest
 public class YourSayUserControllerTest {
 
-    private String baseUrl = "/your-say-user";
+    final String BASE_URL = "/your-say-user";
 
-    private YourSayUser existingUser;
-    private YourSayUser existingForDeleteUser;
-
-    @BeforeEach
-    public void setup() {
-        existingUser = new YourSayUser(
-                "eve@example.com",
-                "eve",
-                "Eve",
-                "Edwards",
-                LocalDate.of(1988, 12, 12));
-
-        existingForDeleteUser = new YourSayUser(
-                151L,
-                "diana@example.com",
-                "diana",
-                "Diana",
-                "Davis",
-                LocalDate.of(1995, 10, 5),
-                LocalDate.of(2025, 2, 10),
-                UserRole.USER
-        );
-    }
-
-
-
-    static {
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-    }
 
     @Test
-    public void testGetAllYourSayUsersEndpoint() {
-        // Send a GET request to the "/all" endpoint and expect a 200 OK response
-        Response response = given()
-                .when().get(baseUrl + "/all")
-                .then()
-                .statusCode(200)
-                .extract().response();
-
-        Log.info("Response: " + response.getBody().asString());
-        List<YourSayUser> users = response.getBody().jsonPath().getList("", YourSayUser.class);
-        Log.info("Users: " + users);
-        assertTrue(users.size() >= 4, "The list of YourSayUser should be greater than 5");
-    }
-
-    @Test
-    public void testSaveYourSayUserEndpoint() {
-        YourSayUser yourSayUser = new YourSayUser(
-                "test@example.com",
-                "testYourSayUser",
-                "First",
-                "Last",
-                LocalDate.of(1990, 1, 1));
+    @TestSecurity(user="max@gmail.com", roles={"user"}, attributes = {@SecurityAttribute(key = "given_name", value="max"), @SecurityAttribute(key="family_name", value="rax")})
+    public void saveUser() {
+        String body = """
+                {
+                  "birthDate": "2001-03-17"
+                }
+                """;
 
         given()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(yourSayUser)
-            .when().post(baseUrl)
-            .then()
-            .statusCode(201)
-            .body("email", is("test@example.com"));
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when()
+                .post(BASE_URL + "/save")
+                .then()
+                .statusCode(201);
     }
 
     @Test
-    public void testGetYourSayUserEndpoint() {
-        YourSayUser returnedUser = given()
-                .pathParam("email", existingUser.getEmail()) // Set the path parameter "email"
-                .when().get(baseUrl + "/{email}")
+    @TestSecurity(user="test@example.com", roles={"user"})
+    public void testGetUserById() {
+        given()
+                .contentType(ContentType.JSON)
+                .when()
+                .get(BASE_URL + "/id/1")
                 .then()
                 .statusCode(200)
-                .extract().as(YourSayUser.class);
-
-
-        assertEquals(existingUser.getEmail(), returnedUser.getEmail());
-        assertEquals(existingUser.getUsername(), returnedUser.getUsername());
-        assertEquals(existingUser.getfName(), returnedUser.getfName());
-        assertEquals(existingUser.getlName(), returnedUser.getlName());
-        assertEquals(existingUser.getDateOfBirth(), returnedUser.getDateOfBirth());
+                .body("id", equalTo(1))
+                .body("email", equalTo("john.doe@example.com"))
+                .body("fName", equalTo("John"))
+                .body("lName", equalTo("Doe"))
+                .body("dateOfBirth", equalTo("1990-05-15"))
+                .body("active", equalTo(true));
     }
 
     @Test
-    public void testDeleteYourSayUserEndpoint() {
+    @TestSecurity(user="test@example.com", roles={"user"})
+    public void testGetUserByIdNotFound() {
         given()
-            .contentType("application/json")
-            .body(existingForDeleteUser)
-            .when().delete(baseUrl)
-            .then()
-            .statusCode(200);
+                .contentType(ContentType.JSON)
+                .when()
+                .get(BASE_URL + "/id/999")
+                .then()
+                .statusCode(204); // Expecting no content when user not found
     }
+
+    @Test
+    @TestSecurity(user="test@example.com", roles={"user"})
+    public void testGetUserByEmail() {
+        given()
+                .contentType(ContentType.JSON)
+                .when()
+                .get(BASE_URL + "/email/jane.smith@example.com")
+                .then()
+                .statusCode(200)
+                .body("email", equalTo("jane.smith@example.com"))
+                .body("fName", equalTo("Jane"))
+                .body("lName", equalTo("Smith"))
+                .body("dateOfBirth", equalTo("1985-08-22"))
+                .body("active", equalTo(true));
+    }
+
+    @Test
+    @TestSecurity(user="test@example.com", roles={"user"})
+    public void testGetUserByEmailNotFound() {
+        given()
+                .contentType(ContentType.JSON)
+                .when()
+                .get(BASE_URL + "/email/nonexistent@example.com")
+                .then()
+                .statusCode(204); // Expecting no content when user not found
+    }
+
+    @Test
+    @TestSecurity(user="test@example.com", roles={"user"})
+    public void testGetInactiveUser() {
+        given()
+                .contentType(ContentType.JSON)
+                .when()
+                .get(BASE_URL + "/id/3")
+                .then()
+                .statusCode(200)
+                .body("email", equalTo("bob.johnson@example.com"))
+                .body("active", equalTo(false));
+    }
+
 }
+
+
