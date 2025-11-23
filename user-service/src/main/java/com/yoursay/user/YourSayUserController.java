@@ -2,23 +2,18 @@ package com.yoursay.user;
 
 import com.yoursay.user.model.YourSayUser;
 import com.yoursay.user.model.YourSayUserRepository;
-import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.*;
-import org.eclipse.microprofile.jwt.JsonWebToken;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.ResponseStatus;
 
-import java.security.Principal;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 
 @Path("/your-say-user")
 @Consumes(MediaType.APPLICATION_JSON)
