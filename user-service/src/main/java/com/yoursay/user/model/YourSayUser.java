@@ -34,7 +34,10 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name = "active", nullable = false)
     private boolean active;
 
-    public YourSayUser(){};
+    public YourSayUser() {
+    }
+
+    ;
 
     public YourSayUser(String email, LocalDate dateOfBirth, String fName, String lName) {
         this.email = email;
@@ -54,4 +57,61 @@ public class YourSayUser extends PanacheEntityBase {
         this.createdDate = createdDate;
         this.active = active;
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getfName() {
+        return fName;
+    }
+
+    public void setfName(String fName) {
+        this.fName = fName;
+    }
+
+    public String getlName() {
+        return lName;
+    }
+
+    public void setlName(String lName) {
+        this.lName = lName;
+    }
+
+    public LocalDate getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(LocalDate dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+    }
+
+    public LocalDate getCreatedDate() {
+        return createdDate;
+    }
+
+    public void setCreatedDate(LocalDate createdDate) {
+        this.createdDate = createdDate;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
 }
+

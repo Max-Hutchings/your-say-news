@@ -54,3 +54,95 @@ databaseChangeLog:
             columnNames: email
             constraintName: uc_your_say_user_email
             tableName: your_say_user
+  - changeSet:
+      id: 1763760109822-3
+      author: mhutc
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: john.doe@example.com
+              - column:
+                  name: f_name
+                  value: John
+              - column:
+                  name: l_name
+                  value: Doe
+              - column:
+                  name: date_of_birth
+                  value: "1990-05-15"      # 👈 IMPORTANT: use value + quotes
+              - column:
+                  name: created_date
+                  value: "2024-01-10"      # 👈 same here
+              - column:
+                  name: active
+                  valueBoolean: true
+
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: jane.smith@example.com
+              - column:
+                  name: f_name
+                  value: Jane
+              - column:
+                  name: l_name
+                  value: Smith
+              - column:
+                  name: date_of_birth
+                  value: "1985-08-22"
+              - column:
+                  name: created_date
+                  value: "2024-02-15"
+              - column:
+                  name: active
+                  valueBoolean: true
+
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: bob.johnson@example.com
+              - column:
+                  name: f_name
+                  value: Bob
+              - column:
+                  name: l_name
+                  value: Johnson
+              - column:
+                  name: date_of_birth
+                  value: "1995-12-03"
+              - column:
+                  name: created_date
+                  value: "2024-03-20"
+              - column:
+                  name: active
+                  valueBoolean: false
+
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: alice.williams@example.com
+              - column:
+                  name: f_name
+                  value: Alice
+              - column:
+                  name: l_name
+                  value: Williams
+              - column:
+                  name: date_of_birth
+                  value: "1988-03-17"
+              - column:
+                  name: created_date
+                  value: "2024-04-25"
+              - column:
+                  name: active
+                  valueBoolean: true
