@@ -8,10 +8,15 @@ import {
     ScrollView,
     StyleSheet,
     Alert,
+    Modal,
+    Pressable,
+    Animated,
 } from "react-native";
+
 import { useRouter } from "expo-router";
 import { SelectableChip } from "../components/SelectableChip";
 import { useAuth } from "../contexts/AuthContext";
+import { LinearGradient } from "expo-linear-gradient";
 
 
 type Option = {
@@ -536,20 +541,29 @@ export default function UserCharacteristicsScreen() {
     const router = useRouter();
     const { user, setHasCharacteristics } = useAuth();
 
+    // stepper
+    const TOTAL_STEPS = 5;
+    const [step, setStep] = useState(0); // 0..4
+    const [animOpacity] = React.useState(new Animated.Value(1));
+    const [animTranslate] = React.useState(new Animated.Value(0));
 
+    // free-text location
     const [country, setCountry] = useState("");
     const [city, setCity] = useState("");
 
-
+    // simple fields
     const [ageRange, setAgeRange] = useState<string | null>(null);
     const [gender, setGender] = useState<string | null>(null);
     const [genderSelfDescribe, setGenderSelfDescribe] = useState("");
 
     const [education, setEducation] = useState<string | null>(null);
     const [occupation, setOccupation] = useState<string | null>(null);
-    const [newsFrequency, setNewsFrequency] = useState<string | null>(null);
+    const [newsFrequencyScore, setNewsFrequencyScore] = useState<number | null>(
+        null
+    );
 
 
+    // enum fields (single-select)
     const [sexAtBirth, setSexAtBirth] = useState<string | null>(null);
     const [height, setHeight] = useState<string | null>(null);
     const [weightRange, setWeightRange] = useState<string | null>(null);
@@ -562,7 +576,7 @@ export default function UserCharacteristicsScreen() {
         null
     );
 
-
+    // enum fields (multi-select)
     const [raceSelections, setRaceSelections] = useState<string[]>([]);
 
     const [submitting, setSubmitting] = useState(false);
@@ -575,7 +589,7 @@ export default function UserCharacteristicsScreen() {
         );
     };
 
-
+    // global required check for final submit
     const requiredOk =
         country.trim().length > 0 &&
         ageRange !== null &&
@@ -605,23 +619,14 @@ export default function UserCharacteristicsScreen() {
         try {
             const payload = {
                 userId: user.id,
-
-
-                location: {
-                    country,
-                    city,
-                },
-
-
+                location: { country, city },
                 ageRange,
                 gender,
                 genderSelfDescribe:
                     gender === "Prefer to self-describe" ? genderSelfDescribe : "",
-
                 education,
                 occupation,
-                newsFrequency,
-
+                newsFrequency: newsFrequencyScore,
 
                 race: raceSelections,
                 sexAtBirth,
@@ -635,7 +640,8 @@ export default function UserCharacteristicsScreen() {
                 universitySubject,
             };
 
-
+            // TODO: send payload to backend
+            // await api.saveUserCharacteristics(payload);
 
             setHasCharacteristics(true);
             router.replace("/home");
@@ -646,223 +652,361 @@ export default function UserCharacteristicsScreen() {
             setSubmitting(false);
         }
     };
+    const animateToStep = (nextStep: number) => {
+        if (nextStep === step) return;
+
+        const direction = nextStep > step ? 1 : -1;
+
+        // animate current card out
+        Animated.parallel([
+            Animated.timing(animOpacity, {
+                toValue: 0,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+            Animated.timing(animTranslate, {
+                toValue: -20 * direction,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+        ]).start(() => {
+            // update step AFTER animation
+            setStep(nextStep);
+
+            // reset animation position for next card
+            animTranslate.setValue(20 * direction);
+            animOpacity.setValue(0);
+
+            // animate card into view
+            Animated.parallel([
+                Animated.timing(animOpacity, {
+                    toValue: 1,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(animTranslate, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        });
+    };
+
+    const goNext = () => {
+        if (step < TOTAL_STEPS - 1) {
+            animateToStep(step + 1);
+        } else {
+            handleSubmit();
+        }
+    };
+
+    const goBack = () => {
+        if (step > 0) {
+            animateToStep(step - 1);
+        }
+    };
+
+
+    const progress = ((step + 1) / TOTAL_STEPS) * 100;
+
+    const primaryCtaLabel =
+        step === TOTAL_STEPS - 1 ? (submitting ? "Saving…" : "Save & continue") : "Next";
 
     return (
-        <ScrollView
-            style={styles.container}
-            contentContainerStyle={styles.scrollContent}
+        <LinearGradient
+            colors={["#FFE4B8", "#F7F2FF"]} // warm yellow → soft lilac
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.screen}
         >
-            <Text style={styles.title}>Tell us about yourself</Text>
-            <Text style={styles.subtitle}>
-                This helps us understand which kinds of people agree or disagree with
-                news stories. Your personal details are never shown publicly.
-            </Text>
+            <View style={styles.overlay}>
+                {/* Header */}
+                <View style={styles.header}>
+                <Text style={styles.headerLogo}>YourSay</Text>
+                <View style={styles.headerTextWrap}>
+                    <Text style={styles.headerTitle}>Tell us about you</Text>
+                    <Text style={styles.headerSubtitle}>
+                        This helps us understand which kinds of people agree or disagree
+                        with news stories. Your personal details are never shown publicly.
+                    </Text>
+                </View>
 
-            {/* LOCATION */}
-            <Section title="Where do you live?">
-                <Label text="Country *" />
-                <TextInput
-                    placeholder="Country you live in"
-                    value={country}
-                    onChangeText={setCountry}
-                    style={styles.input}
-                />
+                {/* Progress bar */}
+                <View style={styles.progressBarOuter}>
+                    <View style={[styles.progressBarInner, { width: `${progress}%` }]} />
+                </View>
+                <Text style={styles.progressLabel}>
+                    Step {step + 1} of {TOTAL_STEPS}
+                </Text>
+            </View>
 
-                <Label text="City / Region (optional)" />
-                <TextInput
-                    placeholder="City or region"
-                    value={city}
-                    onChangeText={setCity}
-                    style={styles.input}
-                />
-            </Section>
-
-            {/* AGE RANGE */}
-            <Section title="Age range *">
-                <ChipRowSimple
-                    options={AGE_RANGES}
-                    selected={ageRange}
-                    onSelect={setAgeRange}
-                />
-            </Section>
-
-            {/* GENDER */}
-            <Section title="Gender *">
-                <ChipRowSimple
-                    options={GENDER_OPTIONS}
-                    selected={gender}
-                    onSelect={setGender}
-                />
-                {gender === "Prefer to self-describe" && (
-                    <View style={{ marginTop: 8 }}>
-                        <Label text="Describe your gender" />
+            {/* Content */}
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <Animated.View
+                    style={[
+                        styles.stepContainer,
+                        {
+                            opacity: animOpacity,
+                            transform: [{ translateX: animTranslate }],
+                        },
+                    ]}
+                >
+                {/* STEP 1 – Basics */}
+                {step === 0 && (
+                    <SectionCard title="Where do you live?">
+                        <Label text="Country *" />
                         <TextInput
-                            placeholder="Type here"
-                            value={genderSelfDescribe}
-                            onChangeText={setGenderSelfDescribe}
+                            placeholder="Country you live in"
+                            placeholderTextColor="#9CA3AF"
+                            value={country}
+                            onChangeText={setCountry}
                             style={styles.input}
                         />
-                    </View>
-                )}
-            </Section>
 
-            {/* SEX AT BIRTH */}
-            <Section title="Sex assigned at birth *">
-                <ChipRowOption
-                    options={SEX_AT_BIRTH_OPTIONS}
-                    selected={sexAtBirth}
-                    onSelect={setSexAtBirth}
-                />
-            </Section>
-
-            {/* RACE  */}
-            <Section title="Race / ethnicity *">
-                <View style={styles.chipWrap}>
-                    {RACE_OPTIONS.map((opt) => (
-                        <SelectableChip
-                            key={opt.value}
-                            label={opt.label}
-                            selected={raceSelections.includes(opt.value)}
-                            onPress={() => toggleRace(opt.value)}
+                        <Label text="City / region (optional)" />
+                        <TextInput
+                            placeholder="City or region"
+                            placeholderTextColor="#9CA3AF"
+                            value={city}
+                            onChangeText={setCity}
+                            style={styles.input}
                         />
-                    ))}
+                    </SectionCard>
+                )}
+
+                {/* STEP 2 – You */}
+                {step === 1 && (
+                    <SectionCard title="Who you are">
+                        <Label text="Age range *" />
+                        <ChipRowSimple
+                            options={AGE_RANGES}
+                            selected={ageRange}
+                            onSelect={setAgeRange}
+                        />
+
+                        <View style={styles.divider} />
+
+                        <Label text="Gender *" />
+                        <ChipRowSimple
+                            options={GENDER_OPTIONS}
+                            selected={gender}
+                            onSelect={setGender}
+                        />
+                        {gender === "Prefer to self-describe" && (
+                            <View style={{ marginTop: 8 }}>
+                                <Label text="Describe your gender" />
+                                <TextInput
+                                    placeholder="Type here"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={genderSelfDescribe}
+                                    onChangeText={setGenderSelfDescribe}
+                                    style={styles.input}
+                                />
+                            </View>
+                        )}
+
+                        <View style={styles.divider} />
+
+                        <Label text="Sex assigned at birth *" />
+                        <ChipRowOption
+                            options={SEX_AT_BIRTH_OPTIONS}
+                            selected={sexAtBirth}
+                            onSelect={setSexAtBirth}
+                        />
+                    </SectionCard>
+                )}
+
+                {/* STEP 3 – Background */}
+                {step === 2 && (
+                    <SectionCard title="Background">
+                        <Label text="Race / ethnicity *" />
+                        <View style={styles.chipWrap}>
+                            {RACE_OPTIONS.map((opt) => (
+                                <SelectableChip
+                                    key={opt.value}
+                                    label={opt.label}
+                                    selected={raceSelections.includes(opt.value)}
+                                    onPress={() => toggleRace(opt.value)}
+                                />
+                            ))}
+                        </View>
+                        <Text style={styles.helperText}>
+                            You can select more than one option.
+                        </Text>
+
+                        <View style={styles.divider} />
+
+                        <Dropdown
+                            label="Country of birth *"
+                            placeholder="Select your country of birth"
+                            options={COUNTRY_OF_BIRTH_OPTIONS}
+                            selected={countryOfBirth}
+                            onSelect={setCountryOfBirth}
+                        />
+
+                        <View style={styles.divider} />
+
+                        <Dropdown
+                            label="UK county (if applicable)"
+                            placeholder="Select your county (if you live in the UK)"
+                            options={UK_COUNTY_OPTIONS}
+                            selected={ukCounty}
+                            onSelect={setUkCounty}
+                        />
+
+                    </SectionCard>
+                )}
+
+                {/* STEP 4 – Body & finances */}
+                {step === 3 && (
+                    <SectionCard title="Body & finances">
+                        <Label text="Height *" />
+                        <ChipRowOption
+                            options={HEIGHT_OPTIONS}
+                            selected={height}
+                            onSelect={setHeight}
+                        />
+
+                        <View style={styles.divider} />
+
+                        <Label text="Weight range *" />
+                        <ChipRowOption
+                            options={WEIGHT_OPTIONS}
+                            selected={weightRange}
+                            onSelect={setWeightRange}
+                        />
+
+                        <View style={styles.divider} />
+
+                        <Label text="Annual household income *" />
+                        <ChipRowOption
+                            options={INCOME_OPTIONS}
+                            selected={incomeRange}
+                            onSelect={setIncomeRange}
+                        />
+                    </SectionCard>
+                )}
+
+                {/* STEP 5 – Family, education & news */}
+                {step === 4 && (
+                    <>
+                        <SectionCard title="Family & extras">
+                            <Label text="Are you a parent?" />
+                            <ChipRowOption
+                                options={PARENT_OPTIONS}
+                                selected={parent}
+                                onSelect={setParent}
+                            />
+
+                            <View style={styles.divider} />
+
+                            <Label text="Eye colour" />
+                            <ChipRowOption
+                                options={EYE_COLOR_OPTIONS}
+                                selected={eyeColor}
+                                onSelect={setEyeColor}
+                            />
+
+                            <View style={styles.divider} />
+
+                            <Dropdown
+                                label="University subject (if applicable)"
+                                placeholder="Select your subject"
+                                options={UNIVERSITY_SUBJECT_OPTIONS}
+                                selected={universitySubject}
+                                onSelect={setUniversitySubject}
+                            />
+
+                        </SectionCard>
+
+                        <SectionCard title="Education & news habits">
+                            <Label text="Highest level of education" />
+                            <ChipRowSimple
+                                options={EDUCATION_OPTIONS}
+                                selected={education}
+                                onSelect={setEducation}
+                            />
+
+                            <View style={styles.divider} />
+
+                            <Label text="Occupation" />
+                            <ChipRowSimple
+                                options={OCCUPATION_OPTIONS}
+                                selected={occupation}
+                                onSelect={setOccupation}
+                            />
+
+                            <View style={styles.divider} />
+
+                            <ScaleSelector
+                                question="How often do you follow the news?"
+                                subtitle="Be honest 😉"
+                                value={newsFrequencyScore}
+                                onChange={setNewsFrequencyScore}
+                                leftLabel="Almost never"
+                                rightLabel="All the time"
+                            />
+
+                        </SectionCard>
+                    </>
+                )}
+                </Animated.View>
+                <View style={{ height: 100 }} />
+            </ScrollView>
+
+            {/* Sticky bottom controls */}
+            <View style={styles.footer}>
+                <View style={styles.footerRow}>
+                    <TouchableOpacity
+                        onPress={goBack}
+                        disabled={step === 0 || submitting}
+                        style={[
+                            styles.secondaryButton,
+                            (step === 0 || submitting) && styles.secondaryButtonDisabled,
+                        ]}
+                    >
+                        <Text style={styles.secondaryText}>Back</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={goNext}
+                        disabled={submitting}
+                        style={[
+                            styles.submitButton,
+                            submitting && styles.submitButtonDisabled,
+                        ]}
+                    >
+                        <Text style={styles.submitText}>{primaryCtaLabel}</Text>
+                        {step === TOTAL_STEPS - 1 && (
+                            <Text style={styles.submitSubtext}>You can always edit later</Text>
+                        )}
+                    </TouchableOpacity>
                 </View>
-                <Text style={styles.helperText}>You can select more than one.</Text>
-            </Section>
-
-            {/* COUNTRY OF BIRTH  */}
-            <Section title="Country of birth (enum) *">
-                <ChipRowOption
-                    options={COUNTRY_OF_BIRTH_OPTIONS}
-                    selected={countryOfBirth}
-                    onSelect={setCountryOfBirth}
-                />
-                <Text style={styles.helperText}>
-                    Add all remaining countries in COUNTRY_OF_BIRTH_OPTIONS.
-                </Text>
-            </Section>
-
-            {/* UK COUNTY  */}
-            <Section title="UK county (if applicable)">
-                <ChipRowOption
-                    options={UK_COUNTY_OPTIONS}
-                    selected={ukCounty}
-                    onSelect={setUkCounty}
-                />
-                <Text style={styles.helperText}>
-                    If you do not live in the UK, you can leave this blank.
-                </Text>
-            </Section>
-
-            {/* HEIGHT  */}
-            <Section title="Height *">
-                <ChipRowOption
-                    options={HEIGHT_OPTIONS}
-                    selected={height}
-                    onSelect={setHeight}
-                />
-            </Section>
-
-            {/* WEIGHT  */}
-            <Section title="Weight range *">
-                <ChipRowOption
-                    options={WEIGHT_OPTIONS}
-                    selected={weightRange}
-                    onSelect={setWeightRange}
-                />
-            </Section>
-
-            {/* INCOME  */}
-            <Section title="Annual household income *">
-                <ChipRowOption
-                    options={INCOME_OPTIONS}
-                    selected={incomeRange}
-                    onSelect={setIncomeRange}
-                />
-            </Section>
-
-            {/* PARENT  */}
-            <Section title="Are you a parent? (enum)">
-                <ChipRowOption
-                    options={PARENT_OPTIONS}
-                    selected={parent}
-                    onSelect={setParent}
-                />
-            </Section>
-
-            {/* EYE COLOR */}
-            <Section title="Eye color (enum)">
-                <ChipRowOption
-                    options={EYE_COLOR_OPTIONS}
-                    selected={eyeColor}
-                    onSelect={setEyeColor}
-                />
-            </Section>
-
-            {/* UNIVERSITY SUBJECT  */}
-            <Section title="University subject (if applicable)">
-                <ChipRowOption
-                    options={UNIVERSITY_SUBJECT_OPTIONS}
-                    selected={universitySubject}
-                    onSelect={setUniversitySubject}
-                />
-            </Section>
-
-            {/* EDUCATION */}
-            <Section title="Education (optional)">
-                <ChipRowSimple
-                    options={EDUCATION_OPTIONS}
-                    selected={education}
-                    onSelect={setEducation}
-                />
-            </Section>
-
-            {/* OCCUPATION */}
-            <Section title="Occupation (optional)">
-                <ChipRowSimple
-                    options={OCCUPATION_OPTIONS}
-                    selected={occupation}
-                    onSelect={setOccupation}
-                />
-            </Section>
-
-            {/* NEWS FREQUENCY */}
-            <Section title="How often do you follow the news? (optional)">
-                <ChipRowSimple
-                    options={NEWS_FREQUENCY}
-                    selected={newsFrequency}
-                    onSelect={setNewsFrequency}
-                />
-            </Section>
-
-            <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={submitting || !requiredOk}
-                style={[
-                    styles.submitButton,
-                    (!requiredOk || submitting) && styles.submitButtonDisabled,
-                ]}
-            >
-                <Text style={styles.submitText}>
-                    {submitting ? "Saving..." : "Save & continue"}
-                </Text>
-            </TouchableOpacity>
-        </ScrollView>
+            </View>
+            </View>
+        </LinearGradient>
     );
 }
 
+/* ---------- helper components ---------- */
 
-
-function Section({
-                     title,
-                     children,
-                 }: {
+function SectionCard({
+                         title,
+                         children,
+                     }: {
     title: string;
     children: React.ReactNode;
 }) {
     return (
-        <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>{title}</Text>
+            </View>
             {children}
         </View>
     );
@@ -872,7 +1016,7 @@ function Label({ text }: { text: string }) {
     return <Text style={styles.label}>{text}</Text>;
 }
 
-
+/** For simple string options (age, gender, etc.) */
 function ChipRowSimple({
                            options,
                            selected,
@@ -896,7 +1040,7 @@ function ChipRowSimple({
     );
 }
 
-
+/** For enum-backed Option[] lists (value is enum constant) */
 function ChipRowOption({
                            options,
                            selected,
@@ -919,43 +1063,436 @@ function ChipRowOption({
         </View>
     );
 }
+type DropdownProps = {
+    label: string;
+    placeholder?: string;
+    options: Option[];
+    selected: string | null;
+    onSelect: (value: string) => void;
+};
 
+function Dropdown({
+                      label,
+                      placeholder = "Select an option",
+                      options,
+                      selected,
+                      onSelect,
+                  }: DropdownProps) {
+    const [open, setOpen] = React.useState(false);
 
+    const selectedLabel =
+        selected && options.find((o) => o.value === selected)?.label;
+
+    return (
+        <View style={{ marginTop: 12 }}>
+            <Label text={label} />
+            <Pressable
+                onPress={() => setOpen(true)}
+                style={styles.dropdownTrigger}
+            >
+                <Text
+                    style={[
+                        styles.dropdownTriggerText,
+                        !selectedLabel && { color: "#9CA3AF" },
+                    ]}
+                >
+                    {selectedLabel || placeholder}
+                </Text>
+            </Pressable>
+
+            <Modal
+                visible={open}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setOpen(false)}
+            >
+                <Pressable
+                    style={styles.modalBackdrop}
+                    onPress={() => setOpen(false)}
+                >
+                    <View style={styles.modalSheet}>
+                        <Text style={styles.modalTitle}>{label}</Text>
+                        <ScrollView style={{ maxHeight: 320 }}>
+                            {options.map((opt) => (
+                                <Pressable
+                                    key={opt.value}
+                                    onPress={() => {
+                                        onSelect(opt.value);
+                                        setOpen(false);
+                                    }}
+                                    style={[
+                                        styles.modalOption,
+                                        selected === opt.value && styles.modalOptionSelected,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.modalOptionText,
+                                            selected === opt.value && styles.modalOptionTextSelected,
+                                        ]}
+                                    >
+                                        {opt.label}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </Pressable>
+            </Modal>
+        </View>
+    );
+}
+type ScaleSelectorProps = {
+    question: string;
+    subtitle?: string;
+    min?: number;
+    max?: number;
+    value: number | null;
+    onChange: (value: number) => void;
+    leftLabel?: string;
+    rightLabel?: string;
+};
+
+function ScaleSelector({
+                           question,
+                           subtitle,
+                           min = 0,
+                           max = 10,
+                           value,
+                           onChange,
+                           leftLabel,
+                           rightLabel,
+                       }: ScaleSelectorProps) {
+    const numbers = [];
+    for (let i = min; i <= max; i++) {
+        numbers.push(i);
+    }
+
+    return (
+        <View style={styles.scaleContainer}>
+            <Text style={styles.scaleQuestion}>{question}</Text>
+            {subtitle ? (
+                <Text style={styles.scaleSubtitle}>{subtitle}</Text>
+            ) : null}
+
+            <View style={styles.scaleRow}>
+                {numbers.map((n) => {
+                    const selected = value === n;
+                    return (
+                        <TouchableOpacity
+                            key={n}
+                            onPress={() => onChange(n)}
+                            style={[
+                                styles.scaleBox,
+                                selected && styles.scaleBoxSelected,
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.scaleBoxText,
+                                    selected && styles.scaleBoxTextSelected,
+                                ]}
+                            >
+                                {n}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+
+            <View style={styles.scaleLabelsRow}>
+                <Text style={styles.scaleSideLabel}>
+                    {leftLabel || ""}
+                </Text>
+                <Text style={styles.scaleSideLabel}>
+                    {rightLabel || ""}
+                </Text>
+            </View>
+        </View>
+    );
+}
+
+/* ---------- styles ---------- */
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#fff" },
-    scrollContent: { padding: 16, paddingBottom: 32 },
-    title: { fontSize: 24, fontWeight: "700", marginBottom: 8 },
-    subtitle: { fontSize: 14, color: "#555", marginBottom: 16 },
-    section: {
-        marginTop: 16,
-        paddingTop: 12,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: "#eee",
+    /* root containers */
+    screen: {
+        flex: 1, // gradient comes from LinearGradient wrapper
     },
-    sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
-    label: { fontSize: 14, fontWeight: "500", marginBottom: 4 },
-    helperText: { fontSize: 12, color: "#777", marginTop: 4 },
+    overlay: {
+        flex: 1,
+        paddingTop: 20,
+    },
+
+    /* header */
+    header: {
+        paddingHorizontal: 24,
+        paddingBottom: 16,
+    },
+    stepContainer: {
+        flex: 1,
+    },
+
+    headerLogo: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: "#5B21FF", // purple accent
+        marginBottom: 8,
+    },
+    headerTextWrap: {
+        marginBottom: 12,
+    },
+    headerTitle: {
+        fontSize: 28,
+        fontWeight: "700",
+        color: "#1F2933",
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        color: "#4B5563",
+    },
+    progressBarOuter: {
+        marginTop: 12,
+        height: 6,
+        borderRadius: 999,
+        backgroundColor: "rgba(15, 23, 42, 0.1)",
+        overflow: "hidden",
+    },
+    progressBarInner: {
+        height: "100%",
+        backgroundColor: "#5B21FF",
+        borderRadius: 999,
+    },
+    progressLabel: {
+        marginTop: 4,
+        fontSize: 11,
+        color: "#4B5563",
+    },
+
+    /* scroll + section cards */
+    scroll: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingHorizontal: 24,
+        paddingBottom: 24,
+    },
+    sectionCard: {
+        marginTop: 18,
+        padding: 18,
+        borderRadius: 20,
+        backgroundColor: "rgba(255, 255, 255, 0.82)",
+        borderWidth: 1,
+        borderColor: "rgba(148, 163, 184, 0.4)",
+        shadowColor: "#000",
+        shadowOpacity: 0.12,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 12 },
+        elevation: 3,
+    },
+    sectionHeaderRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 8,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#111827",
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: "500",
+        color: "#374151",
+        marginBottom: 4,
+        marginTop: 8,
+    },
+    helperText: {
+        fontSize: 11,
+        color: "#6B7280",
+        marginTop: 4,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: "rgba(148, 163, 184, 0.45)",
+        marginVertical: 12,
+    },
+
     input: {
         borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        marginBottom: 10,
+        borderColor: "rgba(148, 163, 184, 0.7)",
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 14,
+        color: "#111827",
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        marginBottom: 4,
     },
+
     chipWrap: {
         flexDirection: "row",
         flexWrap: "wrap",
         marginTop: 4,
     },
-    submitButton: {
-        marginTop: 24,
-        backgroundColor: "#000",
+
+    /* footer buttons */
+    footer: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingHorizontal: 24,
+        paddingBottom: 24,
+        paddingTop: 10,
+        backgroundColor: "rgba(247, 247, 252, 0.96)",
+        borderTopWidth: 1,
+        borderTopColor: "rgba(148, 163, 184, 0.35)",
+    },
+    footerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    secondaryButton: {
+        flex: 1,
         borderRadius: 999,
-        paddingVertical: 14,
+        paddingVertical: 10,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "rgba(148, 163, 184, 0.9)",
+        backgroundColor: "rgba(255, 255, 255, 0.7)",
+    },
+    secondaryButtonDisabled: {
+        opacity: 0.4,
+    },
+    secondaryText: {
+        color: "#374151",
+        fontWeight: "500",
+        fontSize: 14,
+    },
+    submitButton: {
+        flex: 2,
+        borderRadius: 999,
+        paddingVertical: 12,
+        paddingHorizontal: 18,
+        backgroundColor: "#111827",
         alignItems: "center",
     },
-    submitButtonDisabled: { backgroundColor: "#999" },
-    submitText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+    submitButtonDisabled: {
+        backgroundColor: "#6B7280",
+    },
+    submitText: {
+        color: "#F9FAFB",
+        fontWeight: "700",
+        fontSize: 16,
+    },
+    submitSubtext: {
+        marginTop: 2,
+        fontSize: 11,
+        color: "#E5E7EB",
+    },
+
+    /* dropdown styles */
+    dropdownTrigger: {
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "rgba(148, 163, 184, 0.8)",
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        marginTop: 4,
+    },
+    dropdownTriggerText: {
+        fontSize: 14,
+        color: "#111827",
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: "rgba(15, 23, 42, 0.35)",
+        justifyContent: "center",
+        paddingHorizontal: 24,
+    },
+    modalSheet: {
+        borderRadius: 18,
+        padding: 16,
+        backgroundColor: "#F9FAFB",
+        maxHeight: "80%",
+    },
+    modalTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#111827",
+        marginBottom: 10,
+    },
+    modalOption: {
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        borderRadius: 10,
+        marginBottom: 4,
+    },
+    modalOptionSelected: {
+        backgroundColor: "rgba(79, 70, 229, 0.1)",
+    },
+    modalOptionText: {
+        fontSize: 14,
+        color: "#111827",
+    },
+    modalOptionTextSelected: {
+        color: "#4F46E5",
+        fontWeight: "600",
+    },
+
+    /* scale selector (0–10 Typeform-style) */
+    scaleContainer: {
+        marginTop: 8,
+    },
+    scaleQuestion: {
+        fontSize: 20,
+        fontWeight: "600",
+        color: "#111827",
+        marginBottom: 4,
+    },
+    scaleSubtitle: {
+        fontSize: 14,
+        color: "#6B7280",
+        marginBottom: 16,
+    },
+    scaleRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+    },
+    scaleBox: {
+        width: 40,
+        height: 48,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "rgba(148, 163, 184, 0.8)",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(255, 255, 255, 0.8)",
+    },
+    scaleBoxSelected: {
+        backgroundColor: "#111827",
+        borderColor: "#111827",
+    },
+    scaleBoxText: {
+        fontSize: 16,
+        color: "#4B5563",
+        fontWeight: "500",
+    },
+    scaleBoxTextSelected: {
+        color: "#F9FAFB",
+    },
+    scaleLabelsRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: 8,
+    },
+    scaleSideLabel: {
+        fontSize: 12,
+        color: "#6B7280",
+    },
 });
