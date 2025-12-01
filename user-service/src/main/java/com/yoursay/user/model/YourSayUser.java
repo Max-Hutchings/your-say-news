@@ -19,40 +19,51 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
-    @Column(name = "f_name", nullable = false)
-    private String fName;
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
 
-    @Column(name = "l_name", nullable = false)
-    private String lName;
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
 
-    @Column(name = "date_of_birth", nullable = false)
+    @Column(name = "date_of_birth" )
     private LocalDate dateOfBirth;
 
-    @Column(name = "created_date", nullable = false)
+    @Column(name = "created_date", nullable = false, updatable = false)
     private LocalDate createdDate;
 
     @Column(name = "active", nullable = false)
-    private boolean active;
+    private boolean active = true;
 
     public YourSayUser() {
     }
 
-    ;
+    @PrePersist
+    protected  void onCreate(){
+        if (createdDate == null){
+            createdDate = LocalDate.now();
+        }
+    }
 
-    public YourSayUser(String email, LocalDate dateOfBirth, String fName, String lName) {
+    public YourSayUser(String email, String firstName, String lastName) {
+        this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+
+    public YourSayUser(String email, LocalDate dateOfBirth, String firstName, String lastName) {
         this.email = email;
         this.dateOfBirth = dateOfBirth;
-        this.fName = fName;
-        this.lName = lName;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.createdDate = LocalDate.now();
 
     }
 
-    public YourSayUser(Long id, String email, String fName, String lName, LocalDate dateOfBirth, LocalDate createdDate, boolean active) {
+    public YourSayUser(Long id, String email, String firstName, String lastName, LocalDate dateOfBirth, LocalDate createdDate, boolean active) {
         this.id = id;
         this.email = email;
-        this.fName = fName;
-        this.lName = lName;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.dateOfBirth = dateOfBirth;
         this.createdDate = createdDate;
         this.active = active;
@@ -74,20 +85,20 @@ public class YourSayUser extends PanacheEntityBase {
         this.email = email;
     }
 
-    public String getfName() {
-        return fName;
+    public String getfirstName() {
+        return firstName;
     }
 
-    public void setfName(String fName) {
-        this.fName = fName;
+    public void setfirstName(String firstName) {
+        this.firstName = firstName;
     }
 
-    public String getlName() {
-        return lName;
+    public String getlastName() {
+        return lastName;
     }
 
-    public void setlName(String lName) {
-        this.lName = lName;
+    public void setlastName(String lastName) {
+        this.lastName = lastName;
     }
 
     public LocalDate getDateOfBirth() {

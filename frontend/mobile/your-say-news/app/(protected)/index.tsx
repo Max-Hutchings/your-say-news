@@ -1,19 +1,17 @@
 
 import { View, Text, Button, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "../contexts/AuthContext";
+import {useAuthStore} from "@/components/auth/authContext";
+
 
 export default function Home() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { hasOnboarded } = useAuthStore();
 
-    const handleVote = (vote: "agree" | "disagree") => {
-        if (!user) {
-            router.push("/auth/signup");
-            return;
-        }
+    const handleVote = (vote: "agree" | "disagree"): void => {
 
-        if (!user.hasCharacteristics) {
+
+        if (!hasOnboarded) {
             router.push("/usercharacteristics");
             return;
         }

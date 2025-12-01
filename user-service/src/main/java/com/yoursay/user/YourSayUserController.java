@@ -2,6 +2,7 @@ package com.yoursay.user;
 
 import com.yoursay.user.model.YourSayUser;
 import com.yoursay.user.model.YourSayUserRepository;
+import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;
@@ -9,6 +10,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.ResponseStatus;
 
 import java.time.LocalDate;
@@ -28,6 +30,30 @@ public class YourSayUserController{
     @Inject
     SecurityIdentity securityIdentity;
 
+    @GET
+    public YourSayUser getUser(){
+        String email = securityIdentity.getPrincipal().getName();
+
+        JsonWebToken jwt = (JsonWebToken) securityIdentity.getPrincipal();
+        String firstName = jwt.getClaim("given_name");
+        String lastName  = jwt.getClaim("family_name");
+
+
+        if (firstName == null || lastName == null || email == null){
+            Log.errorf("Failed when saving user: Name {%s %s}  Email {%s}", firstName, lastName, email);
+            throw new WebApplicationException("Could not collect user details from authentication");
+        }
+
+        YourSayUser user = yourSayUserRepository.findByEmail(email);
+
+        if (user == null){
+            user = new YourSayUser(email, firstName, lastName);
+            user = this.yourSayUserRepository.saveYourSayUser(user);
+        }
+
+        return user;
+
+    }
 
 
     @GET
