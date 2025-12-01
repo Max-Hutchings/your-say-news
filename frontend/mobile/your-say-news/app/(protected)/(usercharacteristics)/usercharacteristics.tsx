@@ -14,9 +14,11 @@ import {
 } from "react-native";
 
 import { useRouter } from "expo-router";
-import { SelectableChip } from "../components/SelectableChip";
-import { useAuth } from "../contexts/AuthContext";
+import { SelectableChip } from "./SelectableChip";
+
 import { LinearGradient } from "expo-linear-gradient";
+import {useAuthStore} from "@/components/auth/authContext";
+import {UserState} from "@/components/auth/userState";
 
 
 type Option = {
@@ -539,7 +541,7 @@ const UNIVERSITY_SUBJECT_OPTIONS: Option[] = [
 
 export default function UserCharacteristicsScreen() {
     const router = useRouter();
-    const { user, setHasCharacteristics } = useAuth();
+    const {id, email,  hasOnboarded, setHasOnboarded}: UserState = useAuthStore();
 
     // stepper
     const TOTAL_STEPS = 5;
@@ -601,11 +603,6 @@ export default function UserCharacteristicsScreen() {
         incomeRange !== null;
 
     const handleSubmit = async () => {
-        if (!user) {
-            Alert.alert("Sign up required", "Please create an account first.");
-            router.replace("/auth/signup");
-            return;
-        }
 
         if (!requiredOk) {
             Alert.alert(
@@ -618,7 +615,7 @@ export default function UserCharacteristicsScreen() {
         setSubmitting(true);
         try {
             const payload = {
-                userId: user.id,
+                userId: id,
                 location: { country, city },
                 ageRange,
                 gender,
@@ -643,8 +640,8 @@ export default function UserCharacteristicsScreen() {
             // TODO: send payload to backend
             // await api.saveUserCharacteristics(payload);
 
-            setHasCharacteristics(true);
-            router.replace("/home");
+            setHasOnboarded(true);
+            router.replace("/(protected)");
         } catch (err) {
             console.error(err);
             Alert.alert("Error", "Could not save your details. Please try again.");

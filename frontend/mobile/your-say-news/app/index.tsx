@@ -2,17 +2,18 @@
 import { useEffect } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "./contexts/AuthContext";
+import {useAuthStore} from "@/components/auth/authContext";
+
 
 export default function SplashScreen() {
     const router = useRouter();
-    const { loading } = useAuth();
+    const { isLoggedIn } = useAuthStore();
 
     useEffect(() => {
-        if (!loading) {
-            router.replace("/home");
+        if (!isLoggedIn) {
+            router.replace("//(protected)");
         }
-    }, [loading, router]);
+    }, [isLoggedIn, router]);
 
     return (
         <View style={styles.container}>
