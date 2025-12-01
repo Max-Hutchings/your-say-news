@@ -22,16 +22,16 @@ databaseChangeLog:
               - column:
                   constraints:
                     nullable: false
-                  name: f_name
+                  name: first_name
                   type: VARCHAR(255)
               - column:
                   constraints:
                     nullable: false
-                  name: l_name
+                  name: last_name
                   type: VARCHAR(255)
               - column:
                   constraints:
-                    nullable: false
+                    nullable: true
                   name: date_of_birth
                   type: DATE
               - column:
@@ -66,10 +66,10 @@ databaseChangeLog:
                   name: email
                   value: john.doe@example.com
               - column:
-                  name: f_name
+                  name: first_name
                   value: John
               - column:
-                  name: l_name
+                  name: last_name
                   value: Doe
               - column:
                   name: date_of_birth
@@ -88,10 +88,10 @@ databaseChangeLog:
                   name: email
                   value: jane.smith@example.com
               - column:
-                  name: f_name
+                  name: first_name
                   value: Jane
               - column:
-                  name: l_name
+                  name: last_name
                   value: Smith
               - column:
                   name: date_of_birth
@@ -110,10 +110,10 @@ databaseChangeLog:
                   name: email
                   value: bob.johnson@example.com
               - column:
-                  name: f_name
+                  name: first_name
                   value: Bob
               - column:
-                  name: l_name
+                  name: last_name
                   value: Johnson
               - column:
                   name: date_of_birth
@@ -132,10 +132,10 @@ databaseChangeLog:
                   name: email
                   value: alice.williams@example.com
               - column:
-                  name: f_name
+                  name: first_name
                   value: Alice
               - column:
-                  name: l_name
+                  name: last_name
                   value: Williams
               - column:
                   name: date_of_birth
