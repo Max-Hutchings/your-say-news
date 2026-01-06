@@ -1,8 +1,10 @@
-import {router, SplashScreen, Stack} from "expo-router";
-import {useAuth} from "@/components/old_auth/AuthContext";
+import {SplashScreen, Stack} from "expo-router";
 import {useAuthStore} from "@/components/auth/authContext";
 import {useEffect} from "react";
 import {Platform} from "react-native";
+import {ThemeProvider} from "@/constants/theme";
+
+import "../global.css";
 
 const isWeb = Platform.OS === "web";
 
@@ -26,15 +28,15 @@ export default function RootLayout(){
     }
 
     return(
-        <Stack>
-            <Stack.Protected guard={isLoggedIn}>
-                <Stack.Screen name="(protected)" />
-            </Stack.Protected>
-            <Stack.Protected guard={!isLoggedIn}>
-                <Stack.Screen name={"sign-in"}  />
-
-            </Stack.Protected>
-
-        </Stack>
+        <ThemeProvider>
+            <Stack>
+                <Stack.Protected guard={isLoggedIn}>
+                    <Stack.Screen name="(protected)" />
+                </Stack.Protected>
+                <Stack.Protected guard={!isLoggedIn}>
+                    <Stack.Screen name={"sign-in"}  />
+                </Stack.Protected>
+            </Stack>
+        </ThemeProvider>
     )
 }
