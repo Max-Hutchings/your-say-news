@@ -1,27 +1,29 @@
 
-import { useEffect } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { Redirect } from "expo-router";
 import {useAuthStore} from "@/components/auth/authContext";
 
 
 export default function SplashScreen() {
-    const router = useRouter();
-    const { isLoggedIn } = useAuthStore();
+    const { isLoggedIn, _stateHydrated } = useAuthStore();
 
-    useEffect(() => {
-        if (!isLoggedIn) {
-            router.replace("//(protected)");
-        }
-    }, [isLoggedIn, router]);
+    // Wait for auth state to be hydrated before redirecting
+    if (!_stateHydrated) {
+        return (
+            <View style={styles.container}>
+                <Text style={styles.title}>YourSay News</Text>
+                <Text style={styles.subtitle}>Neutral, people-powered news</Text>
+                <ActivityIndicator style={{ marginTop: 20 }} />
+            </View>
+        );
+    }
 
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>YourSay News</Text>
-            <Text style={styles.subtitle}>Neutral, people-powered news</Text>
-            <ActivityIndicator style={{ marginTop: 20 }} />
-        </View>
-    );
+    // Use Redirect component instead of programmatic navigation
+    if (isLoggedIn) {
+        return <Redirect href="/(protected)" />;
+    }
+
+    return <Redirect href="/sign-in" />;
 }
 
 const styles = StyleSheet.create({

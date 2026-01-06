@@ -1,22 +1,26 @@
-# compose.yml
+# compose.yaml
 services:
-  # 1) App Postgres
+  # 1) App Postgres - Database for user-service and post-service
   postgres:
     image: postgres:16
     container_name: app-postgres
     environment:
-      POSTGRES_USER: app_user         # app DB user
-      POSTGRES_PASSWORD: app_password # app DB password
-      POSTGRES_DB: app_db             # app DB name
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      POSTGRES_DB: app_db
     ports:
-      - "5432:5432"                   # host:container (optional, for connecting from host)
+      - "5432:5432"
     volumes:
       - app-postgres-data:/var/lib/postgresql/data
     networks:
       - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-
-  # 3) Postgres for Keycloak
+  # 2) Postgres for Keycloak
   keycloak-db:
     image: postgres:16
     container_name: keycloak-postgres
@@ -28,16 +32,22 @@ services:
       - keycloak-postgres-data:/var/lib/postgresql/data
     networks:
       - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # 4) Keycloak auth provider
+  # 3) Keycloak auth provider with auto-imported realm
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     container_name: keycloak
     depends_on:
-      - keycloak-db
+      keycloak-db:
+        condition: service_healthy
     environment:
-      KEYCLOAK_ADMIN: admin                  # admin user
-      KEYCLOAK_ADMIN_PASSWORD: admin        # admin password
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB: postgres
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak_password
@@ -45,10 +55,38 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
     command:
-      - "start-dev"                          # dev mode, suitable for local env
+      - "start-dev"
+      - "--import-realm"
     ports:
-      - "8080:8080"                          # Keycloak UI on http://localhost:8080
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3;grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  # 4) LocalStack for S3 (used by post-service for video storage)
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: localstack
+    ports:
+      - "4566:4566"            # LocalStack Gateway
+      - "4510-4559:4510-4559"  # External services port range
+    environment:
+      - SERVICES=s3
+      - DEBUG=0
+      - PERSISTENCE=1
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:ro
     networks:
       - app-net
 
@@ -58,3 +96,4 @@ networks:
 volumes:
   app-postgres-data:
   keycloak-postgres-data:
+  localstack-data:
