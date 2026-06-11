@@ -47,8 +47,8 @@ public class YourSayUserControllerTest {
                 .statusCode(200)
                 .body("id", equalTo(1))
                 .body("email", equalTo("john.doe@example.com"))
-                .body("fName", equalTo("John"))
-                .body("lName", equalTo("Doe"))
+                .body("firstName", equalTo("John"))
+                .body("lastName", equalTo("Doe"))
                 .body("dateOfBirth", equalTo("1990-05-15"))
                 .body("active", equalTo(true));
     }
@@ -74,8 +74,8 @@ public class YourSayUserControllerTest {
                 .then()
                 .statusCode(200)
                 .body("email", equalTo("jane.smith@example.com"))
-                .body("fName", equalTo("Jane"))
-                .body("lName", equalTo("Smith"))
+                .body("firstName", equalTo("Jane"))
+                .body("lastName", equalTo("Smith"))
                 .body("dateOfBirth", equalTo("1985-08-22"))
                 .body("active", equalTo(true));
     }
@@ -105,5 +105,4 @@ public class YourSayUserControllerTest {
     }
 
 }
-
 

@@ -5,7 +5,7 @@
  */
 
 import { View, StyleSheet } from "react-native";
-import { useAuthStore } from "@/components/auth/authContext";
+import { useAuthStore } from "@/features/auth";
 import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui";

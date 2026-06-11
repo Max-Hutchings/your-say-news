@@ -1,0 +1,8 @@
+# Test-only changelog: schema migrations + seed data.
+# Kept under test resources so loading seed data stays a TEST concern — the app and
+# the migration container still run db.changelog-master.yaml (migrations only).
+databaseChangeLog:
+  - include:
+      file: db/db.changelog-master.yaml
+  - include:
+      file: db/db.changelog-seed.yaml

@@ -1,0 +1,7 @@
+# Per-Dockerfile ignore (BuildKit) — overrides the repo-root .dockerignore, which
+# is tuned for the Quarkus jar builds and would strip the files this image needs.
+# Ignore everything, then re-include only the changelogs and the runner script.
+*
+!liquibase
+!user-service/src/main/resources/db
+!post-service/src/main/resources/db

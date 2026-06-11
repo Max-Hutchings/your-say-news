@@ -1,0 +1,6 @@
+# Seed / test data ONLY. No schema changes here.
+# Run by the dedicated seeding container on `docker compose up` (not by the app at start).
+databaseChangeLog:
+  - includeAll:
+      path: seeding
+      relativeToChangelogFile: true

@@ -1,8 +1,5 @@
 package com.yoursay.user;
 
-import com.yoursay.user.model.YourSayUser;
-import com.yoursay.user.model.YourSayUserRepository;
-import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;
@@ -22,43 +19,29 @@ import java.util.Map;
 @Produces(MediaType.APPLICATION_JSON)
 @RolesAllowed("user")
 @RunOnVirtualThread
-public class YourSayUserController{
+public class YourSayUserController {
 
     @Inject
-    YourSayUserRepository yourSayUserRepository;
+    YourSayUserService userService;
 
     @Inject
     SecurityIdentity securityIdentity;
 
     @GET
-    public YourSayUser getUser(){
+    public YourSayUserDto getUser() {
         String email = securityIdentity.getPrincipal().getName();
 
         JsonWebToken jwt = (JsonWebToken) securityIdentity.getPrincipal();
         String firstName = jwt.getClaim("given_name");
-        String lastName  = jwt.getClaim("family_name");
+        String lastName = jwt.getClaim("family_name");
 
-
-        if (firstName == null || lastName == null || email == null){
-            Log.errorf("Failed when saving user: Name {%s %s}  Email {%s}", firstName, lastName, email);
-            throw new WebApplicationException("Could not collect user details from authentication");
-        }
-
-        YourSayUser user = yourSayUserRepository.findByEmail(email);
-
-        if (user == null){
-            user = new YourSayUser(email, firstName, lastName);
-            user = this.yourSayUserRepository.saveYourSayUser(user);
-        }
-
-        return user;
-
+        return userService.getOrCreateFromIdentity(email, firstName, lastName);
     }
 
 
     @GET
     @Path("/data")
-    public Response getData(){
+    public Response getData() {
         // Return an HTTP 202 Accepted response with an empty JSON object body
         return Response.accepted().entity(Map.of("data", "This worked")).build();
     }
@@ -67,34 +50,27 @@ public class YourSayUserController{
     @POST
     @Path("/save")
     @ResponseStatus(201)
-    public YourSayUser saveUser(Map<String, String> body) {
+    public YourSayUserDto saveUser(Map<String, String> body) {
         String email = securityIdentity.getPrincipal().getName();
 
         String firstName = (String) securityIdentity.getAttribute("given_name");
-        String lastName  = (String) securityIdentity.getAttribute("family_name");
+        String lastName = (String) securityIdentity.getAttribute("family_name");
 
         LocalDate birthDate = LocalDate.parse(body.get("birthDate"));
 
-        YourSayUser user = new YourSayUser(email, birthDate, firstName, lastName);
-        user = this.yourSayUserRepository.saveYourSayUser(user);
-
-        return user;
+        return userService.save(email, firstName, lastName, birthDate);
     }
 
     @GET
     @Path("/id/{id}")
-    public YourSayUser getUserById(@PathParam(value="id") long userId){
-        return yourSayUserRepository.findYourSayUserById(userId);
+    public YourSayUserDto getUserById(@PathParam(value = "id") long userId) {
+        return userService.getById(userId);
     }
 
 
     @GET
     @Path("/email/{email}")
-    public YourSayUser getUserByEmail(@PathParam(value="email") String email){
-        return yourSayUserRepository.findByEmail(email);
+    public YourSayUserDto getUserByEmail(@PathParam(value = "email") String email) {
+        return userService.getByEmail(email);
     }
-
-
-
-
 }
