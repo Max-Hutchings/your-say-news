@@ -1,5 +1,5 @@
 import {SplashScreen, Stack} from "expo-router";
-import {useAuthStore} from "@/components/auth/authContext";
+import {useAuthStore} from "@/features/auth";
 import {useEffect} from "react";
 import {Platform} from "react-native";
 import {ThemeProvider} from "@/constants/theme";

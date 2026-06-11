@@ -1,0 +1,18 @@
+# Dedicated Liquibase MIGRATION container.
+# Applies schema changeSets (migrations/ only, via each service's master changelog)
+# to the shared app database, then exits. Runs independently of the services.
+#
+# Build context is the repo root so both services' db/ resources can be copied.
+FROM liquibase/liquibase:4.29
+
+# Per-service search-path roots: includeAll records "db/migrations/..." paths that
+# match what the Quarkus app records at migrate-at-start.
+COPY user-service/src/main/resources/db /liquibase/changelog/user-service/db
+COPY post-service/src/main/resources/db /liquibase/changelog/post-service/db
+COPY liquibase/update.sh /liquibase/update.sh
+
+# Migrations: master changelogs (migrations/ only), no context filter.
+ENV CHANGELOG_USER=db/db.changelog-master.yaml \
+    CHANGELOG_POST=db/db.changelog-master.xml
+
+ENTRYPOINT ["sh", "/liquibase/update.sh"]

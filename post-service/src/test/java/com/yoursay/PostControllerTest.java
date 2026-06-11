@@ -1,6 +1,6 @@
 package com.yoursay;
 
-import com.yoursay.posts.UserServiceClient;
+import com.yoursay.posts.client.UserServiceClient;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.Uni;

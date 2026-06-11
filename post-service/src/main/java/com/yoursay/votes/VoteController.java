@@ -14,20 +14,20 @@ import java.util.List;
 public class VoteController {
 
     @Inject
-    VoteRepository voteRepository;
+    VoteService voteService;
 
     @GET
     @Path("/{postId}")
-    public Uni<List<Vote>> getPostVotes(@PathParam("postId") Long postId) {
+    public Uni<List<VoteDto>> getPostVotes(@PathParam("postId") Long postId) {
         Log.infof("Endpoint Called: Get Post Votes for Post Id: %s", postId);
-        return voteRepository.getPostVotes(postId).onFailure().invoke(e -> Log.errorf("Error getting Post Votes for Post Id: %s. Exception: %s", postId, e));
+        return voteService.getPostVotes(postId);
     }
 
 
     @POST
-    public Uni<Vote> postVote(Vote vote) {
+    public Uni<VoteDto> postVote(VoteDto vote) {
         Log.infof("Endpoint Called: Post Vote for Vote: %s", vote);
-        return voteRepository.saveVote(vote).onFailure().invoke(e -> Log.errorf("Failed to save vote: %d. Exception: %s", vote.getId(), e));
+        return voteService.save(vote);
     }
 
 

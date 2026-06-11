@@ -6,7 +6,7 @@
 
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { Redirect } from "expo-router";
-import { useAuthStore } from "@/components/auth/authContext";
+import { useAuthStore } from "@/features/auth";
 import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/themed-text";
 import {

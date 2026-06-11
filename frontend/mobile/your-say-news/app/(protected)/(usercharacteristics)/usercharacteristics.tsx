@@ -14,11 +14,10 @@ import {
 } from "react-native";
 
 import { useRouter } from "expo-router";
-import { SelectableChip } from "./SelectableChip";
+import { SelectableChip } from "@/features/user-characteristics";
 
 import { LinearGradient } from "expo-linear-gradient";
-import {useAuthStore} from "@/components/auth/authContext";
-import {UserState} from "@/components/auth/userState";
+import {useAuthStore, type UserState} from "@/features/auth";
 
 
 type Option = {

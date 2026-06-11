@@ -72,7 +72,41 @@ services:
       retries: 15
       start_period: 30s
 
-  # 4) LocalStack for S3 (used by post-service for video storage)
+  # 4) Liquibase migrations - applies schema (migrations/) for every service, then exits
+  liquibase-migrate:
+    build:
+      context: .
+      dockerfile: liquibase/Dockerfile.migrate
+    container_name: liquibase-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/app_db
+      DB_USERNAME: app_user
+      DB_PASSWORD: app_password
+    networks:
+      - app-net
+    restart: "no"
+
+  # 5) Liquibase seeding - applies seed data (seeding/, context "seed") after migrations, then exits
+  liquibase-seed:
+    build:
+      context: .
+      dockerfile: liquibase/Dockerfile.seed
+    container_name: liquibase-seed
+    depends_on:
+      liquibase-migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/app_db
+      DB_USERNAME: app_user
+      DB_PASSWORD: app_password
+    networks:
+      - app-net
+    restart: "no"
+
+  # 6) LocalStack for S3 (used by post-service for video storage)
   localstack:
     image: localstack/localstack:3.0
     container_name: localstack

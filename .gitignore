@@ -1,10 +1,33 @@
-#Maven
+# Build outputs
+build/
+out/
+dist/
+.gradle/
+
+# Maven
 target/
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
 release.properties
 .flattened-pom.xml
+
+# Gradle
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Node / Expo / React Native
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun.lockb
+.expo/
+.expo-shared/
+web-build/
+android/
+ios/
 
 # Eclipse
 .project
@@ -38,8 +61,32 @@ nb-configuration.xml
 
 # Local environment
 .env
+.env.*
+!.env.example
+*.local
 
 # Plugin directory
 /.quarkus/cli/plugins/
+
 # TLS Certificates
 .certs/
+
+# Logs and runtime files
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage and reports
+coverage/
+reports/
+.nyc_output/
+
+# Java artifacts
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*

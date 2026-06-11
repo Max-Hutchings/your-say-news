@@ -30,7 +30,6 @@
       }
     ]
   },
-  "defaultRoles": ["user"],
   "clients": [
     {
       "clientId": "app-backend",
@@ -140,38 +139,75 @@
       ]
     }
   ],
+  "comment_users": "These users MUST stay in sync (by email) with user-service seed data: db/seeding/0001-seed-your-say-users.yaml. enabled mirrors the seed 'active' flag.",
   "users": [
     {
-      "username": "testuser",
+      "username": "john.doe",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Test",
-      "lastName": "User",
-      "email": "testuser@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@example.com",
+      "createdTimestamp": 1704844800000,
       "credentials": [
         {
           "type": "password",
-          "value": "testuser",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "admin"]
+    },
+    {
+      "username": "jane.smith",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "email": "jane.smith@example.com",
+      "createdTimestamp": 1707955200000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
           "temporary": false
         }
       ],
       "realmRoles": ["user"]
     },
     {
-      "username": "admin",
-      "enabled": true,
+      "username": "bob.johnson",
+      "enabled": false,
       "emailVerified": true,
-      "firstName": "Admin",
-      "lastName": "User",
-      "email": "admin@example.com",
+      "firstName": "Bob",
+      "lastName": "Johnson",
+      "email": "bob.johnson@example.com",
+      "createdTimestamp": 1710892800000,
       "credentials": [
         {
           "type": "password",
-          "value": "admin",
+          "value": "password123",
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "admin"]
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "alice.williams",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Williams",
+      "email": "alice.williams@example.com",
+      "createdTimestamp": 1714003200000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
     }
   ]
 }

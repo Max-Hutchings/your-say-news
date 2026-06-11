@@ -6,7 +6,7 @@
 
 import { View, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "@/components/auth/authContext";
+import { useAuthStore } from "@/features/auth";
 import { ThemedView } from "@/components/themed-view";
 import { ThemedText } from "@/components/themed-text";
 import { Button, Card } from "@/components/ui";
@@ -80,7 +80,7 @@ export default function Home() {
             {/* Vote Buttons */}
             <View style={styles.voteContainer}>
               <ThemedText variant="labelSmall" color="tertiary" style={styles.voteLabel}>
-                What's your take?
+                {"What's your take?"}
               </ThemedText>
               
               <View style={styles.voteButtons}>
