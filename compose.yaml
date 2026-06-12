@@ -124,6 +124,21 @@ services:
     networks:
       - app-net
 
+  # 7) Local observability stack: Grafana UI, OTel Collector, Loki, Tempo, and Prometheus
+  otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: otel-lgtm
+    ports:
+      - "3000:3000" # Grafana
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    volumes:
+      - otel-lgtm-data:/data
+      - ./grafana/provisioning/dashboards/your-say-news.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/your-say-news.yaml:ro
+      - ./grafana/dashboards:/otel-lgtm/your-say-news-dashboards:ro
+    networks:
+      - app-net
+
 networks:
   app-net:
 
@@ -131,3 +146,4 @@ volumes:
   app-postgres-data:
   keycloak-postgres-data:
   localstack-data:
+  otel-lgtm-data:

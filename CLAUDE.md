@@ -31,6 +31,9 @@ Never design a feature or an API that leaks individual identity alongside their 
 - **Storage:** Postgres (one DB for the app services, a separate DB for Keycloak).
   S3 via LocalStack for post video/image assets.
 - **DB migrations:** Liquibase.
+- **Telemetry:** Quarkus exports OpenTelemetry traces/logs and Micrometer metrics via
+  `quarkus-micrometer-opentelemetry` to the local `grafana/otel-lgtm` Compose service. Grafana
+  shows Prometheus metrics, Loki logs and Tempo traces on <http://localhost:3000>.
 - **Run everything:** Docker Compose (`compose.yaml`).
 - **Tests:** Quarkus with **Testcontainers** on the backend; **React Testing Library** on the
   frontend.
