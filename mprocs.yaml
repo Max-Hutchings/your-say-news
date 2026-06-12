@@ -1,0 +1,23 @@
+# Dev runner: starts all local dev processes in one TUI, each in its own pane.
+#
+# Prereqs: infra must already be up ->  docker compose up
+# Run:     npm run dev   (or: npx mprocs)
+#
+# Panes (focus with arrows / mouse):
+#   - user-service : Quarkus dev mode on :8081 (hot reload)
+#   - post-service : Quarkus dev mode on :8082 (hot reload)
+#   - expo         : Expo / React Native dev server on :5173
+#
+# Keys: 'r' restart focused proc, 'x' stop, 'q' quit all. Input is forwarded to
+# the focused pane, so Quarkus live-reload keys and Expo's r/w/a keys work.
+
+procs:
+  user-service:
+    shell: "./gradlew :user-service:quarkusDev"
+
+  post-service:
+    shell: "./gradlew :post-service:quarkusDev"
+
+  expo:
+    cwd: "frontend/mobile/your-say-news"
+    shell: "npm run start"
