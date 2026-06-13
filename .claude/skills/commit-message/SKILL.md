@@ -27,7 +27,7 @@ Every commit message in this project follows one fixed shape:
   2. What was used to achieve it (the library, pattern, file, framework, or approach).
 - Keep each sentence tight and concrete. Name real things — `RestAssured`, `@TestSecurity`, `expo-auth-session`, the actual class/component/file — not vague phrases like "various changes".
 - Group multiple related changes of the same kind under repeated bullets of that category rather than cramming them into one.
-- End the message with the required co-author trailer (see below), separated by a blank line.
+
 
 ## How to write it
 
