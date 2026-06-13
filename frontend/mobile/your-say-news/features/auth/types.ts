@@ -3,7 +3,8 @@ export type User = {
     email: string | null;
     firstName: string | null;
     lastName: string | null;
-    dateOfBirth: Date | null;
+    // ISO-8601 date string as returned by the API (e.g. "1990-05-21"), not a Date instance.
+    dateOfBirth: string | null;
 };
 
 // Use interface if you want to "extend"
@@ -23,8 +24,9 @@ export interface UserState extends User {
 
     accessTokenExpiresAt: number | null;
     accessTokenExpired: () => boolean;
+    refreshAccessToken: () => Promise<string | null>;
 
     login: () => Promise<boolean>; // true/false for success
-    logout: () => void;
+    logout: () => Promise<void>;
     setHasOnboarded: (onboarded: boolean) => void;
 }

@@ -5,8 +5,6 @@ import prodConfig from "./app.config.prod.js";
 export default ({ config }) => {
     const env = process.env.APP_ENV ?? "dev"; // "dev" if APP_ENV not set
 
-    console.log("Using Expo environment:", env);
-
     const envConfig = env === "prod" ? prodConfig : devConfig;
 
     return {

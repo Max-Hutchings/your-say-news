@@ -18,7 +18,7 @@ import {
 
 export default function SplashScreen() {
   const { isLoggedIn, _stateHydrated } = useAuthStore();
-  const { colors, isDark } = useTheme();
+  const { isDark } = useTheme();
 
   // Wait for auth state to be hydrated before redirecting
   if (!_stateHydrated) {

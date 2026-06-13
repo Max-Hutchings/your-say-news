@@ -9,9 +9,7 @@ export async function getUser(): Promise<User | null> {
 
         const host: string = Constants.expoConfig?.extra?.USER_SERVICE_HOST
         const port: string = Constants.expoConfig?.extra?.USER_SERVICE_PORT
-        console.log(host);
         const response = await YsnHttpClient.getSecure().get(host + port + "/your-say-user");
-        console.log(response);
         if (response.status === 200) {
             return response.data; // already typed as User
         }

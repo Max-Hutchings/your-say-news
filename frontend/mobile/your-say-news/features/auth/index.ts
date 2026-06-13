@@ -7,5 +7,4 @@
 
 export { useAuthStore } from "./services/authContext";
 export { default as YsnHttpClient } from "./services/requests";
-export { useFetchWithAuth } from "./hooks/use-fetch-with-auth";
 export type { User, UserState } from "./types";

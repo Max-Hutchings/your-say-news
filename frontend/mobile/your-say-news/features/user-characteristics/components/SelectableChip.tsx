@@ -1,6 +1,6 @@
-
 import React from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
+import { useTheme, Spacing, BorderRadius, BorderWidth, Typography } from "@/constants/theme";
 
 type Props = {
     label: string;
@@ -9,12 +9,25 @@ type Props = {
 };
 
 export function SelectableChip({ label, selected, onPress }: Props) {
+    const { colors } = useTheme();
+
     return (
         <TouchableOpacity
             onPress={onPress}
-            style={[styles.chip, selected && styles.chipSelected]}
+            style={[
+                styles.chip,
+                {
+                    borderColor: selected ? colors.interactive.primary : colors.border.secondary,
+                    backgroundColor: selected ? colors.interactive.primary : "transparent",
+                },
+            ]}
         >
-            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+            <Text
+                style={[
+                    styles.chipText,
+                    { color: selected ? colors.text.inverse : colors.text.secondary },
+                ]}
+            >
                 {label}
             </Text>
         </TouchableOpacity>
@@ -23,23 +36,14 @@ export function SelectableChip({ label, selected, onPress }: Props) {
 
 const styles = StyleSheet.create({
     chip: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: "#ccc",
-        marginRight: 8,
-        marginBottom: 8,
-    },
-    chipSelected: {
-        backgroundColor: "#000",
-        borderColor: "#000",
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius["2xl"],
+        borderWidth: BorderWidth.thin,
+        marginRight: Spacing.sm,
+        marginBottom: Spacing.sm,
     },
     chipText: {
-        fontSize: 14,
-        color: "#333",
-    },
-    chipTextSelected: {
-        color: "#fff",
+        ...Typography.labelMedium,
     },
 });

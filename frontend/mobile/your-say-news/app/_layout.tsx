@@ -15,7 +15,6 @@ if (!isWeb) {
 export default function RootLayout(){
 
     const {isLoggedIn, _stateHydrated} = useAuthStore();
-    console.log("Root Layout: " + isLoggedIn);
 
     useEffect(() => {
         if (_stateHydrated) {
