@@ -156,7 +156,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "admin"]
+      "realmRoles": ["user", "admin", "offline_access"]
     },
     {
       "username": "jane.smith",
@@ -173,7 +173,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user"]
+      "realmRoles": ["user", "offline_access"]
     },
     {
       "username": "bob.johnson",
@@ -190,7 +190,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user"]
+      "realmRoles": ["user", "offline_access"]
     },
     {
       "username": "alice.williams",
@@ -207,7 +207,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user"]
+      "realmRoles": ["user", "offline_access"]
     }
   ]
 }
