@@ -44,14 +44,17 @@ Never design a feature or an API that leaks individual identity alongside their 
 
 ## Running the app
 
+Use **Bun** for JavaScript package installs and scripts in this repo. Prefer `bun install` and
+`bun run <script>` over npm/yarn/pnpm commands unless a specific tool explicitly requires npm.
+
 ```shell
 docker compose up                     # infra: Postgres, Keycloak (+ its DB), LocalStack, Liquibase
-npm install                           # one-time: installs the pinned mprocs dev runner at the repo root
-npm run dev                           # all dev processes at once: both Quarkus services + Expo, in one mprocs TUI
+bun install                           # one-time: installs the pinned mprocs dev runner at the repo root
+bun run dev                           # all dev processes at once: both Quarkus services + Expo, in one mprocs TUI
 ./gradlew :user-service:quarkusDev    # OR a single service in dev mode (swap the module path)
 ```
 
-`npm run dev` runs [mprocs](https://github.com/pvolok/mprocs) (config in `mprocs.yaml`), which launches
+`bun run dev` runs [mprocs](https://github.com/pvolok/mprocs) (config in `mprocs.yaml`), which launches
 `user-service` (:8081), `post-service` (:8082) and the Expo frontend (:5173) — each in its own pane.
 Infra (Compose) is assumed already up. `r` restarts the focused proc, `q` quits all.
 
