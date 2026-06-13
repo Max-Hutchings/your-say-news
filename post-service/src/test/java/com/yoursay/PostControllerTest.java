@@ -78,6 +78,32 @@ public class PostControllerTest {
                 .body("imageUrl", is("http://example.com/image2.jpg")); // Verify the imageUrl field
     }
 
+    // Edge case: a post for a user that user-service says does not exist (204) must not be saved.
+    @Test
+    public void testSavePostForNonexistentUser() {
+        // Override the default 200 stub: user 404 is reported missing by user-service.
+        Mockito.when(userServiceClient.getUser(404L))
+                .thenReturn(Uni.createFrom().item(Response.status(204).build()));
+
+        String json = "{\"userId\": 404, \"title\": \"Orphan Post\", \"description\": \"No such user.\", \"imageUrl\": \"http://example.com/x.jpg\"}";
+
+        given()
+                .contentType("application/json")
+                .body(json)
+                .when().post("/posts")
+                .then()
+                .statusCode(204); // null item -> No Content; nothing persisted
+    }
+
+    // Edge case: fetching a post id that does not exist returns No Content, not a 500.
+    @Test
+    public void testGetPostByIdNotFound() {
+        given()
+                .when().get("/posts/999999")
+                .then()
+                .statusCode(204);
+    }
+
     // Test for retrieving posts by user using the GET /posts/user/{userId} endpoint
     @Test
     public void testGetUserPosts() {
