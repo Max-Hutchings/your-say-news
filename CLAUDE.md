@@ -21,8 +21,12 @@ Never design a feature or an API that leaks individual identity alongside their 
 ## Tech stack
 
 - **Backend:** Quarkus (latest release), Java 25, Gradle (Kotlin DSL) multi-module. Group id `com.yoursay`.
-  Modules today: `user-service` (port 8081), `post-service` (port 8082). More services to come
-  (e.g. characteristic, vote) — see the `service.*` URLs in `application.properties`.
+  Modules today: `user-service` (port 8081), `post-service` (port 8082). MVP1 keeps a **low
+  service count** with strict DDD *domains* inside each (so a domain can be extracted to its own
+  service later as a near-mechanical package move): `user-service` owns `user`, `usercharacteristic`,
+  `social`; `post-service` owns `posts`, `votes`, `feed`. The only new service planned is
+  `agent-service` (unbiased-post agent) — see `docs/plans/mvp1-roadmap.md`. Wire cross-service
+  `service.*` rest-client URLs in `application.properties` as each call comes online.
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
   Routing via `expo-router` (file-based, with route groups like `(protected)`).
   Styling via NativeWind/Tailwind + a shared theme under `constants/theme`.
@@ -86,14 +90,33 @@ Rules:
 > above — controllers, public interfaces and DTOs flattened to the domain's top level, everything
 > else pushed down into `model/`, `service/`, etc. — rather than adding to the old shape.
 
+### Testing philosophy (applies to both backend and frontend)
+
+We keep a **clear split between unit and integration tests**, and we write **both** for a domain
+that has logic worth each. Optimise for **signal, not coverage** — a handful of sharp tests that
+pin core logic and the edge cases where bugs live beats a wall of weak ones. Every test must be
+**concise and clear**: representative data, assertions that pin **expected values** (never just
+"not null" / "size > 0"), and it must actually fail if the code breaks. Do not add tests to chase a
+coverage number. After writing tests, run the `test-audit` skill.
+
+- **Unit tests** — pure domain logic and algorithms in isolation, no framework boot, no
+  datastore. Fast and focused (e.g. `SentimentTallyTest`, `FeedRankerTest`, `CharacteristicSnapshotTest`
+  are plain JUnit 5 over a single class). Reach for these for anything with branching/calculation.
+- **Integration tests** — controllers, persistence and wiring end-to-end. `@QuarkusTest` against a
+  real Postgres (and Keycloak/S3 where relevant) via **Testcontainers** — never mock the datastore.
+  Cover the happy path **and** the meaningful edges (not-found/`204`, invalid input, ownership).
+
 ### Backend testing
 
-- Use **Quarkus + Testcontainers** so tests run against a real Postgres (and Keycloak/S3 where
-  relevant), not mocks of the datastore.
-- Use `@TestSecurity` to exercise authenticated/role-gated endpoints (see
-  `YourSayUserControllerTest`).
+- **Unit:** plain JUnit 5 over the class under test — no `@QuarkusTest`, so they stay fast. Put them
+  in the domain's test package (e.g. `com.yoursay.votes`).
+- **Integration:** `@QuarkusTest` + RestAssured against the real datastore (see `PostControllerTest`,
+  `YourSayUserControllerTest`). Use `@TestSecurity` to exercise authenticated/role-gated endpoints,
+  and assert a wrong-role/other-user caller is rejected where ownership applies.
 - Assert on **expected values**, not just "not null". A test that still passes when the code is
   broken is worthless.
+- A domain can only be integration-tested once its Liquibase table migration exists; domains that
+  are still scaffolds (no migration yet) get integration tests in the stage that builds them out.
 
 ## Frontend structure
 
@@ -179,6 +202,10 @@ directly. When you add a domain, follow the same shape and keep `app/` thin (rou
 
 - **React Testing Library.** Verify proper rendering, user interaction, and logic/state — not
   implementation details. Test what the user sees and does.
+- Same split: **unit** tests for a single component/hook's behaviour and pure helpers (e.g.
+  `Button.test.tsx`); **integration** tests for a flow across components (a screen, form submission,
+  navigation). Both concise, both pinning expected output, both covering the meaningful edges
+  (empty/error/loading states) — not coverage-chasing.
 
 ## Database: Liquibase migrations + seeding
 

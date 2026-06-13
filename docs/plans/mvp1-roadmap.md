@@ -17,7 +17,7 @@ These were decided up front and shape the stages below:
 ## What already exists (baseline)
 
 - `user-service` (:8081) — domains `user`, `usercharacteristic`.
-- `post-service` (:8082) — domains `posts`, `votes` (vote scaffolding present: `model`/`service`/`client`).
+- `post-service` (:8082) — domains `posts`, `votes` (vote scaffolding present: `model`/`service`/`client`). **Votes stay here; `feed` joins them as a sibling domain — see the Stage 0 service map.**
 - Keycloak auth with realm + test users auto-imported; mobile auth (`features/auth`) wired with bearer-injecting HTTP client.
 - Onboarding characteristic option sets exist on the frontend (`features/user-characteristics/data/options.ts`) and mirror backend enums (race, sex-at-birth, income, height, weight, eye colour, parent, plus free/range fields: country/city, age range, gender, education, occupation, news frequency, country of birth, UK county, university subject).
 - Liquibase migration/seed split, telemetry (OTel→Grafana LGTM), mprocs dev runner.
@@ -32,8 +32,17 @@ Lock the cross-cutting pieces every later stage depends on, so we don't rework t
 
 - **Privacy aggregation contract.** Define the DTO shape for "sentiment by characteristic" (vote tallies + percentages per characteristic bucket, never per-user rows). Build the query/aggregation layer behind an interface with a `suppressBelow=k` config (default `k=0` for MVP1, flip later). This is the single most important contract — get it right once.
 - **Feed contract.** A `FeedRanker` interface returning post IDs for a user; MVP1 implementation = chronological + follow-boost. Keeps the real rec engine a drop-in later.
-- **Service map.** Decide where new domains live. Proposed: keep within the two services for MVP1 to avoid premature service sprawl — `social` (follows) + `feed` in their own modules or folded into `user-service`/`post-service`; the **unbiased-post agent** as its own service (`agent-service`) because it has distinct deps (LLM client, web fetch) and scaling/latency profile.
-- **Shared design system pass.** Confirm `constants/theme` tokens + `components/ui` primitives cover cards, chips, buttons, vote controls, bottom-sheet/modal — the feed and results UI lean on these heavily.
+- **Service map (decided).** Three services, with clean DDD domains *inside* each. A low service count is cheaper to run and reason about; because every domain is a top-level package touched only through its controllers/interfaces/DTOs, extracting one into its own service later is a near-mechanical package move, not a rewrite. So we keep boundaries strict at the **domain** level and pay for extra services only when something actually needs to scale or deploy independently:
+
+  | Service | Port | Domains it owns |
+  | --- | --- | --- |
+  | `user-service` | 8081 | `user` (Identity/PII, public profile), `usercharacteristic`, `social` (follow graph) |
+  | `post-service` | 8082 | `posts` (create/view), `votes` (**votes + by-characteristic sentiment aggregation** — the privacy core), `feed` (**recommendation algorithm**, feed assembly/return) |
+  | `agent-service` | new | `agent` — Unbiased-post creation (LLM + live web search) |
+
+  **Why this split.** `votes` + aggregation stay in `post-service` next to the content they vote on; the privacy boundary is enforced at the **domain** layer (each vote carries a **characteristic snapshot**, so aggregation never query-time cross-joins into `user-service`), not by a service hop. `feed` is a read/orchestration domain in the same service as `posts`: it ranks local post content and calls `user-service` for the `social` follow graph (and later `votes`/`user-service` for ranking signals), so the rec engine swaps in behind `FeedRanker` without touching anyone else. `social` (follows) sits with `user` because a follow is a user-to-user relationship and pairs with the public profile. **`agent-service` is the only new service** — it's isolated, latency-heavy, separately scaled/metered (live web research), and depends on nothing else at write time. Wire `service.*` rest-client URLs in `application.properties` as each cross-service call comes online (`post-service` → `user-service` already exists).
+
+Stage 0 is **backend contracts only** — no UI. The shared design-system work (confirming `constants/theme` tokens + `components/ui` primitives cover cards, chips, vote controls, bottom-sheet/modal) moves into the UI stages that first need each primitive, built just-in-time rather than as one upfront pass (chips in onboarding/results, vote controls in Stage 3, etc.).
 
 **Demoable:** nothing user-facing; contracts + ADRs in `docs/`.
 
@@ -69,7 +78,7 @@ The content backbone. Standard user-authored posts first; the agent comes later.
 
 The interaction that generates all the sentiment data.
 
-- **Vote model** (`votes` domain, scaffold already present): one vote per user per post, yes/no on the support question, **stored against the user's characteristic snapshot, never against public identity**.
+- **Vote model** (`post-service` `votes` domain — build out the existing scaffold): one vote per user per post, yes/no on the support question, **stored against the user's characteristic snapshot, never against public identity**.
 - **Vote UI** — clear yes/no on the support question; one vote per user, editable/lockable per product call (recommend lockable after first vote for MVP1).
 - Capture the voter's characteristics at vote time (snapshot) so later characteristic changes don't retro-rewrite history.
 - Enforce the PII boundary: the vote row may reference the user for "have I voted / one-per-user", but **aggregation never exposes that linkage**.
@@ -84,7 +93,7 @@ The heart of the product: how different kinds of people feel, with sortable brea
 
 - **Results view** unlocked **after voting** — overall yes/no split for the post.
 - **Breakdown by characteristic** — filter/sort by country, race, gender, age band, income, etc. (any characteristic captured). Each shows the yes/no split for that bucket.
-- Powered by the Stage 0 aggregation layer: **counts + percentages only, never individual rows.** (MVP1: no suppression threshold — flagged risk; the `k` flip is ready.)
+- Lives in the **`post-service` `votes` domain** (votes + aggregation together). Powered by the Stage 0 aggregation layer: **counts + percentages only, never individual rows.** (MVP1: no suppression threshold — flagged risk; the `k` flip is ready.)
 - UI: characteristic selector (chips/dropdown), animated bars/segments from theme tokens, "X people like you / X overall" framing without ever naming a person.
 
 **Demoable:** after voting, a user explores "how do 25–34 / Black / UK / >£100k voters feel about this?"
@@ -97,8 +106,8 @@ Identity-light social graph plus the feed that ties it together.
 
 - **Personal profile page** — your posts, basic public profile (display name/handle/avatar — public-by-choice identity, distinct from the private PII used for aggregation). See vote/post counts.
 - **Other users' profiles** — view anyone's posts; navigate from a post author to their profile.
-- **Follow / unfollow** (`social` domain) — follow graph, follower/following counts.
-- **Main feed** — the `FeedRanker` (chronological + follow-boost): posts from followed accounts surfaced, blended with recent posts; infinite scroll, pull-to-refresh, modern feed UX.
+- **Follow / unfollow** (**`user-service` `social` domain**) — follow graph, follower/following counts.
+- **Main feed** (**`post-service` `feed` domain**) — hosts the `FeedRanker` (chronological + follow-boost for MVP1, real rec engine later): orchestrates local `posts` content + the `user-service` `social` follow graph; infinite scroll, pull-to-refresh, modern feed UX.
 
 **Demoable:** follow an account, see their posts rise in your feed, browse profiles, view your own post history.
 
