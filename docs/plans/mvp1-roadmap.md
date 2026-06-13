@@ -52,6 +52,7 @@ Stage 0 is **backend contracts only** — no UI. The shared design-system work (
 
 Get a real user from zero to a complete characteristic profile, with privacy messaging front and centre.
 
+- **Characteristic-coverage review (do first).** Audit whether the captured set covers the breakdowns we promise. Confirmed gaps/additions to make before the onboarding flow is built — see *"Characteristic coverage"* below. The headline gap: **political persuasion is not currently captured** despite `CLAUDE.md` naming it as a core breakdown axis.
 - **Sign-up / sign-in** end-to-end against Keycloak (registration, not just the seeded test users).
 - **Characteristic onboarding flow** — multi-step UI consuming `options.ts`, persisting `CharacteristicAnswers` to `usercharacteristic` with **no identity attached**. "Prefer not to say" honoured throughout.
 - **Privacy marketing & consent** — clear, explicit screens during sign-up: *what we collect, that only aggregated/anonymised characteristics are ever shown, that name/email/exact identity are never tied to a vote publicly.* Explicit consent recorded.
@@ -138,16 +139,53 @@ The differentiator. Built last because it depends on the post + support-question
 
 ---
 
+## Characteristic coverage — are we capturing everything?
+
+Because the product *is* "sentiment sliced by who you are", the value of every aggregate is capped by the characteristics we collect. Audit + extend the set in Stage 1, **before** the onboarding UI is frozen.
+
+**Captured today:** location (country/city), age range, gender (+ self-describe), education, occupation, news frequency, race, sex at birth, height, weight, income, parent, eye colour, country of birth, UK county, university subject.
+
+**Gaps to close for MVP1** (high signal for news-agreement, cheap to add as enums + onboarding steps):
+
+- **Political persuasion / leaning** — **the priority gap.** Named explicitly in `CLAUDE.md` as a core breakdown yet absent from `options.ts`. Capture as a non-identifying band (e.g. Left / Centre-left / Centre / Centre-right / Right / Apolitical / Prefer not to say). Likely the strongest predictor of how someone votes on a support question.
+- **Religion / religiosity** — affiliation and/or "how important is religion to you" band.
+- **Region within country / urban-rural** — we have UK county only; add a country-agnostic region/state field and an urban / suburban / rural band so non-UK users are sortable.
+- **Relationship/marital status** and **sexual orientation** — common opinion-research axes (both with "prefer not to say").
+- **Citizenship / nationality** — distinct from country of birth and country of residence.
+- **Employment sector / industry** — finer than the current occupation status list.
+
+**Review for relevance / sensitivity:** height, weight and eye colour add re-identification surface area (small buckets) while adding little to news sentiment — keep, but they make the no-threshold privacy risk worse and argue for the `k`-flip. Treat especially sensitive new fields (religion, sexual orientation, political leaning) as optional and clearly "prefer not to say"-able, reinforced by the Stage 1 privacy messaging.
+
+Every new characteristic must land in three places in lockstep: backend enum, `options.ts`/`CharacteristicAnswers`, and the seed test-user generator below — otherwise aggregates can't be tested against it.
+
+---
+
+## Workstream T — Test users & the central fixtures service (cross-cutting, spans Stages 1–4)
+
+Aggregates are only meaningful at volume and across a realistic spread of characteristics, so we need many fake voters and a single place to drive them. Built alongside the stages they validate, not at the end.
+
+- **Seeded test users (no Keycloak).** Generate a large population of users + full characteristic profiles purely as **Liquibase seed data** (`user-service` `db/seeding/`, context `seed`). They never sign in, so they stay out of Keycloak's realm — they exist only to own votes and fill aggregation tables. Keep PII separate exactly as real users do.
+- **Self-describing names.** Each test user's display name encodes its characteristics for at-a-glance debugging of aggregates, e.g. `UK-F-25_34-Left-HighIncome-Asian` or `US-M-65plus-Right-LowIncome`. Makes a wrong breakdown obvious by eye without querying.
+- **Coverage by construction.** Generate the population to cover the cross-product of the key breakdown axes (country × age × gender × political leaning × income at minimum) with enough users per bucket to exercise — and later stress — the aggregation layer (and the future `k`-threshold).
+- **Central fixtures service.** One shared test utility/service that, before a test run, **fetches all seeded user data and their characteristics** (from `user-service`) and **generates fake votes** across posts to fill the `votes` tables on demand. Tests call this instead of each hand-rolling vote data — a single source of truth for "given these users, cast this distribution of votes". Primarily drives the `votes` domain (votes/aggregation) but reusable by `feed` and anything else that needs a populated graph.
+- **Deterministic + parameterised.** Seeded RNG so a given config reproduces the same votes (stable assertions), but parameterisable to skew distributions (e.g. "Left-leaning UK voters mostly vote Yes on post X") so aggregation/breakdown tests assert **expected** splits, not just non-empty ones — per the `test-audit` bar.
+- **Used to validate Stage 4.** This workstream is what proves the sentiment breakdowns are correct: cast a known distribution, then assert the by-characteristic aggregates match it exactly.
+
+**Demoable:** a single command/fixture call populates thousands of characteristic-tagged votes; the Stage 4 results screens show rich, sortable breakdowns driven entirely by seeded data.
+
+---
+
 ## Critical path (dependency order)
 
 ```
 Stage 0 (contracts) → 1 (onboarding) → 2 (posts) → 3 (voting) → 4 (aggregation)
                                               └→ 5 (profiles/follows/feed)  [needs 2]
                                                         6 (agent)           [needs 2,3]
+       Workstream T (test users + fixtures) ─────────── [spans 1–4, gates 4]
                                                         7 (hardening)       [continuous, gates release]
 ```
 
-Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (agent) is isolated in its own service and can start as soon as Stage 2's post/support-question model is stable.
+Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (agent) is isolated in its own service and can start as soon as Stage 2's post/support-question model is stable. Workstream T starts once the characteristic model is fixed in Stage 1 and must be in place to meaningfully test Stage 4.
 
 ## Top risks to watch
 
@@ -155,3 +193,4 @@ Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (agent) is isolated 
 2. **Agent quality & bias** — an "unbiased" agent that is subtly biased or cites weak sources undermines the whole differentiator. Heavy prompt + sourcing review needed.
 3. **Agent latency/cost** — live web research per post is slow and metered; async + caching essential.
 4. **Characteristic snapshotting** — get vote-time snapshots right early, or historical aggregates become wrong when users edit their profile.
+5. **Characteristic coverage frozen too early** — adding an axis (e.g. political persuasion) after onboarding ships means re-onboarding users and back-filling test data. Close the coverage gaps in Stage 1 before the schema sets.
