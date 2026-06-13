@@ -2,13 +2,17 @@
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import {DiscoveryDocument} from "expo-auth-session";
+import Constants from "expo-constants";
 
 // Make sure the browser popup gets closed correctly on web
 WebBrowser.maybeCompleteAuthSession();
 
-// --- Keycloak config (adjust if you move off localhost) ---
-const KEYCLOAK_ISSUER = "http://localhost:8080/realms/your-say-news"; // OIDC issuer
-const KEYCLOAK_CLIENT_ID = "frontend-client";
+// --- Keycloak config (driven by app.config.<env>.js via expoConfig.extra) ---
+const extra = Constants.expoConfig?.extra ?? {};
+const KEYCLOAK_BASE_URL: string = extra.KEYCLOAK_BASE_URL;
+const KEYCLOAK_REALM: string = extra.KEYCLOAK_REALM;
+const KEYCLOAK_ISSUER = `${KEYCLOAK_BASE_URL}/realms/${KEYCLOAK_REALM}`; // OIDC issuer
+const KEYCLOAK_CLIENT_ID: string = extra.KEYCLOAK_CLIENT_ID;
 
 // Scopes: `offline_access` is what gives you a refresh token in Keycloak
 const KEYCLOAK_SCOPES = ["openid", "profile", "email", "offline_access"];
@@ -35,8 +39,6 @@ export async function loginWithKeycloak(): Promise<KeycloakTokens | null> {
         // path: "auth/callback",
     });
 
-    console.log("Redict uri: " + redirectUri);
-
     // 3) Build an authorization request that uses PKCE (usePKCE: true)
     const authRequestConfig: AuthSession.AuthRequestConfig = {
         clientId: KEYCLOAK_CLIENT_ID,
@@ -48,18 +50,12 @@ export async function loginWithKeycloak(): Promise<KeycloakTokens | null> {
         // You can also set `state` here for CSRF protection if you want
     };
 
-    console.log("Auth Request config: " + authRequestConfig);
-
     // Create the low-level AuthRequest instance so we can later read `codeVerifier`
     const request = new AuthSession.AuthRequest(authRequestConfig);
-
-    console.log("Request: "  + request.clientId);
 
     // 4) Open the browser and let the user log in to Keycloak
     //    This will redirect to Keycloak, then back to your app via `redirectUri`.
     const authResult = await request.promptAsync(discovery);
-
-    console.log("Auth Result: " + authResult.type + " . " + authResult.params.code);
 
     // If the user cancelled or something went wrong, bail out cleanly
     if (authResult.type !== "success" || !authResult.params.code) {
@@ -83,8 +79,6 @@ export async function loginWithKeycloak(): Promise<KeycloakTokens | null> {
         discovery, // contains the `tokenEndpoint` from Keycloak
     );
 
-    console.log("Access token response: " + tokenResponse.accessToken + "   " + tokenResponse.refreshToken);
-
     // 6) Normalise into our own shape
     return {
         accessToken: tokenResponse.accessToken ?? "",
@@ -92,4 +86,55 @@ export async function loginWithKeycloak(): Promise<KeycloakTokens | null> {
         idToken: tokenResponse.idToken ?? null,
         expiresIn: tokenResponse.expiresIn ?? null,
     };
+}
+
+/**
+ * Exchange a refresh token for a fresh access token at Keycloak's token endpoint.
+ * Returns null if the refresh token is rejected (e.g. expired / revoked).
+ */
+export async function refreshTokens(
+    refreshToken: string,
+): Promise<KeycloakTokens | null> {
+    try {
+        const discovery: DiscoveryDocument = await AuthSession.fetchDiscoveryAsync(KEYCLOAK_ISSUER);
+
+        const tokenResponse = await AuthSession.refreshAsync(
+            {
+                clientId: KEYCLOAK_CLIENT_ID,
+                refreshToken,
+            },
+            discovery,
+        );
+
+        return {
+            accessToken: tokenResponse.accessToken ?? "",
+            // Keycloak rotates refresh tokens; fall back to the existing one if absent.
+            refreshToken: tokenResponse.refreshToken ?? refreshToken,
+            idToken: tokenResponse.idToken ?? null,
+            expiresIn: tokenResponse.expiresIn ?? null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Best-effort revocation of the refresh token at Keycloak, ending the server-side
+ * session on logout. Failures are swallowed — local state is cleared regardless.
+ */
+export async function revokeTokens(refreshToken: string): Promise<void> {
+    try {
+        const discovery: DiscoveryDocument = await AuthSession.fetchDiscoveryAsync(KEYCLOAK_ISSUER);
+
+        await AuthSession.revokeAsync(
+            {
+                clientId: KEYCLOAK_CLIENT_ID,
+                token: refreshToken,
+                tokenTypeHint: AuthSession.TokenTypeHint.RefreshToken,
+            },
+            discovery,
+        );
+    } catch {
+        // best-effort; ignore
+    }
 }

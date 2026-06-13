@@ -3,7 +3,7 @@ import {Platform} from "react-native";
 import {create} from "zustand";
 import {User, UserState} from "../types";
 import * as SecureStore from "expo-secure-store";
-import {KeycloakTokens, loginWithKeycloak} from "./keycloakService";
+import {KeycloakTokens, loginWithKeycloak, refreshTokens, revokeTokens} from "./keycloakService";
 import {getUser} from "./UserService";
 
 
@@ -30,6 +30,7 @@ export const useAuthStore = create(
             getRefreshToken,
             setRefreshToken,
             accessTokenExpired,
+            refreshAccessToken,
 
             login,
             logout,
@@ -79,10 +80,8 @@ function setRefreshToken(token: string): void {
 }
 
 async function login(): Promise<boolean> {
-    console.log("Login Called")
     // Ask KeycloakService to run the PKCE flow and give us tokens
     const tokens: KeycloakTokens | null = await loginWithKeycloak();
-    console.log(tokens);
 
     if (!tokens) {
         return false; // user cancelled / error
@@ -91,6 +90,7 @@ async function login(): Promise<boolean> {
     useAuthStore.setState({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
+        accessTokenExpiresAt: expiresInToTimestamp(tokens.expiresIn),
     })
 
 
@@ -112,28 +112,93 @@ async function login(): Promise<boolean> {
         isLoggedIn: true,
 
     });
-    console.log(useAuthStore.getState())
 
     return true;
+}
+
+/** Convert Keycloak's `expires_in` (seconds from now) to an absolute epoch-ms timestamp. */
+function expiresInToTimestamp(expiresIn: number | null): number | null {
+    if (expiresIn == null) {
+        return null;
+    }
+    return Date.now() + expiresIn * 1000;
 }
 
 
 
 
-function logout(): void{
+async function logout(): Promise<void> {
+    // Best-effort server-side revocation before we drop the token locally.
+    const { refreshToken } = useAuthStore.getState();
+    if (refreshToken) {
+        await revokeTokens(refreshToken);
+    }
+
     useAuthStore.setState({
+        id: null,
         email: null,
         firstName: null,
         lastName: null,
         dateOfBirth: null,
         accessToken: null,
         refreshToken: null,
+        accessTokenExpiresAt: null,
         isLoggedIn: false,
+        hasOnboarded: false,
     })
 }
 
-function accessTokenExpired(): boolean{
-    return useAuthStore.getState().accessTokenExpired();
+// Dedupe concurrent refreshes so a burst of requests triggers a single token exchange.
+let refreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Exchange the stored refresh token for a fresh access token, updating the store.
+ * Returns the new access token, or null (and logs out) if the refresh fails.
+ */
+async function refreshAccessToken(): Promise<string | null> {
+    if (refreshInFlight) {
+        return refreshInFlight;
+    }
+
+    refreshInFlight = (async () => {
+        const { refreshToken } = useAuthStore.getState();
+        if (!refreshToken) {
+            await logout();
+            return null;
+        }
+
+        const tokens = await refreshTokens(refreshToken);
+        if (!tokens || !tokens.accessToken) {
+            await logout();
+            return null;
+        }
+
+        useAuthStore.setState({
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            accessTokenExpiresAt: expiresInToTimestamp(tokens.expiresIn),
+        });
+        return tokens.accessToken;
+    })();
+
+    try {
+        return await refreshInFlight;
+    } finally {
+        refreshInFlight = null;
+    }
+}
+
+/**
+ * True when there is no access token, no known expiry, or the expiry has passed.
+ * A 30s skew guards against treating a token that is about to expire as still valid.
+ */
+function accessTokenExpired(): boolean {
+    const { accessToken, accessTokenExpiresAt } = useAuthStore.getState();
+    if (!accessToken || accessTokenExpiresAt == null) {
+        return true;
+    }
+    const skewMs = 30_000;
+    return Date.now() >= accessTokenExpiresAt - skewMs;
 }
 
 

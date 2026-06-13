@@ -12,7 +12,6 @@ import { Button } from "@/components/ui";
 import {
   useTheme,
   Spacing,
-  Typography,
   BrandColors,
   NeutralColors,
 } from "@/constants/theme";

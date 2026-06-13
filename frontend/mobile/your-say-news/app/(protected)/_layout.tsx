@@ -1,51 +1,30 @@
 // app/(protected)/_layout.tsx
-import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons"; // or any icon lib you like
+import { Stack } from "expo-router";
+import { useTheme } from "@/constants/theme";
 
-export default function ProtectedTabsLayout() {
+/**
+ * Protected area layout.
+ *
+ * A Stack for now: Home is the only real destination, with onboarding and the
+ * about screen pushed on top. A bottom-tab navigator returns once there are
+ * multiple top-level destinations (profile, results, settings).
+ */
+export default function ProtectedLayout() {
+    const { colors } = useTheme();
+
     return (
-        <Tabs
+        <Stack
             screenOptions={{
-                // Style for the bottom tab bar
-                headerShown: false,         // Hide header if you want full-screen tabs
-                tabBarActiveTintColor: "#007AFF", // Active tab colour
-                tabBarInactiveTintColor: "#999999",
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background.primary },
             }}
         >
-
-            {/* Home tab */}
-            <Tabs.Screen
-                name="home"
-                options={{
-                    title: "Home",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="home-outline" size={size} color={color} />
-                    ),
-                }}
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(usercharacteristics)/usercharacteristics" />
+            <Stack.Screen
+                name="about/your-say-news"
+                options={{ headerShown: true, title: "About" }}
             />
-
-            {/* Profile tab */}
-            <Tabs.Screen
-                name="profile"
-                options={{
-                    title: "Profile",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="person-outline" size={size} color={color} />
-                    ),
-                }}
-            />
-
-            {/* Settings tab */}
-            <Tabs.Screen
-                name="settings"
-                options={{
-                    title: "Settings",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="settings-outline" size={size} color={color} />
-                    ),
-                }}
-            />
-
-        </Tabs>
+        </Stack>
     );
 }
