@@ -1,0 +1,165 @@
+databaseChangeLog:
+  # Characteristic profiles for the seeded users (ids 1-4, inserted in order by 0001-seed).
+  # The large self-describing test population lands in Workstream T; these few give the
+  # onboarding/aggregation flows real data to read back.
+  - changeSet:
+      id: 0002-seed-user-characteristics
+      author: mhutc
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        # 1 — John: UK, centre-left, no religion
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 1 } }
+              - { column: { name: user_id, valueNumeric: 1 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Bristol" } }
+              - { column: { name: uk_county, value: "BRISTOL" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: age_range, value: "AGE_25_34" } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: citizenship, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_LEFT" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: university_subject, value: "COMPUTER_SCIENCE" } }
+              - { column: { name: income_range, value: "BETWEEN_50K_AND_100K" } }
+              - { column: { name: height, value: "FEET_5_10_TO_6_0" } }
+              - { column: { name: weight_range, value: "KG_80_89" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NO" } }
+              - { column: { name: news_frequency, valueNumeric: 8 } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 1 } }
+              - { column: { name: race, value: "WHITE" } }
+        # 2 — Jane: UK, left, Asian
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 2 } }
+              - { column: { name: user_id, valueNumeric: 2 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "London" } }
+              - { column: { name: uk_county, value: "GREATER_LONDON" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: age_range, value: "AGE_35_44" } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "MARRIED" } }
+              - { column: { name: country_of_birth, value: "INDIA" } }
+              - { column: { name: citizenship, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "HINDUISM" } }
+              - { column: { name: religiosity, value: "MODERATELY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "LEFT" } }
+              - { column: { name: education, value: "MASTERS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "HEALTHCARE" } }
+              - { column: { name: university_subject, value: "MEDICINE" } }
+              - { column: { name: income_range, value: "BETWEEN_100K_AND_200K" } }
+              - { column: { name: height, value: "FEET_5_4_TO_5_6" } }
+              - { column: { name: weight_range, value: "KG_60_69" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "MUM" } }
+              - { column: { name: news_frequency, valueNumeric: 9 } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 2 } }
+              - { column: { name: race, value: "ASIAN" } }
+        # 3 — Bob: US, right, Black
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 3 } }
+              - { column: { name: user_id, valueNumeric: 3 } }
+              - { column: { name: country, value: "United States" } }
+              - { column: { name: city, value: "Dallas" } }
+              - { column: { name: region, value: "Texas" } }
+              - { column: { name: urban_rural, value: "SUBURBAN" } }
+              - { column: { name: age_range, value: "AGE_45_54" } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "DIVORCED" } }
+              - { column: { name: country_of_birth, value: "UNITED_STATES" } }
+              - { column: { name: citizenship, value: "UNITED_STATES" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "VERY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "RIGHT" } }
+              - { column: { name: education, value: "HIGH_SCHOOL" } }
+              - { column: { name: occupation, value: "SELF_EMPLOYED" } }
+              - { column: { name: employment_sector, value: "CONSTRUCTION" } }
+              - { column: { name: income_range, value: "BETWEEN_50K_AND_100K" } }
+              - { column: { name: height, value: "FEET_6_1_TO_6_3" } }
+              - { column: { name: weight_range, value: "KG_90_99" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "DAD" } }
+              - { column: { name: news_frequency, valueNumeric: 5 } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 3 } }
+              - { column: { name: race, value: "BLACK" } }
+        # 4 — Alice: UK, centre, multi-race (exercises the collection)
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 4 } }
+              - { column: { name: user_id, valueNumeric: 4 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Manchester" } }
+              - { column: { name: uk_county, value: "GREATER_MANCHESTER" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: age_range, value: "AGE_25_34" } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "BISEXUAL" } }
+              - { column: { name: marital_status, value: "IN_RELATIONSHIP" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: citizenship, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "PREFER_NOT_TO_SAY" } }
+              - { column: { name: political_persuasion, value: "CENTRE" } }
+              - { column: { name: education, value: "DOCTORATE" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "EDUCATION" } }
+              - { column: { name: university_subject, value: "PHYSICS" } }
+              - { column: { name: income_range, value: "BETWEEN_100K_AND_200K" } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_60_69" } }
+              - { column: { name: eye_color, value: "GREEN" } }
+              - { column: { name: parent, value: "NO" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 4 } }
+              - { column: { name: race, value: "WHITE" } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 4 } }
+              - { column: { name: race, value: "OTHER" } }
+  # We inserted explicit ids above, which does not advance the IDENTITY sequence. Bump it past the
+  # seeded rows so the next real onboarding insert does not collide with a seeded id.
+  - changeSet:
+      id: 0002-seed-user-characteristics-resync-sequence
+      author: mhutc
+      context: seed
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: >-
+              SELECT setval(pg_get_serial_sequence('user_characteristic', 'id'),
+                            (SELECT MAX(id) FROM user_characteristic))
