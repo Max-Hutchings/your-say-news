@@ -83,6 +83,9 @@ coverage/
 reports/
 .nyc_output/
 
+# Playwright MCP run artifacts (captured snapshots/screenshots from browser testing)
+.playwright-mcp/
+
 # Java artifacts
 *.class
 *.jar
