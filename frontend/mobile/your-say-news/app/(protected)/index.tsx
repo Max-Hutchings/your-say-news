@@ -5,7 +5,7 @@
  */
 
 import { View, StyleSheet, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Redirect, type Href } from "expo-router";
 import { useAuthStore } from "@/features/auth";
 import { ThemedView } from "@/components/themed-view";
 import { ThemedText } from "@/components/themed-text";
@@ -19,8 +19,14 @@ import {
 
 export default function Home() {
   const router = useRouter();
-  const { hasOnboarded } = useAuthStore();
+  const { hasOnboarded, consentedAt } = useAuthStore();
   const { colors } = useTheme();
+
+  // First-time users must read the privacy promise and consent before anything else.
+  if (!consentedAt) {
+    // Cast: typed-routes regenerate the "/consent" entry on the next `expo start`.
+    return <Redirect href={"/consent" as Href} />;
+  }
 
   const handleVote = (vote: "agree" | "disagree"): void => {
     if (!hasOnboarded) {

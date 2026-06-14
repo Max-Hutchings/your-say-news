@@ -5,6 +5,8 @@ export type User = {
     lastName: string | null;
     // ISO-8601 date string as returned by the API (e.g. "1990-05-21"), not a Date instance.
     dateOfBirth: string | null;
+    // ISO-8601 timestamp of privacy-promise consent, or null if they have not consented yet.
+    consentedAt: string | null;
 };
 
 // Use interface if you want to "extend"
@@ -29,4 +31,5 @@ export interface UserState extends User {
     login: () => Promise<boolean>; // true/false for success
     logout: () => Promise<void>;
     setHasOnboarded: (onboarded: boolean) => void;
+    setConsentedAt: (at: string | null) => void;
 }

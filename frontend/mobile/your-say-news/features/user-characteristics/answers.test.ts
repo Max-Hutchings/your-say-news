@@ -5,22 +5,31 @@ function completeForm(): OnboardingForm {
     return {
         country: "United Kingdom",
         city: "Bristol",
-        ageRange: "25–34",
-        gender: "Woman",
+        region: "",
+        ukCounty: "BRISTOL",
+        urbanRural: "URBAN",
+        ageRange: "AGE_25_34",
+        gender: "WOMAN",
         genderSelfDescribe: "",
-        education: "Bachelor’s or equivalent",
-        occupation: "Employed full-time",
-        newsFrequencyScore: 7,
         sexAtBirth: "FEMALE",
+        sexualOrientation: "HETEROSEXUAL",
+        maritalStatus: "SINGLE",
+        raceSelections: ["WHITE"],
+        countryOfBirth: "UNITED_KINGDOM",
+        citizenship: "UNITED_KINGDOM",
+        religion: "NO_RELIGION",
+        religiosity: "NOT_RELIGIOUS",
+        politicalPersuasion: "CENTRE_LEFT",
+        education: "BACHELORS",
+        occupation: "EMPLOYED_FULL_TIME",
+        employmentSector: "IT_TECHNOLOGY",
+        universitySubject: "COMPUTER_SCIENCE",
+        incomeRange: "BETWEEN_50K_AND_100K",
         height: "FEET_5_4_TO_5_6",
         weightRange: "KG_60_69",
-        incomeRange: "BETWEEN_50K_AND_100K",
-        parent: "NO",
         eyeColor: "GREEN",
-        countryOfBirth: "UNITED_KINGDOM",
-        ukCounty: "BRISTOL",
-        universitySubject: "COMPUTER_SCIENCE",
-        raceSelections: ["WHITE"],
+        parent: "NO",
+        newsFrequencyScore: 7,
     };
 }
 
@@ -36,6 +45,8 @@ describe("isRequiredComplete", () => {
             education: null,
             occupation: null,
             countryOfBirth: null,
+            politicalPersuasion: null,
+            religion: null,
         };
         expect(isRequiredComplete(form)).toBe(true);
     });
@@ -56,28 +67,44 @@ describe("isRequiredComplete", () => {
 });
 
 describe("buildCharacteristicAnswers", () => {
-    it("maps the form onto the answer payload", () => {
+    it("maps the form onto the answer payload with backend enum values", () => {
         const answers = buildCharacteristicAnswers(completeForm());
 
         expect(answers).toEqual({
-            location: { country: "United Kingdom", city: "Bristol" },
-            ageRange: "25–34",
-            gender: "Woman",
+            country: "United Kingdom",
+            city: "Bristol",
+            region: null,
+            ukCounty: "BRISTOL",
+            urbanRural: "URBAN",
+            ageRange: "AGE_25_34",
+            gender: "WOMAN",
             genderSelfDescribe: "",
-            education: "Bachelor’s or equivalent",
-            occupation: "Employed full-time",
-            newsFrequency: 7,
-            race: ["WHITE"],
             sexAtBirth: "FEMALE",
+            sexualOrientation: "HETEROSEXUAL",
+            maritalStatus: "SINGLE",
+            race: ["WHITE"],
+            countryOfBirth: "UNITED_KINGDOM",
+            citizenship: "UNITED_KINGDOM",
+            religion: "NO_RELIGION",
+            religiosity: "NOT_RELIGIOUS",
+            politicalPersuasion: "CENTRE_LEFT",
+            education: "BACHELORS",
+            occupation: "EMPLOYED_FULL_TIME",
+            employmentSector: "IT_TECHNOLOGY",
+            universitySubject: "COMPUTER_SCIENCE",
+            incomeRange: "BETWEEN_50K_AND_100K",
             height: "FEET_5_4_TO_5_6",
             weightRange: "KG_60_69",
-            incomeRange: "BETWEEN_50K_AND_100K",
-            parent: "NO",
             eyeColor: "GREEN",
-            countryOfBirth: "UNITED_KINGDOM",
-            ukCounty: "BRISTOL",
-            universitySubject: "COMPUTER_SCIENCE",
+            parent: "NO",
+            newsFrequency: 7,
         });
+    });
+
+    it("blanks empty optional free-text to null", () => {
+        const answers = buildCharacteristicAnswers({ ...completeForm(), city: "  ", region: "" });
+        expect(answers.city).toBeNull();
+        expect(answers.region).toBeNull();
     });
 
     it("never includes identity (PII) in the payload", () => {
@@ -94,14 +121,14 @@ describe("buildCharacteristicAnswers", () => {
     it("only keeps the self-described gender when that option is chosen", () => {
         const chosen = buildCharacteristicAnswers({
             ...completeForm(),
-            gender: "Prefer to self-describe",
+            gender: "SELF_DESCRIBE",
             genderSelfDescribe: "Agender",
         });
         expect(chosen.genderSelfDescribe).toBe("Agender");
 
         const notChosen = buildCharacteristicAnswers({
             ...completeForm(),
-            gender: "Woman",
+            gender: "WOMAN",
             genderSelfDescribe: "Agender",
         });
         expect(notChosen.genderSelfDescribe).toBe("");
