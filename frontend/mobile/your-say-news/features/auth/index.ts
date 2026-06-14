@@ -7,4 +7,6 @@
 
 export { useAuthStore } from "./services/authContext";
 export { default as YsnHttpClient } from "./services/requests";
+export { recordConsent, PRIVACY_POLICY_VERSION } from "./services/ConsentService";
+export { PrivacyConsentScreen } from "./components/PrivacyConsentScreen";
 export type { User, UserState } from "./types";

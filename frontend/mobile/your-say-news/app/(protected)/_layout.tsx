@@ -20,6 +20,7 @@ export default function ProtectedLayout() {
             }}
         >
             <Stack.Screen name="index" />
+            <Stack.Screen name="consent" />
             <Stack.Screen name="(usercharacteristics)/usercharacteristics" />
             <Stack.Screen
                 name="about/your-say-news"

@@ -20,6 +20,7 @@ export const useAuthStore = create(
             firstName: null,
             lastName: null,
             dateOfBirth: null,
+            consentedAt: null,
             accessToken: null,
             refreshToken: null,
             accessTokenExpiresAt: null,
@@ -35,6 +36,7 @@ export const useAuthStore = create(
             login,
             logout,
             setHasOnboarded,
+            setConsentedAt,
         }),
         {
             name: "auth-store",
@@ -102,13 +104,16 @@ async function login(): Promise<boolean> {
     }
 
 
-    // Once we have tokens, update your Zustand state
+    // Once we have tokens, update your Zustand state. A returning user who has already consented to
+    // the privacy promise is treated as past onboarding, so they land straight on the feed.
     useAuthStore.setState({
         id: user.id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         dateOfBirth: user.dateOfBirth,
+        consentedAt: user.consentedAt,
+        hasOnboarded: !!user.consentedAt,
         isLoggedIn: true,
 
     });
@@ -140,12 +145,17 @@ async function logout(): Promise<void> {
         firstName: null,
         lastName: null,
         dateOfBirth: null,
+        consentedAt: null,
         accessToken: null,
         refreshToken: null,
         accessTokenExpiresAt: null,
         isLoggedIn: false,
         hasOnboarded: false,
     })
+}
+
+function setConsentedAt(at: string | null): void {
+    useAuthStore.setState({ consentedAt: at });
 }
 
 // Dedupe concurrent refreshes so a burst of requests triggers a single token exchange.

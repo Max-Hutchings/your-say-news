@@ -7,51 +7,126 @@
 
 import type { Option } from "../types";
 
-export const AGE_RANGES: string[] = [
-    "13–17",
-    "18–24",
-    "25–34",
-    "35–44",
-    "45–54",
-    "55–64",
-    "65+",
-    "Prefer not to say",
+export const AGE_RANGES: Option[] = [
+    { label: "13–17", value: "AGE_13_17" },
+    { label: "18–24", value: "AGE_18_24" },
+    { label: "25–34", value: "AGE_25_34" },
+    { label: "35–44", value: "AGE_35_44" },
+    { label: "45–54", value: "AGE_45_54" },
+    { label: "55–64", value: "AGE_55_64" },
+    { label: "65+", value: "AGE_65_PLUS" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
-export const GENDER_OPTIONS: string[] = [
-    "Woman",
-    "Man",
-    "Non-binary / gender diverse",
-    "Prefer not to say",
-    "Prefer to self-describe",
+export const GENDER_OPTIONS: Option[] = [
+    { label: "Woman", value: "WOMAN" },
+    { label: "Man", value: "MAN" },
+    { label: "Non-binary / gender diverse", value: "NON_BINARY" },
+    { label: "Prefer to self-describe", value: "SELF_DESCRIBE" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
-export const EDUCATION_OPTIONS: string[] = [
-    "No formal education",
-    "High school or equivalent",
-    "Some college / vocational",
-    "Bachelor’s or equivalent",
-    "Master’s or equivalent",
-    "Doctorate",
-    "Prefer not to say",
+export const EDUCATION_OPTIONS: Option[] = [
+    { label: "No formal education", value: "NO_FORMAL_EDUCATION" },
+    { label: "High school or equivalent", value: "HIGH_SCHOOL" },
+    { label: "Some college / vocational", value: "SOME_COLLEGE" },
+    { label: "Bachelor’s or equivalent", value: "BACHELORS" },
+    { label: "Master’s or equivalent", value: "MASTERS" },
+    { label: "Doctorate", value: "DOCTORATE" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
-export const OCCUPATION_OPTIONS: string[] = [
-    "Student",
-    "Employed full-time",
-    "Employed part-time",
-    "Self-employed",
-    "Unemployed",
-    "Retired",
-    "Prefer not to say",
+export const OCCUPATION_OPTIONS: Option[] = [
+    { label: "Student", value: "STUDENT" },
+    { label: "Employed full-time", value: "EMPLOYED_FULL_TIME" },
+    { label: "Employed part-time", value: "EMPLOYED_PART_TIME" },
+    { label: "Self-employed", value: "SELF_EMPLOYED" },
+    { label: "Unemployed", value: "UNEMPLOYED" },
+    { label: "Retired", value: "RETIRED" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
-export const NEWS_FREQUENCY: string[] = [
-    "Never",
-    "Once a week",
-    "A few times a week",
-    "Once a day",
-    "Multiple times a day",
+// --- New coverage axes (Stage 1). Values mirror the backend enums exactly. ---
+
+export const URBAN_RURAL_OPTIONS: Option[] = [
+    { label: "Urban", value: "URBAN" },
+    { label: "Suburban", value: "SUBURBAN" },
+    { label: "Rural", value: "RURAL" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
+];
+
+export const MARITAL_STATUS_OPTIONS: Option[] = [
+    { label: "Single", value: "SINGLE" },
+    { label: "In a relationship", value: "IN_RELATIONSHIP" },
+    { label: "Married", value: "MARRIED" },
+    { label: "Civil partnership", value: "CIVIL_PARTNERSHIP" },
+    { label: "Divorced", value: "DIVORCED" },
+    { label: "Widowed", value: "WIDOWED" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
+];
+
+export const SEXUAL_ORIENTATION_OPTIONS: Option[] = [
+    { label: "Heterosexual", value: "HETEROSEXUAL" },
+    { label: "Gay / lesbian", value: "HOMOSEXUAL" },
+    { label: "Bisexual", value: "BISEXUAL" },
+    { label: "Pansexual", value: "PANSEXUAL" },
+    { label: "Asexual", value: "ASEXUAL" },
+    { label: "Other", value: "OTHER" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
+];
+
+export const RELIGION_OPTIONS: Option[] = [
+    { label: "Christianity", value: "CHRISTIANITY" },
+    { label: "Islam", value: "ISLAM" },
+    { label: "Hinduism", value: "HINDUISM" },
+    { label: "Buddhism", value: "BUDDHISM" },
+    { label: "Judaism", value: "JUDAISM" },
+    { label: "Sikhism", value: "SIKHISM" },
+    { label: "Other religion", value: "OTHER_RELIGION" },
+    { label: "No religion", value: "NO_RELIGION" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
+];
+
+export const RELIGIOSITY_OPTIONS: Option[] = [
+    { label: "Not religious", value: "NOT_RELIGIOUS" },
+    { label: "Slightly", value: "SLIGHTLY_RELIGIOUS" },
+    { label: "Moderately", value: "MODERATELY_RELIGIOUS" },
+    { label: "Very", value: "VERY_RELIGIOUS" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
+];
+
+export const POLITICAL_PERSUASION_OPTIONS: Option[] = [
+    { label: "Left", value: "LEFT" },
+    { label: "Centre-left", value: "CENTRE_LEFT" },
+    { label: "Centre", value: "CENTRE" },
+    { label: "Centre-right", value: "CENTRE_RIGHT" },
+    { label: "Right", value: "RIGHT" },
+    { label: "Apolitical", value: "APOLITICAL" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
+];
+
+export const EMPLOYMENT_SECTOR_OPTIONS: Option[] = [
+    { label: "Agriculture", value: "AGRICULTURE" },
+    { label: "Manufacturing", value: "MANUFACTURING" },
+    { label: "Construction", value: "CONSTRUCTION" },
+    { label: "Retail & wholesale", value: "RETAIL_WHOLESALE" },
+    { label: "Hospitality", value: "HOSPITALITY" },
+    { label: "Transport & logistics", value: "TRANSPORT_LOGISTICS" },
+    { label: "IT & technology", value: "IT_TECHNOLOGY" },
+    { label: "Finance & insurance", value: "FINANCE_INSURANCE" },
+    { label: "Healthcare", value: "HEALTHCARE" },
+    { label: "Education", value: "EDUCATION" },
+    { label: "Government & public", value: "GOVERNMENT_PUBLIC" },
+    { label: "Legal", value: "LEGAL" },
+    { label: "Media & communications", value: "MEDIA_COMMUNICATIONS" },
+    { label: "Energy & utilities", value: "ENERGY_UTILITIES" },
+    { label: "Science & research", value: "SCIENCE_RESEARCH" },
+    { label: "Arts & culture", value: "ARTS_CULTURE" },
+    { label: "Non-profit", value: "NONPROFIT" },
+    { label: "Military & defence", value: "MILITARY_DEFENCE" },
+    { label: "Other", value: "OTHER" },
+    { label: "Not applicable", value: "NOT_APPLICABLE" },
+    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const RACE_OPTIONS: Option[] = [

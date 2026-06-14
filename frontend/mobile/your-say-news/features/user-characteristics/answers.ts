@@ -7,29 +7,43 @@
 
 import type { CharacteristicAnswers } from "./types";
 
-/** Raw selections held by the onboarding form. */
+/** Raw selections held by the onboarding form. Values are enum constants (or free text/number). */
 export type OnboardingForm = {
+    // Location
     country: string;
     city: string;
+    region: string;
+    ukCounty: string | null;
+    urbanRural: string | null;
+    // Who you are
     ageRange: string | null;
     gender: string | null;
     genderSelfDescribe: string;
+    sexAtBirth: string | null;
+    sexualOrientation: string | null;
+    maritalStatus: string | null;
+    raceSelections: string[];
+    // Background
+    countryOfBirth: string | null;
+    citizenship: string | null;
+    religion: string | null;
+    religiosity: string | null;
+    politicalPersuasion: string | null;
+    // Education & work
     education: string | null;
     occupation: string | null;
-    newsFrequencyScore: number | null;
-    sexAtBirth: string | null;
+    employmentSector: string | null;
+    universitySubject: string | null;
+    // Finances & body
+    incomeRange: string | null;
     height: string | null;
     weightRange: string | null;
-    incomeRange: string | null;
-    parent: string | null;
     eyeColor: string | null;
-    countryOfBirth: string | null;
-    ukCounty: string | null;
-    universitySubject: string | null;
-    raceSelections: string[];
+    parent: string | null;
+    newsFrequencyScore: number | null;
 };
 
-const SELF_DESCRIBE = "Prefer to self-describe";
+const SELF_DESCRIBE = "SELF_DESCRIBE";
 
 /** True only when every required field has a value. */
 export function isRequiredComplete(form: OnboardingForm): boolean {
@@ -46,27 +60,42 @@ export function isRequiredComplete(form: OnboardingForm): boolean {
 }
 
 /**
- * Builds the submission payload. Carries ONLY characteristic answers — never
- * identity (userId / name / email), which is conveyed by the bearer token.
+ * Builds the submission payload. Carries ONLY characteristic answers — never identity
+ * (userId / name / email), which is conveyed by the bearer token.
  */
 export function buildCharacteristicAnswers(form: OnboardingForm): CharacteristicAnswers {
     return {
-        location: { country: form.country, city: form.city },
+        country: form.country.trim(),
+        city: emptyToNull(form.city),
+        region: emptyToNull(form.region),
+        ukCounty: form.ukCounty,
+        urbanRural: form.urbanRural,
         ageRange: form.ageRange,
         gender: form.gender,
         genderSelfDescribe: form.gender === SELF_DESCRIBE ? form.genderSelfDescribe : "",
+        sexAtBirth: form.sexAtBirth,
+        sexualOrientation: form.sexualOrientation,
+        maritalStatus: form.maritalStatus,
+        race: form.raceSelections,
+        countryOfBirth: form.countryOfBirth,
+        citizenship: form.citizenship,
+        religion: form.religion,
+        religiosity: form.religiosity,
+        politicalPersuasion: form.politicalPersuasion,
         education: form.education,
         occupation: form.occupation,
-        newsFrequency: form.newsFrequencyScore,
-        race: form.raceSelections,
-        sexAtBirth: form.sexAtBirth,
+        employmentSector: form.employmentSector,
+        universitySubject: form.universitySubject,
+        incomeRange: form.incomeRange,
         height: form.height,
         weightRange: form.weightRange,
-        incomeRange: form.incomeRange,
-        parent: form.parent,
         eyeColor: form.eyeColor,
-        countryOfBirth: form.countryOfBirth,
-        ukCounty: form.ukCounty,
-        universitySubject: form.universitySubject,
+        parent: form.parent,
+        newsFrequency: form.newsFrequencyScore,
     };
+}
+
+function emptyToNull(value: string): string | null {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }
