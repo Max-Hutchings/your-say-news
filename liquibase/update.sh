@@ -9,7 +9,7 @@
 #
 # Behaviour is selected by env vars (set in the respective Dockerfile):
 #   CHANGELOG_USER / CHANGELOG_POST  - changelog path per service (master vs seed)
-#   LIQUIBASE_CONTEXTS               - when set (e.g. "seed"), limits which changeSets run
+#   CHANGELOG_CONTEXTS               - when set (e.g. "seed"), limits which changeSets run
 set -eu
 
 : "${DB_URL:?DB_URL is required}"
@@ -28,8 +28,8 @@ run() {
     --url="$DB_URL" \
     --username="$DB_USERNAME" \
     --password="$DB_PASSWORD"
-  if [ -n "${LIQUIBASE_CONTEXTS:-}" ]; then
-    liquibase "$@" update --contexts="$LIQUIBASE_CONTEXTS"
+  if [ -n "${CHANGELOG_CONTEXTS:-}" ]; then
+    liquibase "$@" update --contexts="$CHANGELOG_CONTEXTS"
   else
     liquibase "$@" update
   fi

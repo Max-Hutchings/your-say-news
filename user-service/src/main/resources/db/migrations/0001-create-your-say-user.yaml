@@ -2,6 +2,7 @@ databaseChangeLog:
   - changeSet:
       id: 1763760109822-1
       author: mhutc
+      logicalFilePath: db/db.changelog-master.yaml
       objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
       changes:
         - createTable:
@@ -48,6 +49,7 @@ databaseChangeLog:
   - changeSet:
       id: 1763760109822-2
       author: mhutc
+      logicalFilePath: db/db.changelog-master.yaml
       objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
       changes:
         - addUniqueConstraint:
