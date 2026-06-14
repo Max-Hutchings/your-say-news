@@ -75,6 +75,7 @@ nb-configuration.xml
 *.log
 *.pid
 *.seed
+!liquibase/Dockerfile.seed
 *.pid.lock
 
 # Coverage and reports
