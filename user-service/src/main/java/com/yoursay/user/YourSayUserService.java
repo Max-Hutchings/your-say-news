@@ -19,4 +19,10 @@ public interface YourSayUserService {
     YourSayUserDto getById(long id);
 
     YourSayUserDto getByEmail(String email);
+
+    /**
+     * Record explicit consent to the privacy promise for the authenticated user, stamping the time
+     * and the policy version they agreed to.
+     */
+    YourSayUserDto recordConsent(String email, String privacyPolicyVersion);
 }

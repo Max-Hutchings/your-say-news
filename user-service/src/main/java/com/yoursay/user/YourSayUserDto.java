@@ -1,5 +1,6 @@
 package com.yoursay.user;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 /**
@@ -12,6 +13,8 @@ public record YourSayUserDto(
         String lastName,
         LocalDate dateOfBirth,
         LocalDate createdDate,
-        boolean active
+        boolean active,
+        Instant consentedAt,
+        String privacyPolicyVersion
 ) {
 }

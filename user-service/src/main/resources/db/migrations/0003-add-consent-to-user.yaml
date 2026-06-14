@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0003-add-consent-to-user
+      author: mhutc
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: consented_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: privacy_policy_version
+                  type: VARCHAR(32)

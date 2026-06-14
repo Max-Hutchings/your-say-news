@@ -37,6 +37,21 @@ public class YourSayUserControllerTest {
     }
 
     @Test
+    @TestSecurity(user="nora.new@example.com", roles={"user"})
+    public void recordConsentStampsTimeAndVersion() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{ \"privacyPolicyVersion\": \"2026-06-01\" }")
+                .when()
+                .post(BASE_URL + "/consent")
+                .then()
+                .statusCode(200)
+                .body("email", equalTo("nora.new@example.com"))
+                .body("privacyPolicyVersion", equalTo("2026-06-01"))
+                .body("consentedAt", notNullValue());
+    }
+
+    @Test
     @TestSecurity(user="test@example.com", roles={"user"})
     public void testGetUserById() {
         given()

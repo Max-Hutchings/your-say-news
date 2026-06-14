@@ -5,6 +5,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 
@@ -34,7 +35,24 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
+    /**
+     * When the user gave explicit consent to the privacy promise, and the policy version they
+     * agreed to. Null until they consent. Lives here, with identity/PII — never with the
+     * characteristic data it governs.
+     */
+    @Column(name = "consented_at")
+    private Instant consentedAt;
+
+    @Column(name = "privacy_policy_version")
+    private String privacyPolicyVersion;
+
     public YourSayUser() {
+    }
+
+    /** Record explicit consent to the given privacy-policy version, stamped now. */
+    public void recordConsent(String policyVersion) {
+        this.consentedAt = Instant.now();
+        this.privacyPolicyVersion = policyVersion;
     }
 
     @PrePersist
@@ -123,6 +141,22 @@ public class YourSayUser extends PanacheEntityBase {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public Instant getConsentedAt() {
+        return consentedAt;
+    }
+
+    public void setConsentedAt(Instant consentedAt) {
+        this.consentedAt = consentedAt;
+    }
+
+    public String getPrivacyPolicyVersion() {
+        return privacyPolicyVersion;
+    }
+
+    public void setPrivacyPolicyVersion(String privacyPolicyVersion) {
+        this.privacyPolicyVersion = privacyPolicyVersion;
     }
 }
 
