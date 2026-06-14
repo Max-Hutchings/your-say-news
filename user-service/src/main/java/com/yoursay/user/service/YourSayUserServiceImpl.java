@@ -7,6 +7,8 @@ import com.yoursay.user.model.YourSayUserRepository;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 
 import java.time.LocalDate;
@@ -47,6 +49,17 @@ public class YourSayUserServiceImpl implements YourSayUserService {
         return toDto(yourSayUserRepository.findByEmail(email));
     }
 
+    @Override
+    @Transactional
+    public YourSayUserDto recordConsent(String email, String privacyPolicyVersion) {
+        YourSayUser user = yourSayUserRepository.findByEmail(email);
+        if (user == null) {
+            throw new NotFoundException("No user account exists for the authenticated subject");
+        }
+        user.recordConsent(privacyPolicyVersion);
+        return toDto(user);
+    }
+
     private static YourSayUserDto toDto(YourSayUser user) {
         if (user == null) {
             return null;
@@ -58,7 +71,9 @@ public class YourSayUserServiceImpl implements YourSayUserService {
                 user.getlastName(),
                 user.getDateOfBirth(),
                 user.getCreatedDate(),
-                user.isActive()
+                user.isActive(),
+                user.getConsentedAt(),
+                user.getPrivacyPolicyVersion()
         );
     }
 }

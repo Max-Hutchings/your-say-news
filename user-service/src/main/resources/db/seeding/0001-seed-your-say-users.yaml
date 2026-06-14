@@ -2,6 +2,7 @@ databaseChangeLog:
   - changeSet:
       id: 1763760109822-3
       author: mhutc
+      logicalFilePath: db/db.changelog-master.yaml
       context: seed
       objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
       changes:
@@ -89,6 +90,59 @@ databaseChangeLog:
               - column:
                   name: created_date
                   value: "2024-04-25"
+              - column:
+                  name: active
+                  valueBoolean: true
+
+  # A user who has signed up but NOT yet onboarded (no characteristic profile, no consent).
+  # Lets tests exercise the "not onboarded" read (204) and the create-profile + consent paths.
+  - changeSet:
+      id: 1763760109822-4
+      author: mhutc
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: nora.new@example.com
+              - column:
+                  name: first_name
+                  value: Nora
+              - column:
+                  name: last_name
+                  value: New
+              - column:
+                  name: date_of_birth
+                  value: "1999-09-09"
+              - column:
+                  name: created_date
+                  value: "2024-06-01"
+              - column:
+                  name: active
+                  valueBoolean: true
+        # A second pristine, never-written user so the "not onboarded" read stays isolated from
+        # the create-path tests that write to nora.
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: blank.user@example.com
+              - column:
+                  name: first_name
+                  value: Blank
+              - column:
+                  name: last_name
+                  value: User
+              - column:
+                  name: date_of_birth
+                  value: "1997-07-07"
+              - column:
+                  name: created_date
+                  value: "2024-06-02"
               - column:
                   name: active
                   valueBoolean: true

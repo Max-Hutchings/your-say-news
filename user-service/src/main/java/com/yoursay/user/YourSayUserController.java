@@ -47,6 +47,18 @@ public class YourSayUserController {
     }
 
 
+    /**
+     * Record the authenticated user's explicit consent to the privacy promise. The body carries the
+     * policy version they agreed to; the identity comes from the token.
+     */
+    @POST
+    @Path("/consent")
+    public YourSayUserDto recordConsent(Map<String, String> body) {
+        String email = securityIdentity.getPrincipal().getName();
+        String version = body.getOrDefault("privacyPolicyVersion", "unversioned");
+        return userService.recordConsent(email, version);
+    }
+
     @POST
     @Path("/save")
     @ResponseStatus(201)
