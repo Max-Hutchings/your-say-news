@@ -139,7 +139,6 @@
       ]
     }
   ],
-  "comment_users": "These users MUST stay in sync (by email) with user-service seed data: db/seeding/0001-seed-your-say-users.yaml. enabled mirrors the seed 'active' flag.",
   "users": [
     {
       "username": "john.doe",

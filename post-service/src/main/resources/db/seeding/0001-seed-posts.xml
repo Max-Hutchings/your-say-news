@@ -6,34 +6,64 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
         objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
     <changeSet id="test-data-1" author="generated" context="seed">
+        <validCheckSum>ANY</validCheckSum>
+
         <!-- Insert first test post -->
         <insert tableName="post">
-            <column name="id" value="1000" />
+            <column name="id" value="1000"/>
             <column name="user_id" value="1"/>
             <column name="title" value="Hello World"/>
-            <column name="description" value="This is the first test post."/>
-            <column name="posted_date" valueDate="2025-03-08"/>
-            <column name="image_url" value="http://example.com/image1.jpg"/>
+            <column name="summary" value="This is the first test post."/>
+            <column name="support_question" value="Do you agree this is a good first post?"/>
+            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="created_at" valueDate="2025-03-08T09:00:00"/>
+            <column name="updated_at" valueDate="2025-03-08T09:00:00"/>
         </insert>
 
         <!-- Insert second test post -->
         <insert tableName="post">
-            <column name="id" value="1001" />
+            <column name="id" value="1001"/>
             <column name="user_id" value="1"/>
             <column name="title" value="Another Day"/>
-            <column name="description" value="This is another test post."/>
-            <column name="posted_date" valueDate="2025-03-07"/>
-            <column name="image_url" value="http://example.com/image2.jpg"/>
+            <column name="summary" value="This is another test post."/>
+            <column name="support_question" value="Do you support a four-day week?"/>
+            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="created_at" valueDate="2025-03-07T09:00:00"/>
+            <column name="updated_at" valueDate="2025-03-07T09:00:00"/>
         </insert>
 
         <!-- Insert third test post -->
         <insert tableName="post">
-            <column name="id" value="1002" />
+            <column name="id" value="1002"/>
             <column name="user_id" value="1"/>
             <column name="title" value="Test Post"/>
-            <column name="description" value="Testing test data insertion."/>
-            <column name="posted_date" valueDate="2025-03-06"/>
-            <column name="image_url" value="http://example.com/image3.jpg"/>
+            <column name="summary" value="Testing test data insertion."/>
+            <column name="support_question" value="Do you agree testing matters?"/>
+            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="created_at" valueDate="2025-03-06T09:00:00"/>
+            <column name="updated_at" valueDate="2025-03-06T09:00:00"/>
+        </insert>
+
+        <!-- A couple of post_media rows for the first post -->
+        <insert tableName="post_media">
+            <column name="id" value="2000"/>
+            <column name="post_id" value="1000"/>
+            <column name="media_type" value="IMAGE"/>
+            <column name="s3_key" value="posts/seed-image-1.jpg"/>
+            <column name="content_type" value="image/jpeg"/>
+            <column name="ordinal" value="0"/>
+            <column name="created_at" valueDate="2025-03-08T09:00:00"/>
+        </insert>
+
+        <insert tableName="post_media">
+            <column name="id" value="2001"/>
+            <column name="post_id" value="1000"/>
+            <column name="media_type" value="VIDEO"/>
+            <column name="s3_key" value="posts/seed-video-1.mp4"/>
+            <column name="content_type" value="video/mp4"/>
+            <column name="poster_s3_key" value="posts/seed-video-1-poster.jpg"/>
+            <column name="ordinal" value="1"/>
+            <column name="created_at" valueDate="2025-03-08T09:00:00"/>
         </insert>
     </changeSet>
 </databaseChangeLog>

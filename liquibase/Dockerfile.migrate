@@ -11,6 +11,13 @@ COPY user-service/src/main/resources/db /liquibase/changelog/user-service/db
 COPY post-service/src/main/resources/db /liquibase/changelog/post-service/db
 COPY liquibase/update.sh /liquibase/update.sh
 
+# The image runs as the non-root 'liquibase' user, but COPY preserves host directory modes —
+# which can be 0700 — leaving the changelog dirs unreadable and includeAll failing with
+# "Could not find/read changelogs". Force them readable/traversable regardless of host perms.
+USER root
+RUN chmod -R a+rX /liquibase/changelog
+USER liquibase
+
 # Migrations: master changelogs (migrations/ only), no context filter.
 ENV CHANGELOG_USER=db/db.changelog-master.yaml \
     CHANGELOG_POST=db/db.changelog-master.xml

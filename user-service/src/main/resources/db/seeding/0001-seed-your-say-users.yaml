@@ -1,3 +1,6 @@
+# These seed users MUST stay in sync (by email) with the Keycloak realm users in
+# keycloak/realm-export.json — the realm import has no place for this note (JSON has no
+# comments, and Keycloak rejects unknown fields). The seed 'active' flag mirrors Keycloak 'enabled'.
 databaseChangeLog:
   - changeSet:
       id: 1763760109822-3
