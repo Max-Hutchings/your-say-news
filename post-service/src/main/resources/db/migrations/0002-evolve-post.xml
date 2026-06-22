@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <!-- Evolve the scaffold `post` table into the Stage 2 shape:
+         description -> summary, add support_question / is_unbiased / created_at / updated_at,
+         drop image_url + posted_date (single image replaced by the post_media table below). -->
+    <changeSet id="0002-evolve-post-1" author="mhutc">
+        <renameColumn tableName="post" oldColumnName="description" newColumnName="summary"
+                      columnDataType="VARCHAR(255)"/>
+
+        <addColumn tableName="post">
+            <column name="support_question" type="VARCHAR(512)"/>
+            <column name="is_unbiased" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <update tableName="post">
+            <column name="support_question" value="Do you support this story?"/>
+            <where>support_question IS NULL</where>
+        </update>
+
+        <addNotNullConstraint tableName="post" columnName="support_question"
+                              columnDataType="VARCHAR(512)"/>
+
+        <dropColumn tableName="post" columnName="image_url"/>
+        <dropColumn tableName="post" columnName="posted_date"/>
+    </changeSet>
+
+    <!-- Media attached to a post. Replaces the unused post_videos scaffold. -->
+    <changeSet id="0002-evolve-post-2" author="mhutc">
+        <createTable tableName="post_media">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_post_media"/>
+            </column>
+            <column name="post_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="media_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="s3_key" type="VARCHAR(1024)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_type" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="poster_s3_key" type="VARCHAR(1024)"/>
+            <column name="ordinal" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="post_media" baseColumnNames="post_id"
+                                 constraintName="fk_post_media_post"
+                                 referencedTableName="post" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+
+        <createIndex tableName="post_media" indexName="idx_post_media_post_id">
+            <column name="post_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Reservations for presigned uploads. Create-post consumes only keys minted for that user. -->
+    <changeSet id="0002-evolve-post-3" author="mhutc">
+        <createTable tableName="post_media_upload">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_post_media_upload"/>
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="media_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="s3_key" type="VARCHAR(1024)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_post_media_upload_s3_key"/>
+            </column>
+            <column name="content_type" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="attached_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="post_media_upload" indexName="idx_post_media_upload_user_key">
+            <column name="user_id"/>
+            <column name="s3_key"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

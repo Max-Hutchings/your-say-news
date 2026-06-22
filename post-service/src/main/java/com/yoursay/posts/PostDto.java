@@ -1,16 +1,20 @@
 package com.yoursay.posts;
 
-import java.time.LocalDate;
+import java.time.Instant;
+import java.util.List;
 
 /**
- * Public post representation for HTTP and cross-domain use.
+ * Public post representation for HTTP and cross-domain use. {@code media[].url}/{@code posterUrl}
+ * are presigned GET URLs minted at read time (not stored).
  */
 public record PostDto(
         Long id,
         Long userId,
         String title,
-        String description,
-        LocalDate postedDate,
-        String imageUrl
+        String summary,
+        String supportQuestion,
+        boolean isUnbiased,
+        Instant createdAt,
+        List<PostMediaDto> media
 ) {
 }

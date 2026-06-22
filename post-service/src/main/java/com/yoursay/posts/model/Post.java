@@ -3,60 +3,79 @@ package com.yoursay.posts.model;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 
-import java.time.LocalDate;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@Table(name="post")
+@Table(name = "post")
 public class Post extends PanacheEntityBase {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name="user_id", nullable = false)
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name="title", nullable = false)
+    @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name="description", nullable=false)
-    private String description;
+    @Column(name = "summary", nullable = false)
+    private String summary;
 
-    @Column(name="posted_date", nullable=false)
-    private LocalDate postedDate;
+    @Column(name = "support_question", nullable = false, length = 512)
+    private String supportQuestion;
 
-    @Column(name="image_url")
-    private String imageUrl;
+    @Column(name = "is_unbiased", nullable = false)
+    private boolean isUnbiased;
 
-    @PrePersist
-    protected void onCreate() {
-        postedDate = LocalDate.now();
-    }
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
-    public Post(Long userId, String title, String description, String imageUrl) {
-        this.userId = userId;
-        this.title = title;
-        this.description = description;
-        this.imageUrl = imageUrl;
-    }
-
-    public Post(Long id, Long userId, String title, String description, LocalDate postedDate, String imageUrl) {
-        this.id = id;
-        this.userId = userId;
-        this.title = title;
-        this.description = description;
-        this.postedDate = postedDate;
-        this.imageUrl = imageUrl;
-    }
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("ordinal ASC")
+    private List<PostMedia> media = new ArrayList<>();
 
     public Post() {
-
     }
 
-    public Long getId(){
-        if (id != null) return id;
-        return null;
+    public Post(Long userId, String title, String summary, String supportQuestion, boolean isUnbiased) {
+        this.userId = userId;
+        this.title = title;
+        this.summary = summary;
+        this.supportQuestion = supportQuestion;
+        this.isUnbiased = isUnbiased;
+    }
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    /**
+     * Attach a media item, assigning the next ordinal so read order matches insertion order.
+     */
+    public void addMedia(PostMedia item) {
+        item.setPost(this);
+        item.setOrdinal(media.size());
+        media.add(item);
+    }
+
+    public Long getId() {
+        return id;
     }
 
     public Long getUserId() {
@@ -75,27 +94,39 @@ public class Post extends PanacheEntityBase {
         this.title = title;
     }
 
-    public String getDescription() {
-        return description;
+    public String getSummary() {
+        return summary;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public void setSummary(String summary) {
+        this.summary = summary;
     }
 
-    public LocalDate getPostedDate() {
-        return postedDate;
+    public String getSupportQuestion() {
+        return supportQuestion;
     }
 
-    public void setPostedDate(LocalDate postedDate) {
-        this.postedDate = postedDate;
+    public void setSupportQuestion(String supportQuestion) {
+        this.supportQuestion = supportQuestion;
     }
 
-    public String getImageUrl() {
-        return imageUrl;
+    public boolean isUnbiased() {
+        return isUnbiased;
     }
 
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
+    public void setUnbiased(boolean unbiased) {
+        isUnbiased = unbiased;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public List<PostMedia> getMedia() {
+        return media;
     }
 }
