@@ -266,3 +266,7 @@ the repo-root one (which is tuned for the Quarkus jar builds).
 **After writing tests for a feature, run the `test-audit` skill** to confirm the tests actually
 provide signal (representative data, assertions that pin expected values, and a suite that would
 genuinely fail if the code broke).
+
+
+## Programming style 
+Since virtual threads, reactive programming is no longer necessary for our crud applications. Default to imperitive programming with virtual threads on.
