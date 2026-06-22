@@ -21,6 +21,14 @@ export default function ProtectedLayout() {
         >
             <Stack.Screen name="index" />
             <Stack.Screen name="consent" />
+            <Stack.Screen
+                name="create-post"
+                options={{ headerShown: true, title: "New post", presentation: "modal" }}
+            />
+            <Stack.Screen
+                name="post/[id]"
+                options={{ headerShown: true, title: "Story" }}
+            />
             <Stack.Screen name="(usercharacteristics)/usercharacteristics" />
             <Stack.Screen
                 name="about/your-say-news"

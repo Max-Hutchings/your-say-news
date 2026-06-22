@@ -1,8 +1,13 @@
 /**
  * Posts feature — public face.
  *
- * Routes and other features import posts ONLY from here.
+ * Routes and other features import posts ONLY from here, never from the
+ * internal services/, hooks/ or non-screen components.
  */
 
-export { usePostsApi } from "./hooks/use-posts-api";
-export type { Post } from "./types";
+export { HomeFeed } from "./components/HomeFeed";
+export { CreatePostScreen } from "./components/CreatePostScreen";
+export { PostDetailScreen } from "./components/PostDetailScreen";
+export { PostCard } from "./components/PostCard";
+
+export type { Post, PostMedia, MediaType, CreatePostInput } from "./types";
