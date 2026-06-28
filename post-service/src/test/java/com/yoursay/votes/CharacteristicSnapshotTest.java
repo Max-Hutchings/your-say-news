@@ -11,32 +11,41 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class CharacteristicSnapshotTest {
 
     private static final CharacteristicSnapshot SAMPLE = new CharacteristicSnapshot(
-            "LEFT",          // politicalPersuasion
-            "BAND_100K_PLUS",// incomeRange
-            "ASIAN",         // race
-            "FEMALE",        // sexAtBirth
-            "UNITED_KINGDOM",// countryOfBirth
-            "GREATER_LONDON",// ukCounty
-            null,            // height (not captured)
-            null,            // eyeColor
-            null,            // weightRange
-            null,            // parent
-            null,            // universitySubject
-            true,            // universityEducated
-            false            // propertyOwner
+            "LEFT",           // politicalPersuasion
+            "25_34",          // ageRange
+            "FEMALE",         // gender
+            "FEMALE",         // sexAtBirth
+            "HETEROSEXUAL",   // sexualOrientation
+            "SINGLE",         // maritalStatus
+            "WHITE_BRITISH",  // race
+            "GB",             // country
+            "SOUTH_EAST",     // region
+            "URBAN",          // urbanRural
+            "SURREY",         // ukCounty
+            "GB",             // countryOfBirth
+            "GB",             // citizenship
+            "CHRISTIAN",      // religion
+            "SOMEWHAT_IMPORTANT", // religiosity
+            "UNDERGRADUATE",  // education
+            "EMPLOYED_FULL_TIME", // occupation
+            "TECHNOLOGY",     // employmentSector
+            "COMPUTER_SCIENCE", // universitySubject
+            "50K_75K",        // incomeRange
+            null,             // height (not captured)
+            null,             // weightRange
+            null,             // eyeColor
+            "NO",             // parent
+            "4"               // newsFrequency
     );
 
     @Test
     void resolvesStringAxesToTheirValue() {
         assertEquals("LEFT", SAMPLE.bucketFor("politicalPersuasion"));
-        assertEquals("BAND_100K_PLUS", SAMPLE.bucketFor("incomeRange"));
-        assertEquals("GREATER_LONDON", SAMPLE.bucketFor("ukCounty"));
-    }
-
-    @Test
-    void resolvesBooleanAxesToTrueOrFalse() {
-        assertEquals("true", SAMPLE.bucketFor("universityEducated"));
-        assertEquals("false", SAMPLE.bucketFor("propertyOwner"));
+        assertEquals("50K_75K", SAMPLE.bucketFor("incomeRange"));
+        assertEquals("SURREY", SAMPLE.bucketFor("ukCounty"));
+        assertEquals("25_34", SAMPLE.bucketFor("ageRange"));
+        assertEquals("URBAN", SAMPLE.bucketFor("urbanRural"));
+        assertEquals("4", SAMPLE.bucketFor("newsFrequency"));
     }
 
     @Test
@@ -55,7 +64,7 @@ class CharacteristicSnapshotTest {
         CharacteristicSnapshot empty = CharacteristicSnapshot.empty();
         assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("politicalPersuasion"));
         assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("race"));
-        // Boolean axes default to false on an empty snapshot, which is a real bucket label.
-        assertEquals("false", empty.bucketFor("universityEducated"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("ageRange"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("incomeRange"));
     }
 }

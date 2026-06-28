@@ -20,7 +20,8 @@ class SentimentTallyTest {
     /** Snapshot with only the political axis set; everything else unknown. */
     private static CharacteristicSnapshot political(String leaning) {
         return new CharacteristicSnapshot(
-                leaning, null, null, null, null, null, null, null, null, null, null, false, false);
+                leaning, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**
