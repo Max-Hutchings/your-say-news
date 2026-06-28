@@ -10,24 +10,36 @@ package com.yoursay.votes;
  * slice sentiment by characteristic. Mirrors the reportable axes of the user-service
  * {@code UserCharacteristicDto}; identifying fields are deliberately excluded.
  *
- * <p>Categorical values are strings (enum names from user-service, or {@code "true"}/
- * {@code "false"} for boolean axes) so the votes domain stays decoupled from user-service's
- * internal enums. A {@code null} field means "not captured / prefer not to say".
+ * <p>Categorical values are strings (enum names from user-service, or stringified numbers /
+ * booleans) so the votes domain stays decoupled from user-service's internal enums. A
+ * {@code null} field means "not captured / prefer not to say".
  */
 public record CharacteristicSnapshot(
         String politicalPersuasion,
-        String incomeRange,
-        String race,
+        String ageRange,
+        String gender,
         String sexAtBirth,
-        String countryOfBirth,
+        String sexualOrientation,
+        String maritalStatus,
+        String race,
+        String country,
+        String region,
+        String urbanRural,
         String ukCounty,
-        String height,
-        String eyeColor,
-        String weightRange,
-        String parent,
+        String countryOfBirth,
+        String citizenship,
+        String religion,
+        String religiosity,
+        String education,
+        String occupation,
+        String employmentSector,
         String universitySubject,
-        boolean universityEducated,
-        boolean propertyOwner
+        String incomeRange,
+        String height,
+        String weightRange,
+        String eyeColor,
+        String parent,
+        String newsFrequency
 ) {
 
     /** Sentinel bucket label for votes whose value on the requested axis is unknown. */
@@ -42,26 +54,40 @@ public record CharacteristicSnapshot(
     public String bucketFor(String axis) {
         String value = switch (axis) {
             case "politicalPersuasion" -> politicalPersuasion;
-            case "incomeRange" -> incomeRange;
-            case "race" -> race;
+            case "ageRange" -> ageRange;
+            case "gender" -> gender;
             case "sexAtBirth" -> sexAtBirth;
-            case "countryOfBirth" -> countryOfBirth;
+            case "sexualOrientation" -> sexualOrientation;
+            case "maritalStatus" -> maritalStatus;
+            case "race" -> race;
+            case "country" -> country;
+            case "region" -> region;
+            case "urbanRural" -> urbanRural;
             case "ukCounty" -> ukCounty;
-            case "height" -> height;
-            case "eyeColor" -> eyeColor;
-            case "weightRange" -> weightRange;
-            case "parent" -> parent;
+            case "countryOfBirth" -> countryOfBirth;
+            case "citizenship" -> citizenship;
+            case "religion" -> religion;
+            case "religiosity" -> religiosity;
+            case "education" -> education;
+            case "occupation" -> occupation;
+            case "employmentSector" -> employmentSector;
             case "universitySubject" -> universitySubject;
-            case "universityEducated" -> String.valueOf(universityEducated);
-            case "propertyOwner" -> String.valueOf(propertyOwner);
+            case "incomeRange" -> incomeRange;
+            case "height" -> height;
+            case "weightRange" -> weightRange;
+            case "eyeColor" -> eyeColor;
+            case "parent" -> parent;
+            case "newsFrequency" -> newsFrequency;
             default -> null;
         };
         return value == null ? UNKNOWN : value;
     }
 
-    /** An empty snapshot (all axes unknown). Placeholder until vote-time snapshotting lands in Stage 3. */
+    /** An empty snapshot (all 25 axes unknown). */
     public static CharacteristicSnapshot empty() {
         return new CharacteristicSnapshot(
-                null, null, null, null, null, null, null, null, null, null, null, false, false);
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null);
     }
 }
