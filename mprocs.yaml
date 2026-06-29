@@ -1,7 +1,7 @@
 # Dev runner: starts all local dev processes in one TUI, each in its own pane.
 #
 # Prereqs: infra must already be up ->  docker compose up
-# Run:     npm run dev   (or: npx mprocs)
+# Run:     bun run dev   (or: bunx mprocs)
 #
 # Panes (focus with arrows / mouse):
 #   - user-service : Quarkus dev mode on :8081 (hot reload)
@@ -20,4 +20,4 @@ procs:
 
   expo:
     cwd: "frontend/mobile/your-say-news"
-    shell: "npm run start"
+    shell: "bun run start"
