@@ -14,36 +14,32 @@ export const AGE_RANGES: Option[] = [
     { label: "35–44", value: "AGE_35_44" },
     { label: "45–54", value: "AGE_45_54" },
     { label: "55–64", value: "AGE_55_64" },
-    { label: "65+", value: "AGE_65_PLUS" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
+    { label: "65–75", value: "AGE_65_75" },
+    { label: "75+", value: "AGE_75_PLUS" },
 ];
 
 export const GENDER_OPTIONS: Option[] = [
     { label: "Woman", value: "WOMAN" },
     { label: "Man", value: "MAN" },
     { label: "Non-binary / gender diverse", value: "NON_BINARY" },
-    { label: "Prefer to self-describe", value: "SELF_DESCRIBE" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const EDUCATION_OPTIONS: Option[] = [
     { label: "No formal education", value: "NO_FORMAL_EDUCATION" },
-    { label: "High school or equivalent", value: "HIGH_SCHOOL" },
-    { label: "Some college / vocational", value: "SOME_COLLEGE" },
+    { label: "High school or college", value: "HIGH_SCHOOL" },
     { label: "Bachelor’s or equivalent", value: "BACHELORS" },
     { label: "Master’s or equivalent", value: "MASTERS" },
     { label: "Doctorate", value: "DOCTORATE" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const OCCUPATION_OPTIONS: Option[] = [
     { label: "Student", value: "STUDENT" },
     { label: "Employed full-time", value: "EMPLOYED_FULL_TIME" },
+    { label: "Employed full-time / studying part-time", value: "EMPLOYED_AND_STUDYING" },
     { label: "Employed part-time", value: "EMPLOYED_PART_TIME" },
     { label: "Self-employed", value: "SELF_EMPLOYED" },
     { label: "Unemployed", value: "UNEMPLOYED" },
     { label: "Retired", value: "RETIRED" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 // --- New coverage axes (Stage 1). Values mirror the backend enums exactly. ---
@@ -52,7 +48,6 @@ export const URBAN_RURAL_OPTIONS: Option[] = [
     { label: "Urban", value: "URBAN" },
     { label: "Suburban", value: "SUBURBAN" },
     { label: "Rural", value: "RURAL" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const MARITAL_STATUS_OPTIONS: Option[] = [
@@ -62,7 +57,6 @@ export const MARITAL_STATUS_OPTIONS: Option[] = [
     { label: "Civil partnership", value: "CIVIL_PARTNERSHIP" },
     { label: "Divorced", value: "DIVORCED" },
     { label: "Widowed", value: "WIDOWED" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const SEXUAL_ORIENTATION_OPTIONS: Option[] = [
@@ -72,7 +66,6 @@ export const SEXUAL_ORIENTATION_OPTIONS: Option[] = [
     { label: "Pansexual", value: "PANSEXUAL" },
     { label: "Asexual", value: "ASEXUAL" },
     { label: "Other", value: "OTHER" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const RELIGION_OPTIONS: Option[] = [
@@ -84,7 +77,6 @@ export const RELIGION_OPTIONS: Option[] = [
     { label: "Sikhism", value: "SIKHISM" },
     { label: "Other religion", value: "OTHER_RELIGION" },
     { label: "No religion", value: "NO_RELIGION" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const RELIGIOSITY_OPTIONS: Option[] = [
@@ -92,7 +84,6 @@ export const RELIGIOSITY_OPTIONS: Option[] = [
     { label: "Slightly", value: "SLIGHTLY_RELIGIOUS" },
     { label: "Moderately", value: "MODERATELY_RELIGIOUS" },
     { label: "Very", value: "VERY_RELIGIOUS" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const POLITICAL_PERSUASION_OPTIONS: Option[] = [
@@ -102,7 +93,6 @@ export const POLITICAL_PERSUASION_OPTIONS: Option[] = [
     { label: "Centre-right", value: "CENTRE_RIGHT" },
     { label: "Right", value: "RIGHT" },
     { label: "Apolitical", value: "APOLITICAL" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const EMPLOYMENT_SECTOR_OPTIONS: Option[] = [
@@ -126,7 +116,6 @@ export const EMPLOYMENT_SECTOR_OPTIONS: Option[] = [
     { label: "Military & defence", value: "MILITARY_DEFENCE" },
     { label: "Other", value: "OTHER" },
     { label: "Not applicable", value: "NOT_APPLICABLE" },
-    { label: "Prefer not to say", value: "PREFER_NOT_TO_SAY" },
 ];
 
 export const RACE_OPTIONS: Option[] = [
@@ -174,19 +163,101 @@ export const WEIGHT_OPTIONS: Option[] = [
 ];
 
 export const INCOME_OPTIONS: Option[] = [
-    { label: "Below 20k", value: "BELOW_20K" },
+    { label: "<20k", value: "BELOW_20K" },
     { label: "20k–50k", value: "BETWEEN_20K_AND_50K" },
     { label: "50k–100k", value: "BETWEEN_50K_AND_100K" },
-    { label: "100k–200k", value: "BETWEEN_100K_AND_200K" },
+    { label: "100k–150k", value: "BETWEEN_100K_AND_150K" },
+    { label: "151k–200k", value: "BETWEEN_151K_AND_200K" },
     { label: "200k–500k", value: "BETWEEN_200K_AND_500K" },
     { label: "500k–1M", value: "BETWEEN_500K_AND_1000K" },
-    { label: "Above 1M", value: "ABOVE_1000000" }, // adjust to your enum value if different
+    { label: "1M+", value: "ABOVE_1000000" },
 ];
 
 export const PARENT_OPTIONS: Option[] = [
-    { label: "Mum", value: "MUM" },
-    { label: "Dad", value: "DAD" },
+    { label: "Yes", value: "YES" },
     { label: "No", value: "NO" },
+];
+
+export const YES_NO_OPTIONS: Option[] = [
+    { label: "Yes", value: "YES" },
+    { label: "No", value: "NO" },
+];
+
+export const PET_TYPE_OPTIONS: Option[] = [
+    { label: "Dog", value: "DOG" },
+    { label: "Cat", value: "CAT" },
+    { label: "Fish", value: "FISH" },
+    { label: "Bird", value: "BIRD" },
+    { label: "Reptile", value: "REPTILE" },
+];
+
+export const CHRONOTYPE_OPTIONS: Option[] = [
+    { label: "Morning lark", value: "MORNING_LARK" },
+    { label: "Night owl", value: "NIGHT_OWL" },
+    { label: "In between", value: "IN_BETWEEN" },
+];
+
+export const OUTLOOK_OPTIONS: Option[] = [
+    { label: "Glass half full", value: "OPTIMIST" },
+    { label: "Glass half empty", value: "PESSIMIST" },
+    { label: "Depends on the day", value: "DEPENDS" },
+];
+
+export const NEURODIVERGENCE_TYPE_OPTIONS: Option[] = [
+    { label: "ADHD", value: "ADHD" },
+    { label: "Autism", value: "AUTISM" },
+    { label: "Dyslexia", value: "DYSLEXIA" },
+    { label: "Dyspraxia", value: "DYSPRAXIA" },
+    { label: "Dyscalculia", value: "DYSCALCULIA" },
+    { label: "Other", value: "OTHER" },
+];
+
+export const DISABILITY_TYPE_OPTIONS: Option[] = [
+    { label: "Physical / mobility", value: "PHYSICAL_MOBILITY" },
+    { label: "Visual", value: "VISUAL" },
+    { label: "Hearing", value: "HEARING" },
+    { label: "Cognitive / learning", value: "COGNITIVE_LEARNING" },
+    { label: "Chronic illness", value: "CHRONIC_ILLNESS" },
+    { label: "Mental health", value: "MENTAL_HEALTH" },
+    { label: "Other", value: "OTHER" },
+];
+
+export const HOUSING_STATUS_OPTIONS: Option[] = [
+    { label: "Live with parents", value: "LIVE_WITH_PARENTS" },
+    { label: "Rent", value: "RENT" },
+    { label: "Own a property", value: "OWN" },
+];
+
+export const PROPERTY_TYPE_OPTIONS: Option[] = [
+    { label: "House", value: "HOUSE" },
+    { label: "Flat", value: "FLAT" },
+];
+
+export type CurrencyOption = Option & { symbol: string };
+
+// Ordered by economy size (nominal GDP). `symbol` is the 3-letter ISO code, used as the
+// prefix on income bands (e.g. "GBP 20k").
+export const CURRENCY_OPTIONS: CurrencyOption[] = [
+    { label: "USD", value: "USD", symbol: "USD" },
+    { label: "CNY", value: "CNY", symbol: "CNY" },
+    { label: "EUR", value: "EUR", symbol: "EUR" },
+    { label: "JPY", value: "JPY", symbol: "JPY" },
+    { label: "GBP", value: "GBP", symbol: "GBP" },
+    { label: "INR", value: "INR", symbol: "INR" },
+    { label: "CAD", value: "CAD", symbol: "CAD" },
+    { label: "BRL", value: "BRL", symbol: "BRL" },
+    { label: "AUD", value: "AUD", symbol: "AUD" },
+    { label: "KRW", value: "KRW", symbol: "KRW" },
+    { label: "MXN", value: "MXN", symbol: "MXN" },
+    { label: "RUB", value: "RUB", symbol: "RUB" },
+    { label: "CHF", value: "CHF", symbol: "CHF" },
+    { label: "SGD", value: "SGD", symbol: "SGD" },
+    { label: "HKD", value: "HKD", symbol: "HKD" },
+    { label: "ZAR", value: "ZAR", symbol: "ZAR" },
+    { label: "SEK", value: "SEK", symbol: "SEK" },
+    { label: "NOK", value: "NOK", symbol: "NOK" },
+    { label: "DKK", value: "DKK", symbol: "DKK" },
+    { label: "AED", value: "AED", symbol: "AED" },
 ];
 
 export const EYE_COLOR_OPTIONS: Option[] = [
@@ -537,6 +608,7 @@ export const UNIVERSITY_SUBJECT_OPTIONS: Option[] = [
     { label: "Geography", value: "GEOGRAPHY" },
     { label: "Education", value: "EDUCATION" },
     { label: "Nursing", value: "NURSING" },
+    { label: "Osteopathy", value: "OSTEOPATHY" },
     { label: "Environmental Science", value: "ENVIRONMENTAL_SCIENCE" },
     { label: "Journalism", value: "JOURNALISM" },
     { label: "Fine Arts", value: "FINE_ARTS" },
@@ -548,3 +620,12 @@ export const UNIVERSITY_SUBJECT_OPTIONS: Option[] = [
     { label: "Agriculture", value: "AGRICULTURE" },
     { label: "Other", value: "OTHER" },
 ];
+
+export const NATIONALITY_OPTIONS: Option[] = [
+    ...COUNTRY_OF_BIRTH_OPTIONS.filter((o) => o.value !== "UNITED_KINGDOM"),
+    { label: "British", value: "BRITISH" },
+    { label: "English", value: "ENGLISH" },
+    { label: "Scottish", value: "SCOTTISH" },
+    { label: "Welsh", value: "WELSH" },
+    { label: "Northern Irish", value: "NORTHERN_IRISH" },
+].sort((a, b) => a.label.localeCompare(b.label));

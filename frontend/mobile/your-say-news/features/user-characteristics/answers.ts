@@ -18,7 +18,6 @@ export type OnboardingForm = {
     // Who you are
     ageRange: string | null;
     gender: string | null;
-    genderSelfDescribe: string;
     sexAtBirth: string | null;
     sexualOrientation: string | null;
     maritalStatus: string | null;
@@ -35,27 +34,75 @@ export type OnboardingForm = {
     employmentSector: string | null;
     universitySubject: string | null;
     // Finances & body
-    incomeRange: string | null;
+    personalIncomeRange: string | null;
+    householdIncomeRange: string | null;
     height: string | null;
     weightRange: string | null;
     eyeColor: string | null;
     parent: string | null;
     newsFrequencyScore: number | null;
+    // Lifestyle. `hasPet` holds the YES_NO chip value ("YES"/"NO"); `petType` only applies on "YES".
+    hasPet: string | null;
+    petType: string | null;
+    // Quirky
+    chronotype: string | null;
+    outlook: string | null;
+    // Neurodiversity & disability. The yes/no holds a YES_NO chip value; the type only applies on "YES".
+    neurodivergent: string | null;
+    neurodivergenceType: string | null;
+    hasDisability: string | null;
+    disabilityType: string | null;
+    // Property. `propertyType` only applies when `housingStatus` is "OWN".
+    housingStatus: string | null;
+    propertyType: string | null;
+    // News habits
+    balancedNewsViewpoint: string | null;
+    mainstreamNewsPercent: number;
+    betterWorldWithData: string | null;
 };
-
-const SELF_DESCRIBE = "SELF_DESCRIBE";
 
 /** True only when every required field has a value. */
 export function isRequiredComplete(form: OnboardingForm): boolean {
     return (
         form.country.trim().length > 0 &&
+        form.urbanRural !== null &&
         form.ageRange !== null &&
         form.gender !== null &&
         form.raceSelections.length > 0 &&
         form.sexAtBirth !== null &&
+        form.sexualOrientation !== null &&
+        form.maritalStatus !== null &&
+        form.countryOfBirth !== null &&
+        form.citizenship !== null &&
+        form.religion !== null &&
+        form.religiosity !== null &&
+        form.politicalPersuasion !== null &&
+        form.education !== null &&
+        form.occupation !== null &&
+        form.employmentSector !== null &&
         form.height !== null &&
         form.weightRange !== null &&
-        form.incomeRange !== null
+        form.personalIncomeRange !== null &&
+        form.householdIncomeRange !== null &&
+        form.eyeColor !== null &&
+        form.parent !== null &&
+        form.newsFrequencyScore !== null &&
+        form.hasPet !== null &&
+        // petType is only required once the user says they have a pet.
+        (form.hasPet !== "YES" || form.petType !== null) &&
+        form.chronotype !== null &&
+        form.outlook !== null &&
+        form.neurodivergent !== null &&
+        // neurodivergenceType is only required once the user says they are neurodivergent.
+        (form.neurodivergent !== "YES" || form.neurodivergenceType !== null) &&
+        form.hasDisability !== null &&
+        // disabilityType is only required once the user says they have a disability.
+        (form.hasDisability !== "YES" || form.disabilityType !== null) &&
+        form.housingStatus !== null &&
+        // propertyType is only required once the user says they own a property.
+        (form.housingStatus !== "OWN" || form.propertyType !== null) &&
+        form.balancedNewsViewpoint !== null &&
+        form.betterWorldWithData !== null
     );
 }
 
@@ -72,7 +119,7 @@ export function buildCharacteristicAnswers(form: OnboardingForm): Characteristic
         urbanRural: form.urbanRural,
         ageRange: form.ageRange,
         gender: form.gender,
-        genderSelfDescribe: form.gender === SELF_DESCRIBE ? form.genderSelfDescribe : "",
+        genderSelfDescribe: "",
         sexAtBirth: form.sexAtBirth,
         sexualOrientation: form.sexualOrientation,
         maritalStatus: form.maritalStatus,
@@ -86,13 +133,38 @@ export function buildCharacteristicAnswers(form: OnboardingForm): Characteristic
         occupation: form.occupation,
         employmentSector: form.employmentSector,
         universitySubject: form.universitySubject,
-        incomeRange: form.incomeRange,
+        personalIncomeRange: form.personalIncomeRange,
+        householdIncomeRange: form.householdIncomeRange,
         height: form.height,
         weightRange: form.weightRange,
         eyeColor: form.eyeColor,
-        parent: form.parent,
+        parent: deriveParent(form.parent, form.sexAtBirth),
         newsFrequency: form.newsFrequencyScore,
+        hasPet: toBoolean(form.hasPet),
+        // Drop any pet type unless the user actually owns a pet, so non-owners never carry one.
+        petType: form.hasPet === "YES" ? form.petType : null,
+        chronotype: form.chronotype,
+        outlook: form.outlook,
+        neurodivergent: toBoolean(form.neurodivergent),
+        // Drop the type unless the user is neurodivergent, so others never carry one.
+        neurodivergenceType: form.neurodivergent === "YES" ? form.neurodivergenceType : null,
+        hasDisability: toBoolean(form.hasDisability),
+        disabilityType: form.hasDisability === "YES" ? form.disabilityType : null,
+        housingStatus: form.housingStatus,
+        // Drop property type unless the user owns, so non-owners never carry one.
+        propertyType: form.housingStatus === "OWN" ? form.propertyType : null,
     };
+}
+
+function deriveParent(parent: string | null, sexAtBirth: string | null): string | null {
+    if (parent === null) return null;
+    if (parent === "NO") return "NO";
+    return sexAtBirth === "FEMALE" ? "MUM" : "DAD";
+}
+
+function toBoolean(yesNo: string | null): boolean | null {
+    if (yesNo === null) return null;
+    return yesNo === "YES";
 }
 
 function emptyToNull(value: string): string | null {
