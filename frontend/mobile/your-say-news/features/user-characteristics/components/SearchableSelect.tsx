@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import type { Option } from "../types";
-import { Eyebrow } from "./Eyebrow";
+import { Eyebrow } from "@/components/ui";
 
 /**
  * Searchable long-list select (design handoff): a labelled trigger opens a modal with a teal-ringed

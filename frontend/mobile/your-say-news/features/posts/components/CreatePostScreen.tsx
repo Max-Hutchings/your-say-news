@@ -1,32 +1,42 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Button, Input } from "@/components/ui";
-import { ThemedView } from "@/components/themed-view";
-import { ThemedText } from "@/components/themed-text";
-import { useTheme, Spacing, Typography } from "@/constants/theme";
+import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
+import { Eyebrow } from "@/components/ui";
 import { useCreatePost } from "../hooks/use-create-post";
-import { MediaPicker } from "./MediaPicker";
+import { ComposeHeader } from "./ComposeHeader";
+import { ComposeModeToggle, type ComposeMode } from "./ComposeModeToggle";
+import { ComposeMediaField } from "./ComposeMediaField";
+import { PepperCompose } from "./PepperCompose";
 
 /**
- * The full create-post experience: headline, summary and support-question
- * fields, optional media, and publish. All orchestration lives in
- * useCreatePost; this composes the UI and navigates home on success.
+ * The create-post experience in the editorial design language (design handoff).
+ * A compose header, a Manual / Pepper AI mode switch, then either the manual
+ * form — headline (serif), summary, the support question inverted onto ink, and
+ * an optional media well — or the Pepper AI template. Orchestration for the
+ * manual path lives in useCreatePost; Pepper is a template only (no wiring yet).
  */
+
+const HEADLINE_MAX = 120;
+const SUMMARY_MAX = 600;
+
 export function CreatePostScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
-  const {
-    picked,
-    progress,
-    submitting,
-    error,
-    fieldErrors,
-    pickMedia,
-    clearMedia,
-    submit,
-  } = useCreatePost();
+  const { isDark } = useTheme();
+  const e = getEditorial(isDark);
+  const { picked, progress, submitting, error, fieldErrors, pickMedia, clearMedia, submit } =
+    useCreatePost();
 
+  const [mode, setMode] = useState<ComposeMode>("manual");
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [supportQuestion, setSupportQuestion] = useState("");
@@ -37,7 +47,9 @@ export function CreatePostScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: e.bg }]} edges={["top", "bottom"]}>
+      <ComposeHeader onBack={() => router.back()} onPost={handlePublish} posting={submitting} />
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -48,92 +60,209 @@ export function CreatePostScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <ThemedText variant="h3">Share a story</ThemedText>
-            <ThemedText variant="bodySmall" color="secondary">
-              Add a headline, a summary and the question you want people to weigh in on.
-            </ThemedText>
-          </View>
+          <ComposeModeToggle mode={mode} onChange={setMode} />
 
-          <Input
-            label="Headline"
-            placeholder="A clear, specific headline"
-            value={title}
-            onChangeText={setTitle}
-            error={fieldErrors.title}
-          />
+          {mode === "pepper" ? (
+            <PepperCompose />
+          ) : (
+            <>
+              {/* HEADLINE */}
+              <View style={styles.labelRow}>
+                <Eyebrow text="HEADLINE" />
+                <Text style={[styles.count, { color: e.chipText }]}>
+                  {title.length} / {HEADLINE_MAX}
+                </Text>
+              </View>
+              <View style={[styles.field, { backgroundColor: e.surface, borderColor: e.border }]}>
+                <TextInput
+                  value={title}
+                  onChangeText={setTitle}
+                  maxLength={HEADLINE_MAX}
+                  placeholder="Schools are banning phones. Grades are climbing."
+                  placeholderTextColor={e.muted}
+                  multiline
+                  style={[styles.headlineInput, { color: e.ink }]}
+                />
+              </View>
+              {fieldErrors.title && (
+                <Text style={[styles.fieldError, { color: e.coral }]}>{fieldErrors.title}</Text>
+              )}
 
-          <Input
-            label="Summary"
-            placeholder="Give readers the context they need before voting"
-            value={summary}
-            onChangeText={setSummary}
-            error={fieldErrors.summary}
-            multiline
-            inputStyle={styles.multiline}
-          />
+              {/* SUMMARY */}
+              <View style={styles.labelRow}>
+                <Eyebrow text="SUMMARY" />
+                <Text style={[styles.count, { color: e.chipText }]}>
+                  {summary.length} / {SUMMARY_MAX}
+                </Text>
+              </View>
+              <View style={[styles.field, { backgroundColor: e.surface, borderColor: e.border }]}>
+                <TextInput
+                  value={summary}
+                  onChangeText={setSummary}
+                  maxLength={SUMMARY_MAX}
+                  placeholder="Give readers the context they need before voting."
+                  placeholderTextColor={e.muted}
+                  multiline
+                  style={[styles.summaryInput, { color: e.chipText }]}
+                />
+              </View>
+              {fieldErrors.summary && (
+                <Text style={[styles.fieldError, { color: e.coral }]}>{fieldErrors.summary}</Text>
+              )}
 
-          <Input
-            label="Support question"
-            placeholder="Do you agree that ...?"
-            value={supportQuestion}
-            onChangeText={setSupportQuestion}
-            error={fieldErrors.supportQuestion}
-          />
+              {/* SUPPORT QUESTION — inverted onto ink */}
+              <Eyebrow text="SUPPORT QUESTION" style={styles.blockLabel} />
+              <View style={[styles.supportBlock, { backgroundColor: e.inkBlock }]}>
+                <View style={styles.quoteRow}>
+                  <Text style={[styles.quoteMark, { color: e.lime }]}>{"“"}</Text>
+                  <TextInput
+                    value={supportQuestion}
+                    onChangeText={setSupportQuestion}
+                    placeholder="Phones should be banned in all schools during class hours."
+                    placeholderTextColor={e.onInkBlockMuted}
+                    multiline
+                    style={[styles.supportInput, { color: e.onInkBlock }]}
+                  />
+                </View>
+                <View style={styles.voteRow}>
+                  <View style={[styles.votePill, { borderColor: e.agreePreviewBorder }]}>
+                    <Text style={[styles.votePillText, { color: e.agreePreview }]}>AGREE</Text>
+                  </View>
+                  <View style={[styles.votePill, { borderColor: e.disagreePreviewBorder }]}>
+                    <Text style={[styles.votePillText, { color: e.disagreePreview }]}>DISAGREE</Text>
+                  </View>
+                </View>
+                <Text style={[styles.supportHelp, { color: e.onInkBlockMuted }]}>
+                  Readers vote once. Phrase it as a clear yes/no motion.
+                </Text>
+              </View>
+              {fieldErrors.supportQuestion && (
+                <Text style={[styles.fieldError, { color: e.coral }]}>
+                  {fieldErrors.supportQuestion}
+                </Text>
+              )}
 
-          <View style={styles.mediaSection}>
-            <Text style={[styles.mediaLabel, { color: colors.text.secondary }]}>
-              Media (optional)
-            </Text>
-            <MediaPicker
-              media={picked}
-              progress={progress}
-              uploading={submitting && Boolean(picked)}
-              onPick={pickMedia}
-              onClear={clearMedia}
-            />
-          </View>
+              {/* MEDIA */}
+              <View style={styles.mediaSpacer}>
+                <ComposeMediaField
+                  media={picked}
+                  progress={progress}
+                  uploading={submitting && Boolean(picked)}
+                  onPick={pickMedia}
+                  onClear={clearMedia}
+                />
+              </View>
 
-          {error && (
-            <Text style={[styles.error, { color: colors.status.error }]}>{error}</Text>
+              {error && <Text style={[styles.fieldError, { color: e.coral }]}>{error}</Text>}
+            </>
           )}
-
-          <Button fullWidth loading={submitting} onPress={handlePublish}>
-            Publish
-          </Button>
         </ScrollView>
       </KeyboardAvoidingView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
   },
   flex: {
     flex: 1,
   },
   content: {
-    padding: Spacing.base,
-    gap: Spacing.base,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-  header: {
-    gap: Spacing.xs,
-    marginBottom: Spacing.sm,
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 7,
   },
-  multiline: {
-    height: 120,
-    paddingTop: Spacing.md,
+  blockLabel: {
+    marginTop: 16,
+    marginBottom: 7,
+  },
+  count: {
+    fontFamily: EditorialFont.mono,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  field: {
+    borderWidth: 1.5,
+    borderRadius: 13,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  headlineInput: {
+    fontFamily: EditorialFont.serifRegular,
+    fontSize: 20,
+    lineHeight: 23,
+    padding: 0,
+  },
+  summaryInput: {
+    fontFamily: EditorialFont.sans,
+    fontSize: 13.5,
+    lineHeight: 21,
+    padding: 0,
+    minHeight: 80,
     textAlignVertical: "top",
   },
-  mediaSection: {
-    gap: Spacing.xs,
+  supportBlock: {
+    borderRadius: 14,
+    padding: 15,
   },
-  mediaLabel: {
-    ...Typography.labelMedium,
+  quoteRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
   },
-  error: {
-    ...Typography.bodySmall,
+  quoteMark: {
+    fontFamily: EditorialFont.serif,
+    fontSize: 30,
+    lineHeight: 24,
+  },
+  supportInput: {
+    flex: 1,
+    fontFamily: EditorialFont.serifItalic,
+    fontStyle: "italic",
+    fontSize: 16.5,
+    lineHeight: 22,
+    padding: 0,
+    minHeight: 44,
+    textAlignVertical: "top",
+  },
+  voteRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 13,
+  },
+  votePill: {
+    flex: 1,
+    height: 30,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  votePillText: {
+    fontFamily: EditorialFont.mono,
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  supportHelp: {
+    fontFamily: EditorialFont.sans,
+    fontSize: 11,
+    marginTop: 10,
+  },
+  mediaSpacer: {
+    marginTop: 16,
+  },
+  fieldError: {
+    fontFamily: EditorialFont.sans,
+    fontSize: 12,
+    marginTop: 6,
   },
 });

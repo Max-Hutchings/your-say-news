@@ -1,6 +1,6 @@
 // app/(protected)/_layout.tsx
 import { Stack } from "expo-router";
-import { useTheme } from "@/constants/theme";
+import { useTheme, getEditorial } from "@/constants/theme";
 
 /**
  * Protected area layout.
@@ -10,20 +10,21 @@ import { useTheme } from "@/constants/theme";
  * multiple top-level destinations (profile, results, settings).
  */
 export default function ProtectedLayout() {
-    const { colors } = useTheme();
+    const { isDark } = useTheme();
+    const e = getEditorial(isDark);
 
     return (
         <Stack
             screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: colors.background.primary },
+                contentStyle: { backgroundColor: e.bg },
             }}
         >
             <Stack.Screen name="index" />
             <Stack.Screen name="consent" />
             <Stack.Screen
                 name="create-post"
-                options={{ headerShown: true, title: "New post", presentation: "modal" }}
+                options={{ headerShown: false, presentation: "modal" }}
             />
             <Stack.Screen
                 name="post/[id]"
