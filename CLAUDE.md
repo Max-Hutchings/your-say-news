@@ -1,3 +1,7 @@
+## Message for AI
+
+1. Less is more. Provide adequate detail but always avoid lots of text and over-complicated detail in responses. Be specific, be precise.
+
 # CLAUDE.md
 
 Guidance for Claude Code (and any agent) working in this repository. Read this before
@@ -60,6 +64,28 @@ Infra (Compose) is assumed already up. `r` restarts the focused proc, `q` quits 
 
 Seed data is injected automatically on Compose startup (see DB section). Keycloak comes up with
 its realm and test users already imported.
+
+## Architecture decision records
+
+Core product and architecture decisions live as ADRs in `wiki/`. Any AI agent working on this
+project must add or update an ADR when a core decision is made, especially when the decision affects
+data modelling, privacy, user identity, service boundaries, product rules, or third-party providers.
+
+ADR filenames must use:
+
+```text
+ADR-<increment number>-<date>-<four-key-words>.md
+```
+
+Example: `ADR-001-2026-06-30-optional-city-place-picker.md`.
+
+Each ADR must explain:
+
+1. Situation
+2. Options considered
+3. Decision
+4. Reason
+5. Consequences or follow-up work, where useful
 
 ## Backend structure — Domain-Driven Design
 
