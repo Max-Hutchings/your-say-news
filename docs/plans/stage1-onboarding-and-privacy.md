@@ -29,7 +29,7 @@ never trusted from the body.
 
 1. **Enums** — new: `AgeRange`, `Gender`, `EducationLevel`, `OccupationStatus`, `UrbanRural`,
    `MaritalStatus`, `SexualOrientation`, `Religion`, `Religiosity`, `EmploymentSector`. Updated:
-   `PoliticalPersuasion` (7-point band + PNTS), `IncomeRange` (align values with `options.ts`).
+   `PoliticalPersuasion` (6-point band), `IncomeRange` (align values with `options.ts`).
    Citizenship reuses the `CountryOfBirth` country list.
 2. **Entity / DTO / service** — redesign `UserCharacteristic` to the captured set + new axes;
    multi-select `race` via an element-collection table; `userId` set from the token.
@@ -51,7 +51,7 @@ never trusted from the body.
    update `answers.ts` (`OnboardingForm`, `isRequiredComplete`, `buildCharacteristicAnswers`) and
    its tests.
 3. **Onboarding** — extend `OnboardingScreen` with the new fields/steps; political persuasion gets
-   a prominent step; all sensitive axes are optional + "Prefer not to say".
+   a prominent step; core characteristic axes are required so aggregate breakdowns remain useful.
 4. **Privacy & consent** — a consent screen shown after first sign-in and before onboarding,
    explaining what we collect and that only aggregated/anonymised characteristics are ever shown;
    records consent via the backend.

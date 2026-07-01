@@ -54,7 +54,7 @@ Get a real user from zero to a complete characteristic profile, with privacy mes
 
 - **Characteristic-coverage review (do first).** Audit whether the captured set covers the breakdowns we promise. Confirmed gaps/additions to make before the onboarding flow is built — see *"Characteristic coverage"* below. The headline gap: **political persuasion is not currently captured** despite `CLAUDE.md` naming it as a core breakdown axis.
 - **Sign-up / sign-in** end-to-end against Keycloak (registration, not just the seeded test users).
-- **Characteristic onboarding flow** — multi-step UI consuming `options.ts`, persisting `CharacteristicAnswers` to `usercharacteristic` with **no identity attached**. "Prefer not to say" honoured throughout.
+- **Characteristic onboarding flow** — multi-step UI consuming `options.ts`, persisting `CharacteristicAnswers` to `usercharacteristic` with **no identity attached**. Core characteristic axes are required; location free-text exceptions are captured in ADR-001.
 - **Privacy marketing & consent** — clear, explicit screens during sign-up: *what we collect, that only aggregated/anonymised characteristics are ever shown, that name/email/exact identity are never tied to a vote publicly.* Explicit consent recorded.
 - Backend: persist + validate characteristic enums; ensure PII (name/email) lives only in `user`, characteristics in `usercharacteristic`, joined only by the authenticated subject server-side.
 
@@ -143,18 +143,18 @@ The differentiator. Built last because it depends on the post + support-question
 
 Because the product *is* "sentiment sliced by who you are", the value of every aggregate is capped by the characteristics we collect. Audit + extend the set in Stage 1, **before** the onboarding UI is frozen.
 
-**Captured today:** location (country/city), age range, gender (+ self-describe), education, occupation, news frequency, race, sex at birth, height, weight, income, parent, eye colour, country of birth, UK county, university subject.
+**Captured today:** location (country/city), age range, gender, education, occupation, news frequency, race, sex at birth, height, weight, income, parent, eye colour, country of birth, UK county, university subject.
 
 **Gaps to close for MVP1** (high signal for news-agreement, cheap to add as enums + onboarding steps):
 
-- **Political persuasion / leaning** — **the priority gap.** Named explicitly in `CLAUDE.md` as a core breakdown yet absent from `options.ts`. Capture as a non-identifying band (e.g. Left / Centre-left / Centre / Centre-right / Right / Apolitical / Prefer not to say). Likely the strongest predictor of how someone votes on a support question.
+- **Political persuasion / leaning** — **the priority gap.** Named explicitly in `CLAUDE.md` as a core breakdown yet absent from `options.ts`. Capture as a non-identifying band (e.g. Left / Centre-left / Centre / Centre-right / Right / Apolitical). Likely the strongest predictor of how someone votes on a support question.
 - **Religion / religiosity** — affiliation and/or "how important is religion to you" band.
 - **Region within country / urban-rural** — we have UK county only; add a country-agnostic region/state field and an urban / suburban / rural band so non-UK users are sortable.
-- **Relationship/marital status** and **sexual orientation** — common opinion-research axes (both with "prefer not to say").
+- **Relationship/marital status** and **sexual orientation** — common opinion-research axes.
 - **Citizenship / nationality** — distinct from country of birth and country of residence.
 - **Employment sector / industry** — finer than the current occupation status list.
 
-**Review for relevance / sensitivity:** height, weight and eye colour add re-identification surface area (small buckets) while adding little to news sentiment — keep, but they make the no-threshold privacy risk worse and argue for the `k`-flip. Treat especially sensitive new fields (religion, sexual orientation, political leaning) as optional and clearly "prefer not to say"-able, reinforced by the Stage 1 privacy messaging.
+**Review for relevance / sensitivity:** height, weight and eye colour add re-identification surface area (small buckets) while adding little to news sentiment — keep, but they make the no-threshold privacy risk worse and argue for the `k`-flip. Treat especially sensitive fields through aggregation and minimum-bucket privacy rules.
 
 Every new characteristic must land in three places in lockstep: backend enum, `options.ts`/`CharacteristicAnswers`, and the seed test-user generator below — otherwise aggregates can't be tested against it.
 
