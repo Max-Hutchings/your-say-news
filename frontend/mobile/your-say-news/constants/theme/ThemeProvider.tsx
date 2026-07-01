@@ -38,6 +38,10 @@ import { Typography } from './typography';
 import { Spacing, Layout, ComponentSize, ZIndex } from './spacing';
 import { BorderRadius, Shadows, Opacity, BorderWidth, AnimationDuration } from './effects';
 
+function normalizeColorScheme(colorScheme: ReturnType<typeof useSystemColorScheme>): ColorScheme {
+  return colorScheme === 'dark' ? 'dark' : 'light';
+}
+
 // ============================================================================
 // THEME CONTEXT TYPES
 // ============================================================================
@@ -104,7 +108,7 @@ export function ThemeProvider({
   // Determine actual color scheme
   const colorScheme: ColorScheme = useMemo(() => {
     if (themePreference === 'system') {
-      return systemColorScheme ?? 'light';
+      return normalizeColorScheme(systemColorScheme);
     }
     return themePreference;
   }, [themePreference, systemColorScheme]);

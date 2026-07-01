@@ -90,7 +90,7 @@ export function PrivacyConsentScreen() {
                     disabled={submitting}
                     style={[styles.cta, { backgroundColor: e.lime, opacity: submitting ? 0.7 : 1 }]}
                 >
-                    <Text style={[styles.ctaLabel, { color: e.ink }]}>
+                    <Text style={[styles.ctaLabel, { color: e.onLime }]}>
                         {submitting ? "Saving…" : "I agree — continue"}
                     </Text>
                 </Pressable>

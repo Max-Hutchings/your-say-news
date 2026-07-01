@@ -6,22 +6,48 @@
  * in the realm, so "Create an account" runs the same secure flow and lands on Keycloak's sign-up.
  */
 import { useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { Platform, View, Text, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuthStore } from "@/features/auth";
+import {
+    exchangeKeycloakCodeAsync,
+    startKeycloakWebRedirect,
+    useAuthStore,
+    useKeycloakAuthRequest,
+} from "@/features/auth";
 import { getEditorial, EditorialFont } from "@/constants/theme";
 
 // The login screen is a fixed dark brand moment regardless of system theme.
 const e = getEditorial(true);
 
 export default function SignInScreen() {
-    const { login } = useAuthStore();
+    const { completeLogin } = useAuthStore();
+    const { discovery, promptAsync, ready, redirectUri, request } = useKeycloakAuthRequest();
     const [busy, setBusy] = useState(false);
 
     const onContinue = async () => {
-        setBusy(true);
         try {
-            await login();
+            if (!ready || !request || !discovery) {
+                return;
+            }
+
+            if (Platform.OS === "web") {
+                startKeycloakWebRedirect(request, redirectUri);
+                return;
+            }
+
+            const authResult = await promptAsync();
+            setBusy(true);
+
+            const tokens = await exchangeKeycloakCodeAsync(
+                authResult,
+                request,
+                discovery,
+                redirectUri,
+            );
+
+            if (tokens) {
+                await completeLogin(tokens);
+            }
         } finally {
             setBusy(false);
         }
@@ -33,7 +59,7 @@ export default function SignInScreen() {
                 {/* Brand lockup */}
                 <View style={styles.brandRow}>
                     <View style={[styles.logo, { backgroundColor: e.lime }]}>
-                        <Text style={[styles.logoY, { color: "#1B1815" }]}>Y</Text>
+                        <Text style={[styles.logoY, { color: e.onLime }]}>Y</Text>
                     </View>
                     <Text style={[styles.wordmark, { color: e.ink }]}>Your Say News</Text>
                 </View>
@@ -79,17 +105,17 @@ export default function SignInScreen() {
                 <Text style={[styles.sheetEyebrow, { color: e.lime }]}>SECURE SINGLE SIGN-ON</Text>
                 <Pressable
                     onPress={onContinue}
-                    disabled={busy}
-                    style={[styles.primary, { backgroundColor: e.lime, opacity: busy ? 0.7 : 1 }]}
+                    disabled={busy || !ready}
+                    style={[styles.primary, { backgroundColor: e.lime, opacity: busy || !ready ? 0.7 : 1 }]}
                 >
-                    <Lock color="#1B1815" />
-                    <Text style={[styles.primaryLabel, { color: "#1B1815" }]}>
-                        {busy ? "Connecting…" : "Continue securely"}
+                    <Lock color={e.onLime} />
+                    <Text style={[styles.primaryLabel, { color: e.onLime }]}>
+                        {!ready ? "Preparing..." : busy ? "Connecting..." : "Continue securely"}
                     </Text>
                 </Pressable>
                 <Pressable
                     onPress={onContinue}
-                    disabled={busy}
+                    disabled={busy || !ready}
                     style={[styles.secondary, { borderColor: "#3A352D" }]}
                 >
                     <Text style={[styles.secondaryLabel, { color: "#E7E1D4" }]}>Create an account</Text>

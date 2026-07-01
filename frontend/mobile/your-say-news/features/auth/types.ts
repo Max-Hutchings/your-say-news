@@ -29,6 +29,11 @@ export interface UserState extends User {
     refreshAccessToken: () => Promise<string | null>;
 
     login: () => Promise<boolean>; // true/false for success
+    completeLogin: (tokens: {
+        accessToken: string;
+        refreshToken: string | null;
+        expiresIn: number | null;
+    }) => Promise<boolean>;
     logout: () => Promise<void>;
     setHasOnboarded: (onboarded: boolean) => void;
     setConsentedAt: (at: string | null) => void;
