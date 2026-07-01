@@ -94,3 +94,7 @@ reports/
 *.nar
 hs_err_pid*
 replay_pid*
+
+# The Gradle wrapper jar must be committed so `./gradlew` works on a fresh clone
+# (it bootstraps the wrapper); keep it tracked despite the *.jar rule above.
+!gradle/wrapper/gradle-wrapper.jar
