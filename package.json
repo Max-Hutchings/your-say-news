@@ -4,7 +4,7 @@
   "private": true,
   "description": "Local dev tooling for Your Say News. Runs all dev processes (Quarkus services + Expo) in one mprocs TUI. Run infra separately with `docker compose up`.",
   "scripts": {
-    "dev": "mprocs"
+    "dev": "./scripts/check-compose-services.sh && mprocs"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
