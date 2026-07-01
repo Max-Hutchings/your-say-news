@@ -12,7 +12,7 @@ const isWeb = Platform.OS === "web";
 export const useAuthStore = create(
     persist<UserState>(
         (set) => ({
-            _stateHydrated: false,
+            _stateHydrated: isWeb,
             isLoggedIn: false,
             hasOnboarded: false,
             id: null,
@@ -34,6 +34,7 @@ export const useAuthStore = create(
             refreshAccessToken,
 
             login,
+            completeLogin,
             logout,
             setHasOnboarded,
             setConsentedAt,
@@ -47,11 +48,14 @@ export const useAuthStore = create(
                     getItem: (key: string) => SecureStore.getItemAsync(key),
                     removeItem: (key: string) => SecureStore.deleteItemAsync(key),
                 })),
+            merge: (persistedState, currentState) => ({
+                ...currentState,
+                ...(persistedState as Partial<UserState>),
+                _stateHydrated: true,
+            }),
             onRehydrateStorage: () => {
-                return (state) => {
-                    if (state) {
-                        state._stateHydrated = true;
-                    }
+                return () => {
+                    useAuthStore.setState({ _stateHydrated: true });
                 };
             },
         }
@@ -89,6 +93,14 @@ async function login(): Promise<boolean> {
         return false; // user cancelled / error
     }
 
+    return completeLogin(tokens);
+}
+
+async function completeLogin(tokens: {
+    accessToken: string;
+    refreshToken: string | null;
+    expiresIn: number | null;
+}): Promise<boolean> {
     useAuthStore.setState({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -100,6 +112,12 @@ async function login(): Promise<boolean> {
     const user: User | null = await getUser()
 
     if (!user){
+        useAuthStore.setState({
+            accessToken: null,
+            refreshToken: null,
+            accessTokenExpiresAt: null,
+            isLoggedIn: false,
+        });
         return false;
     }
 

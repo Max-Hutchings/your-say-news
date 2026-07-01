@@ -64,6 +64,7 @@ export default function RootLayout(){
         <SafeAreaProvider>
             <ThemeProvider>
                 <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="index" />
                     <Stack.Protected guard={isLoggedIn}>
                         <Stack.Screen name="(protected)" />
                     </Stack.Protected>

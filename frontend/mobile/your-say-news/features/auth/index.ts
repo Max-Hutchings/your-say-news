@@ -6,6 +6,12 @@
  */
 
 export { useAuthStore } from "./services/authContext";
+export {
+    completeKeycloakWebRedirectFromUrl,
+    exchangeKeycloakCodeAsync,
+    startKeycloakWebRedirect,
+    useKeycloakAuthRequest,
+} from "./services/keycloakService";
 export { default as YsnHttpClient } from "./services/requests";
 export { recordConsent, PRIVACY_POLICY_VERSION } from "./services/ConsentService";
 export { PrivacyConsentScreen } from "./components/PrivacyConsentScreen";
