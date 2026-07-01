@@ -30,22 +30,44 @@ class CharacteristicSnapshotTest {
             "EMPLOYED_FULL_TIME", // occupation
             "TECHNOLOGY",     // employmentSector
             "COMPUTER_SCIENCE", // universitySubject
-            "50K_75K",        // incomeRange
+            "50K_75K",        // personalIncomeRange
+            "100K_150K",      // householdIncomeRange
             null,             // height (not captured)
             null,             // weightRange
             null,             // eyeColor
             "NO",             // parent
-            "4"               // newsFrequency
+            "4",              // newsFrequency
+            "true",           // hasPet
+            "DOG",            // petType
+            "NIGHT_OWL",      // chronotype
+            "OPTIMIST",       // outlook
+            "true",           // neurodivergent
+            "ADHD",           // neurodivergenceType
+            "true",           // hasDisability
+            "HEARING",        // disabilityType
+            "OWN",            // housingStatus
+            "FLAT"            // propertyType
     );
 
     @Test
     void resolvesStringAxesToTheirValue() {
         assertEquals("LEFT", SAMPLE.bucketFor("politicalPersuasion"));
-        assertEquals("50K_75K", SAMPLE.bucketFor("incomeRange"));
+        assertEquals("50K_75K", SAMPLE.bucketFor("personalIncomeRange"));
+        assertEquals("100K_150K", SAMPLE.bucketFor("householdIncomeRange"));
         assertEquals("SURREY", SAMPLE.bucketFor("ukCounty"));
         assertEquals("25_34", SAMPLE.bucketFor("ageRange"));
         assertEquals("URBAN", SAMPLE.bucketFor("urbanRural"));
         assertEquals("4", SAMPLE.bucketFor("newsFrequency"));
+        assertEquals("true", SAMPLE.bucketFor("hasPet"));
+        assertEquals("DOG", SAMPLE.bucketFor("petType"));
+        assertEquals("NIGHT_OWL", SAMPLE.bucketFor("chronotype"));
+        assertEquals("OPTIMIST", SAMPLE.bucketFor("outlook"));
+        assertEquals("true", SAMPLE.bucketFor("neurodivergent"));
+        assertEquals("ADHD", SAMPLE.bucketFor("neurodivergenceType"));
+        assertEquals("true", SAMPLE.bucketFor("hasDisability"));
+        assertEquals("HEARING", SAMPLE.bucketFor("disabilityType"));
+        assertEquals("OWN", SAMPLE.bucketFor("housingStatus"));
+        assertEquals("FLAT", SAMPLE.bucketFor("propertyType"));
     }
 
     @Test
@@ -65,6 +87,15 @@ class CharacteristicSnapshotTest {
         assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("politicalPersuasion"));
         assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("race"));
         assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("ageRange"));
-        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("incomeRange"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("personalIncomeRange"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("householdIncomeRange"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("hasPet"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("petType"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("chronotype"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("outlook"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("neurodivergent"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("disabilityType"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("housingStatus"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, empty.bucketFor("propertyType"));
     }
 }

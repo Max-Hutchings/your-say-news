@@ -21,6 +21,5 @@ public enum EmploymentSector {
     NONPROFIT,
     MILITARY_DEFENCE,
     OTHER,
-    NOT_APPLICABLE,
-    PREFER_NOT_TO_SAY
+    NOT_APPLICABLE
 }

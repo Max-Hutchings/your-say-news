@@ -87,7 +87,7 @@ public class UserCharacteristic extends PanacheEntityBase {
     /** Citizenship / nationality — distinct from country of birth and country of residence. */
     @Enumerated(EnumType.STRING)
     @Column(name = "citizenship")
-    private CountryOfBirth citizenship;
+    private Nationality citizenship;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "religion")
@@ -120,8 +120,12 @@ public class UserCharacteristic extends PanacheEntityBase {
 
     // --- Finances & body ---
     @Enumerated(EnumType.STRING)
-    @Column(name = "income_range", nullable = false)
-    private IncomeRange incomeRange;
+    @Column(name = "personal_income_range", nullable = false)
+    private IncomeRange personalIncomeRange;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "household_income_range", nullable = false)
+    private IncomeRange householdIncomeRange;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "height", nullable = false)
@@ -142,6 +146,52 @@ public class UserCharacteristic extends PanacheEntityBase {
     /** News-following frequency as a 0–10 self-report scale (see ScaleSelector). */
     @Column(name = "news_frequency")
     private Integer newsFrequency;
+
+    // --- Lifestyle ---
+    @Column(name = "has_pet")
+    private Boolean hasPet;
+
+    /** Kind of pet — only set when {@link #hasPet} is true, otherwise {@code null}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pet_type")
+    private PetType petType;
+
+    /** Morning lark / night owl / in between. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chronotype")
+    private Chronotype chronotype;
+
+    /** Optimist / pessimist / depends — disposition toward the future. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "outlook")
+    private Outlook outlook;
+
+    // --- Neurodiversity & disability ---
+    @Column(name = "neurodivergent")
+    private Boolean neurodivergent;
+
+    /** Kind of neurodivergence — only set when {@link #neurodivergent} is true, otherwise {@code null}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "neurodivergence_type")
+    private NeurodivergenceType neurodivergenceType;
+
+    @Column(name = "has_disability")
+    private Boolean hasDisability;
+
+    /** Kind of disability — only set when {@link #hasDisability} is true, otherwise {@code null}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "disability_type")
+    private DisabilityType disabilityType;
+
+    // --- Property ---
+    @Enumerated(EnumType.STRING)
+    @Column(name = "housing_status")
+    private HousingStatus housingStatus;
+
+    /** Kind of owned property — only set when {@link #housingStatus} is OWN, otherwise {@code null}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "property_type")
+    private PropertyType propertyType;
 
     public UserCharacteristic() {
     }
@@ -266,11 +316,11 @@ public class UserCharacteristic extends PanacheEntityBase {
         this.countryOfBirth = countryOfBirth;
     }
 
-    public CountryOfBirth getCitizenship() {
+    public Nationality getCitizenship() {
         return citizenship;
     }
 
-    public void setCitizenship(CountryOfBirth citizenship) {
+    public void setCitizenship(Nationality citizenship) {
         this.citizenship = citizenship;
     }
 
@@ -330,12 +380,20 @@ public class UserCharacteristic extends PanacheEntityBase {
         this.universitySubject = universitySubject;
     }
 
-    public IncomeRange getIncomeRange() {
-        return incomeRange;
+    public IncomeRange getPersonalIncomeRange() {
+        return personalIncomeRange;
     }
 
-    public void setIncomeRange(IncomeRange incomeRange) {
-        this.incomeRange = incomeRange;
+    public void setPersonalIncomeRange(IncomeRange personalIncomeRange) {
+        this.personalIncomeRange = personalIncomeRange;
+    }
+
+    public IncomeRange getHouseholdIncomeRange() {
+        return householdIncomeRange;
+    }
+
+    public void setHouseholdIncomeRange(IncomeRange householdIncomeRange) {
+        this.householdIncomeRange = householdIncomeRange;
     }
 
     public Height getHeight() {
@@ -376,5 +434,85 @@ public class UserCharacteristic extends PanacheEntityBase {
 
     public void setNewsFrequency(Integer newsFrequency) {
         this.newsFrequency = newsFrequency;
+    }
+
+    public Boolean getHasPet() {
+        return hasPet;
+    }
+
+    public void setHasPet(Boolean hasPet) {
+        this.hasPet = hasPet;
+    }
+
+    public PetType getPetType() {
+        return petType;
+    }
+
+    public void setPetType(PetType petType) {
+        this.petType = petType;
+    }
+
+    public Chronotype getChronotype() {
+        return chronotype;
+    }
+
+    public void setChronotype(Chronotype chronotype) {
+        this.chronotype = chronotype;
+    }
+
+    public Outlook getOutlook() {
+        return outlook;
+    }
+
+    public void setOutlook(Outlook outlook) {
+        this.outlook = outlook;
+    }
+
+    public Boolean getNeurodivergent() {
+        return neurodivergent;
+    }
+
+    public void setNeurodivergent(Boolean neurodivergent) {
+        this.neurodivergent = neurodivergent;
+    }
+
+    public NeurodivergenceType getNeurodivergenceType() {
+        return neurodivergenceType;
+    }
+
+    public void setNeurodivergenceType(NeurodivergenceType neurodivergenceType) {
+        this.neurodivergenceType = neurodivergenceType;
+    }
+
+    public Boolean getHasDisability() {
+        return hasDisability;
+    }
+
+    public void setHasDisability(Boolean hasDisability) {
+        this.hasDisability = hasDisability;
+    }
+
+    public DisabilityType getDisabilityType() {
+        return disabilityType;
+    }
+
+    public void setDisabilityType(DisabilityType disabilityType) {
+        this.disabilityType = disabilityType;
+    }
+
+    public HousingStatus getHousingStatus() {
+        return housingStatus;
+    }
+
+    public void setHousingStatus(HousingStatus housingStatus) {
+        this.housingStatus = housingStatus;
+    }
+
+    public PropertyType getPropertyType() {
+        return propertyType;
+    }
+
+    public void setPropertyType(PropertyType propertyType) {
+        this.propertyType = propertyType;
     }
 }

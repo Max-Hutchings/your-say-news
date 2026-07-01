@@ -52,12 +52,23 @@ public class UserCharacteristicControllerTest {
               "occupation": "STUDENT",
               "employmentSector": "NOT_APPLICABLE",
               "universitySubject": "LAW",
-              "incomeRange": "BELOW_20K",
+              "personalIncomeRange": "BELOW_20K",
+              "householdIncomeRange": "BETWEEN_100K_AND_150K",
               "height": "FEET_5_4_TO_5_6",
               "weightRange": "KG_60_69",
               "eyeColor": "BLUE",
               "parent": "NO",
-              "newsFrequency": 6
+              "newsFrequency": 6,
+              "hasPet": true,
+              "petType": "DOG",
+              "chronotype": "NIGHT_OWL",
+              "outlook": "OPTIMIST",
+              "neurodivergent": true,
+              "neurodivergenceType": "ADHD",
+              "hasDisability": false,
+              "disabilityType": null,
+              "housingStatus": "OWN",
+              "propertyType": "FLAT"
             }
             """;
     }
@@ -82,9 +93,12 @@ public class UserCharacteristicControllerTest {
                 .body("userId", equalTo(5))
                 .body("ageRange", equalTo("AGE_18_24"))
                 .body("politicalPersuasion", equalTo("CENTRE_LEFT"))
-                .body("incomeRange", equalTo("BELOW_20K"))
+                .body("personalIncomeRange", equalTo("BELOW_20K"))
+                .body("householdIncomeRange", equalTo("BETWEEN_100K_AND_150K"))
                 .body("race", hasItems("WHITE", "ASIAN"))
-                .body("race.size()", is(2));
+                .body("race.size()", is(2))
+                .body("hasPet", equalTo(true))
+                .body("petType", equalTo("DOG"));
 
         // Read back
         given()
@@ -98,7 +112,227 @@ public class UserCharacteristicControllerTest {
                 .body("maritalStatus", equalTo("SINGLE"))
                 .body("religion", equalTo("NO_RELIGION"))
                 .body("newsFrequency", equalTo(6))
+                .body("hasPet", equalTo(true))
+                .body("petType", equalTo("DOG"))
+                .body("chronotype", equalTo("NIGHT_OWL"))
+                .body("outlook", equalTo("OPTIMIST"))
+                .body("neurodivergent", equalTo(true))
+                .body("neurodivergenceType", equalTo("ADHD"))
+                .body("hasDisability", equalTo(false))
+                .body("disabilityType", nullValue())
+                .body("housingStatus", equalTo("OWN"))
+                .body("propertyType", equalTo("FLAT"))
                 .body("race", hasItems("WHITE", "ASIAN"));
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void petTypeIsClearedWhenUserHasNoPet() {
+        // A non-owner who still sends a petType must have it dropped server-side.
+        String noPet = validBody()
+                .replace("\"hasPet\": true", "\"hasPet\": false");
+        given()
+                .contentType(ContentType.JSON)
+                .body(noPet)
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("hasPet", equalTo(false))
+                .body("petType", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void petOwnerWithoutPetTypeIsRejected() {
+        // hasPet true but no petType is invalid — the type is required for owners.
+        String missingType = validBody().replace("\"petType\": \"DOG\"", "\"petType\": null");
+        given()
+                .contentType(ContentType.JSON)
+                .body(missingType)
+                .when().post(BASE)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void missingHasPetIsRejected() {
+        String missing = validBody().replace("\"hasPet\": true,", "");
+        given()
+                .contentType(ContentType.JSON)
+                .body(missing)
+                .when().post(BASE)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void neurodivergenceTypeIsClearedWhenNotNeurodivergent() {
+        // First store a type as a neurodivergent user...
+        given()
+                .contentType(ContentType.JSON)
+                .body(validBody())
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("neurodivergent", equalTo(true))
+                .body("neurodivergenceType", equalTo("ADHD"));
+        // ...then re-save as NOT neurodivergent with a stray type still in the body: the previously
+        // stored type must be nulled (proves the force-null else-branch on the update path).
+        String notNd = validBody().replace("\"neurodivergent\": true", "\"neurodivergent\": false");
+        given()
+                .contentType(ContentType.JSON)
+                .body(notNd)
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("neurodivergent", equalTo(false))
+                .body("neurodivergenceType", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void neurodivergentWithoutTypeIsRejected() {
+        // neurodivergent true but no type is invalid — the type is required when the flag is set.
+        String body = validBody().replace("\"neurodivergenceType\": \"ADHD\"", "\"neurodivergenceType\": null");
+        given()
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when().post(BASE)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void disabilityTypeIsRequiredWhenHasDisability() {
+        // Flip to having a disability but omit the type — must be rejected.
+        String body = validBody()
+                .replace("\"hasDisability\": false", "\"hasDisability\": true");
+        given()
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when().post(BASE)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void disabilityTypeIsStoredWhenHasDisability() {
+        String body = validBody()
+                .replace("\"hasDisability\": false", "\"hasDisability\": true")
+                .replace("\"disabilityType\": null", "\"disabilityType\": \"HEARING\"");
+        given()
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("hasDisability", equalTo(true))
+                .body("disabilityType", equalTo("HEARING"));
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void disabilityTypeIsClearedWhenNoDisability() {
+        // First store a disability + type...
+        String withDisability = validBody()
+                .replace("\"hasDisability\": false", "\"hasDisability\": true")
+                .replace("\"disabilityType\": null", "\"disabilityType\": \"HEARING\"");
+        given()
+                .contentType(ContentType.JSON)
+                .body(withDisability)
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("hasDisability", equalTo(true))
+                .body("disabilityType", equalTo("HEARING"));
+        // ...then re-save with no disability but a stray type in the body: it must be nulled.
+        String noDisability = withDisability.replace("\"hasDisability\": true", "\"hasDisability\": false");
+        given()
+                .contentType(ContentType.JSON)
+                .body(noDisability)
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("hasDisability", equalTo(false))
+                .body("disabilityType", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void missingHasDisabilityIsRejected() {
+        String missing = validBody().replace("\"hasDisability\": false,", "");
+        given()
+                .contentType(ContentType.JSON)
+                .body(missing)
+                .when().post(BASE)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void missingNeurodivergentIsRejected() {
+        String missing = validBody().replace("\"neurodivergent\": true,", "");
+        given()
+                .contentType(ContentType.JSON)
+                .body(missing)
+                .when().post(BASE)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void propertyTypeIsClearedWhenNotAnOwner() {
+        // First store a property type as an owner...
+        given()
+                .contentType(ContentType.JSON)
+                .body(validBody())
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("housingStatus", equalTo("OWN"))
+                .body("propertyType", equalTo("FLAT"));
+        // ...then re-save as a renter with a stray property type still in the body: the previously
+        // stored type must be nulled (proves the force-null else-branch on the update path).
+        String renter = validBody().replace("\"housingStatus\": \"OWN\"", "\"housingStatus\": \"RENT\"");
+        given()
+                .contentType(ContentType.JSON)
+                .body(renter)
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("housingStatus", equalTo("RENT"))
+                .body("propertyType", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void ownerWithoutPropertyTypeIsRejected() {
+        // housingStatus OWN but no propertyType is invalid — the type is required for owners.
+        String body = validBody().replace("\"propertyType\": \"FLAT\"", "\"propertyType\": null");
+        given()
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when().post(BASE)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void missingHousingStatusIsRejected() {
+        String missing = validBody().replace("\"housingStatus\": \"OWN\",", "");
+        given()
+                .contentType(ContentType.JSON)
+                .body(missing)
+                .when().post(BASE)
+                .then()
+                .statusCode(400);
     }
 
     @Test
@@ -146,8 +380,8 @@ public class UserCharacteristicControllerTest {
     @Test
     @TestSecurity(user = NORA, roles = {"user"})
     public void missingRequiredFieldIsRejected() {
-        // Drop the required incomeRange.
-        String missing = validBody().replace("\"incomeRange\": \"BELOW_20K\",", "");
+        // Drop the required personalIncomeRange.
+        String missing = validBody().replace("\"personalIncomeRange\": \"BELOW_20K\",", "");
         given()
                 .contentType(ContentType.JSON)
                 .body(missing)

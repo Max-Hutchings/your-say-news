@@ -1,6 +1,6 @@
 package com.yoursay.usercharacteristic.model.Enums;
 
-/** Religious affiliation — sensitive; always optional and PNTS-able. Pairs with {@link Religiosity}. */
+/** Religious affiliation. Pairs with {@link Religiosity}. */
 public enum Religion {
     CHRISTIANITY,
     ISLAM,
@@ -9,6 +9,5 @@ public enum Religion {
     JUDAISM,
     SIKHISM,
     OTHER_RELIGION,
-    NO_RELIGION,
-    PREFER_NOT_TO_SAY
+    NO_RELIGION
 }

@@ -8,6 +8,6 @@ public enum AgeRange {
     AGE_35_44,
     AGE_45_54,
     AGE_55_64,
-    AGE_65_PLUS,
-    PREFER_NOT_TO_SAY
+    AGE_65_75,
+    AGE_75_PLUS
 }

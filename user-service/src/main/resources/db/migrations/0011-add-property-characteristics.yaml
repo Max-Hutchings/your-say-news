@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0011-add-property-characteristics
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        # Property axes. Nullable so existing rows and seed data stay valid; the API layer enforces
+        # housingStatus as required and propertyType as required only when housingStatus is OWN.
+        - addColumn:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: housing_status
+                  type: VARCHAR(32)
+              - column:
+                  name: property_type
+                  type: VARCHAR(16)

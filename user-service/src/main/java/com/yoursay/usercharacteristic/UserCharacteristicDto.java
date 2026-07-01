@@ -41,11 +41,26 @@ public record UserCharacteristicDto(
         String employmentSector,
         String universitySubject,
         // Finances & body
-        String incomeRange,
+        String personalIncomeRange,
+        String householdIncomeRange,
         String height,
         String weightRange,
         String eyeColor,
         String parent,
-        Integer newsFrequency
+        Integer newsFrequency,
+        // Lifestyle
+        Boolean hasPet,
+        String petType,
+        // Quirky
+        String chronotype,
+        String outlook,
+        // Neurodiversity & disability
+        Boolean neurodivergent,
+        String neurodivergenceType,
+        Boolean hasDisability,
+        String disabilityType,
+        // Property
+        String housingStatus,
+        String propertyType
 ) {
 }

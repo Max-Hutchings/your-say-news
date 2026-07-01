@@ -38,12 +38,23 @@ public final class CharacteristicSnapshotMapper {
                 view.occupation(),
                 view.employmentSector(),
                 view.universitySubject(),
-                view.incomeRange(),
+                view.personalIncomeRange(),
+                view.householdIncomeRange(),
                 view.height(),
                 view.weightRange(),
                 view.eyeColor(),
                 view.parent(),
-                view.newsFrequency() == null ? null : String.valueOf(view.newsFrequency())
+                view.newsFrequency() == null ? null : String.valueOf(view.newsFrequency()),
+                view.hasPet() == null ? null : String.valueOf(view.hasPet()),
+                view.petType(),
+                view.chronotype(),
+                view.outlook(),
+                view.neurodivergent() == null ? null : String.valueOf(view.neurodivergent()),
+                view.neurodivergenceType(),
+                view.hasDisability() == null ? null : String.valueOf(view.hasDisability()),
+                view.disabilityType(),
+                view.housingStatus(),
+                view.propertyType()
         );
     }
 

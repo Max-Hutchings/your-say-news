@@ -7,6 +7,8 @@ databaseChangeLog:
       author: mhutc
       context: seed
       objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      validCheckSum:
+        - 9:28dc4cef8fd6e8c4dae295b063a275b8
       changes:
         # 1 — John: UK, centre-left, no religion
         - insert:
@@ -33,11 +35,21 @@ databaseChangeLog:
               - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
               - { column: { name: university_subject, value: "COMPUTER_SCIENCE" } }
               - { column: { name: income_range, value: "BETWEEN_50K_AND_100K" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_100K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_100K_AND_150K" } }
               - { column: { name: height, value: "FEET_5_10_TO_6_0" } }
               - { column: { name: weight_range, value: "KG_80_89" } }
               - { column: { name: eye_color, value: "BROWN" } }
               - { column: { name: parent, value: "NO" } }
               - { column: { name: news_frequency, valueNumeric: 8 } }
+              - { column: { name: has_pet, valueBoolean: true } }
+              - { column: { name: pet_type, value: "DOG" } }
+              - { column: { name: chronotype, value: "NIGHT_OWL" } }
+              - { column: { name: outlook, value: "OPTIMIST" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "OWN" } }
+              - { column: { name: property_type, value: "FLAT" } }
         - insert:
             tableName: user_characteristic_race
             columns:
@@ -67,7 +79,9 @@ databaseChangeLog:
               - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
               - { column: { name: employment_sector, value: "HEALTHCARE" } }
               - { column: { name: university_subject, value: "MEDICINE" } }
-              - { column: { name: income_range, value: "BETWEEN_100K_AND_200K" } }
+              - { column: { name: income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_151K_AND_200K" } }
               - { column: { name: height, value: "FEET_5_4_TO_5_6" } }
               - { column: { name: weight_range, value: "KG_60_69" } }
               - { column: { name: eye_color, value: "BROWN" } }
@@ -102,6 +116,8 @@ databaseChangeLog:
               - { column: { name: occupation, value: "SELF_EMPLOYED" } }
               - { column: { name: employment_sector, value: "CONSTRUCTION" } }
               - { column: { name: income_range, value: "BETWEEN_50K_AND_100K" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_100K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_50K_AND_100K" } }
               - { column: { name: height, value: "FEET_6_1_TO_6_3" } }
               - { column: { name: weight_range, value: "KG_90_99" } }
               - { column: { name: eye_color, value: "BROWN" } }
@@ -129,13 +145,15 @@ databaseChangeLog:
               - { column: { name: marital_status, value: "IN_RELATIONSHIP" } }
               - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
               - { column: { name: citizenship, value: "UNITED_KINGDOM" } }
-              - { column: { name: religion, value: "PREFER_NOT_TO_SAY" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
               - { column: { name: political_persuasion, value: "CENTRE" } }
               - { column: { name: education, value: "DOCTORATE" } }
               - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
               - { column: { name: employment_sector, value: "EDUCATION" } }
               - { column: { name: university_subject, value: "PHYSICS" } }
-              - { column: { name: income_range, value: "BETWEEN_100K_AND_200K" } }
+              - { column: { name: income_range, value: "BETWEEN_151K_AND_200K" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_151K_AND_200K" } }
               - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
               - { column: { name: weight_range, value: "KG_60_69" } }
               - { column: { name: eye_color, value: "GREEN" } }
@@ -157,6 +175,8 @@ databaseChangeLog:
       id: 0002-seed-user-characteristics-resync-sequence
       author: mhutc
       context: seed
+      validCheckSum:
+        - 9:d41d8cd98f00b204e9800998ecf8427e
       changes:
         - sql:
             dbms: postgresql

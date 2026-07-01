@@ -7,6 +7,5 @@ package com.yoursay.usercharacteristic.model.Enums;
 public enum UrbanRural {
     URBAN,
     SUBURBAN,
-    RURAL,
-    PREFER_NOT_TO_SAY
+    RURAL
 }
