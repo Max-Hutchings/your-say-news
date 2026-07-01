@@ -44,7 +44,7 @@ import {
     PARENT_OPTIONS,
 } from "../data/options";
 import { submitCharacteristics } from "../services/CharacteristicService";
-import { Eyebrow } from "./Eyebrow";
+import { Eyebrow } from "@/components/ui";
 import { PrivacyNote } from "./PrivacyNote";
 import { WizardChipRow, WizardChipMultiRow } from "./WizardChipRow";
 import { WizardInput } from "./WizardInput";
