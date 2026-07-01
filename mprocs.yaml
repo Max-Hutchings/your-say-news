@@ -13,10 +13,10 @@
 
 procs:
   user-service:
-    shell: "./gradlew :user-service:quarkusDev"
+    shell: "./gradlew :user-service:quarkusDev --console=plain"
 
   post-service:
-    shell: "./gradlew :post-service:quarkusDev"
+    shell: "./gradlew :post-service:quarkusDev --console=plain"
 
   expo:
     cwd: "frontend/mobile/your-say-news"
