@@ -21,7 +21,8 @@ class SentimentTallyTest {
     private static CharacteristicSnapshot political(String leaning) {
         return new CharacteristicSnapshot(
                 leaning, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null);
     }
 
     /**

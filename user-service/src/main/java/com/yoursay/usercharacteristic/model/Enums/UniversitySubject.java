@@ -25,6 +25,7 @@ public enum UniversitySubject {
     GEOGRAPHY,
     EDUCATION,
     NURSING,
+    OSTEOPATHY,
     ARCHITECTURE,
     ENVIRONMENTAL_SCIENCE,
     JOURNALISM,

@@ -1,5 +1,7 @@
 package com.yoursay.votes;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * An anonymised, point-in-time copy of the categorical characteristics a voter held
  * <em>at the moment they voted</em>. Frozen onto each vote so later profile edits never
@@ -12,8 +14,9 @@ package com.yoursay.votes;
  *
  * <p>Categorical values are strings (enum names from user-service, or stringified numbers /
  * booleans) so the votes domain stays decoupled from user-service's internal enums. A
- * {@code null} field means "not captured / prefer not to say".
+ * {@code null} field means "not captured".
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record CharacteristicSnapshot(
         String politicalPersuasion,
         String ageRange,
@@ -34,12 +37,23 @@ public record CharacteristicSnapshot(
         String occupation,
         String employmentSector,
         String universitySubject,
-        String incomeRange,
+        String personalIncomeRange,
+        String householdIncomeRange,
         String height,
         String weightRange,
         String eyeColor,
         String parent,
-        String newsFrequency
+        String newsFrequency,
+        String hasPet,
+        String petType,
+        String chronotype,
+        String outlook,
+        String neurodivergent,
+        String neurodivergenceType,
+        String hasDisability,
+        String disabilityType,
+        String housingStatus,
+        String propertyType
 ) {
 
     /** Sentinel bucket label for votes whose value on the requested axis is unknown. */
@@ -72,22 +86,34 @@ public record CharacteristicSnapshot(
             case "occupation" -> occupation;
             case "employmentSector" -> employmentSector;
             case "universitySubject" -> universitySubject;
-            case "incomeRange" -> incomeRange;
+            case "personalIncomeRange" -> personalIncomeRange;
+            case "householdIncomeRange" -> householdIncomeRange;
             case "height" -> height;
             case "weightRange" -> weightRange;
             case "eyeColor" -> eyeColor;
             case "parent" -> parent;
             case "newsFrequency" -> newsFrequency;
+            case "hasPet" -> hasPet;
+            case "petType" -> petType;
+            case "chronotype" -> chronotype;
+            case "outlook" -> outlook;
+            case "neurodivergent" -> neurodivergent;
+            case "neurodivergenceType" -> neurodivergenceType;
+            case "hasDisability" -> hasDisability;
+            case "disabilityType" -> disabilityType;
+            case "housingStatus" -> housingStatus;
+            case "propertyType" -> propertyType;
             default -> null;
         };
         return value == null ? UNKNOWN : value;
     }
 
-    /** An empty snapshot (all 25 axes unknown). */
+    /** An empty snapshot (all 36 axes unknown). */
     public static CharacteristicSnapshot empty() {
         return new CharacteristicSnapshot(
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null);
     }
 }

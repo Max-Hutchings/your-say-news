@@ -85,8 +85,9 @@ public class VoteControllerTest {
                 VOTER_ID, "LEFT", "25_34", "FEMALE", "FEMALE", "HETEROSEXUAL", "SINGLE",
                 List.of("WHITE_BRITISH"), "GB", "SOUTH_EAST", "URBAN", "SURREY", "GB", "GB",
                 "CHRISTIAN", "SOMEWHAT_IMPORTANT", "UNDERGRADUATE", "EMPLOYED_FULL_TIME",
-                "TECHNOLOGY", "COMPUTER_SCIENCE", "50K_75K", "170_179CM", "60_79KG",
-                "BLUE", "NO", 4);
+                "TECHNOLOGY", "COMPUTER_SCIENCE", "50K_75K", "100K_150K", "170_179CM", "60_79KG",
+                "BLUE", "NO", 4, true, "DOG", "NIGHT_OWL", "OPTIMIST",
+                true, "ADHD", false, null, "OWN", "FLAT");
         Mockito.when(userClient.getMyCharacteristics(Mockito.nullable(String.class)))
                 .thenReturn(Response.ok(profile).build());
 

@@ -30,11 +30,22 @@ public record UserCharacteristicView(
         String occupation,
         String employmentSector,
         String universitySubject,
-        String incomeRange,
+        String personalIncomeRange,
+        String householdIncomeRange,
         String height,
         String weightRange,
         String eyeColor,
         String parent,
-        Integer newsFrequency
+        Integer newsFrequency,
+        Boolean hasPet,
+        String petType,
+        String chronotype,
+        String outlook,
+        Boolean neurodivergent,
+        String neurodivergenceType,
+        Boolean hasDisability,
+        String disabilityType,
+        String housingStatus,
+        String propertyType
 ) {
 }
