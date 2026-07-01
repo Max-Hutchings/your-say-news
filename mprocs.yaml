@@ -1,7 +1,7 @@
 # Dev runner: starts all local dev processes in one TUI, each in its own pane.
 #
 # Prereqs: infra must already be up ->  docker compose up
-# Run:     bun run dev   (or: bunx mprocs)
+# Run:     bun run dev   (runs the Compose preflight, then starts mprocs)
 #
 # Panes (focus with arrows / mouse):
 #   - user-service : Quarkus dev mode on :8081 (hot reload)
