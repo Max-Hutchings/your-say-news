@@ -42,10 +42,25 @@ export type CharacteristicAnswers = {
     employmentSector: string | null;
     universitySubject: string | null;
     // Finances & body
-    incomeRange: string | null;
+    personalIncomeRange: string | null;
+    householdIncomeRange: string | null;
     height: string | null;
     weightRange: string | null;
     eyeColor: string | null;
     parent: string | null;
     newsFrequency: number | null;
+    // Lifestyle
+    hasPet: boolean | null;
+    petType: string | null;
+    // Quirky
+    chronotype: string | null;
+    outlook: string | null;
+    // Neurodiversity & disability
+    neurodivergent: boolean | null;
+    neurodivergenceType: string | null;
+    hasDisability: boolean | null;
+    disabilityType: string | null;
+    // Property
+    housingStatus: string | null;
+    propertyType: string | null;
 };
