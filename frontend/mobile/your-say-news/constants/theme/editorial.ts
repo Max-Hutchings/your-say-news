@@ -27,6 +27,8 @@ export type EditorialPalette = {
     muted: string;
     /** Brand signal — logo, primary CTA, "YOU" badge, active indicator. NEVER vote data. */
     lime: string;
+    /** Text/icons placed on lime CTAs and badges. */
+    onLime: string;
     /** Agree. */
     teal: string;
     /** Disagree. */
@@ -44,6 +46,25 @@ export type EditorialPalette = {
     chipText: string;
     /** Focus ring for inputs / searchable selects. */
     focus: string;
+
+    /**
+     * Support-question "inverted onto ink" block — the motion is always drawn on a
+     * near-black panel in BOTH themes (only the exact black shifts), with light text.
+     */
+    inkBlock: string;
+    onInkBlock: string;
+    onInkBlockMuted: string;
+    /**
+     * Agree/Disagree PREVIEW pills as drawn on {@link inkBlock} (compose + Pepper).
+     * Distinct from {@link teal}/{@link coral}, which are for on-paper vote data.
+     */
+    agreePreview: string;
+    agreePreviewBorder: string;
+    disagreePreview: string;
+    disagreePreviewBorder: string;
+    /** Text / scrim for content laid over media (photo & video wells). */
+    onMedia: string;
+    mediaScrim: string;
 };
 
 const light: EditorialPalette = {
@@ -56,6 +77,7 @@ const light: EditorialPalette = {
     secondary: "#5A564E",
     muted: "#9A9183",
     lime: "#C6FF4A",
+    onLime: "#1B1815",
     teal: "#157A63",
     coral: "#D6402F",
     track: "#EDE6D8",
@@ -67,6 +89,15 @@ const light: EditorialPalette = {
     chipBorder: "#DCD4C4",
     chipText: "#3A352D",
     focus: "#157A63",
+    inkBlock: "#1B1815",
+    onInkBlock: "#F2ECDF",
+    onInkBlockMuted: "#8E8576",
+    agreePreview: "#3FB592",
+    agreePreviewBorder: "#2E634F",
+    disagreePreview: "#FF6A57",
+    disagreePreviewBorder: "#6B342B",
+    onMedia: "#F2ECDF",
+    mediaScrim: "rgba(15,13,10,0.7)",
 };
 
 const dark: EditorialPalette = {
@@ -79,6 +110,7 @@ const dark: EditorialPalette = {
     secondary: "#A39A8A",
     muted: "#8E8576",
     lime: "#C6FF4A",
+    onLime: "#1B1815",
     teal: "#3FB592",
     coral: "#FF6A57",
     track: "#2A251E",
@@ -90,6 +122,15 @@ const dark: EditorialPalette = {
     chipBorder: "#2E2920",
     chipText: "#E7E1D4",
     focus: "#3FB592",
+    inkBlock: "#0F0D0A",
+    onInkBlock: "#F2ECDF",
+    onInkBlockMuted: "#8E8576",
+    agreePreview: "#3FB592",
+    agreePreviewBorder: "#2E634F",
+    disagreePreview: "#FF6A57",
+    disagreePreviewBorder: "#6B342B",
+    onMedia: "#F2ECDF",
+    mediaScrim: "rgba(15,13,10,0.7)",
 };
 
 export function getEditorial(isDark: boolean): EditorialPalette {
