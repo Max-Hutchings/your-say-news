@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, TextInput, StyleSheet } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
-import { Eyebrow } from "./Eyebrow";
+import { Eyebrow } from "@/components/ui";
 
 /** A labelled editorial free-text field (city, region, self-described gender). */
 export function WizardInput({
