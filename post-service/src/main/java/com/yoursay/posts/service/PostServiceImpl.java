@@ -61,6 +61,7 @@ public class PostServiceImpl implements PostService {
         Log.infof("Creating post for author %s", authorEmail);
         List<CreatePostRequest.Media> media = request.media() == null ? List.of() : request.media();
         validateMediaKeysAreUnique(media);
+        validateMediaCounts(media);
         media.forEach(m -> validateContentType(m.mediaType(), m.contentType()));
 
         return resolveAuthor(authorEmail, authorization)
@@ -180,6 +181,21 @@ public class PostServiceImpl implements PostService {
                     && !keys.add(item.posterS3Key())) {
                 throw new WebApplicationException("Media upload keys must be unique", 400);
             }
+        }
+    }
+
+    /**
+     * A post carries either up to five images (shown as a swipeable carousel) or a single video
+     * (auto-played in the feed). Guard both ceilings; a mix is allowed but bounded by each count.
+     */
+    private static void validateMediaCounts(List<CreatePostRequest.Media> media) {
+        long images = media.stream().filter(m -> m.mediaType() == MediaType.IMAGE).count();
+        long videos = media.stream().filter(m -> m.mediaType() == MediaType.VIDEO).count();
+        if (images > 5) {
+            throw new WebApplicationException("A post can have at most 5 images", 400);
+        }
+        if (videos > 1) {
+            throw new WebApplicationException("A post can have at most 1 video", 400);
         }
     }
 

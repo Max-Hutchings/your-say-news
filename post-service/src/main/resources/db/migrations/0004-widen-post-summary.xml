@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- The immersive feed shows a post in full with no detail screen, so the summary is now a
+         2-3 paragraph body rather than a one-line teaser. Widen it from VARCHAR(255) to TEXT. -->
+    <changeSet id="0004-widen-post-summary-1" author="mhutc">
+        <modifyDataType tableName="post" columnName="summary" newDataType="TEXT"/>
+        <addNotNullConstraint tableName="post" columnName="summary" columnDataType="TEXT"/>
+    </changeSet>
+</databaseChangeLog>

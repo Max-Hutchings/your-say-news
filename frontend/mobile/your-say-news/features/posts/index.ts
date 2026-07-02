@@ -7,7 +7,6 @@
 
 export { HomeFeed } from "./components/HomeFeed";
 export { CreatePostScreen } from "./components/CreatePostScreen";
-export { PostDetailScreen } from "./components/PostDetailScreen";
 export { PostCard } from "./components/PostCard";
 
 export type { Post, PostMedia, MediaType, CreatePostInput } from "./types";

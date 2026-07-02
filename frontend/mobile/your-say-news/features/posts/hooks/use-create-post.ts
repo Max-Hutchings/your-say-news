@@ -7,8 +7,15 @@ import type { CreatePostMedia, MediaType, Post } from "../types";
 /**
  * Orchestrates the create-post flow: pick media → presign + upload (with
  * progress) → create the post. Keeps the route thin by owning the picked
- * asset, upload progress, loading and error state in one place.
+ * assets, upload progress, loading and error state in one place.
+ *
+ * A post carries EITHER up to five images (shown as a swipeable carousel in the
+ * feed) OR a single video (auto-played). The two are mutually exclusive: adding
+ * images drops any picked video, and picking a video replaces everything.
  */
+
+/** A post may carry at most this many images (mirrors the post-service ceiling). */
+export const MAX_IMAGES = 5;
 
 export interface CreatePostFields {
   title: string;
@@ -36,38 +43,76 @@ function toLocalMedia(asset: ImagePicker.ImagePickerAsset): LocalMedia {
 }
 
 export function useCreatePost() {
-  const [picked, setPicked] = useState<LocalMedia | null>(null);
+  const [picked, setPicked] = useState<LocalMedia[]>([]);
   const [progress, setProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<CreatePostErrors>({});
 
-  /** Open the gallery and stash the chosen image/video locally (no upload yet). */
-  const pickMedia = useCallback(async (): Promise<void> => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError("We need photo library access to attach media.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images", "videos"],
-      quality: 0.8,
-    });
-    if (result.canceled || result.assets.length === 0) return;
-    setError(null);
-    setProgress(0);
-    setPicked(toLocalMedia(result.assets[0]));
+  /**
+   * Open the gallery and stash the chosen media locally (no upload yet).
+   * `"IMAGE"` allows a multi-select up to the remaining slots and appends to
+   * any images already picked; `"VIDEO"` takes a single clip and replaces all.
+   */
+  const pickMedia = useCallback(
+    async (kind: MediaType = "IMAGE"): Promise<void> => {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setError("We need photo library access to attach media.");
+        return;
+      }
+
+      if (kind === "VIDEO") {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["videos"],
+          quality: 0.8,
+        });
+        if (result.canceled || result.assets.length === 0) return;
+        setError(null);
+        setProgress(0);
+        setPicked([toLocalMedia(result.assets[0])]);
+        return;
+      }
+
+      const alreadyImages = picked.filter((m) => m.mediaType === "IMAGE").length;
+      const remaining = MAX_IMAGES - alreadyImages;
+      if (remaining <= 0) {
+        setError(`You can attach up to ${MAX_IMAGES} images.`);
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.8,
+      });
+      if (result.canceled || result.assets.length === 0) return;
+      setError(null);
+      setProgress(0);
+      const added = result.assets.map(toLocalMedia);
+      setPicked((prev) => {
+        const keptImages = prev.filter((m) => m.mediaType === "IMAGE");
+        return [...keptImages, ...added].slice(0, MAX_IMAGES);
+      });
+    },
+    [picked]
+  );
+
+  /** Remove a single picked item by index. */
+  const removeMedia = useCallback((index: number) => {
+    setPicked((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  /** Drop the picked asset (e.g. user changed their mind). */
+  /** Drop every picked asset. */
   const clearMedia = useCallback(() => {
-    setPicked(null);
+    setPicked([]);
     setProgress(0);
   }, []);
 
   /**
-   * Validate, upload any picked media, then create the post. Returns the
-   * created Post on success, or null if validation failed / an error occurred.
+   * Validate, upload every picked asset (reporting aggregate 0..1 progress),
+   * then create the post. Returns the created Post on success, or null if
+   * validation failed / an error occurred.
    */
   const submit = useCallback(
     async (fields: CreatePostFields): Promise<Post | null> => {
@@ -79,8 +124,10 @@ export function useCreatePost() {
       setError(null);
       try {
         const media: CreatePostMedia[] = [];
-        if (picked) {
-          const uploaded = await uploadMedia(picked, setProgress);
+        for (let i = 0; i < picked.length; i++) {
+          const uploaded = await uploadMedia(picked[i], (fraction) =>
+            setProgress((i + fraction) / picked.length)
+          );
           media.push({ ...uploaded, posterS3Key: null });
         }
         return await createPost({
@@ -106,6 +153,7 @@ export function useCreatePost() {
     error,
     fieldErrors,
     pickMedia,
+    removeMedia,
     clearMedia,
     submit,
   };

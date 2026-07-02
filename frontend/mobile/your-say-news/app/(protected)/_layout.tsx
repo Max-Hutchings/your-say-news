@@ -26,10 +26,6 @@ export default function ProtectedLayout() {
                 name="create-post"
                 options={{ headerShown: false, presentation: "modal" }}
             />
-            <Stack.Screen
-                name="post/[id]"
-                options={{ headerShown: true, title: "Story" }}
-            />
             <Stack.Screen name="(usercharacteristics)/usercharacteristics" />
             <Stack.Screen
                 name="about/your-say-news"

@@ -27,13 +27,13 @@ import { PepperCompose } from "./PepperCompose";
  */
 
 const HEADLINE_MAX = 120;
-const SUMMARY_MAX = 600;
+const SUMMARY_MAX = 2000;
 
 export function CreatePostScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
-  const { picked, progress, submitting, error, fieldErrors, pickMedia, clearMedia, submit } =
+  const { picked, progress, submitting, error, fieldErrors, pickMedia, removeMedia, submit } =
     useCreatePost();
 
   const [mode, setMode] = useState<ComposeMode>("manual");
@@ -147,9 +147,9 @@ export function CreatePostScreen() {
                 <ComposeMediaField
                   media={picked}
                   progress={progress}
-                  uploading={submitting && Boolean(picked)}
+                  uploading={submitting && picked.length > 0}
                   onPick={pickMedia}
-                  onClear={clearMedia}
+                  onRemove={removeMedia}
                 />
               </View>
 

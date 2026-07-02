@@ -16,7 +16,7 @@ public record CreatePostRequest(
         @Size(max = 255)
         String title,
         @NotBlank
-        @Size(max = 255)
+        @Size(max = 4000)
         String summary,
         @NotBlank
         @Size(max = 512)

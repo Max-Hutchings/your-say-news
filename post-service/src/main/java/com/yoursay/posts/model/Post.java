@@ -21,7 +21,7 @@ public class Post extends PanacheEntityBase {
     @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name = "summary", nullable = false)
+    @Column(name = "summary", nullable = false, columnDefinition = "text")
     private String summary;
 
     @Column(name = "support_question", nullable = false, length = 512)
