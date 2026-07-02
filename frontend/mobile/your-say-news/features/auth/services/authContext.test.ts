@@ -12,16 +12,18 @@ jest.mock("./keycloakService", () => ({
 
 jest.mock("./UserService", () => ({
     getUser: jest.fn(),
+    getOnboardingStatus: jest.fn(),
 }));
 
 import { useAuthStore } from "./authContext";
 import { loginWithKeycloak, refreshTokens, revokeTokens } from "./keycloakService";
-import { getUser } from "./UserService";
+import { getOnboardingStatus, getUser } from "./UserService";
 
 const mockLogin = loginWithKeycloak as jest.Mock;
 const mockRefresh = refreshTokens as jest.Mock;
 const mockRevoke = revokeTokens as jest.Mock;
 const mockGetUser = getUser as jest.Mock;
+const mockGetOnboardingStatus = getOnboardingStatus as jest.Mock;
 
 const HOUR = 60 * 60 * 1000;
 
@@ -35,6 +37,7 @@ beforeEach(() => {
         dateOfBirth: null,
         isLoggedIn: false,
         hasOnboarded: false,
+        hasCharacteristics: false,
         accessToken: null,
         refreshToken: null,
         accessTokenExpiresAt: null,
@@ -76,6 +79,12 @@ describe("login", () => {
             firstName: "Ada",
             lastName: "Lovelace",
             dateOfBirth: "1990-05-21",
+            consentedAt: "2026-06-01T00:00:00Z",
+        });
+        mockGetOnboardingStatus.mockResolvedValue({
+            consented: true,
+            hasCharacteristics: true,
+            onboarded: true,
         });
 
         const before = Date.now();
@@ -88,9 +97,64 @@ describe("login", () => {
         expect(state.refreshToken).toBe("refresh-1");
         expect(state.email).toBe("ada@example.com");
         expect(state.id).toBe(7);
+        expect(state.hasCharacteristics).toBe(true);
+        expect(state.hasOnboarded).toBe(true);
         // 300s expiry recorded as an absolute timestamp.
         expect(state.accessTokenExpiresAt).toBeGreaterThanOrEqual(before + 300_000);
         expect(state.accessTokenExpiresAt).toBeLessThanOrEqual(Date.now() + 300_000);
+    });
+
+    it("marks a consented user who has no characteristic profile as not onboarded", async () => {
+        mockLogin.mockResolvedValue({
+            accessToken: "access-1",
+            refreshToken: "refresh-1",
+            idToken: null,
+            expiresIn: 300,
+        });
+        mockGetUser.mockResolvedValue({
+            id: 1,
+            email: "john.doe@example.com",
+            firstName: "John",
+            lastName: "Doe",
+            dateOfBirth: "1990-05-15",
+            consentedAt: null,
+        });
+        // John has a saved profile but has never consented — the server reports him not onboarded.
+        mockGetOnboardingStatus.mockResolvedValue({
+            consented: false,
+            hasCharacteristics: true,
+            onboarded: false,
+        });
+
+        await useAuthStore.getState().login();
+        const state = useAuthStore.getState();
+
+        expect(state.hasCharacteristics).toBe(true);
+        expect(state.hasOnboarded).toBe(false);
+    });
+
+    it("falls back to the consent flag when the onboarding status call fails", async () => {
+        mockLogin.mockResolvedValue({
+            accessToken: "access-1",
+            refreshToken: "refresh-1",
+            idToken: null,
+            expiresIn: 300,
+        });
+        mockGetUser.mockResolvedValue({
+            id: 7,
+            email: "ada@example.com",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            dateOfBirth: "1990-05-21",
+            consentedAt: "2026-06-01T00:00:00Z",
+        });
+        mockGetOnboardingStatus.mockResolvedValue(null);
+
+        await useAuthStore.getState().login();
+        const state = useAuthStore.getState();
+
+        expect(state.hasCharacteristics).toBe(false);
+        expect(state.hasOnboarded).toBe(true); // fell back to consentedAt
     });
 
     it("returns false and stays logged out when the user cancels", async () => {

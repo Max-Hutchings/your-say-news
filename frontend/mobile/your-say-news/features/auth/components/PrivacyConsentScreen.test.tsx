@@ -27,14 +27,15 @@ describe("PrivacyConsentScreen", () => {
         ).toBeOnTheScreen();
     });
 
-    it("records consent, stores the timestamp, and advances to the wizard", async () => {
+    it("records consent, stores the timestamp, and hands routing back to the index authority", async () => {
         (recordConsent as jest.Mock).mockResolvedValue("2026-06-13T10:00:00Z");
 
         renderWithTheme(<PrivacyConsentScreen />);
         fireEvent.press(screen.getByText("I agree — continue"));
 
         await waitFor(() => expect(recordConsent).toHaveBeenCalledTimes(1));
-        await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/usercharacteristics"));
+        // Index decides wizard-vs-feed from hasCharacteristics; the screen no longer hard-codes the wizard.
+        await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/(protected)"));
         expect(useAuthStore.getState().consentedAt).toBe("2026-06-13T10:00:00Z");
     });
 

@@ -7,12 +7,18 @@ import { useAuthStore } from "@/features/auth";
 import { HomeFeed } from "@/features/posts";
 
 export default function Home() {
-  const { consentedAt } = useAuthStore();
+  const { consentedAt, hasCharacteristics } = useAuthStore();
 
   // First-time users must read the privacy promise and consent before anything else.
   if (!consentedAt) {
     // Cast: typed-routes regenerate the "/consent" entry on the next `expo start`.
     return <Redirect href={"/consent" as Href} />;
+  }
+
+  // Consented but no characteristic profile yet — send them through the wizard. A returning user who
+  // already has one (server-confirmed at login) skips straight to the feed.
+  if (!hasCharacteristics) {
+    return <Redirect href={"/usercharacteristics" as Href} />;
   }
 
   return <HomeFeed />;

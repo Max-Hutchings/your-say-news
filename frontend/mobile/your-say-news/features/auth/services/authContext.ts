@@ -4,7 +4,7 @@ import {create} from "zustand";
 import {User, UserState} from "../types";
 import * as SecureStore from "expo-secure-store";
 import {KeycloakTokens, loginWithKeycloak, refreshTokens, revokeTokens} from "./keycloakService";
-import {getUser} from "./UserService";
+import {getOnboardingStatus, getUser} from "./UserService";
 
 
 const isWeb = Platform.OS === "web";
@@ -15,6 +15,7 @@ export const useAuthStore = create(
             _stateHydrated: isWeb,
             isLoggedIn: false,
             hasOnboarded: false,
+            hasCharacteristics: false,
             id: null,
             email: null,
             firstName: null,
@@ -37,6 +38,7 @@ export const useAuthStore = create(
             completeLogin,
             logout,
             setHasOnboarded,
+            setHasCharacteristics,
             setConsentedAt,
         }),
         {
@@ -122,8 +124,11 @@ async function completeLogin(tokens: {
     }
 
 
-    // Once we have tokens, update your Zustand state. A returning user who has already consented to
-    // the privacy promise is treated as past onboarding, so they land straight on the feed.
+    // Ask the server how far along onboarding they are (consent + characteristic profile). Routing
+    // keys off this so a returning user who already has a profile skips the wizard. Fall back to the
+    // consent flag on the user record if the status call fails.
+    const status = await getOnboardingStatus();
+
     useAuthStore.setState({
         id: user.id,
         email: user.email,
@@ -131,7 +136,8 @@ async function completeLogin(tokens: {
         lastName: user.lastName,
         dateOfBirth: user.dateOfBirth,
         consentedAt: user.consentedAt,
-        hasOnboarded: !!user.consentedAt,
+        hasCharacteristics: status?.hasCharacteristics ?? false,
+        hasOnboarded: status?.onboarded ?? !!user.consentedAt,
         isLoggedIn: true,
 
     });
@@ -169,11 +175,16 @@ async function logout(): Promise<void> {
         accessTokenExpiresAt: null,
         isLoggedIn: false,
         hasOnboarded: false,
+        hasCharacteristics: false,
     })
 }
 
 function setConsentedAt(at: string | null): void {
     useAuthStore.setState({ consentedAt: at });
+}
+
+function setHasCharacteristics(has: boolean): void {
+    useAuthStore.setState({ hasCharacteristics: has });
 }
 
 // Dedupe concurrent refreshes so a burst of requests triggers a single token exchange.

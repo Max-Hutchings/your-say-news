@@ -33,7 +33,9 @@ export function PrivacyConsentScreen() {
         try {
             const consentedAt = await recordConsent();
             setConsentedAt(consentedAt ?? new Date().toISOString());
-            router.replace("/usercharacteristics");
+            // Back to the index authority, which routes to the wizard or straight to the feed
+            // depending on whether a characteristic profile already exists.
+            router.replace("/(protected)");
         } catch {
             Alert.alert("Couldn’t save", "We couldn’t record your consent. Please try again.");
         } finally {

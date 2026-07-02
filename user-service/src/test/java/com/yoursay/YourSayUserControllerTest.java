@@ -119,5 +119,64 @@ public class YourSayUserControllerTest {
                 .body("active", equalTo(false));
     }
 
+    @Test
+    @TestSecurity(user="blank.user@example.com", roles={"user"})
+    public void onboardingIsFalseWithNeitherConsentNorCharacteristics() {
+        given()
+                .when()
+                .get(BASE_URL + "/onboarding")
+                .then()
+                .statusCode(200)
+                .body("consented", equalTo(false))
+                .body("hasCharacteristics", equalTo(false))
+                .body("onboarded", equalTo(false));
+    }
+
+    @Test
+    @TestSecurity(user="john.doe@example.com", roles={"user"})
+    public void onboardingRequiresConsentToo_johnHasCharacteristicsButHasNotConsented() {
+        // John has a seeded characteristic profile but has never consented — so NOT onboarded.
+        given()
+                .when()
+                .get(BASE_URL + "/onboarding")
+                .then()
+                .statusCode(200)
+                .body("hasCharacteristics", equalTo(true))
+                .body("consented", equalTo(false))
+                .body("onboarded", equalTo(false));
+    }
+
+    @Test
+    @TestSecurity(user="jane.smith@example.com", roles={"user"})
+    public void onboardingBecomesTrueOnceAConsentedUserHasCharacteristics() {
+        // Jane has a seeded characteristic profile; once she records consent she is fully onboarded.
+        given()
+                .contentType(ContentType.JSON)
+                .body("{ \"privacyPolicyVersion\": \"2026-06-01\" }")
+                .when()
+                .post(BASE_URL + "/consent")
+                .then()
+                .statusCode(200);
+
+        given()
+                .when()
+                .get(BASE_URL + "/onboarding")
+                .then()
+                .statusCode(200)
+                .body("consented", equalTo(true))
+                .body("hasCharacteristics", equalTo(true))
+                .body("onboarded", equalTo(true));
+    }
+
+    @Test
+    @TestSecurity(user="intruder@example.com", roles={"guest"})
+    public void onboardingRejectsCallersWithoutTheUserRole() {
+        given()
+                .when()
+                .get(BASE_URL + "/onboarding")
+                .then()
+                .statusCode(anyOf(is(401), is(403)));
+    }
+
 }
 

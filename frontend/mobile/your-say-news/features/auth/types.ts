@@ -9,11 +9,21 @@ export type User = {
     consentedAt: string | null;
 };
 
+/** Server's view of how far the user is through onboarding (GET /your-say-user/onboarding). */
+export type OnboardingStatus = {
+    consented: boolean;
+    hasCharacteristics: boolean;
+    onboarded: boolean;
+};
+
 // Use interface if you want to "extend"
 export interface UserState extends User {
     _stateHydrated: boolean;
     isLoggedIn: boolean;
     hasOnboarded: boolean;
+    // Whether the user already has a saved characteristic profile — drives routing so a returning
+    // user who has filled the wizard is never sent back through it.
+    hasCharacteristics: boolean;
 
     accessToken: string | null;
     refreshToken: string | null;
@@ -36,5 +46,6 @@ export interface UserState extends User {
     }) => Promise<boolean>;
     logout: () => Promise<void>;
     setHasOnboarded: (onboarded: boolean) => void;
+    setHasCharacteristics: (has: boolean) => void;
     setConsentedAt: (at: string | null) => void;
 }

@@ -90,6 +90,7 @@ export function OnboardingScreen() {
     const { isDark } = useTheme();
     const e = getEditorial(isDark);
     const setHasOnboarded = useAuthStore((s) => s.setHasOnboarded);
+    const setHasCharacteristics = useAuthStore((s) => s.setHasCharacteristics);
 
     const [step, setStep] = useState(0);
     const fade = useRef(new Animated.Value(1)).current;
@@ -227,6 +228,7 @@ export function OnboardingScreen() {
         setSubmitting(true);
         try {
             await submitCharacteristics(buildCharacteristicAnswers(form));
+            setHasCharacteristics(true);
             setHasOnboarded(true);
             router.replace("/(protected)");
         } catch {

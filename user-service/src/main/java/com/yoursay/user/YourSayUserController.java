@@ -1,5 +1,6 @@
 package com.yoursay.user;
 
+import com.yoursay.usercharacteristic.UserCharacteristicService;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;
@@ -25,6 +26,9 @@ public class YourSayUserController {
     YourSayUserService userService;
 
     @Inject
+    UserCharacteristicService characteristicService;
+
+    @Inject
     SecurityIdentity securityIdentity;
 
     @GET
@@ -36,6 +40,27 @@ public class YourSayUserController {
         String lastName = jwt.getClaim("family_name");
 
         return userService.getOrCreateFromIdentity(email, firstName, lastName);
+    }
+
+    /**
+     * Whether the authenticated user has finished onboarding: agreed to the privacy promise AND has
+     * a characteristic profile. The client uses this to route — a returning, fully-onboarded user
+     * goes straight to the feed rather than being sent back through consent or the wizard.
+     */
+    @GET
+    @Path("/onboarding")
+    public OnboardingStatusDto getOnboardingStatus() {
+        String email = securityIdentity.getPrincipal().getName();
+        // A pure status check — never creates the account, so it doesn't depend on name claims being
+        // present in the token. An unknown subject simply hasn't onboarded yet.
+        YourSayUserDto user = userService.getByEmail(email);
+        if (user == null) {
+            return new OnboardingStatusDto(false, false, false);
+        }
+
+        boolean consented = user.consentedAt() != null;
+        boolean hasCharacteristics = characteristicService.getByUserId(user.id()) != null;
+        return new OnboardingStatusDto(consented, hasCharacteristics, consented && hasCharacteristics);
     }
 
 
