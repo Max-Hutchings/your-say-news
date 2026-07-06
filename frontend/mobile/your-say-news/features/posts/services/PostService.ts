@@ -35,8 +35,16 @@ export async function listByUser(userId: number): Promise<Post[]> {
   return data ?? [];
 }
 
-/** Recent posts across all authors, newest first (interim feed). */
-export async function getRecent(): Promise<Post[]> {
-  const { data } = await YsnHttpClient.getSecure().get<Post[]>(POSTS_URL);
+/** How many posts the feed loads per page. */
+export const FEED_PAGE_SIZE = 5;
+
+/**
+ * A page of recent posts across all authors, newest first (interim feed). The feed loads
+ * `page` 0 first and asks for the next page as the reader nears the end.
+ */
+export async function getRecent(page = 0, size = FEED_PAGE_SIZE): Promise<Post[]> {
+  const { data } = await YsnHttpClient.getSecure().get<Post[]>(POSTS_URL, {
+    params: { page, size },
+  });
   return data ?? [];
 }

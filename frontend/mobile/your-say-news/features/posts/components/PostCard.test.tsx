@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, fireEvent } from "@testing-library/react-native";
 import { ThemeProvider } from "@/constants/theme";
 import { PostCard } from "./PostCard";
 import type { Post } from "../types";
@@ -25,15 +25,33 @@ const basePost: Post = {
   summary:
     "The plan adds two miles of protected lane through the city centre.\n\nSupporters call it overdue; drivers worry about the lost road space.",
   supportQuestion: "Do you agree the cycle lane should go ahead?",
+  caseFor: "Protected lanes cut cycling injuries and get more people out of cars.",
+  caseAgainst: "Losing a traffic lane will choke deliveries and push congestion onto side streets.",
   isUnbiased: false,
   createdAt: "2026-06-21T10:00:00Z",
   media: [
     {
       mediaType: "IMAGE",
+      orientation: "LANDSCAPE",
       s3Key: "posts/abc.jpg",
       contentType: "image/jpeg",
       posterS3Key: null,
       url: "https://s3.local/abc.jpg",
+      posterUrl: null,
+    },
+  ],
+};
+
+const portraitPost: Post = {
+  ...basePost,
+  media: [
+    {
+      mediaType: "IMAGE",
+      orientation: "PORTRAIT",
+      s3Key: "posts/tall.jpg",
+      contentType: "image/jpeg",
+      posterS3Key: null,
+      url: "https://s3.local/tall.jpg",
       posterUrl: null,
     },
   ],
@@ -45,7 +63,8 @@ describe("PostCard", () => {
 
     expect(screen.getByText("Council approves the new cycle lane")).toBeOnTheScreen();
     expect(screen.getByText(basePost.summary)).toBeOnTheScreen();
-    expect(screen.getByText("Do you agree the cycle lane should go ahead?")).toBeOnTheScreen();
+    // The motion is shown quoted; match the question text regardless of the surrounding quotes.
+    expect(screen.getByText(/Do you agree the cycle lane should go ahead\?/)).toBeOnTheScreen();
   });
 
   it("offers Agree and Disagree in place (the whole post is shown, no detail screen)", () => {
@@ -66,6 +85,7 @@ describe("PostCard", () => {
       media: [
         {
           mediaType: "VIDEO",
+          orientation: "LANDSCAPE",
           s3Key: "posts/clip.mp4",
           contentType: "video/mp4",
           posterS3Key: "posts/clip-poster.jpg",
@@ -93,5 +113,57 @@ describe("PostCard", () => {
   it("shows the unbiased badge only when the post is unbiased", () => {
     renderWithTheme(<PostCard post={{ ...basePost, isUnbiased: true }} />);
     expect(screen.getByText("UNBIASED")).toBeOnTheScreen();
+  });
+
+  it("renders the case-for and case-against cards with their arguments", () => {
+    renderWithTheme(<PostCard post={basePost} />);
+    expect(screen.getByText("THE CASE FOR")).toBeOnTheScreen();
+    expect(screen.getByText("THE CASE AGAINST")).toBeOnTheScreen();
+    expect(
+      screen.getByText("Protected lanes cut cycling injuries and get more people out of cars.")
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        "Losing a traffic lane will choke deliveries and push congestion onto side streets."
+      )
+    ).toBeOnTheScreen();
+  });
+
+  it("omits the case cards when the post has no arguments", () => {
+    renderWithTheme(<PostCard post={{ ...basePost, caseFor: null, caseAgainst: null }} />);
+    expect(screen.queryByText("THE CASE FOR")).toBeNull();
+    expect(screen.queryByText("THE CASE AGAINST")).toBeNull();
+  });
+
+  it("keeps a landscape post's summary inline with no See more toggle (it all fits)", () => {
+    renderWithTheme(<PostCard post={basePost} />);
+    expect(screen.queryByText("See more")).toBeNull();
+    expect(screen.queryByText("See less")).toBeNull();
+  });
+
+  it("shows a portrait post immersively: headline, support question and vote always visible", () => {
+    renderWithTheme(<PostCard post={portraitPost} />);
+    // Headline, support question and vote are always visible — never behind See more.
+    expect(screen.getByText("Council approves the new cycle lane")).toBeOnTheScreen();
+    expect(screen.getByText(/Do you agree the cycle lane should go ahead\?/)).toBeOnTheScreen();
+    expect(screen.getByText("Agree")).toBeOnTheScreen();
+    expect(screen.getByText("Disagree")).toBeOnTheScreen();
+    // The summary and case cards are reached via See more; the panel stays mounted so it opens instantly.
+    expect(screen.getByText("See more")).toBeOnTheScreen();
+    expect(screen.getByText(portraitPost.summary)).toBeOnTheScreen();
+    expect(screen.getByText("THE CASE FOR")).toBeOnTheScreen();
+  });
+
+  it("toggles the portrait story panel between See more and See less", () => {
+    renderWithTheme(<PostCard post={portraitPost} />);
+    expect(screen.queryByText("See less")).toBeNull();
+
+    fireEvent.press(screen.getByText("See more"));
+    expect(screen.getByText("See less")).toBeOnTheScreen();
+    expect(screen.queryByText("See more")).toBeNull();
+
+    fireEvent.press(screen.getByText("See less"));
+    expect(screen.getByText("See more")).toBeOnTheScreen();
+    expect(screen.queryByText("See less")).toBeNull();
   });
 });

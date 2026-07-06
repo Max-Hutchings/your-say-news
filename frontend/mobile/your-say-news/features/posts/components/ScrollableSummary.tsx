@@ -17,7 +17,14 @@ import { getEditorial, useTheme, EditorialFont } from "@/constants/theme";
  * scrollbar is a custom track/thumb (RN's own indicator is transient on iOS), sized
  * and positioned from the content/viewport ratio, and only shown when it overflows.
  */
-export function ScrollableSummary({ text }: { text: string }) {
+export function ScrollableSummary({
+  text,
+  footer,
+}: {
+  text: string;
+  /** Extra content that scrolls beneath the summary (e.g. the case-for/against cards). */
+  footer?: React.ReactNode;
+}) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   const [viewportH, setViewportH] = useState(0);
@@ -43,6 +50,7 @@ export function ScrollableSummary({ text }: { text: string }) {
         contentContainerStyle={styles.content}
       >
         <Text style={[styles.summary, { color: e.secondary }]}>{text}</Text>
+        {footer}
       </ScrollView>
 
       {overflowing && (

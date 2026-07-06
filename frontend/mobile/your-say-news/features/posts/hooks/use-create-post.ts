@@ -34,12 +34,14 @@ function validate(fields: CreatePostFields): CreatePostErrors {
   return errors;
 }
 
-/** Map a picker asset's MIME-ish info to our contentType + mediaType. */
+/** Map a picker asset's MIME-ish info to our contentType + mediaType + orientation. */
 function toLocalMedia(asset: ImagePicker.ImagePickerAsset): LocalMedia {
   const mediaType: MediaType = asset.type === "video" ? "VIDEO" : "IMAGE";
   const contentType =
     asset.mimeType ?? (mediaType === "VIDEO" ? "video/mp4" : "image/jpeg");
-  return { uri: asset.uri, mediaType, contentType };
+  // Taller-than-wide assets render in the portrait layout; everything else (incl. square) is landscape.
+  const orientation = asset.height > asset.width ? "PORTRAIT" : "LANDSCAPE";
+  return { uri: asset.uri, mediaType, orientation, contentType };
 }
 
 export function useCreatePost() {
@@ -129,6 +131,7 @@ export function useCreatePost() {
             setProgress((i + fraction) / picked.length)
           );
           media.push({ ...uploaded, posterS3Key: null });
+          // `uploaded` already carries mediaType/orientation/s3Key/contentType.
         }
         return await createPost({
           title: fields.title.trim(),

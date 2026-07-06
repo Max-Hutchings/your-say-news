@@ -127,7 +127,10 @@ export {
 export {
   getEditorial,
   EditorialFont,
+  FeedMediaAspect,
+  feedMediaHeight,
   type EditorialPalette,
+  type FeedMediaOrientation,
 } from './editorial';
 
 // ============================================================================

@@ -35,8 +35,11 @@ export function Masthead({ avatarLabel }: { avatarLabel?: string }) {
         </View>
 
         {avatarLabel ? (
-          <View style={[styles.avatar, { backgroundColor: e.ink }]}>
-            <Text style={[styles.avatarLabel, { color: e.lime }]}>{avatarLabel}</Text>
+          // Dark mode: the brand primary green with near-black initials; light mode keeps ink-on-lime.
+          <View style={[styles.avatar, { backgroundColor: isDark ? e.lime : e.ink }]}>
+            <Text style={[styles.avatarLabel, { color: isDark ? e.onLime : e.lime }]}>
+              {avatarLabel}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -91,11 +94,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   highlight: {
+    // A thin underline sitting just beneath "News" (not a highlighter through it).
     position: "absolute",
     left: -2,
     right: -2,
-    bottom: 3,
-    height: 8,
+    bottom: -2,
+    height: 3,
+    borderRadius: 1.5,
   },
   news: {
     fontFamily: EditorialFont.serifItalic,

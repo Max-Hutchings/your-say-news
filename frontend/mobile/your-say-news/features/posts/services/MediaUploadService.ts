@@ -1,7 +1,7 @@
 import axios from "axios";
 import Constants from "expo-constants";
 import { YsnHttpClient } from "@/features/auth";
-import type { MediaType, PresignRequest, PresignResponse } from "../types";
+import type { MediaOrientation, MediaType, PresignRequest, PresignResponse } from "../types";
 
 /**
  * Two-step media upload: ask post-service for a presigned S3 PUT URL, then send
@@ -19,12 +19,14 @@ export interface LocalMedia {
   /** Local file URI from expo-image-picker (file://...). */
   uri: string;
   mediaType: MediaType;
+  orientation: MediaOrientation;
   contentType: string;
 }
 
 /** Result of a completed upload — the key to attach to the create-post body. */
 export interface UploadedMedia {
   mediaType: MediaType;
+  orientation: MediaOrientation;
   s3Key: string;
   contentType: string;
 }
@@ -62,5 +64,10 @@ export async function uploadMedia(
   });
 
   onProgress?.(1);
-  return { mediaType: media.mediaType, s3Key, contentType: media.contentType };
+  return {
+    mediaType: media.mediaType,
+    orientation: media.orientation,
+    s3Key,
+    contentType: media.contentType,
+  };
 }

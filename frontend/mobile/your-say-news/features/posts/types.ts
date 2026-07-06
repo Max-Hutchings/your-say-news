@@ -8,12 +8,19 @@
 export type MediaType = "IMAGE" | "VIDEO";
 
 /**
+ * How a media item is shaped, so the feed sizes it deterministically: LANDSCAPE renders in a fixed
+ * 16:9 box; PORTRAIT in a tall centred box (which collapses the summary to a "see more" line).
+ */
+export type MediaOrientation = "LANDSCAPE" | "PORTRAIT";
+
+/**
  * A media item on a post as returned by the service. `url` (and `posterUrl`
  * for video) are short-lived presigned GET URLs minted at read time — render
  * from those, never from the raw `s3Key`.
  */
 export interface PostMedia {
   mediaType: MediaType;
+  orientation: MediaOrientation;
   s3Key: string;
   contentType: string;
   posterS3Key: string | null;
@@ -28,6 +35,9 @@ export interface Post {
   title: string;
   summary: string;
   supportQuestion: string;
+  /** Optional one-line arguments shown as the "case for" / "case against" cards. */
+  caseFor: string | null;
+  caseAgainst: string | null;
   /** Only the Stage 6 agent sets this true; it drives the unbiased badge. */
   isUnbiased: boolean;
   createdAt: string;
@@ -40,6 +50,7 @@ export interface Post {
  */
 export interface CreatePostMedia {
   mediaType: MediaType;
+  orientation: MediaOrientation;
   s3Key: string;
   contentType: string;
   posterS3Key: string | null;

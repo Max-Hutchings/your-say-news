@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,10 +13,11 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { useAuthStore } from "@/features/auth";
-import { getRecent } from "../services/PostService";
+import { getRecent, FEED_PAGE_SIZE } from "../services/PostService";
 import type { Post } from "../types";
 import { PostCard } from "./PostCard";
 import { Masthead } from "./Masthead";
+import { FeedTabs } from "./FeedTabs";
 
 // A post counts as on-screen (and autoplays its video) once 80% visible. Kept module-level
 // so its identity is stable — FlatList rejects a viewability config that changes between renders.
@@ -29,6 +30,10 @@ const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 80 };
  * 2-3 paragraph summary) is shown in place, with no detail screen to tap into.
  * The on-screen post is tracked via viewability so its video autoplays. Loads
  * on focus and supports pull-to-refresh; a lime action opens the composer.
+ *
+ * The feed pages: it fetches the first {@link FEED_PAGE_SIZE} posts, then loads the
+ * next page as the reader nears the end (see `onEndReached`). A short page means we've
+ * reached the bottom, so we stop asking.
  */
 export function HomeFeed() {
   const router = useRouter();
@@ -38,14 +43,25 @@ export function HomeFeed() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewportH, setViewportH] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const load = useCallback(async () => {
+  // Paging cursor and end-of-feed flag. A ref guards against overlapping loadMore calls —
+  // onEndReached can fire repeatedly before a request resolves, and React state wouldn't
+  // update in time to block the duplicate.
+  const page = useRef(0);
+  const reachedEnd = useRef(false);
+  const loadingMoreRef = useRef(false);
+
+  const loadFirst = useCallback(async () => {
     setError(null);
     try {
-      setPosts(await getRecent());
+      const first = await getRecent(0, FEED_PAGE_SIZE);
+      setPosts(first);
+      page.current = 0;
+      reachedEnd.current = first.length < FEED_PAGE_SIZE;
     } catch {
       setError("We couldn't load the feed. Pull to try again.");
     } finally {
@@ -54,16 +70,42 @@ export function HomeFeed() {
     }
   }, []);
 
+  const loadMore = useCallback(async () => {
+    if (loadingMoreRef.current || reachedEnd.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const next = page.current + 1;
+      const more = await getRecent(next, FEED_PAGE_SIZE);
+      if (more.length > 0) {
+        // Guard against a page that overlaps what we already hold (e.g. a post added between
+        // fetches shifting the window) so keys stay unique.
+        setPosts((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          return [...prev, ...more.filter((p) => !seen.has(p.id))];
+        });
+        page.current = next;
+      }
+      if (more.length < FEED_PAGE_SIZE) reachedEnd.current = true;
+    } catch {
+      // Leave the flags as they are so a later scroll retries the same page.
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      loadFirst();
+    }, [loadFirst])
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load();
-  }, [load]);
+    reachedEnd.current = false;
+    loadFirst();
+  }, [loadFirst]);
 
   // Track which post is on screen so only its video plays. setActiveIndex is stable, so the
   // callback identity stays fixed across renders (FlatList requires this).
@@ -82,6 +124,9 @@ export function HomeFeed() {
     <View style={[styles.container, { backgroundColor: e.bg }]}>
       <View style={[styles.masthead, { backgroundColor: e.bg, borderBottomColor: e.border }]}>
         <Masthead avatarLabel={avatarLabel} />
+        <View style={styles.tabs}>
+          <FeedTabs />
+        </View>
       </View>
 
       <View style={styles.feed} onLayout={onLayout}>
@@ -106,8 +151,19 @@ export function HomeFeed() {
             })}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={VIEWABILITY_CONFIG}
+            onEndReached={loadMore}
+            // Items are one viewport tall, so a threshold of one viewport-length fires this
+            // as the reader reaches the second-to-last post — in time to load the next page.
+            onEndReachedThreshold={1}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={e.muted} />
+            }
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={styles.footer}>
+                  <ActivityIndicator color={e.lime} />
+                </View>
+              ) : null
             }
             ListEmptyComponent={
               <View style={[styles.centered, { height: viewportH }]}>
@@ -141,6 +197,9 @@ const styles = StyleSheet.create({
     paddingBottom: 11,
     borderBottomWidth: 1,
   },
+  tabs: {
+    marginTop: 12,
+  },
   feed: {
     flex: 1,
   },
@@ -148,6 +207,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  footer: {
+    paddingVertical: 24,
+    alignItems: "center",
   },
   message: {
     fontFamily: EditorialFont.sans,

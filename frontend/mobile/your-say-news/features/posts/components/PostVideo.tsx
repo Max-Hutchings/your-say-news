@@ -21,12 +21,15 @@ export function PostVideo({
   isActive,
   width,
   height,
+  controlsBottomInset = 12,
 }: {
   uri: string;
   posterUri?: string | null;
   isActive: boolean;
   width: number;
   height: number;
+  /** Raises the mute control off the bottom edge — used by the immersive layout so it clears the vote bar. */
+  controlsBottomInset?: number;
 }) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
@@ -64,7 +67,7 @@ export function PostVideo({
     <View style={{ width, height }}>
       <VideoView
         player={player}
-        style={StyleSheet.absoluteFill}
+        style={styles.fill}
         contentFit="cover"
         nativeControls={false}
         testID="post-card-video"
@@ -84,7 +87,7 @@ export function PostVideo({
         onPress={() => setMuted((m) => !m)}
         accessibilityRole="button"
         accessibilityLabel={muted ? "Unmute video" : "Mute video"}
-        style={[styles.mute, { backgroundColor: e.mediaScrim }]}
+        style={[styles.mute, { bottom: controlsBottomInset, backgroundColor: e.mediaScrim }]}
       >
         <Text style={[styles.muteIcon, { color: e.onMedia }]}>{muted ? "🔇" : "🔊"}</Text>
       </Pressable>
@@ -93,6 +96,13 @@ export function PostVideo({
 }
 
 const styles = StyleSheet.create({
+  // An explicit 100%×100% box (not absoluteFill): on web the <video> is a replaced element, and an
+  // absolutely-positioned one keeps its intrinsic 16:9 size, so `contentFit: cover` never fills the
+  // box and the clip letterboxes. A concrete size lets object-fit: cover crop-to-fill the media cell.
+  fill: {
+    width: "100%",
+    height: "100%",
+  },
   unavailable: {
     position: "absolute",
     top: 0,

@@ -16,7 +16,8 @@ const mockUpload = uploadMedia as jest.Mock;
 const mockRequestPermission = ImagePicker.requestMediaLibraryPermissionsAsync as jest.Mock;
 const mockLaunch = ImagePicker.launchImageLibraryAsync as jest.Mock;
 
-const imageAsset = (uri: string) => ({ uri, type: "image", mimeType: "image/png" });
+// Landscape by default (wider than tall) so orientation classifies to LANDSCAPE.
+const imageAsset = (uri: string) => ({ uri, type: "image", mimeType: "image/png", width: 1200, height: 800 });
 
 const validFields = {
   title: "Headline",
@@ -105,8 +106,8 @@ describe("useCreatePost submit", () => {
       assets: [imageAsset("file:///a.png"), imageAsset("file:///b.png")],
     });
     mockUpload
-      .mockResolvedValueOnce({ mediaType: "IMAGE", s3Key: "posts/a.png", contentType: "image/png" })
-      .mockResolvedValueOnce({ mediaType: "IMAGE", s3Key: "posts/b.png", contentType: "image/png" });
+      .mockResolvedValueOnce({ mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/a.png", contentType: "image/png" })
+      .mockResolvedValueOnce({ mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/b.png", contentType: "image/png" });
     mockCreate.mockResolvedValue({ id: 9 });
 
     const { result } = renderHook(() => useCreatePost());
@@ -114,8 +115,8 @@ describe("useCreatePost submit", () => {
       await result.current.pickMedia("IMAGE");
     });
     expect(result.current.picked).toEqual([
-      { uri: "file:///a.png", mediaType: "IMAGE", contentType: "image/png" },
-      { uri: "file:///b.png", mediaType: "IMAGE", contentType: "image/png" },
+      { uri: "file:///a.png", mediaType: "IMAGE", orientation: "LANDSCAPE", contentType: "image/png" },
+      { uri: "file:///b.png", mediaType: "IMAGE", orientation: "LANDSCAPE", contentType: "image/png" },
     ]);
 
     await act(async () => {
@@ -129,8 +130,8 @@ describe("useCreatePost submit", () => {
       summary: "A summary",
       supportQuestion: "Do you agree?",
       media: [
-        { mediaType: "IMAGE", s3Key: "posts/a.png", contentType: "image/png", posterS3Key: null },
-        { mediaType: "IMAGE", s3Key: "posts/b.png", contentType: "image/png", posterS3Key: null },
+        { mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/a.png", contentType: "image/png", posterS3Key: null },
+        { mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/b.png", contentType: "image/png", posterS3Key: null },
       ],
     });
   });
@@ -175,7 +176,7 @@ describe("useCreatePost media selection", () => {
     });
     mockLaunch.mockResolvedValueOnce({
       canceled: false,
-      assets: [{ uri: "file:///clip.mov", type: "video" }],
+      assets: [{ uri: "file:///clip.mov", type: "video", width: 720, height: 1280 }],
     });
 
     const { result } = renderHook(() => useCreatePost());
@@ -186,8 +187,9 @@ describe("useCreatePost media selection", () => {
       await result.current.pickMedia("VIDEO");
     });
 
+    // The video replaces the images, and its taller-than-wide dimensions classify it PORTRAIT.
     expect(result.current.picked).toEqual([
-      { uri: "file:///clip.mov", mediaType: "VIDEO", contentType: "video/mp4" },
+      { uri: "file:///clip.mov", mediaType: "VIDEO", orientation: "PORTRAIT", contentType: "video/mp4" },
     ]);
   });
 
@@ -206,7 +208,7 @@ describe("useCreatePost media selection", () => {
     });
 
     expect(result.current.picked).toEqual([
-      { uri: "file:///b.png", mediaType: "IMAGE", contentType: "image/png" },
+      { uri: "file:///b.png", mediaType: "IMAGE", orientation: "LANDSCAPE", contentType: "image/png" },
     ]);
   });
 
@@ -246,8 +248,9 @@ describe("useCreatePost media selection", () => {
       await result.current.pickMedia("IMAGE");
     });
 
+    // No dimensions on the asset -> orientation defaults to LANDSCAPE.
     expect(result.current.picked).toEqual([
-      { uri: "file:///photo.heic", mediaType: "IMAGE", contentType: "image/jpeg" },
+      { uri: "file:///photo.heic", mediaType: "IMAGE", orientation: "LANDSCAPE", contentType: "image/jpeg" },
     ]);
   });
 });
