@@ -2,6 +2,7 @@ package com.yoursay.usercharacteristic;
 
 import com.yoursay.user.YourSayUserDto;
 import com.yoursay.user.YourSayUserService;
+import com.yoursay.usercharacteristic.error.UserCharacteristicApiException;
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -65,7 +66,7 @@ public class UserCharacteristicController {
         String email = securityIdentity.getPrincipal().getName();
         YourSayUserDto user = userService.getByEmail(email);
         if (user == null) {
-            throw new BadRequestException("No user account exists for the authenticated subject");
+            throw UserCharacteristicApiException.userMissing(email);
         }
         return user.id();
     }

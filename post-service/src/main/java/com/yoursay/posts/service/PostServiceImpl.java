@@ -2,18 +2,19 @@ package com.yoursay.posts.service;
 
 import com.yoursay.posts.*;
 import com.yoursay.posts.client.UserServiceClient;
+import com.yoursay.posts.error.PostApiException;
 import com.yoursay.posts.model.Post;
 import com.yoursay.posts.model.PostMedia;
 import com.yoursay.posts.model.PostMediaUpload;
 import com.yoursay.posts.model.PostMediaUploadRepository;
 import com.yoursay.posts.model.PostRepository;
+import com.yoursay.observability.DomainMetrics;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.Instant;
@@ -35,6 +36,9 @@ public class PostServiceImpl implements PostService {
     @Inject
     MediaStorageService mediaStorage;
 
+    @Inject
+    DomainMetrics metrics;
+
     @RestClient
     UserServiceClient userServiceClient;
 
@@ -52,7 +56,9 @@ public class PostServiceImpl implements PostService {
                                     author.id(), request.mediaType(), upload.s3Key(), request.contentType(), expiresAt))
                             .replaceWith(new PresignResponse(
                                     upload.s3Key(), upload.uploadUrl(), upload.expiresInSeconds()));
-                });
+                })
+                .invoke(() -> recordMetric("presignUpload", true))
+                .onFailure().invoke(() -> recordMetric("presignUpload", false));
     }
 
     @Override
@@ -85,7 +91,9 @@ public class PostServiceImpl implements PostService {
                         }
                         return postRepository.savePost(post).map(this::toDto);
                     });
-                });
+                })
+                .invoke(() -> recordMetric("create", true))
+                .onFailure().invoke(() -> recordMetric("create", false));
     }
 
     @Override
@@ -142,26 +150,26 @@ public class PostServiceImpl implements PostService {
     private Uni<UserServiceClient.UserRef> resolveAuthor(String authorEmail, String authorization) {
         return userServiceClient.getUserByEmail(authorEmail, authorization)
                 .onItem().ifNull().failWith(() ->
-                        new WebApplicationException("Unknown author: " + authorEmail, 401));
+                        PostApiException.unknownAuthor(authorEmail));
     }
 
     private Uni<Void> consumeUpload(String s3Key, Long userId, MediaType mediaType, String contentType) {
         return uploadRepository.findByKeyAndUser(s3Key, userId)
                 .onItem().ifNull().failWith(() ->
-                        new WebApplicationException("Media upload was not created for this user", 400))
+                        PostApiException.uploadNotOwned(s3Key, userId))
                 .invoke(upload -> {
                     Instant now = Instant.now();
                     if (upload.getAttachedAt() != null) {
-                        throw new WebApplicationException("Media upload has already been attached", 400);
+                        throw PostApiException.uploadAlreadyAttached(s3Key);
                     }
                     if (upload.getExpiresAt().isBefore(now)) {
-                        throw new WebApplicationException("Media upload has expired", 400);
+                        throw PostApiException.uploadExpired(s3Key);
                     }
                     if (upload.getMediaType() != mediaType) {
-                        throw new WebApplicationException("Media upload type does not match", 400);
+                        throw PostApiException.uploadTypeMismatch(s3Key, mediaType, upload.getMediaType());
                     }
                     if (contentType != null && !upload.getContentType().equalsIgnoreCase(contentType)) {
-                        throw new WebApplicationException("Media upload content type does not match", 400);
+                        throw PostApiException.uploadContentTypeMismatch(s3Key, contentType, upload.getContentType());
                     }
                     upload.markAttached(now);
                 })
@@ -172,14 +180,14 @@ public class PostServiceImpl implements PostService {
         Set<String> keys = new HashSet<>();
         for (CreatePostRequest.Media item : media) {
             if (item == null) {
-                throw new WebApplicationException("Media item is required", 400);
+                throw PostApiException.mediaItemRequired();
             }
             if (!keys.add(item.s3Key())) {
-                throw new WebApplicationException("Media upload keys must be unique", 400);
+                throw PostApiException.mediaKeysNotUnique();
             }
             if (item.posterS3Key() != null && !item.posterS3Key().isBlank()
                     && !keys.add(item.posterS3Key())) {
-                throw new WebApplicationException("Media upload keys must be unique", 400);
+                throw PostApiException.mediaKeysNotUnique();
             }
         }
     }
@@ -192,27 +200,33 @@ public class PostServiceImpl implements PostService {
         long images = media.stream().filter(m -> m.mediaType() == MediaType.IMAGE).count();
         long videos = media.stream().filter(m -> m.mediaType() == MediaType.VIDEO).count();
         if (images > 5) {
-            throw new WebApplicationException("A post can have at most 5 images", 400);
+            throw PostApiException.tooManyImages(images);
         }
         if (videos > 1) {
-            throw new WebApplicationException("A post can have at most 1 video", 400);
+            throw PostApiException.tooManyVideos(videos);
         }
     }
 
     private static void validateContentType(MediaType mediaType, String contentType) {
         if (mediaType == null || contentType == null || contentType.isBlank()) {
-            throw new WebApplicationException("Media type and content type are required", 400);
+            throw PostApiException.mediaTypeRequired(mediaType, contentType);
         }
         String normalized = contentType.toLowerCase();
         if (mediaType == MediaType.IMAGE && !normalized.startsWith("image/")) {
-            throw new WebApplicationException("Image uploads must use an image content type", 400);
+            throw PostApiException.invalidImageContentType(contentType);
         }
         if (mediaType == MediaType.VIDEO && !normalized.startsWith("video/")) {
-            throw new WebApplicationException("Video uploads must use a video content type", 400);
+            throw PostApiException.invalidVideoContentType(contentType);
         }
     }
 
     private static String emptyToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private void recordMetric(String operation, boolean success) {
+        if (metrics != null) {
+            metrics.recordOperation("posts", operation, success);
+        }
     }
 }

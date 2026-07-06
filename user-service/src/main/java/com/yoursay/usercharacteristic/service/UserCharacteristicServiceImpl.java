@@ -1,14 +1,15 @@
 package com.yoursay.usercharacteristic.service;
 
+import com.yoursay.observability.DomainMetrics;
 import com.yoursay.usercharacteristic.UserCharacteristicDto;
 import com.yoursay.usercharacteristic.UserCharacteristicService;
+import com.yoursay.usercharacteristic.error.UserCharacteristicApiException;
 import com.yoursay.usercharacteristic.model.Enums.*;
 import com.yoursay.usercharacteristic.model.UserCharacteristic;
 import com.yoursay.usercharacteristic.model.UserCharacteristicRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.BadRequestException;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -21,6 +22,9 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
     @Inject
     UserCharacteristicRepository characteristicRepository;
 
+    @Inject
+    DomainMetrics metrics;
+
     @Override
     public UserCharacteristicDto getByUserId(long userId) {
         return toDto(characteristicRepository.getUserCharacteristicByUserId(userId));
@@ -29,19 +33,29 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
     @Override
     @Transactional
     public UserCharacteristicDto saveForUser(long userId, UserCharacteristicDto answers) {
-        UserCharacteristic entity = characteristicRepository.getUserCharacteristicByUserId(userId);
-        if (entity == null) {
-            entity = new UserCharacteristic();
-            entity.setUserId(userId);
+        try {
+            UserCharacteristic entity = characteristicRepository.getUserCharacteristicByUserId(userId);
+            if (entity == null) {
+                entity = new UserCharacteristic();
+                entity.setUserId(userId);
+            }
+            applyAnswers(entity, answers);
+            UserCharacteristicDto dto = toDto(characteristicRepository.saveUserCharacteristic(entity));
+            recordMetric("saveForUser", true);
+            return dto;
+        } catch (RuntimeException e) {
+            recordMetric("saveForUser", false);
+            throw e;
         }
-        applyAnswers(entity, answers);
-        return toDto(characteristicRepository.saveUserCharacteristic(entity));
     }
 
     /** Validates and copies the answer fields onto the entity. {@code userId} is never read from the body. */
     private static void applyAnswers(UserCharacteristic entity, UserCharacteristicDto a) {
+        if (a == null) {
+            throw UserCharacteristicApiException.requestBodyRequired();
+        }
         if (a.country() == null || a.country().isBlank()) {
-            throw new BadRequestException("country is required");
+            throw UserCharacteristicApiException.requiredField("country");
         }
         entity.setCountry(a.country().trim());
         entity.setCity(blankToNull(a.city()));
@@ -75,12 +89,12 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         entity.setEyeColor(required(EyeColor.class, a.eyeColor(), "eyeColor"));
         entity.setParent(required(Parent.class, a.parent(), "parent"));
         if (a.newsFrequency() == null) {
-            throw new BadRequestException("newsFrequency is required");
+            throw UserCharacteristicApiException.requiredField("newsFrequency");
         }
         entity.setNewsFrequency(a.newsFrequency());
 
         if (a.hasPet() == null) {
-            throw new BadRequestException("hasPet is required");
+            throw UserCharacteristicApiException.requiredField("hasPet");
         }
         entity.setHasPet(a.hasPet());
         // petType is only meaningful for pet owners; for non-owners it is forced to null.
@@ -94,7 +108,7 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         entity.setOutlook(required(Outlook.class, a.outlook(), "outlook"));
 
         if (a.neurodivergent() == null) {
-            throw new BadRequestException("neurodivergent is required");
+            throw UserCharacteristicApiException.requiredField("neurodivergent");
         }
         entity.setNeurodivergent(a.neurodivergent());
         // neurodivergenceType is only meaningful when neurodivergent; otherwise it is forced to null.
@@ -105,7 +119,7 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         }
 
         if (a.hasDisability() == null) {
-            throw new BadRequestException("hasDisability is required");
+            throw UserCharacteristicApiException.requiredField("hasDisability");
         }
         entity.setHasDisability(a.hasDisability());
         // disabilityType is only meaningful when the user has a disability; otherwise forced to null.
@@ -127,7 +141,7 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
 
     private static Set<Race> parseRaces(List<String> values) {
         if (values == null || values.isEmpty()) {
-            throw new BadRequestException("race must have at least one value");
+            throw UserCharacteristicApiException.emptyRace();
         }
         Set<Race> races = new LinkedHashSet<>();
         for (String value : values) {
@@ -148,7 +162,7 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         try {
             return Enum.valueOf(type, value);
         } catch (IllegalArgumentException e) {
-            throw new BadRequestException("Invalid value '" + value + "' for " + type.getSimpleName());
+            throw UserCharacteristicApiException.invalidEnumValue(type.getSimpleName(), value, type);
         }
     }
 
@@ -156,7 +170,7 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
     private static <E extends Enum<E>> E required(Class<E> type, String value, String field) {
         E parsed = parse(type, value);
         if (parsed == null) {
-            throw new BadRequestException(field + " is required");
+            throw UserCharacteristicApiException.requiredField(field);
         }
         return parsed;
     }
@@ -211,5 +225,11 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
 
     private static String name(Enum<?> value) {
         return value == null ? null : value.name();
+    }
+
+    private void recordMetric(String operation, boolean success) {
+        if (metrics != null) {
+            metrics.recordOperation("usercharacteristic", operation, success);
+        }
     }
 }

@@ -22,6 +22,7 @@ dependencies {
     implementation("io.quarkus:quarkus-jdbc-postgresql")
     implementation("io.quarkus:quarkus-liquibase")
     implementation("io.quarkus:quarkus-micrometer-opentelemetry")
+    implementation("io.quarkus:quarkus-logging-json")
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-oidc")
     implementation("io.quarkus:quarkus-hibernate-validator")

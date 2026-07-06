@@ -5,14 +5,14 @@ import com.yoursay.votes.VoteResponseDto;
 import com.yoursay.votes.VoteService;
 import com.yoursay.votes.client.UserCharacteristicClient;
 import com.yoursay.votes.client.UserCharacteristicView;
+import com.yoursay.votes.error.VoteApiException;
 import com.yoursay.votes.model.Vote;
 import com.yoursay.votes.model.VoteRepository;
+import com.yoursay.observability.DomainMetrics;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.ClientErrorException;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
@@ -27,26 +27,42 @@ public class VoteServiceImpl implements VoteService {
     @RestClient
     UserCharacteristicClient userClient;
 
+    @Inject
+    DomainMetrics metrics;
+
     @Override
     @Transactional
     public VoteResponseDto castVote(Long postId, boolean voteFor, String callerEmail, String authorization) {
-        // 1. Resolve the numeric user id from user-service (role-gated, so bearer is forwarded).
-        Long userId = resolveUserId(callerEmail, authorization);
+        try {
+            // 1. Resolve the numeric user id from user-service (role-gated, so bearer is forwarded).
+            Long userId = resolveUserId(callerEmail, authorization);
 
-        // 2. Enforce one-vote-per-user: 409 if already voted.
-        if (voteRepository.existsByPostAndUser(postId, userId)) {
-            Log.infof("Duplicate vote rejected: user %d already voted on post %d", userId, postId);
-            throw new ClientErrorException("User has already voted on this post", Response.Status.CONFLICT);
+            // 2. Enforce one-vote-per-user: 409 if already voted.
+            if (voteRepository.existsByPostAndUser(postId, userId)) {
+                Log.infof("Duplicate vote rejected: user %d already voted on post %d", userId, postId);
+                throw VoteApiException.duplicateVote(postId, userId);
+            }
+
+            // 3. Capture a point-in-time characteristic snapshot (null-safe: empty snapshot if no profile).
+            CharacteristicSnapshot snapshot = fetchSnapshot(authorization);
+
+            // 4. Persist and return the PII-safe response.
+            Vote vote = new Vote(postId, userId, voteFor, snapshot);
+            try {
+                voteRepository.persist(vote);
+            } catch (RuntimeException e) {
+                if (isDuplicateVotePersistenceFailure(e)) {
+                    throw VoteApiException.duplicateVote(postId, userId);
+                }
+                throw e;
+            }
+            Log.infof("Vote persisted: id=%s postId=%d voteFor=%b", vote.getId(), postId, voteFor);
+            recordMetric("castVote", true);
+            return toResponse(vote);
+        } catch (RuntimeException e) {
+            recordMetric("castVote", false);
+            throw e;
         }
-
-        // 3. Capture a point-in-time characteristic snapshot (null-safe: empty snapshot if no profile).
-        CharacteristicSnapshot snapshot = fetchSnapshot(authorization);
-
-        // 4. Persist and return the PII-safe response.
-        Vote vote = new Vote(postId, userId, voteFor, snapshot);
-        voteRepository.persist(vote);
-        Log.infof("Vote persisted: id=%s postId=%d voteFor=%b", vote.getId(), postId, voteFor);
-        return toResponse(vote);
     }
 
     @Override
@@ -66,14 +82,14 @@ public class VoteServiceImpl implements VoteService {
         Response resp = userClient.getUserByEmail(callerEmail, authorization);
         if (resp.getStatus() == Response.Status.NO_CONTENT.getStatusCode()
                 || resp.getStatus() == Response.Status.NOT_FOUND.getStatusCode()) {
-            throw new WebApplicationException("No user account for authenticated caller", 401);
+            throw VoteApiException.userMissing(callerEmail);
         }
         if (resp.getStatus() >= 400) {
-            throw new WebApplicationException("Could not resolve user id", resp.getStatus());
+            throw VoteApiException.userLookupFailed(callerEmail, resp.getStatus());
         }
         UserCharacteristicClient.UserRef ref = resp.readEntity(UserCharacteristicClient.UserRef.class);
         if (ref == null || ref.id() == null) {
-            throw new WebApplicationException("No user account for authenticated caller", 401);
+            throw VoteApiException.userMissing(callerEmail);
         }
         return ref.id();
     }
@@ -86,19 +102,43 @@ public class VoteServiceImpl implements VoteService {
                 return CharacteristicSnapshot.empty();
             }
             if (resp.getStatus() >= 400) {
-                Log.warnf("Characteristic lookup returned %d; using empty snapshot", resp.getStatus());
+                Log.warnf("Characteristic lookup failed for vote snapshot: status=%d; using empty snapshot",
+                        resp.getStatus());
                 return CharacteristicSnapshot.empty();
             }
             UserCharacteristicView view = resp.readEntity(UserCharacteristicView.class);
             return CharacteristicSnapshotMapper.from(view);
         } catch (Exception e) {
             // Non-critical: a missing snapshot degrades to UNKNOWN buckets in aggregation.
-            Log.warnf("Failed to fetch characteristics: %s — using empty snapshot", e.getMessage());
+            Log.warnf(e, "Failed to fetch characteristics for vote snapshot; using empty snapshot: %s",
+                    e.getMessage());
             return CharacteristicSnapshot.empty();
         }
     }
 
     private static VoteResponseDto toResponse(Vote vote) {
         return new VoteResponseDto(vote.getId(), vote.getPostId(), vote.isVoteFor());
+    }
+
+    private void recordMetric(String operation, boolean success) {
+        if (metrics != null) {
+            metrics.recordOperation("votes", operation, success);
+        }
+    }
+
+    private static boolean isDuplicateVotePersistenceFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage();
+            String className = current.getClass().getName();
+            String combined = ((message == null ? "" : message) + " " + className).toLowerCase();
+            if (combined.contains("uk_votes_post_user")
+                    || (combined.contains("duplicate") && combined.contains("vote"))
+                    || (combined.contains("unique") && combined.contains("vote"))) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

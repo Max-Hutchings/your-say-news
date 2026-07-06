@@ -1,15 +1,14 @@
 package com.yoursay.user.service;
 
+import com.yoursay.observability.DomainMetrics;
 import com.yoursay.user.YourSayUserDto;
 import com.yoursay.user.YourSayUserService;
+import com.yoursay.user.error.UserApiException;
 import com.yoursay.user.model.YourSayUser;
 import com.yoursay.user.model.YourSayUserRepository;
-import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.NotFoundException;
-import jakarta.ws.rs.WebApplicationException;
 
 import java.time.LocalDate;
 
@@ -19,24 +18,38 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     @Inject
     YourSayUserRepository yourSayUserRepository;
 
+    @Inject
+    DomainMetrics metrics;
+
     @Override
     public YourSayUserDto getOrCreateFromIdentity(String email, String firstName, String lastName) {
-        if (firstName == null || lastName == null || email == null) {
-            Log.errorf("Failed when saving user: Name {%s %s}  Email {%s}", firstName, lastName, email);
-            throw new WebApplicationException("Could not collect user details from authentication");
-        }
+        try {
+            if (firstName == null || lastName == null || email == null) {
+                throw UserApiException.missingIdentity(email, firstName, lastName);
+            }
 
-        YourSayUser user = yourSayUserRepository.findByEmail(email);
-        if (user == null) {
-            user = yourSayUserRepository.saveYourSayUser(new YourSayUser(email, firstName, lastName));
+            YourSayUser user = yourSayUserRepository.findByEmail(email);
+            if (user == null) {
+                user = yourSayUserRepository.saveYourSayUser(new YourSayUser(email, firstName, lastName));
+            }
+            recordMetric("getOrCreateFromIdentity", true);
+            return toDto(user);
+        } catch (RuntimeException e) {
+            recordMetric("getOrCreateFromIdentity", false);
+            throw e;
         }
-        return toDto(user);
     }
 
     @Override
     public YourSayUserDto save(String email, String firstName, String lastName, LocalDate birthDate) {
-        YourSayUser user = yourSayUserRepository.saveYourSayUser(new YourSayUser(email, birthDate, firstName, lastName));
-        return toDto(user);
+        try {
+            YourSayUser user = yourSayUserRepository.saveYourSayUser(new YourSayUser(email, birthDate, firstName, lastName));
+            recordMetric("save", true);
+            return toDto(user);
+        } catch (RuntimeException e) {
+            recordMetric("save", false);
+            throw e;
+        }
     }
 
     @Override
@@ -52,12 +65,24 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     @Override
     @Transactional
     public YourSayUserDto recordConsent(String email, String privacyPolicyVersion) {
-        YourSayUser user = yourSayUserRepository.findByEmail(email);
-        if (user == null) {
-            throw new NotFoundException("No user account exists for the authenticated subject");
+        try {
+            YourSayUser user = yourSayUserRepository.findByEmail(email);
+            if (user == null) {
+                throw UserApiException.notFoundForAuthenticatedSubject(email);
+            }
+            user.recordConsent(privacyPolicyVersion);
+            recordMetric("recordConsent", true);
+            return toDto(user);
+        } catch (RuntimeException e) {
+            recordMetric("recordConsent", false);
+            throw e;
         }
-        user.recordConsent(privacyPolicyVersion);
-        return toDto(user);
+    }
+
+    private void recordMetric(String operation, boolean success) {
+        if (metrics != null) {
+            metrics.recordOperation("user", operation, success);
+        }
     }
 
     private static YourSayUserDto toDto(YourSayUser user) {

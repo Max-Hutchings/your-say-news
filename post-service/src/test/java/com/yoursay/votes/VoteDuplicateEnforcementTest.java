@@ -1,18 +1,20 @@
 package com.yoursay.votes;
 
 import com.yoursay.votes.client.UserCharacteristicClient;
+import com.yoursay.votes.error.VoteApiException;
+import com.yoursay.votes.model.Vote;
 import com.yoursay.votes.model.VoteRepository;
 import com.yoursay.votes.service.VoteServiceImpl;
-import jakarta.ws.rs.ClientErrorException;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Field;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,7 +63,11 @@ class VoteDuplicateEnforcementTest {
 
         assertEquals(POST_ID, result.postId());
         assertEquals(true, result.voteFor());
-        verify(voteRepository).persist(any(com.yoursay.votes.model.Vote.class));
+        Vote persisted = capturePersistedVote();
+        assertEquals(POST_ID, persisted.getPostId());
+        assertEquals(USER_ID, persisted.getUserId());
+        assertEquals(true, persisted.isVoteFor());
+        assertEquals(CharacteristicSnapshot.UNKNOWN, persisted.getSnapshot().bucketFor("ageRange"));
     }
 
     @Test
@@ -69,13 +75,31 @@ class VoteDuplicateEnforcementTest {
         // The duplicate-vote guard fires before any persist call.
         when(voteRepository.existsByPostAndUser(POST_ID, USER_ID)).thenReturn(true);
 
-        ClientErrorException ex = assertThrows(
-                ClientErrorException.class,
+        VoteApiException ex = assertThrows(
+                VoteApiException.class,
                 () -> voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH)
         );
 
         assertEquals(Response.Status.CONFLICT.getStatusCode(), ex.getResponse().getStatus());
+        assertEquals("VOTE_DUPLICATE", ex.errorCode());
         verify(voteRepository, never()).persist(any(com.yoursay.votes.model.Vote.class));
+    }
+
+    @Test
+    void castVote_duplicateRaceOnPersist_throws409() {
+        when(voteRepository.existsByPostAndUser(POST_ID, USER_ID)).thenReturn(false);
+        when(userClient.getMyCharacteristics(AUTH)).thenReturn(Response.noContent().build());
+        doThrow(new RuntimeException("duplicate key value violates unique constraint \"uk_votes_post_user\""))
+                .when(voteRepository).persist(any(Vote.class));
+
+        VoteApiException ex = assertThrows(
+                VoteApiException.class,
+                () -> voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH)
+        );
+
+        assertEquals(Response.Status.CONFLICT.getStatusCode(), ex.getResponse().getStatus());
+        assertEquals("VOTE_DUPLICATE", ex.errorCode());
+        assertEquals("votes", ex.domain());
     }
 
     @Test
@@ -89,7 +113,11 @@ class VoteDuplicateEnforcementTest {
 
         assertEquals(anotherPost, result.postId());
         assertEquals(false, result.voteFor());
-        verify(voteRepository).persist(any(com.yoursay.votes.model.Vote.class));
+        Vote persisted = capturePersistedVote();
+        assertEquals(anotherPost, persisted.getPostId());
+        assertEquals(USER_ID, persisted.getUserId());
+        assertEquals(false, persisted.isVoteFor());
+        assertEquals(CharacteristicSnapshot.UNKNOWN, persisted.getSnapshot().bucketFor("ageRange"));
     }
 
     @Test
@@ -99,12 +127,15 @@ class VoteDuplicateEnforcementTest {
         when(userClient.getUserByEmail(VOTER_EMAIL, AUTH))
                 .thenReturn(Response.noContent().build());
 
-        WebApplicationException ex = assertThrows(
-                WebApplicationException.class,
+        VoteApiException ex = assertThrows(
+                VoteApiException.class,
                 () -> voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH)
         );
 
         assertEquals(401, ex.getResponse().getStatus());
+        assertEquals("VOTE_USER_MISSING", ex.errorCode());
+        assertEquals("votes", ex.domain());
+        assertEquals("Authentication is required.", ex.publicMessage());
         verify(voteRepository, never()).existsByPostAndUser(anyLong(), anyLong());
     }
 
@@ -127,5 +158,32 @@ class VoteDuplicateEnforcementTest {
         assertTrue(result.isEmpty());
         verify(voteRepository).findByPostAndUser(POST_ID, OTHER_ID);
         verify(voteRepository, never()).findByPostAndUser(POST_ID, USER_ID);
+    }
+
+    @Test
+    void getMyVote_existingVote_mapsResponseWithoutPii() throws Exception {
+        Vote vote = new Vote(POST_ID, USER_ID, true, CharacteristicSnapshot.empty());
+        setId(vote, 44L);
+        when(voteRepository.findByPostAndUser(POST_ID, USER_ID)).thenReturn(Optional.of(vote));
+
+        Optional<VoteResponseDto> result = voteService.getMyVote(POST_ID, VOTER_EMAIL, AUTH);
+
+        assertTrue(result.isPresent());
+        assertEquals(44L, result.get().id());
+        assertEquals(POST_ID, result.get().postId());
+        assertEquals(true, result.get().voteFor());
+        verify(voteRepository).findByPostAndUser(POST_ID, USER_ID);
+    }
+
+    private Vote capturePersistedVote() {
+        ArgumentCaptor<Vote> captor = ArgumentCaptor.forClass(Vote.class);
+        verify(voteRepository).persist(captor.capture());
+        return captor.getValue();
+    }
+
+    private static void setId(Vote vote, Long id) throws Exception {
+        Field field = Vote.class.getDeclaredField("id");
+        field.setAccessible(true);
+        field.set(vote, id);
     }
 }
