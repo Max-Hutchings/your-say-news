@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <!-- Seed realistic vote volume for John Doe's posts (author user_id=1).
+         Synthetic user ids are intentionally post-service local only: they satisfy the one-vote-per
+         user constraint without adding hundreds of Keycloak/user-service identities. Snapshots carry
+         only anonymous aggregate characteristics, never names, emails, DOBs or other PII. -->
+    <changeSet id="0004-seed-john-doe-votes" author="codex" context="seed">
+        <sql splitStatements="false"><![CDATA[
+WITH vote_source AS (
+    SELECT 1005::BIGINT AS post_id, (100000 + n)::BIGINT AS user_id, n, 68 AS base_support
+    FROM generate_series(0, 359) AS n
+    UNION ALL
+    SELECT 1008::BIGINT AS post_id, (101000 + n)::BIGINT AS user_id, n, 54 AS base_support
+    FROM generate_series(0, 419) AS n
+    UNION ALL
+    SELECT 1007::BIGINT AS post_id, (102000 + n)::BIGINT AS user_id, n, 73 AS base_support
+    FROM generate_series(0, 549) AS n
+),
+profiles AS (
+    SELECT
+        post_id,
+        user_id,
+        n,
+        base_support,
+        CASE n % 6
+            WHEN 0 THEN 'LEFT'
+            WHEN 1 THEN 'CENTRE_LEFT'
+            WHEN 2 THEN 'CENTRE'
+            WHEN 3 THEN 'CENTRE_RIGHT'
+            WHEN 4 THEN 'RIGHT'
+            ELSE 'APOLITICAL'
+        END AS political_persuasion,
+        CASE n % 7
+            WHEN 0 THEN 'AGE_18_24'
+            WHEN 1 THEN 'AGE_25_34'
+            WHEN 2 THEN 'AGE_35_44'
+            WHEN 3 THEN 'AGE_45_54'
+            WHEN 4 THEN 'AGE_55_64'
+            WHEN 5 THEN 'AGE_65_PLUS'
+            ELSE 'AGE_25_34'
+        END AS age_range,
+        CASE n % 5
+            WHEN 0 THEN 'WOMAN'
+            WHEN 1 THEN 'MAN'
+            WHEN 2 THEN 'NON_BINARY'
+            WHEN 3 THEN 'WOMAN'
+            ELSE 'MAN'
+        END AS gender,
+        CASE n % 8
+            WHEN 0 THEN 'ASIAN'
+            WHEN 1 THEN 'BLACK'
+            WHEN 2 THEN 'MIXED'
+            WHEN 3 THEN 'OTHER'
+            ELSE 'WHITE'
+        END AS race,
+        CASE WHEN n % 10 = 0 THEN 'United States' ELSE 'United Kingdom' END AS country,
+        CASE n % 9
+            WHEN 0 THEN 'London'
+            WHEN 1 THEN 'Bristol'
+            WHEN 2 THEN 'Manchester'
+            WHEN 3 THEN 'Glasgow'
+            WHEN 4 THEN 'Cardiff'
+            WHEN 5 THEN 'Leeds'
+            WHEN 6 THEN 'Birmingham'
+            WHEN 7 THEN 'Newcastle'
+            ELSE 'Dallas'
+        END AS region,
+        CASE n % 4
+            WHEN 0 THEN 'URBAN'
+            WHEN 1 THEN 'SUBURBAN'
+            WHEN 2 THEN 'TOWN'
+            ELSE 'RURAL'
+        END AS urban_rural,
+        CASE n % 7
+            WHEN 0 THEN 'GREATER_LONDON'
+            WHEN 1 THEN 'BRISTOL'
+            WHEN 2 THEN 'GREATER_MANCHESTER'
+            WHEN 3 THEN 'WEST_YORKSHIRE'
+            WHEN 4 THEN 'WEST_MIDLANDS'
+            WHEN 5 THEN 'TYNE_AND_WEAR'
+            ELSE 'CARDIFF'
+        END AS uk_county,
+        CASE n % 6
+            WHEN 0 THEN 'BACHELORS'
+            WHEN 1 THEN 'MASTERS'
+            WHEN 2 THEN 'HIGH_SCHOOL'
+            WHEN 3 THEN 'VOCATIONAL'
+            WHEN 4 THEN 'DOCTORATE'
+            ELSE 'NO_FORMAL_QUALIFICATIONS'
+        END AS education,
+        CASE n % 7
+            WHEN 0 THEN 'EMPLOYED_FULL_TIME'
+            WHEN 1 THEN 'EMPLOYED_PART_TIME'
+            WHEN 2 THEN 'SELF_EMPLOYED'
+            WHEN 3 THEN 'STUDENT'
+            WHEN 4 THEN 'RETIRED'
+            WHEN 5 THEN 'CARER'
+            ELSE 'UNEMPLOYED'
+        END AS occupation,
+        CASE n % 8
+            WHEN 0 THEN 'HEALTHCARE'
+            WHEN 1 THEN 'EDUCATION'
+            WHEN 2 THEN 'IT_TECHNOLOGY'
+            WHEN 3 THEN 'CONSTRUCTION'
+            WHEN 4 THEN 'RETAIL'
+            WHEN 5 THEN 'PUBLIC_SECTOR'
+            WHEN 6 THEN 'FINANCE'
+            ELSE 'HOSPITALITY'
+        END AS employment_sector,
+        CASE n % 5
+            WHEN 0 THEN 'UNDER_25K'
+            WHEN 1 THEN 'BETWEEN_25K_AND_50K'
+            WHEN 2 THEN 'BETWEEN_50K_AND_100K'
+            WHEN 3 THEN 'BETWEEN_100K_AND_150K'
+            ELSE 'BETWEEN_151K_AND_200K'
+        END AS personal_income_range,
+        CASE n % 5
+            WHEN 0 THEN 'BETWEEN_25K_AND_50K'
+            WHEN 1 THEN 'BETWEEN_50K_AND_100K'
+            WHEN 2 THEN 'BETWEEN_100K_AND_150K'
+            WHEN 3 THEN 'BETWEEN_151K_AND_200K'
+            ELSE 'OVER_200K'
+        END AS household_income_range,
+        CASE n % 4
+            WHEN 0 THEN 'NO'
+            WHEN 1 THEN 'MUM'
+            WHEN 2 THEN 'DAD'
+            ELSE 'GUARDIAN'
+        END AS parent,
+        ((n % 10) + 1)::TEXT AS news_frequency,
+        CASE WHEN n % 3 = 0 THEN 'true' ELSE 'false' END AS has_pet,
+        CASE n % 4
+            WHEN 0 THEN 'DOG'
+            WHEN 1 THEN 'CAT'
+            WHEN 2 THEN 'OTHER'
+            ELSE NULL
+        END AS pet_type,
+        CASE n % 3
+            WHEN 0 THEN 'EARLY_BIRD'
+            WHEN 1 THEN 'NIGHT_OWL'
+            ELSE 'NEITHER'
+        END AS chronotype,
+        CASE n % 3
+            WHEN 0 THEN 'OPTIMIST'
+            WHEN 1 THEN 'PESSIMIST'
+            ELSE 'REALIST'
+        END AS outlook,
+        CASE WHEN n % 9 = 0 THEN 'true' ELSE 'false' END AS neurodivergent,
+        CASE WHEN n % 11 = 0 THEN 'true' ELSE 'false' END AS has_disability,
+        CASE n % 4
+            WHEN 0 THEN 'OWN'
+            WHEN 1 THEN 'RENT_PRIVATE'
+            WHEN 2 THEN 'RENT_SOCIAL'
+            ELSE 'LIVE_WITH_FAMILY'
+        END AS housing_status,
+        CASE n % 5
+            WHEN 0 THEN 'HOUSE'
+            WHEN 1 THEN 'FLAT'
+            WHEN 2 THEN 'MAISONETTE'
+            WHEN 3 THEN 'BUNGALOW'
+            ELSE 'OTHER'
+        END AS property_type
+    FROM vote_source
+),
+scored_profiles AS (
+    SELECT
+        *,
+        LEAST(88, GREATEST(18,
+            base_support
+            + CASE political_persuasion
+                WHEN 'LEFT' THEN 8
+                WHEN 'CENTRE_LEFT' THEN 5
+                WHEN 'CENTRE' THEN 1
+                WHEN 'CENTRE_RIGHT' THEN -3
+                WHEN 'RIGHT' THEN -7
+                ELSE -1
+            END
+            + CASE age_range
+                WHEN 'AGE_18_24' THEN 5
+                WHEN 'AGE_25_34' THEN 4
+                WHEN 'AGE_35_44' THEN 1
+                WHEN 'AGE_65_PLUS' THEN -5
+                ELSE 0
+            END
+            + CASE urban_rural
+                WHEN 'URBAN' THEN 4
+                WHEN 'SUBURBAN' THEN 1
+                WHEN 'RURAL' THEN -4
+                ELSE 0
+            END
+            + CASE post_id
+                WHEN 1005 THEN CASE WHEN occupation IN ('STUDENT', 'EMPLOYED_FULL_TIME') THEN 3 ELSE 0 END
+                WHEN 1007 THEN CASE WHEN region IN ('London', 'Manchester', 'Bristol') THEN 4 ELSE 0 END
+                WHEN 1008 THEN CASE WHEN has_disability = 'true' OR outlook = 'OPTIMIST' THEN 3 ELSE 0 END
+                ELSE 0
+            END
+        )) AS support_threshold
+    FROM profiles
+)
+INSERT INTO votes (post_id, user_id, vote_for, characteristic_snapshot)
+SELECT
+    post_id,
+    user_id,
+    ((n * 37 + post_id) % 100) < support_threshold AS vote_for,
+    jsonb_strip_nulls(jsonb_build_object(
+        'politicalPersuasion', political_persuasion,
+        'ageRange', age_range,
+        'gender', gender,
+        'race', race,
+        'country', country,
+        'region', region,
+        'urbanRural', urban_rural,
+        'ukCounty', CASE WHEN country = 'United Kingdom' THEN uk_county ELSE NULL END,
+        'education', education,
+        'occupation', occupation,
+        'employmentSector', employment_sector,
+        'personalIncomeRange', personal_income_range,
+        'householdIncomeRange', household_income_range,
+        'parent', parent,
+        'newsFrequency', news_frequency,
+        'hasPet', has_pet,
+        'petType', pet_type,
+        'chronotype', chronotype,
+        'outlook', outlook,
+        'neurodivergent', neurodivergent,
+        'hasDisability', has_disability,
+        'housingStatus', housing_status,
+        'propertyType', property_type
+    )) AS characteristic_snapshot
+FROM scored_profiles
+ORDER BY post_id, user_id;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>
