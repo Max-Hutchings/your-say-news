@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <!-- Mixed-orientation media posts. 1005 is a PORTRAIT image (tall media box, collapsed "see more"
+         summary); 1006 is a LANDSCAPE video — its orientation must match the actual 16:9 clip
+         localstack/init-aws.sh uploads, or the feed sizes it as a tall portrait box and the landscape
+         video letterboxes with a gap below it. Keys match the objects uploaded by init-aws.sh
+         (seed-6 image, seed-7 video + poster). -->
+    <changeSet id="test-data-portrait-1" author="generated" context="seed">
+        <validCheckSum>ANY</validCheckSum>
+
+        <!-- 1005 — portrait image -->
+        <insert tableName="post">
+            <column name="id" value="1005"/>
+            <column name="user_id" value="1"/>
+            <column name="title" value="The teenager quietly mapping every tree in her city"/>
+            <column name="summary" value="Most weekends, sixteen-year-old Amara walks a different postcode with a phone in one hand and a tape measure in the other. Two years in, she has logged more than eleven thousand trees — species, height, health — into an open map anyone can use.&#10;&#10;It started as a school project and became something the council now quietly relies on. When a developer applies to fell a row of limes, residents cite her data; when a heatwave hits, planners can see exactly which streets have no shade at all.&#10;&#10;She is careful to say she is not an expert, just stubborn. But her map has already changed three planning decisions, and a dozen other teenagers in other cities have asked her how to start their own."/>
+            <column name="support_question" value="Should councils be required to publish an open tree map?"/>
+            <column name="case_for" value="Public data lets residents challenge felling and target shade where it's needed."/>
+            <column name="case_against" value="Mapping every tree is costly upkeep councils can't reliably fund."/>
+            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="created_at" valueDate="2026-07-01T08:00:00"/>
+            <column name="updated_at" valueDate="2026-07-01T08:00:00"/>
+        </insert>
+
+        <!-- 1006 — landscape video -->
+        <insert tableName="post">
+            <column name="id" value="1006"/>
+            <column name="user_id" value="1"/>
+            <column name="title" value="One minute inside the vertical farm feeding a tower block"/>
+            <column name="summary" value="On the ground floor of a 1970s tower, a disused storage room now grows salad. Stacked trays climb from floor to ceiling under pink light, fed by water that recirculates and uses a fraction of what a field would drink.&#10;&#10;The residents' co-op that runs it says the harvest already covers the building's communal kitchen and a small stall out front. No lorries, no packaging, no supermarket markup — just leaves cut the morning they are eaten.&#10;&#10;Critics point out the electricity bill for all that light, and question whether it could ever scale beyond a novelty. The growers counter that the point was never scale — it was showing a block of flats it could feed itself."/>
+            <column name="support_question" value="Should councils fund vertical farms in social housing?"/>
+            <column name="case_for" value="Fresh food on-site with no lorries, packaging or supermarket markup."/>
+            <column name="case_against" value="The lighting bill is huge and it may never scale past a novelty."/>
+            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="created_at" valueDate="2026-07-01T09:00:00"/>
+            <column name="updated_at" valueDate="2026-07-01T09:00:00"/>
+        </insert>
+
+        <!-- Media: 1005 → single portrait image -->
+        <insert tableName="post_media">
+            <column name="id" value="2050"/><column name="post_id" value="1005"/>
+            <column name="media_type" value="IMAGE"/><column name="orientation" value="PORTRAIT"/>
+            <column name="s3_key" value="posts/seed-6-img-1.jpg"/>
+            <column name="content_type" value="image/jpeg"/><column name="ordinal" value="0"/>
+            <column name="created_at" valueDate="2026-07-01T08:00:00"/>
+        </insert>
+
+        <!-- Media: 1006 → landscape video with a poster frame -->
+        <insert tableName="post_media">
+            <column name="id" value="2060"/><column name="post_id" value="1006"/>
+            <column name="media_type" value="VIDEO"/><column name="orientation" value="LANDSCAPE"/>
+            <column name="s3_key" value="posts/seed-7-video.mp4"/>
+            <column name="content_type" value="video/mp4"/>
+            <column name="poster_s3_key" value="posts/seed-7-poster.jpg"/>
+            <column name="ordinal" value="0"/>
+            <column name="created_at" valueDate="2026-07-01T09:00:00"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <!-- A PORTRAIT video post (author = john.doe, user 1) — the one media shape the feed had no demo
+         for. It drives the tall immersive layout with an autoplaying clip: media box on top, headline
+         and support question beneath, story behind "See more". The uploaded clip is 16:9 and the feed
+         fills the tall cell with contentFit="cover"; the poster is a genuine 1080x1920 portrait still.
+         Keys match the objects uploaded by init-aws.sh (seed-10 video + poster). -->
+    <changeSet id="test-data-portrait-video-1" author="generated" context="seed">
+        <validCheckSum>ANY</validCheckSum>
+
+        <!-- 1009 — portrait video -->
+        <insert tableName="post">
+            <column name="id" value="1009"/>
+            <column name="user_id" value="1"/>
+            <column name="title" value="The busker who fills the square every Friday night"/>
+            <column name="summary" value="Every Friday at dusk, a crowd three-deep gathers on the market square for a musician the city never booked. He arrives with a battered amp and a loop pedal, and for two hours the square belongs to him — takeaway coffees go cold as people stop, film, and stay.&#10;&#10;The council is quietly uneasy. Traders love the footfall but complain about the noise; residents above the shops are split between charmed and exhausted. A proposed licensing scheme would cap performance hours and require an audition — supporters call it fair, buskers call it the end of the thing that makes a street feel alive.&#10;&#10;It is a small fight about a big question: who gets to decide what a public space sounds like, and whether the unplanned moments are a nuisance to manage or the whole point."/>
+            <column name="support_question" value="Should street performers need a licence to play in public spaces?"/>
+            <column name="case_for" value="Licensing caps noise, protects residents and keeps pitches fairly shared."/>
+            <column name="case_against" value="Auditions and permits kill the spontaneity that makes a street feel alive."/>
+            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="created_at" valueDate="2026-07-01T12:00:00"/>
+            <column name="updated_at" valueDate="2026-07-01T12:00:00"/>
+        </insert>
+
+        <!-- Media: 1009 → single portrait video with a portrait poster frame -->
+        <insert tableName="post_media">
+            <column name="id" value="2090"/><column name="post_id" value="1009"/>
+            <column name="media_type" value="VIDEO"/><column name="orientation" value="PORTRAIT"/>
+            <column name="s3_key" value="posts/seed-10-video.mp4"/>
+            <column name="content_type" value="video/mp4"/>
+            <column name="poster_s3_key" value="posts/seed-10-poster.jpg"/>
+            <column name="ordinal" value="0"/>
+            <column name="created_at" valueDate="2026-07-01T12:00:00"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

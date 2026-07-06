@@ -5,7 +5,6 @@ databaseChangeLog:
   - changeSet:
       id: 1763760109822-3
       author: mhutc
-      logicalFilePath: db/db.changelog-master.yaml
       context: seed
       objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
       changes:

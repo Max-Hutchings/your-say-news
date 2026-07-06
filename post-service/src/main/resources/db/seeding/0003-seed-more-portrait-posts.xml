@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <!-- More media posts for the feed (author = john.doe, user 1). 1007 is a PORTRAIT image (tall
+         media box, collapsed "see more" summary); 1008 is a LANDSCAPE video — its orientation must
+         match the actual 16:9 clip localstack/init-aws.sh uploads, or the feed sizes it as a tall
+         portrait box and the landscape video letterboxes with a gap below it. -->
+    <changeSet id="test-data-portrait-2" author="generated" context="seed">
+        <validCheckSum>ANY</validCheckSum>
+
+        <!-- 1007 — portrait image -->
+        <insert tableName="post">
+            <column name="id" value="1007"/>
+            <column name="user_id" value="1"/>
+            <column name="title" value="The busker who turned a subway corner into a concert hall"/>
+            <column name="summary" value="Every evening at six, the tiled corner where two tunnels meet fills with the sound of a cello. Commuters who normally never break stride stop, set down their bags, and stay.&#10;&#10;He has played the same spot for three years, and the acoustics — an accident of curved tile and low ceiling — have made it a small institution. Regulars know the routine; strangers film it and leave more than they meant to.&#10;&#10;The transport authority once tried to move him on. A petition with four thousand names changed their mind, and now there is a small brass plaque on the wall marking the spot as an official pitch."/>
+            <column name="support_question" value="Should cities protect established street-performance spots?"/>
+            <column name="case_for" value="Great pitches build culture and community that's worth safeguarding."/>
+            <column name="case_against" value="Fixed rights to public space invite disputes and shut newcomers out."/>
+            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="created_at" valueDate="2026-07-01T10:00:00"/>
+            <column name="updated_at" valueDate="2026-07-01T10:00:00"/>
+        </insert>
+
+        <!-- 1008 — landscape video -->
+        <insert tableName="post">
+            <column name="id" value="1008"/>
+            <column name="user_id" value="1"/>
+            <column name="title" value="Sixty seconds with the dawn swimmers who never miss a day"/>
+            <column name="summary" value="It is four degrees and barely light, and a dozen people are wading into the harbour as if it were the most natural thing in the world. Some have done this every morning for a decade.&#10;&#10;They talk about it less as exercise than as medicine — for anxiety, for grief, for the flat grey months. The science on cold water is still thin, but the group is not waiting for a trial to tell them how they feel.&#10;&#10;What started as three friends is now a roster of eighty, with a rule that has never been written down but everyone obeys: whoever gets there first waits for whoever comes last."/>
+            <column name="support_question" value="Should councils provide safe open-water swimming spots?"/>
+            <column name="case_for" value="Safe access spreads a proven boost to physical and mental health."/>
+            <column name="case_against" value="Councils take on liability and lifeguard costs for a risky activity."/>
+            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="created_at" valueDate="2026-07-01T11:00:00"/>
+            <column name="updated_at" valueDate="2026-07-01T11:00:00"/>
+        </insert>
+
+        <!-- Media: 1007 → single portrait image -->
+        <insert tableName="post_media">
+            <column name="id" value="2070"/><column name="post_id" value="1007"/>
+            <column name="media_type" value="IMAGE"/><column name="orientation" value="PORTRAIT"/>
+            <column name="s3_key" value="posts/seed-8-img-1.jpg"/>
+            <column name="content_type" value="image/jpeg"/><column name="ordinal" value="0"/>
+            <column name="created_at" valueDate="2026-07-01T10:00:00"/>
+        </insert>
+
+        <!-- Media: 1008 → landscape video with a poster frame -->
+        <insert tableName="post_media">
+            <column name="id" value="2080"/><column name="post_id" value="1008"/>
+            <column name="media_type" value="VIDEO"/><column name="orientation" value="LANDSCAPE"/>
+            <column name="s3_key" value="posts/seed-9-video.mp4"/>
+            <column name="content_type" value="video/mp4"/>
+            <column name="poster_s3_key" value="posts/seed-9-poster.jpg"/>
+            <column name="ordinal" value="0"/>
+            <column name="created_at" valueDate="2026-07-01T11:00:00"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Seed reset — runs FIRST (lexicographic includeAll order) so a reseed starts from a clean slate.
+     Only ever executed by the seeding container (context "seed"); the app's migrate-at-start never
+     includes seeding/, so this can never truncate a real environment. RESTART IDENTITY resets the
+     serial sequences; CASCADE clears post_media via its FK to post. -->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="0000-reset-seed-data" author="seed" context="seed">
+        <comment>Drop existing post-service seed data before reseeding.</comment>
+        <sql splitStatements="false">TRUNCATE post, post_media, post_media_upload, votes RESTART IDENTITY CASCADE;</sql>
+    </changeSet>
+</databaseChangeLog>

@@ -20,6 +20,8 @@
             <column name="title" value="The four-day week trial is over. The results surprised almost everyone."/>
             <column name="summary" value="For six months, forty-three companies across the country moved their staff to a four-day week with no cut in pay. The rules were simple: same salary, same targets, one fewer day. Organisers expected productivity to dip and quietly hoped it would hold steady.&#10;&#10;Instead, revenue at the average firm edged up, sick days fell by almost a third, and the number of staff who quit dropped to its lowest level in years. Managers reported shorter, sharper meetings and fewer of the low-value tasks that quietly fill a fifth day. Not every business thrived — client-facing teams struggled to cover Fridays — but only two of the forty-three chose to go back.&#10;&#10;Now the debate moves from whether it works to whether it should be the default. Unions want it written into law; some employers warn that what works for a software team may not work for a hospital or a shop floor. The trial has handed both sides exactly the evidence they were looking for."/>
             <column name="support_question" value="Should the four-day week become the national standard?"/>
+            <column name="case_for" value="Trials show output holds or rises while burnout and sick days fall."/>
+            <column name="case_against" value="What works for an office won't map onto hospitals, shops or shift work."/>
             <column name="is_unbiased" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-30T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-30T08:00:00"/>
@@ -32,6 +34,8 @@
             <column name="title" value="Inside the flood defences being tested before winter"/>
             <column name="summary" value="Along a two-mile stretch of the estuary, engineers have spent the summer raising a new kind of barrier — one designed to be invisible most of the year and to rise from the ground only when the water does. This week they flooded the test channel on purpose to see whether it holds.&#10;&#10;The footage shows the wall lifting into place in under four minutes as sensors upstream register the surge. For the town behind it, that speed is the whole point: the last major flood, in 2019, gave residents barely half an hour of warning. If the system passes, it becomes the template for a dozen more sites at risk from rising seas.&#10;&#10;Critics argue the money would be better spent moving people away from the water entirely, rather than building ever-higher walls to keep it out. Supporters say abandonment is not a plan a community can vote for."/>
             <column name="support_question" value="Should public money defend coastal towns rather than relocate them?"/>
+            <column name="case_for" value="Defences protect homes, jobs and communities people won't willingly abandon."/>
+            <column name="case_against" value="Ever-higher walls only delay the inevitable and cost more than moving."/>
             <column name="is_unbiased" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-29T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-29T08:00:00"/>
@@ -44,6 +48,8 @@
             <column name="title" value="The city centre just went car-free at weekends. Traders are divided."/>
             <column name="summary" value="From this month, the streets inside the old market ring are closed to cars every Saturday and Sunday. Planters, seating and a weekend market have taken the place of parking bays, and early foot-traffic counts are up by almost a fifth.&#10;&#10;Cafés and independent shops mostly love it; the pavement is now theirs to spill onto. But some traders who rely on drivers loading heavy goods say takings have fallen, and taxi firms have been pushed to the edge of the zone. The council calls this a trial and promises to publish the numbers.&#10;&#10;Cities across Europe have made similar changes permanent, usually after a rocky first year. The question is whether residents will judge it on the quieter air and busier squares, or on the extra ten minutes it now takes to reach them."/>
             <column name="support_question" value="Should the weekend car-free zone be made permanent?"/>
+            <column name="case_for" value="Cleaner air, busier squares and more space for people, not parking."/>
+            <column name="case_against" value="Traders lose loading access and disabled drivers get pushed to the edge."/>
             <column name="is_unbiased" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-28T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-28T08:00:00"/>
@@ -56,6 +62,8 @@
             <column name="title" value="AI tutors have arrived in classrooms. Teachers aren't sure who they work for."/>
             <column name="summary" value="A growing number of schools now give every pupil an AI tutor that adapts to how fast they learn, answers questions at midnight, and never runs out of patience. Trials report faster progress in maths and reading, especially for children who were falling behind.&#10;&#10;Teachers describe a stranger shift in the room. Some pupils trust the model more than the adult at the front, and a few have stopped asking questions aloud entirely. Staff also worry about what happens to the data these tools quietly collect on every child, and who ultimately owns it.&#10;&#10;Supporters say a tireless tutor for every child is exactly the equaliser education has always needed. Sceptics ask whether we are handing the most human job we have to a system optimised, in the end, for engagement."/>
             <column name="support_question" value="Should every child be given an AI tutor?"/>
+            <column name="case_for" value="A tireless, patient tutor for every child could close the attainment gap."/>
+            <column name="case_against" value="It hands a deeply human job to a system optimised for engagement."/>
             <column name="is_unbiased" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-27T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-27T08:00:00"/>
@@ -68,6 +76,8 @@
             <column name="title" value="The high-street bookshop is quietly making a comeback"/>
             <column name="summary" value="After a decade of closures, independent bookshops are opening again — more than a hundred last year alone. The new arrivals look less like the shops that closed and more like small community hubs: coffee at the front, events most evenings, a shelf curated by someone who actually read the books.&#10;&#10;Owners say people who spend all day on a screen are paying for the opposite: a slow, physical browse and a recommendation from a human. The numbers are still fragile, and rising rents remain the killer, but for the first time in years the trend line points up.&#10;&#10;It is a small rebellion against the idea that everything ends up online — and a bet that some things are worth leaving the house for."/>
             <column name="support_question" value="Would you pay more to keep a local bookshop open?"/>
+            <column name="case_for" value="Bookshops are community hubs worth more than the price on the cover."/>
+            <column name="case_against" value="Sentiment won't beat rents; subsidising nostalgia isn't sustainable."/>
             <column name="is_unbiased" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-26T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-26T08:00:00"/>

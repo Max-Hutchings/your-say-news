@@ -1,0 +1,14 @@
+# Seed reset — runs FIRST (lexicographic includeAll order) so a reseed starts from a clean slate.
+# Only ever executed by the seeding container (context "seed"); the app's migrate-at-start never
+# includes seeding/, so this can never truncate a real environment. RESTART IDENTITY resets the
+# serial sequences; CASCADE clears user_characteristic_race via its FK to user_characteristic.
+databaseChangeLog:
+  - changeSet:
+      id: 0000-reset-seed-data
+      author: seed
+      context: seed
+      comment: Drop existing user-service seed data before reseeding.
+      changes:
+        - sql:
+            splitStatements: false
+            sql: TRUNCATE your_say_user, user_characteristic, user_characteristic_race RESTART IDENTITY CASCADE;

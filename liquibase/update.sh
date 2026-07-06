@@ -19,6 +19,18 @@ set -eu
 CHANGELOG_USER="${CHANGELOG_USER:-db/db.changelog-master.yaml}"
 CHANGELOG_POST="${CHANGELOG_POST:-db/db.changelog-master.xml}"
 
+# Seed mode only: forget prior seeding changeSets so every one re-runs on the next update. Combined
+# with the 0000-reset-seed-data changeSets (which TRUNCATE first), this makes each seed run a clean
+# drop-and-reseed. The migration container never sets CHANGELOG_CONTEXTS, so migrations are untouched.
+reset_seed_history() {
+  echo "==> Resetting seed history (drop-and-reseed)"
+  liquibase \
+    --url="$DB_URL" \
+    --username="$DB_USERNAME" \
+    --password="$DB_PASSWORD" \
+    execute-sql --sql="DELETE FROM databasechangelog WHERE filename LIKE 'db/seeding/%';"
+}
+
 run() {
   search_path="$1"
   changelog="$2"
@@ -34,6 +46,10 @@ run() {
     liquibase "$@" update
   fi
 }
+
+if [ -n "${CHANGELOG_CONTEXTS:-}" ]; then
+  reset_seed_history
+fi
 
 echo "==> user-service: $CHANGELOG_USER"
 run /liquibase/changelog/user-service "$CHANGELOG_USER"
