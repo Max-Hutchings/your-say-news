@@ -27,6 +27,14 @@ public class Post extends PanacheEntityBase {
     @Column(name = "support_question", nullable = false, length = 512)
     private String supportQuestion;
 
+    /** One-line argument for the motion — the "case for" card. Optional. */
+    @Column(name = "case_for", columnDefinition = "text")
+    private String caseFor;
+
+    /** One-line argument against the motion — the "case against" card. Optional. */
+    @Column(name = "case_against", columnDefinition = "text")
+    private String caseAgainst;
+
     @Column(name = "is_unbiased", nullable = false)
     private boolean isUnbiased;
 
@@ -108,6 +116,22 @@ public class Post extends PanacheEntityBase {
 
     public void setSupportQuestion(String supportQuestion) {
         this.supportQuestion = supportQuestion;
+    }
+
+    public String getCaseFor() {
+        return caseFor;
+    }
+
+    public void setCaseFor(String caseFor) {
+        this.caseFor = caseFor;
+    }
+
+    public String getCaseAgainst() {
+        return caseAgainst;
+    }
+
+    public void setCaseAgainst(String caseAgainst) {
+        this.caseAgainst = caseAgainst;
     }
 
     public boolean isUnbiased() {

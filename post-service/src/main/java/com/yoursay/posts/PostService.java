@@ -25,6 +25,6 @@ public interface PostService {
     /** Posts by the given author, newest first. */
     Uni<List<PostDto>> getByUser(Long userId);
 
-    /** Recent posts across all authors, newest first (interim feed). */
-    Uni<List<PostDto>> getRecent();
+    /** A page of recent posts across all authors, newest first (interim feed). */
+    Uni<List<PostDto>> getRecent(int page, int size);
 }

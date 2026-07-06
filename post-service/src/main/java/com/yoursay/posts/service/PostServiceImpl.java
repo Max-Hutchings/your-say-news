@@ -25,7 +25,8 @@ import java.util.Set;
 @ApplicationScoped
 public class PostServiceImpl implements PostService {
 
-    static final int RECENT_LIMIT = 50;
+    static final int DEFAULT_PAGE_SIZE = 5;
+    static final int MAX_PAGE_SIZE = 50;
 
     @Inject
     PostRepository postRepository;
@@ -85,8 +86,10 @@ public class PostServiceImpl implements PostService {
                         // Author from the token; body userId (if any) and isUnbiased are ignored/forced.
                         Post post = new Post(author.id(), request.title().trim(), request.summary().trim(),
                                 request.supportQuestion().trim(), false);
+                        post.setCaseFor(emptyToNull(request.caseFor()));
+                        post.setCaseAgainst(emptyToNull(request.caseAgainst()));
                         for (CreatePostRequest.Media m : media) {
-                            post.addMedia(new PostMedia(post, m.mediaType(), m.s3Key(),
+                            post.addMedia(new PostMedia(post, m.mediaType(), m.orientation(), m.s3Key(),
                                     m.contentType(), emptyToNull(m.posterS3Key()), 0));
                         }
                         return postRepository.savePost(post).map(this::toDto);
@@ -111,8 +114,10 @@ public class PostServiceImpl implements PostService {
 
     @Override
     @WithSession
-    public Uni<List<PostDto>> getRecent() {
-        return postRepository.getRecent(RECENT_LIMIT)
+    public Uni<List<PostDto>> getRecent(int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+        return postRepository.getRecent(safePage, safeSize)
                 .map(posts -> posts.stream().map(this::toDto).toList());
     }
 
@@ -130,6 +135,8 @@ public class PostServiceImpl implements PostService {
                 post.getTitle(),
                 post.getSummary(),
                 post.getSupportQuestion(),
+                post.getCaseFor(),
+                post.getCaseAgainst(),
                 post.isUnbiased(),
                 post.getCreatedAt(),
                 media
@@ -139,6 +146,7 @@ public class PostServiceImpl implements PostService {
     private PostMediaDto toMediaDto(PostMedia m) {
         return new PostMediaDto(
                 m.getMediaType(),
+                m.getOrientation(),
                 m.getS3Key(),
                 m.getContentType(),
                 m.getPosterS3Key(),

@@ -1,6 +1,7 @@
 package com.yoursay.posts.model;
 
 import com.yoursay.posts.MediaType;
+import com.yoursay.posts.Orientation;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 
@@ -26,6 +27,10 @@ public class PostMedia extends PanacheEntityBase {
     @Column(name = "media_type", nullable = false, length = 16)
     private MediaType mediaType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "orientation", nullable = false, length = 16)
+    private Orientation orientation = Orientation.LANDSCAPE;
+
     @Column(name = "s3_key", nullable = false, length = 1024)
     private String s3Key;
 
@@ -44,10 +49,11 @@ public class PostMedia extends PanacheEntityBase {
     public PostMedia() {
     }
 
-    public PostMedia(Post post, MediaType mediaType, String s3Key, String contentType,
-                     String posterS3Key, int ordinal) {
+    public PostMedia(Post post, MediaType mediaType, Orientation orientation, String s3Key,
+                     String contentType, String posterS3Key, int ordinal) {
         this.post = post;
         this.mediaType = mediaType;
+        this.orientation = orientation == null ? Orientation.LANDSCAPE : orientation;
         this.s3Key = s3Key;
         this.contentType = contentType;
         this.posterS3Key = posterS3Key;
@@ -79,6 +85,14 @@ public class PostMedia extends PanacheEntityBase {
 
     public void setMediaType(MediaType mediaType) {
         this.mediaType = mediaType;
+    }
+
+    public Orientation getOrientation() {
+        return orientation;
+    }
+
+    public void setOrientation(Orientation orientation) {
+        this.orientation = orientation;
     }
 
     public String getS3Key() {

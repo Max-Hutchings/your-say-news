@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- The feed card shows a "case for" / "case against" argument beneath the motion. Store both on
+         the post (optional; the cards only render when present). The precondition marks this ran if
+         the columns already exist, so it's safe against an environment where they were added manually. -->
+    <changeSet id="0006-add-post-case-arguments-1" author="mhutc">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="post" columnName="case_for"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="post">
+            <column name="case_for" type="TEXT"/>
+            <column name="case_against" type="TEXT"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

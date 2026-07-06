@@ -20,9 +20,9 @@ class PostMediaOrderingTest {
 
         // Deliberately pass descending/wrong constructor ordinals so the test proves addMedia
         // OVERWRITES them with the insertion index (not that the constructor value happened to fit).
-        PostMedia first = new PostMedia(post, MediaType.IMAGE, "posts/a.jpg", "image/jpeg", null, 9);
-        PostMedia second = new PostMedia(post, MediaType.VIDEO, "posts/b.mp4", "video/mp4", "posts/b.jpg", 5);
-        PostMedia third = new PostMedia(post, MediaType.IMAGE, "posts/c.png", "image/png", null, 2);
+        PostMedia first = new PostMedia(post, MediaType.IMAGE, Orientation.LANDSCAPE, "posts/a.jpg", "image/jpeg", null, 9);
+        PostMedia second = new PostMedia(post, MediaType.VIDEO, Orientation.PORTRAIT, "posts/b.mp4", "video/mp4", "posts/b.jpg", 5);
+        PostMedia third = new PostMedia(post, MediaType.IMAGE, Orientation.LANDSCAPE, "posts/c.png", "image/png", null, 2);
 
         post.addMedia(first);
         post.addMedia(second);

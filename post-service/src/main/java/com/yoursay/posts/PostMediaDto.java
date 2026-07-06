@@ -6,6 +6,7 @@ package com.yoursay.posts;
  */
 public record PostMediaDto(
         MediaType mediaType,
+        Orientation orientation,
         String s3Key,
         String contentType,
         String posterS3Key,

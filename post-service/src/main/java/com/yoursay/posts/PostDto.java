@@ -13,6 +13,8 @@ public record PostDto(
         String title,
         String summary,
         String supportQuestion,
+        String caseFor,
+        String caseAgainst,
         boolean isUnbiased,
         Instant createdAt,
         List<PostMediaDto> media

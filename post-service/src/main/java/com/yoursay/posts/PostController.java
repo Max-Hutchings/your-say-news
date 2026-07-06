@@ -66,10 +66,15 @@ public class PostController {
         return postService.getByUser(userId);
     }
 
-    /** Recent posts across all authors, newest first (interim feed). */
+    /**
+     * A page of recent posts across all authors, newest first (interim feed). The feed loads a
+     * page at a time and requests the next as the reader nears the end. {@code size} is capped
+     * server-side.
+     */
     @GET
-    public Uni<List<PostDto>> getRecentPosts() {
-        Log.info("Endpoint Called: getRecentPosts");
-        return postService.getRecent();
+    public Uni<List<PostDto>> getRecentPosts(@QueryParam("page") @DefaultValue("0") int page,
+                                             @QueryParam("size") @DefaultValue("5") int size) {
+        Log.infof("Endpoint Called: getRecentPosts - page %d size %d", page, size);
+        return postService.getRecent(page, size);
     }
 }

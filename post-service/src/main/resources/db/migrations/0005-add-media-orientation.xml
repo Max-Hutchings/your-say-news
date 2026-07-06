@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- The feed sizes media by shape: landscape in a fixed 16:9 box, portrait in a tall centred
+         box. Record the orientation on each media row so the client lays it out without measuring
+         the bytes. Existing rows default to LANDSCAPE. -->
+    <changeSet id="0005-add-media-orientation-1" author="mhutc">
+        <addColumn tableName="post_media">
+            <column name="orientation" type="VARCHAR(16)" defaultValue="LANDSCAPE">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

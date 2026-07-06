@@ -185,10 +185,11 @@ public class PostControllerTest {
 
         String body = """
                 { "title": "Headline", "summary": "Body summary", "supportQuestion": "Do you agree?",
+                  "caseFor": "Reach means responsibility.", "caseAgainst": "Scale makes it unenforceable.",
                   "media": [
                     { "mediaType": "IMAGE", "s3Key": "%s", "contentType": "image/jpeg",
                       "posterS3Key": null },
-                    { "mediaType": "VIDEO", "s3Key": "%s", "contentType": "video/mp4",
+                    { "mediaType": "VIDEO", "orientation": "PORTRAIT", "s3Key": "%s", "contentType": "video/mp4",
                       "posterS3Key": "%s" }
                   ] }
                 """.formatted(imageKey, videoKey, posterKey);
@@ -203,16 +204,20 @@ public class PostControllerTest {
                 .body("title", is("Headline"))
                 .body("summary", is("Body summary"))
                 .body("supportQuestion", is("Do you agree?"))
+                .body("caseFor", is("Reach means responsibility."))
+                .body("caseAgainst", is("Scale makes it unenforceable."))
                 .body("isUnbiased", is(false))
                 .body("createdAt", notNullValue())
                 .body("media.size()", is(2))
                 .body("media[0].mediaType", is("IMAGE"))
+                .body("media[0].orientation", is("LANDSCAPE"))    // omitted in the body -> defaults
                 .body("media[0].s3Key", is(imageKey))
                 .body("media[0].contentType", is("image/jpeg"))
                 .body("media[0].url", is("https://s3.local/download?sig=get"))
                 .body("media[0].posterS3Key", nullValue())
                 .body("media[0].posterUrl", nullValue())          // null key -> null url
                 .body("media[1].mediaType", is("VIDEO"))
+                .body("media[1].orientation", is("PORTRAIT"))     // sent explicitly
                 .body("media[1].s3Key", is(videoKey))
                 .body("media[1].contentType", is("video/mp4"))
                 .body("media[1].posterS3Key", is(posterKey))
@@ -232,6 +237,7 @@ public class PostControllerTest {
                 .body("createdAt", notNullValue())
                 // order survives the round trip: IMAGE before VIDEO
                 .body("media.mediaType", contains("IMAGE", "VIDEO"))
+                .body("media.orientation", contains("LANDSCAPE", "PORTRAIT"))
                 .body("media[0].s3Key", is(imageKey))
                 .body("media[0].contentType", is("image/jpeg"))
                 .body("media[0].url", is("https://s3.local/download?sig=get"))
@@ -601,6 +607,7 @@ public class PostControllerTest {
         int later = createPost("Feed later");
 
         java.util.List<Integer> ids = given()
+                .queryParam("size", 50)
                 .when().get("/posts")
                 .then()
                 .statusCode(200)
@@ -614,17 +621,67 @@ public class PostControllerTest {
     }
 
     @Test
-    public void recentFeedReturnsAtMostFiftyPosts() {
-        for (int i = 0; i < 51; i++) {
-            createPost("Limit post " + i);
+    public void recentFeedDefaultsToFivePostsPerPage() {
+        for (int i = 0; i < 6; i++) {
+            createPost("Default page post " + i);
         }
 
         given()
                 .when().get("/posts")
                 .then()
                 .statusCode(200)
-                .body("size()", is(50))
-                .body("title", not(hasItem("Limit post 0")))
-                .body("title", hasItem("Limit post 50"));
+                .body("size()", is(5));
+    }
+
+    @Test
+    public void recentFeedPagesReconstructTheNewestFirstSequenceWithoutOverlap() {
+        // Ensure at least two pages' worth of posts exist, then prove offset paging matches the
+        // single newest-first sequence: page(0,5) is its first five and page(1,5) the next five.
+        // Comparing both pages against ONE reference query makes this robust to whatever other
+        // tests inserted — we assert the paging CONTRACT, not an absolute position in the table.
+        for (int i = 0; i < 10; i++) {
+            createPost("Paged post " + i);
+        }
+
+        java.util.List<Integer> all = given()
+                .queryParam("page", 0).queryParam("size", 50)
+                .when().get("/posts")
+                .then().statusCode(200)
+                .extract().jsonPath().getList("id", Integer.class);
+        org.junit.jupiter.api.Assertions.assertTrue(all.size() >= 10, "need at least two pages of posts");
+
+        java.util.List<Integer> pageZero = given()
+                .queryParam("page", 0).queryParam("size", 5)
+                .when().get("/posts")
+                .then().statusCode(200)
+                .extract().jsonPath().getList("id", Integer.class);
+
+        java.util.List<Integer> pageOne = given()
+                .queryParam("page", 1).queryParam("size", 5)
+                .when().get("/posts")
+                .then().statusCode(200)
+                .extract().jsonPath().getList("id", Integer.class);
+
+        org.junit.jupiter.api.Assertions.assertEquals(all.subList(0, 5), pageZero,
+                "page 0 must be the five newest posts, in order");
+        org.junit.jupiter.api.Assertions.assertEquals(all.subList(5, 10), pageOne,
+                "page 1 must continue with the next five, in order");
+        org.junit.jupiter.api.Assertions.assertTrue(java.util.Collections.disjoint(pageZero, pageOne),
+                "consecutive pages must not overlap");
+    }
+
+    @Test
+    public void recentFeedCapsPageSizeAtFifty() {
+        // Asking for more than the cap yields at most 50 — a client can't pull the whole table.
+        for (int i = 0; i < 55; i++) {
+            createPost("Cap post " + i);
+        }
+
+        given()
+                .queryParam("size", 1000)
+                .when().get("/posts")
+                .then()
+                .statusCode(200)
+                .body("size()", is(50));
     }
 }

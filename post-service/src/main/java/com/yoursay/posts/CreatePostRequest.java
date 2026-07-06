@@ -21,6 +21,11 @@ public record CreatePostRequest(
         @NotBlank
         @Size(max = 512)
         String supportQuestion,
+        // Optional one-line arguments shown as the "case for" / "case against" cards.
+        @Size(max = 512)
+        String caseFor,
+        @Size(max = 512)
+        String caseAgainst,
         @Size(max = 8)
         List<@NotNull @Valid Media> media
 ) {
@@ -31,6 +36,8 @@ public record CreatePostRequest(
     public record Media(
             @NotNull
             MediaType mediaType,
+            // Optional; defaults to LANDSCAPE on the server when the client doesn't classify the asset.
+            Orientation orientation,
             @NotBlank
             @Size(max = 1024)
             String s3Key,
