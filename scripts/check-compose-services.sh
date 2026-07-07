@@ -34,7 +34,7 @@ fi
 
 missing=()
 wait_timeout_seconds="${YSN_COMPOSE_CHECK_TIMEOUT_SECONDS:-120}"
-wait_interval_seconds=2
+wait_interval_seconds=1
 
 check_running_service() {
   local service="$1"
@@ -112,6 +112,7 @@ check_compose_services() {
 
 deadline=$((SECONDS + wait_timeout_seconds))
 printed_wait_message=0
+last_pending=""
 
 while true; do
   check_compose_services
@@ -131,6 +132,14 @@ while true; do
   if (( printed_wait_message == 0 )); then
     echo "Waiting for Docker Compose infrastructure to become ready..."
     printed_wait_message=1
+  fi
+
+  # Reprint the pending list only when it changes, so a slow Liquibase job or an
+  # unfinished realm import is visible rather than looking like a silent hang.
+  pending="$(printf '%s; ' "${missing[@]}")"
+  if [[ "$pending" != "$last_pending" ]]; then
+    printf '  still waiting on: %s\n' "${pending%; }"
+    last_pending="$pending"
   fi
 
   sleep "$wait_interval_seconds"
