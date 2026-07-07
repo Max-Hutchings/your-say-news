@@ -2,6 +2,8 @@ package com.yoursay.votes;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.util.Set;
+
 /**
  * An anonymised, point-in-time copy of the categorical characteristics a voter held
  * <em>at the moment they voted</em>. Frozen onto each vote so later profile edits never
@@ -58,6 +60,26 @@ public record CharacteristicSnapshot(
 
     /** Sentinel bucket label for votes whose value on the requested axis is unknown. */
     public static final String UNKNOWN = "UNKNOWN";
+
+    /**
+     * The set of valid breakdown axes — every field name {@link #bucketFor(String)} recognises.
+     * The single source of truth shared by the sentiment endpoint (to reject an unknown axis with a
+     * 400 rather than return one misleading all-{@link #UNKNOWN} bucket) and its tests. Must stay in
+     * lockstep with the {@code switch} in {@link #bucketFor(String)}.
+     */
+    public static final Set<String> AXES = Set.of(
+            "politicalPersuasion", "ageRange", "gender", "sexAtBirth", "sexualOrientation",
+            "maritalStatus", "race", "country", "region", "urbanRural", "ukCounty", "countryOfBirth",
+            "citizenship", "religion", "religiosity", "education", "occupation", "employmentSector",
+            "universitySubject", "personalIncomeRange", "householdIncomeRange", "height", "weightRange",
+            "eyeColor", "parent", "newsFrequency", "hasPet", "petType", "chronotype", "outlook",
+            "neurodivergent", "neurodivergenceType", "hasDisability", "disabilityType", "housingStatus",
+            "propertyType");
+
+    /** True if {@code axis} is a real breakdown axis (a field name aggregation can slice by). */
+    public static boolean isAxis(String axis) {
+        return AXES.contains(axis);
+    }
 
     /**
      * Resolve a single breakdown axis by its name (the field name, e.g. {@code "politicalPersuasion"})

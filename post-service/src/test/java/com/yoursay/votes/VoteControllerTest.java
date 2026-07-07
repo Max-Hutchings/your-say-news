@@ -1,9 +1,11 @@
 package com.yoursay.votes;
 
 import com.yoursay.votes.client.UserCharacteristicClient;
+import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +14,9 @@ import org.mockito.Mockito;
 
 import com.yoursay.votes.client.UserCharacteristicView;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
@@ -36,6 +41,9 @@ public class VoteControllerTest {
     @InjectMock
     @RestClient
     UserCharacteristicClient userClient;
+
+    @Inject
+    AgroalDataSource dataSource;
 
     @BeforeEach
     public void setup() {
@@ -63,7 +71,7 @@ public class VoteControllerTest {
 
     @Test
     public void castVote_happyPath_returns201WithIdAndStance() {
-        long postId = uniquePostId();
+        long postId = insertPost();
 
         given()
                 .contentType("application/json")
@@ -80,7 +88,7 @@ public class VoteControllerTest {
     public void castVote_withCharacteristicProfile_snapshotStoredButOmittedFromResponse() {
         // User has a full characteristic profile (200 from user-service) — snapshot is captured and
         // stored on the vote, but the HTTP response exposes only id/postId/voteFor (PII boundary).
-        long postId = uniquePostId();
+        long postId = insertPost();
         UserCharacteristicView profile = new UserCharacteristicView(
                 VOTER_ID, "LEFT", "25_34", "FEMALE", "FEMALE", "HETEROSEXUAL", "SINGLE",
                 List.of("WHITE_BRITISH"), "GB", "SOUTH_EAST", "URBAN", "SURREY", "GB", "GB",
@@ -106,7 +114,7 @@ public class VoteControllerTest {
 
     @Test
     public void castVote_duplicateVote_returns409() {
-        long postId = uniquePostId();
+        long postId = insertPost();
         String body = "{\"postId\": " + postId + ", \"voteFor\": true}";
 
         // First vote succeeds.
@@ -141,7 +149,7 @@ public class VoteControllerTest {
 
     @Test
     public void getMyVote_afterCasting_returnsVote() {
-        long postId = uniquePostId();
+        long postId = insertPost();
 
         // Cast first.
         int voteId = given()
@@ -163,7 +171,7 @@ public class VoteControllerTest {
 
     @Test
     public void getMyVote_beforeCasting_returns204() {
-        long postId = uniquePostId();
+        long postId = insertPost();
 
         given()
                 .when().get("/votes/" + postId + "/mine")
@@ -177,7 +185,7 @@ public class VoteControllerTest {
         // email in the security context. The service must resolve OTHER's userId (99) and return
         // 204 — not VOTER's ballot. This proves the endpoint is identity-scoped from the JWT,
         // not from a request parameter that could accidentally cross users.
-        long postId = uniquePostId();
+        long postId = insertPost();
 
         // VOTER casts (class-level @TestSecurity applies here).
         given()
@@ -206,7 +214,7 @@ public class VoteControllerTest {
 
     @Test
     public void countForPost_afterCasting_returnsCorrectCount() {
-        long postId = uniquePostId();
+        long postId = insertPost();
 
         given()
                 .when().get("/votes/" + postId + "/count")
@@ -227,13 +235,56 @@ public class VoteControllerTest {
                 .body(is("1"));
     }
 
+    // ── validation ────────────────────────────────────────────────────────────
+
+    @Test
+    public void castVote_postDoesNotExist_returns404() {
+        // A post id that names no real post — the existence guard rejects it before any vote row
+        // is written. This exercises the real cross-domain PostService.existsById reactive lookup.
+        given()
+                .contentType("application/json")
+                .body("{\"postId\": 9999999999, \"voteFor\": true}")
+                .when().post("/votes")
+                .then()
+                .statusCode(404)
+                .body("code", is("VOTE_POST_MISSING"));
+    }
+
+    @Test
+    public void castVote_nullPostId_returns400() {
+        // Body omits postId entirely — rejected as a bad request, never a 500 or a vote on null.
+        given()
+                .contentType("application/json")
+                .body("{\"voteFor\": true}")
+                .when().post("/votes")
+                .then()
+                .statusCode(400)
+                .body("code", is("VOTE_INVALID"));
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     /**
-     * Each test that writes a vote needs a distinct post id so tests don't interfere through the
-     * (post_id, user_id) unique constraint. Using the current nano-time gives sufficient spread.
+     * Insert a real post and return its id, so a vote written against it satisfies the
+     * post-existence guard. Each test gets a fresh post, so the (post_id, user_id) unique
+     * constraint never makes tests interfere. Only the four NOT-NULL columns without a default
+     * are set; is_unbiased/created_at/updated_at fall back to their DB defaults.
      */
-    private static long uniquePostId() {
-        return Math.abs(System.nanoTime() % 1_000_000_000L) + 100_000L;
+    private long insertPost() {
+        String sql = "INSERT INTO post (user_id, title, summary, support_question) "
+                + "VALUES (?, ?, ?, ?) RETURNING id";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, VOTER_ID);
+            ps.setString(2, "Test post");
+            ps.setString(3, "A seeded post so votes have a real target.");
+            ps.setString(4, "Do you agree?");
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to insert test post", e);
+        }
     }
 }

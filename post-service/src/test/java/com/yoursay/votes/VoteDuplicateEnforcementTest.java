@@ -175,6 +175,91 @@ class VoteDuplicateEnforcementTest {
         verify(voteRepository).findByPostAndUser(POST_ID, USER_ID);
     }
 
+    // ── assertVotablePost (payload guard) ─────────────────────────────────────
+
+    @Test
+    void assertVotablePost_nullPostId_throws400() {
+        // A missing postId is a bad request — rejected before any lookup or write.
+        VoteApiException ex = assertThrows(
+                VoteApiException.class,
+                () -> voteService.assertVotablePost(null)
+        );
+
+        assertEquals(400, ex.getResponse().getStatus());
+        assertEquals("VOTE_INVALID", ex.errorCode());
+        assertEquals("votes", ex.domain());
+    }
+
+    @Test
+    void assertVotablePost_presentPostId_passes() {
+        // A present id passes the payload guard; post existence is enforced by the DB FK at write.
+        voteService.assertVotablePost(POST_ID);
+    }
+
+    @Test
+    void castVote_unknownPostOnPersist_throws404() {
+        // The fk_votes_post foreign key rejects a vote on a non-existent post; the service maps
+        // that violation to a 404 rather than leaking a 500.
+        when(voteRepository.existsByPostAndUser(POST_ID, USER_ID)).thenReturn(false);
+        when(userClient.getMyCharacteristics(AUTH)).thenReturn(Response.noContent().build());
+        doThrow(new RuntimeException(
+                "insert or update on table \"votes\" violates foreign key constraint \"fk_votes_post\""))
+                .when(voteRepository).flush();
+
+        VoteApiException ex = assertThrows(
+                VoteApiException.class,
+                () -> voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH)
+        );
+
+        assertEquals(404, ex.getResponse().getStatus());
+        assertEquals("VOTE_POST_MISSING", ex.errorCode());
+        assertEquals("votes", ex.domain());
+    }
+
+    // ── assertResultsUnlocked (Stage 4 results gating) ────────────────────────
+
+    @Test
+    void assertResultsUnlocked_unknownPost_throws404() {
+        // Post existence is checked first — an unknown post is 404 before anything vote-related.
+        when(voteRepository.postExists(POST_ID)).thenReturn(false);
+
+        VoteApiException ex = assertThrows(
+                VoteApiException.class,
+                () -> voteService.assertResultsUnlocked(POST_ID, VOTER_EMAIL, AUTH)
+        );
+
+        assertEquals(404, ex.getResponse().getStatus());
+        assertEquals("VOTE_POST_MISSING", ex.errorCode());
+        // Never resolves the user or reads votes when the post itself does not exist.
+        verify(userClient, never()).getUserByEmail(anyString(), anyString());
+        verify(voteRepository, never()).findByPostAndUser(anyLong(), anyLong());
+    }
+
+    @Test
+    void assertResultsUnlocked_callerHasNotVoted_throws403() {
+        when(voteRepository.postExists(POST_ID)).thenReturn(true);
+        when(voteRepository.findByPostAndUser(POST_ID, USER_ID)).thenReturn(Optional.empty());
+
+        VoteApiException ex = assertThrows(
+                VoteApiException.class,
+                () -> voteService.assertResultsUnlocked(POST_ID, VOTER_EMAIL, AUTH)
+        );
+
+        assertEquals(403, ex.getResponse().getStatus());
+        assertEquals("VOTE_RESULTS_LOCKED", ex.errorCode());
+        assertEquals("votes", ex.domain());
+    }
+
+    @Test
+    void assertResultsUnlocked_callerHasVoted_passes() {
+        when(voteRepository.postExists(POST_ID)).thenReturn(true);
+        when(voteRepository.findByPostAndUser(POST_ID, USER_ID))
+                .thenReturn(Optional.of(new Vote(POST_ID, USER_ID, true, CharacteristicSnapshot.empty())));
+
+        // No throw = results unlocked for a caller who has voted on the post.
+        voteService.assertResultsUnlocked(POST_ID, VOTER_EMAIL, AUTH);
+    }
+
     private Vote capturePersistedVote() {
         ArgumentCaptor<Vote> captor = ArgumentCaptor.forClass(Vote.class);
         verify(voteRepository).persist(captor.capture());

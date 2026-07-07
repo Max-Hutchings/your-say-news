@@ -27,4 +27,21 @@ public class VoteRepository implements PanacheRepository<Vote> {
     public List<Vote> listByPost(Long postId) {
         return list("postId", postId);
     }
+
+    /**
+     * True when a post row exists for {@code postId}. A native existence read on the {@code post}
+     * table (which votes already reference by the {@code fk_votes_post} foreign key) so the sentiment
+     * endpoint can return 404 for an unknown post before it discloses anything about votes — without
+     * bridging into the reactive posts persistence unit.
+     */
+    public boolean postExists(Long postId) {
+        if (postId == null) {
+            return false;
+        }
+        Number count = (Number) getEntityManager()
+                .createNativeQuery("select count(*) from post where id = ?1")
+                .setParameter(1, postId)
+                .getSingleResult();
+        return count.longValue() > 0;
+    }
 }

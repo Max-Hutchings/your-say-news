@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <!-- A vote must reference a real post. This enforces referential integrity at the DB so a vote
+         can never be cast against a non-existent post; the votes service catches the violation and
+         returns a 404. Deletes cascade so a removed post takes its votes with it. -->
+    <changeSet id="0007-add-vote-post-fk-1" author="mhutc">
+        <addForeignKeyConstraint baseTableName="votes" baseColumnNames="post_id"
+                                 constraintName="fk_votes_post"
+                                 referencedTableName="post" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

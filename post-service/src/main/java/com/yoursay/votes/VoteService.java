@@ -12,6 +12,16 @@ import java.util.Optional;
 public interface VoteService {
 
     /**
+     * Guard that a post can be voted on before any write is attempted: the id must be present
+     * (else 400) and must reference a real post (else 404). Kept separate from {@link #castVote}
+     * so the post-existence read runs outside the vote's write transaction.
+     *
+     * @param postId the post id from the request body (may be {@code null})
+     * @throws jakarta.ws.rs.ClientErrorException 400 if {@code postId} is null, 404 if no such post
+     */
+    void assertVotablePost(Long postId);
+
+    /**
      * Cast a vote on a post's support question.
      *
      * @param postId        the post being voted on
@@ -36,4 +46,17 @@ public interface VoteService {
 
     /** Total number of votes cast on a post (any stance). */
     long countForPost(Long postId);
+
+    /**
+     * Gate access to a post's aggregated sentiment results (the Stage 4 "results unlocked after
+     * voting" product rule, enforced server-side as defence in depth). Passes silently when the
+     * caller may see the results; otherwise throws before any aggregate is computed.
+     *
+     * @param postId        the post whose results are being requested
+     * @param callerEmail   the authenticated user's email (from the JWT principal)
+     * @param authorization the caller's {@code Authorization} header, forwarded to user-service
+     * @throws jakarta.ws.rs.ClientErrorException 404 if the post does not exist, 403 if the caller
+     *         has not yet voted on it
+     */
+    void assertResultsUnlocked(Long postId, String callerEmail, String authorization);
 }

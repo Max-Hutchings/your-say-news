@@ -122,6 +122,19 @@ class SentimentTallyTest {
     }
 
     @Test
+    void noVotes_yieldEmptyBreakdowns_notAZeroBucket() {
+        // A post with no votes must surface no buckets at all (not a phantom OVERALL 0/0 bucket),
+        // so the results UI shows an honest "no votes yet" rather than a 0% bar.
+        SentimentBreakdownDto overall = tally.overall(9L, List.of());
+        assertEquals(0, overall.buckets().size());
+        assertEquals(0, overall.suppressedBuckets());
+
+        SentimentBreakdownDto byAxis = tally.byCharacteristic(9L, "politicalPersuasion", List.of(), 0);
+        assertEquals(0, byAxis.buckets().size());
+        assertEquals(0, byAxis.suppressedBuckets());
+    }
+
+    @Test
     void byCharacteristic_defaultKZero_suppressesNothing() {
         SentimentBreakdownDto result =
                 tally.byCharacteristic(42L, "politicalPersuasion", sampleVotes(), 0);

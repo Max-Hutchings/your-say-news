@@ -1,8 +1,17 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react-native";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
 import { ThemeProvider } from "@/constants/theme";
 import { PostCard } from "./PostCard";
 import type { Post } from "../types";
+
+// The vote controls (from @/features/votes) fetch the caller's vote on mount; stub the votes
+// service so PostCard tests stay offline and deterministic. Default: the caller has not voted.
+const mockGetMine = jest.fn().mockResolvedValue(null);
+const mockCast = jest.fn();
+jest.mock("@/features/votes/services/VoteService", () => ({
+  getMyVote: (...args: unknown[]) => mockGetMine(...args),
+  castVote: (...args: unknown[]) => mockCast(...args),
+}));
 
 // expo-video is a native module; stub the player + a testable VideoView surface.
 jest.mock("expo-video", () => ({
@@ -58,6 +67,11 @@ const portraitPost: Post = {
 };
 
 describe("PostCard", () => {
+  beforeEach(() => {
+    mockGetMine.mockReset().mockResolvedValue(null);
+    mockCast.mockReset();
+  });
+
   it("renders the headline, full summary and support question in place", () => {
     renderWithTheme(<PostCard post={basePost} />);
 
@@ -71,6 +85,20 @@ describe("PostCard", () => {
     renderWithTheme(<PostCard post={basePost} />);
     expect(screen.getByText("Agree")).toBeOnTheScreen();
     expect(screen.getByText("Disagree")).toBeOnTheScreen();
+  });
+
+  it("keeps the support question and case cards after voting (voting doesn't disrupt the story)", async () => {
+    mockCast.mockResolvedValue({ id: 1, postId: basePost.id, voteFor: true });
+    renderWithTheme(<PostCard post={basePost} />);
+
+    fireEvent.press(screen.getByTestId("vote-agree"));
+
+    // The vote locks…
+    await waitFor(() => expect(screen.getByText("You voted — Agree")).toBeOnTheScreen());
+    expect(mockCast).toHaveBeenCalledWith(basePost.id, true);
+    // …and the support question + case cards are still shown alongside it.
+    expect(screen.getByText(/Do you agree the cycle lane should go ahead\?/)).toBeOnTheScreen();
+    expect(screen.getByText("THE CASE FOR")).toBeOnTheScreen();
   });
 
   it("renders an image from its presigned url", () => {

@@ -1,5 +1,6 @@
 package com.yoursay.votes;
 
+import com.yoursay.votes.error.VoteApiException;
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -20,6 +21,9 @@ public class VoteController {
     VoteService voteService;
 
     @Inject
+    SentimentAggregator sentimentAggregator;
+
+    @Inject
     SecurityIdentity securityIdentity;
 
     /**
@@ -29,9 +33,12 @@ public class VoteController {
     @POST
     public Response castVote(VoteRequestDto request,
                              @HeaderParam("Authorization") String authorization) {
+        Long postId = request == null ? null : request.postId();
+        // 400 for a null/missing postId, 404 for one that names no real post — before any write.
+        voteService.assertVotablePost(postId);
         String email = securityIdentity.getPrincipal().getName();
-        Log.infof("castVote: postId=%d voteFor=%b caller=%s", request.postId(), request.voteFor(), email);
-        VoteResponseDto dto = voteService.castVote(request.postId(), request.voteFor(), email, authorization);
+        Log.infof("castVote: postId=%d voteFor=%b caller=%s", postId, request.voteFor(), email);
+        VoteResponseDto dto = voteService.castVote(postId, request.voteFor(), email, authorization);
         return Response.status(Response.Status.CREATED).entity(dto).build();
     }
 
@@ -54,5 +61,37 @@ public class VoteController {
     @Path("/{postId}/count")
     public long countForPost(@PathParam("postId") Long postId) {
         return voteService.countForPost(postId);
+    }
+
+    /**
+     * Overall yes/no sentiment for a post's support question — the aggregate results unlocked after
+     * voting. 404 if the post does not exist, 403 if the caller has not yet voted on it.
+     */
+    @GET
+    @Path("/{postId}/sentiment")
+    public SentimentBreakdownDto overallSentiment(@PathParam("postId") Long postId,
+                                                  @HeaderParam("Authorization") String authorization) {
+        String email = securityIdentity.getPrincipal().getName();
+        voteService.assertResultsUnlocked(postId, email, authorization);
+        return sentimentAggregator.overallSentiment(postId);
+    }
+
+    /**
+     * Sentiment for a post broken down by one characteristic axis (a {@link CharacteristicSnapshot}
+     * field name). Same gating as the overall result, plus a 400 if {@code axis} is not a real
+     * breakdown axis — so an unknown axis is rejected rather than returning one misleading
+     * all-{@code UNKNOWN} bucket.
+     */
+    @GET
+    @Path("/{postId}/sentiment/{axis}")
+    public SentimentBreakdownDto sentimentByCharacteristic(@PathParam("postId") Long postId,
+                                                           @PathParam("axis") String axis,
+                                                           @HeaderParam("Authorization") String authorization) {
+        String email = securityIdentity.getPrincipal().getName();
+        voteService.assertResultsUnlocked(postId, email, authorization);
+        if (!CharacteristicSnapshot.isAxis(axis)) {
+            throw VoteApiException.unknownAxis(axis);
+        }
+        return sentimentAggregator.sentimentByCharacteristic(postId, axis);
     }
 }

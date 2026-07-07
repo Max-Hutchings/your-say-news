@@ -43,6 +43,22 @@ public class VoteControllerAuthTest {
                 .statusCode(401);
     }
 
+    @Test
+    public void overallSentiment_unauthenticated_returns401() {
+        given()
+                .when().get("/votes/999/sentiment")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    public void sentimentByCharacteristic_unauthenticated_returns401() {
+        given()
+                .when().get("/votes/999/sentiment/politicalPersuasion")
+                .then()
+                .statusCode(401);
+    }
+
     // ── wrong role ────────────────────────────────────────────────────────────
 
     @Test

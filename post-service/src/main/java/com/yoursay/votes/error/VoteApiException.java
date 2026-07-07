@@ -14,6 +14,26 @@ public class VoteApiException extends ApiException {
                 "Duplicate vote rejected: postId=" + postId + ", userId=" + userId);
     }
 
+    public static VoteApiException postMissing(Long postId) {
+        return new VoteApiException("VOTE_POST_MISSING", Response.Status.NOT_FOUND,
+                "Cannot vote: no post exists with id=" + postId);
+    }
+
+    public static VoteApiException invalidVote(String reason) {
+        return new VoteApiException("VOTE_INVALID", Response.Status.BAD_REQUEST,
+                "Invalid vote request: " + reason);
+    }
+
+    public static VoteApiException resultsLocked(Long postId) {
+        return new VoteApiException("VOTE_RESULTS_LOCKED", Response.Status.FORBIDDEN,
+                "Sentiment results are locked until the caller has voted on post " + postId);
+    }
+
+    public static VoteApiException unknownAxis(String axis) {
+        return new VoteApiException("VOTE_UNKNOWN_AXIS", Response.Status.BAD_REQUEST,
+                "Not a real characteristic breakdown axis: " + axis);
+    }
+
     public static VoteApiException userMissing(String callerEmail) {
         return new VoteApiException("VOTE_USER_MISSING", Response.Status.UNAUTHORIZED,
                 "No user account for authenticated vote caller: email=" + callerEmail);

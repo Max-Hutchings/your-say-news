@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, getEditorial, EditorialFont, feedMediaHeight } from "@/constants/theme";
+import { VoteControls } from "@/features/votes";
 import type { Post } from "../types";
 import { UnbiasedBadge } from "./UnbiasedBadge";
 import { PostVideo } from "./PostVideo";
@@ -101,19 +102,8 @@ export function PostCard({
     </View>
   );
 
-  // The vote — always visible; inert until wired to the votes domain. Agree solid, Disagree outlined.
-  const voteRow = (
-    <View style={styles.voteRow}>
-      <View style={[styles.voteBtn, { backgroundColor: e.voteAgreeFill, borderColor: e.voteAgreeFill }]}>
-        <Ionicons name="thumbs-up" size={19} color={e.voteAgreeOnFill} />
-        <Text style={[styles.voteBtnText, { color: e.voteAgreeOnFill }]}>Agree</Text>
-      </View>
-      <View style={[styles.voteBtn, { backgroundColor: e.voteDisagreeFill, borderColor: e.coral }]}>
-        <Ionicons name="thumbs-down" size={19} color={e.coral} />
-        <Text style={[styles.voteBtnText, { color: e.coral }]}>Disagree</Text>
-      </View>
-    </View>
-  );
+  // The vote — always visible. The votes domain owns the interaction, locked state and errors.
+  const voteRow = <VoteControls postId={post.id} />;
 
   // Two fixed shapes: a tall 4:5 box for the immersive portrait layout, a wide 16:9 box otherwise.
   const mediaBoxHeight = feedMediaHeight(immersive ? "PORTRAIT" : "LANDSCAPE", window.width);
@@ -404,24 +394,5 @@ const styles = StyleSheet.create({
     fontFamily: EditorialFont.sans,
     fontSize: 12.5,
     lineHeight: 18,
-  },
-  voteRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  voteBtn: {
-    flex: 1,
-    height: 62,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  voteBtnText: {
-    fontFamily: EditorialFont.sansBold,
-    fontWeight: "700",
-    fontSize: 17,
   },
 });

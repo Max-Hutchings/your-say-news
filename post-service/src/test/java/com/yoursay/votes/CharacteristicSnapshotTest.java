@@ -3,6 +3,8 @@ package com.yoursay.votes;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit-tests the axis resolution that every by-characteristic aggregate depends on. Pure logic, so it
@@ -79,6 +81,32 @@ class CharacteristicSnapshotTest {
     @Test
     void notCapturedValueFallsBackToUnknownBucket() {
         assertEquals(CharacteristicSnapshot.UNKNOWN, SAMPLE.bucketFor("height"));
+    }
+
+    @Test
+    void isAxisRecognisesEveryKnownAxisAndRejectsUnknowns() {
+        // The valid-axis set is the endpoint's 400 guard and must match bucketFor exactly.
+        assertTrue(CharacteristicSnapshot.isAxis("politicalPersuasion"));
+        assertTrue(CharacteristicSnapshot.isAxis("householdIncomeRange"));
+        assertTrue(CharacteristicSnapshot.isAxis("propertyType"));
+        assertFalse(CharacteristicSnapshot.isAxis("favouriteColour"));
+        assertFalse(CharacteristicSnapshot.isAxis("OVERALL"));
+        assertFalse(CharacteristicSnapshot.isAxis(""));
+        // 36 axes captured on the snapshot — the full breakdown surface.
+        assertEquals(36, CharacteristicSnapshot.AXES.size());
+    }
+
+    @Test
+    void everyAxisResolvesToANonNullBucketOnAFullSnapshot() {
+        // Guards the AXES set against drifting from bucketFor: each declared axis must actually
+        // resolve (never fall through to the default UNKNOWN because a case was missed).
+        for (String axis : CharacteristicSnapshot.AXES) {
+            if (SAMPLE.bucketFor(axis).equals(CharacteristicSnapshot.UNKNOWN)) {
+                // Only the three deliberately-null fields on SAMPLE may be UNKNOWN.
+                assertTrue(axis.equals("height") || axis.equals("weightRange") || axis.equals("eyeColor"),
+                        "axis '" + axis + "' is in AXES but bucketFor did not resolve it");
+            }
+        }
     }
 
     @Test

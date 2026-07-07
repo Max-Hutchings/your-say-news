@@ -31,6 +31,15 @@ public class VoteServiceImpl implements VoteService {
     DomainMetrics metrics;
 
     @Override
+    public void assertVotablePost(Long postId) {
+        // Existence of the post is enforced at the DB by the fk_votes_post foreign key and surfaced
+        // as a 404 from the persist below; here we only reject an absent id up front (400).
+        if (postId == null) {
+            throw VoteApiException.invalidVote("postId is required");
+        }
+    }
+
+    @Override
     @Transactional
     public VoteResponseDto castVote(Long postId, boolean voteFor, String callerEmail, String authorization) {
         try {
@@ -50,7 +59,14 @@ public class VoteServiceImpl implements VoteService {
             Vote vote = new Vote(postId, userId, voteFor, snapshot);
             try {
                 voteRepository.persist(vote);
+                // Flush now so a foreign-key (unknown post) or unique (duplicate) violation is
+                // thrown here — inside this try — rather than later at commit, where it would
+                // escape as a generic 500 instead of the precise 404/409 below.
+                voteRepository.flush();
             } catch (RuntimeException e) {
+                if (isMissingPostPersistenceFailure(e)) {
+                    throw VoteApiException.postMissing(postId);
+                }
                 if (isDuplicateVotePersistenceFailure(e)) {
                     throw VoteApiException.duplicateVote(postId, userId);
                 }
@@ -74,6 +90,18 @@ public class VoteServiceImpl implements VoteService {
     @Override
     public long countForPost(Long postId) {
         return voteRepository.count("postId", postId);
+    }
+
+    @Override
+    public void assertResultsUnlocked(Long postId, String callerEmail, String authorization) {
+        // 404 first: an unknown post is disclosed as not-found before we reveal anything vote-related.
+        if (!voteRepository.postExists(postId)) {
+            throw VoteApiException.postMissing(postId);
+        }
+        // 403: results stay locked until the caller has cast their own vote on this post.
+        if (getMyVote(postId, callerEmail, authorization).isEmpty()) {
+            throw VoteApiException.resultsLocked(postId);
+        }
     }
 
     // ── private helpers ──────────────────────────────────────────────────────
@@ -124,6 +152,21 @@ public class VoteServiceImpl implements VoteService {
         if (metrics != null) {
             metrics.recordOperation("votes", operation, success);
         }
+    }
+
+    private static boolean isMissingPostPersistenceFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage();
+            String className = current.getClass().getName();
+            String combined = ((message == null ? "" : message) + " " + className).toLowerCase();
+            if (combined.contains("fk_votes_post")
+                    || (combined.contains("foreign key") && combined.contains("post"))) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private static boolean isDuplicateVotePersistenceFailure(Throwable error) {
