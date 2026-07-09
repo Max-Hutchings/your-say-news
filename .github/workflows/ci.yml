@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # user-service and post-service build + test as two independent, parallel
+  # jobs (one runner each). Adding a module here is a one-line matrix change.
+  backend:
+    name: backend (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [user-service, post-service]
+    env:
+      # Testcontainers/Quarkus Dev Services talk to the runner's own Docker
+      # daemon; bind the @QuarkusTest HTTP server to a random free port so it
+      # can never clash with anything else on the runner.
+      QUARKUS_HTTP_TEST_PORT: 0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Restores the Gradle dependency/wrapper cache and validates the wrapper.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # `build` compiles, runs unit + Testcontainers integration tests, and
+      # assembles the Quarkus app for this one module.
+      - name: Build & test ${{ matrix.service }}
+        run: ./gradlew :${{ matrix.service }}:build
+
+      - name: Upload test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.service }}
+          path: ${{ matrix.service }}/build/reports/tests/
+          if-no-files-found: ignore
+
+  # The Expo app is delivered via EAS Build, not from CI — so this job verifies
+  # (typecheck + lint + jest) rather than producing a native binary.
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/mobile/your-say-news
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      # Node is required only to run jest-expo, which cannot execute under Bun.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        run: bun run lint
+
+      # Invoke the jest binary directly so it runs under Node, not Bun.
+      - name: Test
+        run: node_modules/.bin/jest --ci
