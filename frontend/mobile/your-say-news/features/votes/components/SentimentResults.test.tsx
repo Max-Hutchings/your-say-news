@@ -30,7 +30,7 @@ const AGE = {
   postId: 3,
   characteristic: "ageRange",
   buckets: [
-    { bucket: "AGE_18_24", yesCount: 30, noCount: 10, total: 40, yesPct: 75.0, noPct: 25.0 },
+    { bucket: "AGE_18_24", yesCount: 30, noCount: 11, total: 41, yesPct: 73.2, noPct: 26.8 },
     { bucket: "AGE_65_PLUS", yesCount: 2, noCount: 8, total: 10, yesPct: 20.0, noPct: 80.0 },
   ],
   suppressedBuckets: 0,
@@ -55,24 +55,56 @@ beforeEach(() => {
 });
 
 describe("SentimentResults", () => {
-  it("shows the overall split and the default (political) breakdown", async () => {
+  it("shows the overall split and the default Counts breakdown of the political axis", async () => {
     mockOverall.mockResolvedValue(OVERALL);
     mockAxis.mockImplementation(byAxis);
 
     renderResults();
 
-    // Overall — the summary row.
+    // Overall — the summary row (always a bar, whichever view is picked below).
     await waitFor(() => expect(screen.getByText("Overall")).toBeOnTheScreen());
     expect(screen.getByText("72%")).toBeOnTheScreen();
     expect(screen.getByText("36 agree · 14 disagree · 50 voted")).toBeOnTheScreen();
 
-    // Default axis is political leaning — largest bucket (Left) first.
+    // Default axis is political leaning, default view is Counts — raw agree/disagree counts.
     expect(mockAxis).toHaveBeenCalledWith(3, "politicalPersuasion");
+    expect(screen.getByText("Number of votes")).toBeOnTheScreen();
     expect(screen.getByText("Left")).toBeOnTheScreen();
+    expect(screen.getByText("40")).toBeOnTheScreen(); // Left agree
+    expect(screen.getByText("10")).toBeOnTheScreen(); // Left disagree
+    expect(screen.getByText("Right")).toBeOnTheScreen();
+    expect(screen.getByText("5")).toBeOnTheScreen(); // Right agree
+    expect(screen.getByText("15")).toBeOnTheScreen(); // Right disagree
+  });
+
+  it("switches the breakdown between the four chart views without refetching", async () => {
+    mockOverall.mockResolvedValue(OVERALL);
+    mockAxis.mockImplementation(byAxis);
+
+    renderResults();
+    await waitFor(() => expect(screen.getByText("Number of votes")).toBeOnTheScreen());
+
+    // Bars — share that agree, with the full counts sentence per group.
+    fireEvent.press(screen.getByRole("button", { name: "Bars" }));
+    expect(await screen.findByText("Share that agree")).toBeOnTheScreen();
     expect(screen.getByText("80%")).toBeOnTheScreen();
     expect(screen.getByText("40 agree · 10 disagree · 50 voted")).toBeOnTheScreen();
-    expect(screen.getByText("Right")).toBeOnTheScreen();
+
+    // Table — a ranked row per group, sorted largest-total first (backend order).
+    fireEvent.press(screen.getByRole("button", { name: "Table" }));
+    expect(await screen.findByText("Sorted by total")).toBeOnTheScreen();
+    expect(screen.getByText("Group")).toBeOnTheScreen();
+    expect(screen.getByText("50")).toBeOnTheScreen(); // Left total
+    expect(screen.getByText("20")).toBeOnTheScreen(); // Right total
+
+    // Columns — height = total votes, agree-% under each column.
+    fireEvent.press(screen.getByRole("button", { name: "Columns" }));
+    expect(await screen.findByText("Height = total votes")).toBeOnTheScreen();
+    expect(screen.getByText("80%")).toBeOnTheScreen();
     expect(screen.getByText("25%")).toBeOnTheScreen();
+
+    // Switching views never re-hits the axis endpoint (only the initial political fetch).
+    expect(mockAxis).toHaveBeenCalledTimes(1);
   });
 
   it("sums a multi-bucket overall response into one recomputed split", async () => {
@@ -115,7 +147,7 @@ describe("SentimentResults", () => {
     expect(await screen.findByText("1 small group hidden to protect privacy.")).toBeOnTheScreen();
   });
 
-  it("refetches and re-renders the bars when a different axis is picked", async () => {
+  it("refetches and re-renders the breakdown when a different axis is picked", async () => {
     mockOverall.mockResolvedValue(OVERALL);
     mockAxis.mockImplementation(byAxis);
 
@@ -126,11 +158,12 @@ describe("SentimentResults", () => {
 
     await waitFor(() => expect(mockAxis).toHaveBeenCalledWith(3, "ageRange"));
     // Enum buckets are prettified: AGE_18_24 → "Age 18–24", AGE_65_PLUS → "Age 65+".
+    // Still in the Counts view, so we see the raw counts for the new axis.
     expect(await screen.findByText("Age 18–24")).toBeOnTheScreen();
-    expect(screen.getByText("75%")).toBeOnTheScreen();
+    expect(screen.getByText("30")).toBeOnTheScreen(); // Age 18–24 agree
     expect(screen.getByText("Age 65+")).toBeOnTheScreen();
-    expect(screen.getByText("20%")).toBeOnTheScreen();
-    // The previous axis's buckets are gone.
+    expect(screen.getByText("2")).toBeOnTheScreen(); // Age 65+ agree
+    // The previous axis's groups are gone.
     expect(screen.queryByText("Left")).toBeNull();
   });
 

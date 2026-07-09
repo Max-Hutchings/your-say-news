@@ -3,10 +3,17 @@ import { View, Text, ScrollView, ActivityIndicator, Pressable, StyleSheet } from
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { Eyebrow } from "@/components/ui";
 import { useSentiment } from "../hooks/use-sentiment";
-import { SENTIMENT_AXES, prettifyBucket } from "../data/axes";
+import { SENTIMENT_AXES } from "../data/axes";
+import { SENTIMENT_VIEWS, type SentimentViewKey } from "../data/views";
 import type { BucketSentiment, SentimentBreakdown, SentimentErrorKind } from "../types";
 import { SentimentBar } from "./SentimentBar";
 import { AxisChip } from "./AxisChip";
+import { ViewSelector } from "./ViewSelector";
+import { ChartHead } from "./ChartHead";
+import { SentimentCounts } from "./SentimentCounts";
+import { SentimentBars } from "./SentimentBars";
+import { SentimentTable } from "./SentimentTable";
+import { SentimentColumns } from "./SentimentColumns";
 
 /**
  * The results view for a post the caller has voted on: the overall agree/disagree split up top,
@@ -18,7 +25,11 @@ export function SentimentResults({ postId }: { postId: number }) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   const [axis, setAxis] = useState(SENTIMENT_AXES[0].field);
+  const [view, setView] = useState<SentimentViewKey>("counts");
   const { overall, breakdown, loading, error, retry } = useSentiment(postId, axis);
+
+  const axisLabel = SENTIMENT_AXES.find((a) => a.field === axis)?.label ?? "";
+  const caption = SENTIMENT_VIEWS.find((v) => v.key === view)?.caption ?? "";
 
   const overallBar = useMemo(() => aggregateOverall(overall), [overall]);
 
@@ -56,7 +67,12 @@ export function SentimentResults({ postId }: { postId: number }) {
         ))}
       </ScrollView>
 
-      <View style={styles.bars}>{renderBreakdown({ breakdown, loading, error, retry, e })}</View>
+      <Eyebrow text="View as" />
+      <ViewSelector view={view} onSelect={setView} />
+
+      <View style={styles.chart}>
+        {renderBreakdown({ breakdown, loading, error, retry, view, axisLabel, caption, e })}
+      </View>
     </ScrollView>
   );
 }
@@ -66,12 +82,18 @@ function renderBreakdown({
   loading,
   error,
   retry,
+  view,
+  axisLabel,
+  caption,
   e,
 }: {
   breakdown: SentimentBreakdown | null;
   loading: boolean;
   error: SentimentErrorKind | null;
   retry: () => void;
+  view: SentimentViewKey;
+  axisLabel: string;
+  caption: string;
   e: ReturnType<typeof getEditorial>;
 }) {
   if (loading) {
@@ -89,9 +111,8 @@ function renderBreakdown({
   }
   return (
     <>
-      {breakdown.buckets.map((b) => (
-        <SentimentBar key={b.bucket} label={prettifyBucket(b.bucket)} bucket={b} />
-      ))}
+      <ChartHead title={axisLabel} caption={caption} />
+      <BreakdownChart view={view} buckets={breakdown.buckets} />
       {breakdown.suppressedBuckets > 0 && (
         <Text style={[styles.empty, { color: e.muted }]}>
           {breakdown.suppressedBuckets} small group
@@ -100,6 +121,20 @@ function renderBreakdown({
       )}
     </>
   );
+}
+
+/** Render the buckets as whichever chart the "View as" selector has picked. */
+function BreakdownChart({ view, buckets }: { view: SentimentViewKey; buckets: BucketSentiment[] }) {
+  switch (view) {
+    case "counts":
+      return <SentimentCounts buckets={buckets} />;
+    case "bars":
+      return <SentimentBars buckets={buckets} />;
+    case "table":
+      return <SentimentTable buckets={buckets} />;
+    case "columns":
+      return <SentimentColumns buckets={buckets} />;
+  }
 }
 
 function ErrorRow({
@@ -163,9 +198,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingRight: 12,
   },
-  bars: {
-    gap: 18,
-    marginTop: 4,
+  chart: {
+    marginTop: 8,
   },
   pad: {
     paddingVertical: 24,
