@@ -13,6 +13,7 @@ import React from 'react';
 import {
   View,
   TouchableOpacity,
+  TouchableOpacityProps,
   ViewStyle,
   ViewProps,
 } from 'react-native';
@@ -123,7 +124,9 @@ export function Card({
         disabled={disabled}
         activeOpacity={Opacity.hover}
         style={[cardStyles, style]}
-        {...rest}
+        // rest is ViewProps; TouchableOpacity accepts the same props at runtime
+        // but types its focus/blur events differently, so bridge across.
+        {...(rest as TouchableOpacityProps)}
       >
         {children}
       </TouchableOpacity>

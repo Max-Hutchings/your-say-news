@@ -25,6 +25,7 @@ const mockPut = (axios as unknown as { put: jest.Mock }).put;
 const localImage = {
   uri: "file:///tmp/pic.jpg",
   mediaType: "IMAGE" as const,
+  orientation: "PORTRAIT" as const,
   contentType: "image/jpeg",
 };
 

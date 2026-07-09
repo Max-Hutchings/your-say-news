@@ -10,6 +10,7 @@ const mockPlayer = {
   pause: jest.fn(),
   muted: false,
   loop: false,
+  currentTime: 0,
   status: "readyToPlay",
   addListener: jest.fn(() => ({ remove: jest.fn() })),
 };

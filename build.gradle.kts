@@ -12,8 +12,11 @@ subprojects {
     }
 
     configure<JavaPluginExtension> {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        // Services build and run on GraalVM 25 (JDK 25). Pin the toolchain so
+        // local and CI compile/test against the same language level.
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(25))
+        }
     }
 
     tasks.withType<JavaCompile>().configureEach {

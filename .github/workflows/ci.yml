@@ -28,11 +28,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Set up GraalVM 25
+        uses: graalvm/setup-graalvm@v1
         with:
-          distribution: temurin
-          java-version: 21
+          distribution: graalvm
+          java-version: 25
 
       # Restores the Gradle dependency/wrapper cache and validates the wrapper.
       - name: Set up Gradle

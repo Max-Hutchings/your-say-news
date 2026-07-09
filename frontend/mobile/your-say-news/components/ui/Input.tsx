@@ -67,7 +67,7 @@ const getInputStyles = (
   isFocused: boolean,
   hasError: boolean,
   disabled: boolean
-): ViewStyle & TextStyle => {
+): TextStyle => {
   // Size styles
   const sizeStyles: Record<InputSize, ViewStyle> = {
     sm: { height: ComponentSize.input.sm, paddingHorizontal: Spacing.sm },
@@ -107,7 +107,9 @@ const getInputStyles = (
     borderRadius: BorderRadius.base,
     ...sizeStyles[size],
     ...variantStyles[variant],
-  };
+    // Cast bridges the RN 0.85 ViewStyle/TextStyle `cursor` type divergence;
+    // the spread ViewStyle values widen `cursor` beyond what TextStyle allows.
+  } as TextStyle;
 };
 
 const getHelperTextStyles = (colors: ThemeColors, isError: boolean): TextStyle => ({
