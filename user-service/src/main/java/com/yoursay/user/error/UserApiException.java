@@ -18,4 +18,9 @@ public class UserApiException extends ApiException {
         return new UserApiException("USER_NOT_FOUND_FOR_SUBJECT", Response.Status.NOT_FOUND,
                 "No user account exists for authenticated subject email=" + email);
     }
+
+    public static UserApiException notFound(long userId) {
+        return new UserApiException("USER_NOT_FOUND", Response.Status.NOT_FOUND,
+                "No user account exists for id=" + userId);
+    }
 }

@@ -1,0 +1,98 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260709-0012-1
+      author: codex
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: display_name
+                  type: VARCHAR(120)
+              - column:
+                  name: handle
+                  type: VARCHAR(40)
+              - column:
+                  name: avatar_url
+                  type: VARCHAR(512)
+        - sql:
+            sql: >
+              update your_say_user
+              set display_name = concat(first_name, ' ', last_name),
+                  handle = lower(regexp_replace(concat(first_name, '.', last_name), '[^a-zA-Z0-9_\.]', '', 'g'))
+              where display_name is null or handle is null
+        - addNotNullConstraint:
+            tableName: your_say_user
+            columnName: display_name
+            columnDataType: VARCHAR(120)
+        - addNotNullConstraint:
+            tableName: your_say_user
+            columnName: handle
+            columnDataType: VARCHAR(40)
+        - addUniqueConstraint:
+            tableName: your_say_user
+            columnNames: handle
+            constraintName: uc_your_say_user_handle
+
+  - changeSet:
+      id: 20260709-0012-2
+      author: codex
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            tableName: social_follow
+            columns:
+              - column:
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_social_follow
+                  name: id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: follower_user_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: followed_user_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+        - addUniqueConstraint:
+            tableName: social_follow
+            columnNames: follower_user_id, followed_user_id
+            constraintName: uc_social_follow_pair
+        - addForeignKeyConstraint:
+            baseTableName: social_follow
+            baseColumnNames: follower_user_id
+            referencedTableName: your_say_user
+            referencedColumnNames: id
+            constraintName: fk_social_follow_follower
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: social_follow
+            baseColumnNames: followed_user_id
+            referencedTableName: your_say_user
+            referencedColumnNames: id
+            constraintName: fk_social_follow_followed
+            onDelete: CASCADE
+        - createIndex:
+            tableName: social_follow
+            indexName: idx_social_follow_follower
+            columns:
+              - column:
+                  name: follower_user_id
+        - createIndex:
+            tableName: social_follow
+            indexName: idx_social_follow_followed
+            columns:
+              - column:
+                  name: followed_user_id

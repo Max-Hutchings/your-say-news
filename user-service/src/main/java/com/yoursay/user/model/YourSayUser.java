@@ -26,6 +26,15 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
+    @Column(name = "display_name", nullable = false, length = 120)
+    private String displayName;
+
+    @Column(name = "handle", nullable = false, unique = true, length = 40)
+    private String handle;
+
+    @Column(name = "avatar_url", length = 512)
+    private String avatarUrl;
+
     @Column(name = "date_of_birth" )
     private LocalDate dateOfBirth;
 
@@ -60,12 +69,19 @@ public class YourSayUser extends PanacheEntityBase {
         if (createdDate == null){
             createdDate = LocalDate.now();
         }
+        ensurePublicProfile();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        ensurePublicProfile();
     }
 
     public YourSayUser(String email, String firstName, String lastName) {
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
+        ensurePublicProfile();
     }
 
     public YourSayUser(String email, LocalDate dateOfBirth, String firstName, String lastName) {
@@ -74,6 +90,7 @@ public class YourSayUser extends PanacheEntityBase {
         this.firstName = firstName;
         this.lastName = lastName;
         this.createdDate = LocalDate.now();
+        ensurePublicProfile();
 
     }
 
@@ -85,6 +102,24 @@ public class YourSayUser extends PanacheEntityBase {
         this.dateOfBirth = dateOfBirth;
         this.createdDate = createdDate;
         this.active = active;
+        ensurePublicProfile();
+    }
+
+    private void ensurePublicProfile() {
+        if (displayName == null || displayName.isBlank()) {
+            displayName = ((firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName)).trim();
+        }
+        if (handle == null || handle.isBlank()) {
+            String source = displayName == null || displayName.isBlank() ? email : displayName;
+            handle = source == null ? "user" : source.toLowerCase().replaceAll("[^a-z0-9_.]+", ".");
+            handle = handle.replaceAll("^\\.+|\\.+$", "");
+            if (handle.isBlank()) {
+                handle = "user";
+            }
+            if (handle.length() > 40) {
+                handle = handle.substring(0, 40);
+            }
+        }
     }
 
     public Long getId() {
@@ -117,6 +152,30 @@ public class YourSayUser extends PanacheEntityBase {
 
     public void setlastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getHandle() {
+        return handle;
+    }
+
+    public void setHandle(String handle) {
+        this.handle = handle;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     public LocalDate getDateOfBirth() {
@@ -159,4 +218,3 @@ public class YourSayUser extends PanacheEntityBase {
         this.privacyPolicyVersion = privacyPolicyVersion;
     }
 }
-

@@ -23,6 +23,14 @@ public class PostControllerAuthTest {
     }
 
     @Test
+    public void socialFeedRejectsAnonymousCaller() {
+        given()
+                .when().get("/feed")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
     public void getByIdRejectsAnonymousCaller() {
         given()
                 .when().get("/posts/1")
@@ -76,6 +84,15 @@ public class PostControllerAuthTest {
     public void recentFeedRejectsAuthenticatedCallerWithoutUserRole() {
         given()
                 .when().get("/posts")
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "carol@yoursay.example", roles = "admin")
+    public void socialFeedRejectsAuthenticatedCallerWithoutUserRole() {
+        given()
+                .when().get("/feed")
                 .then()
                 .statusCode(403);
     }

@@ -21,6 +21,12 @@ databaseChangeLog:
                   name: last_name
                   value: Doe
               - column:
+                  name: display_name
+                  value: John Doe
+              - column:
+                  name: handle
+                  value: john.doe
+              - column:
                   name: date_of_birth
                   value: "1990-05-15"      # 👈 IMPORTANT: use value + quotes
               - column:
@@ -42,6 +48,12 @@ databaseChangeLog:
               - column:
                   name: last_name
                   value: Smith
+              - column:
+                  name: display_name
+                  value: Jane Smith
+              - column:
+                  name: handle
+                  value: jane.smith
               - column:
                   name: date_of_birth
                   value: "1985-08-22"
@@ -65,6 +77,12 @@ databaseChangeLog:
                   name: last_name
                   value: Johnson
               - column:
+                  name: display_name
+                  value: Bob Johnson
+              - column:
+                  name: handle
+                  value: bob.johnson
+              - column:
                   name: date_of_birth
                   value: "1995-12-03"
               - column:
@@ -86,6 +104,12 @@ databaseChangeLog:
               - column:
                   name: last_name
                   value: Williams
+              - column:
+                  name: display_name
+                  value: Alice Williams
+              - column:
+                  name: handle
+                  value: alice.williams
               - column:
                   name: date_of_birth
                   value: "1988-03-17"
@@ -117,6 +141,12 @@ databaseChangeLog:
                   name: last_name
                   value: New
               - column:
+                  name: display_name
+                  value: Nora New
+              - column:
+                  name: handle
+                  value: nora.new
+              - column:
                   name: date_of_birth
                   value: "1999-09-09"
               - column:
@@ -139,6 +169,12 @@ databaseChangeLog:
               - column:
                   name: last_name
                   value: User
+              - column:
+                  name: display_name
+                  value: Blank User
+              - column:
+                  name: handle
+                  value: blank.user
               - column:
                   name: date_of_birth
                   value: "1997-07-07"
