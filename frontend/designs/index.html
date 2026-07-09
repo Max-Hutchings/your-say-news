@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How others voted · Design exploration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="_shared.css" />
+<style>
+  .cta-grid { display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:36px; }
+  .cta { display:block; text-decoration:none; color:inherit; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px 26px 30px; }
+  .cta:hover { border-color:var(--ink); }
+  .cta .k { font-family:var(--mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+  .cta .h { font-family:var(--serif); font-size:28px; margin:8px 0 8px; letter-spacing:-0.01em; }
+  .cta .p { font-size:14.5px; color:var(--secondary); margin:0; }
+  .cta .go { display:inline-block; margin-top:18px; font-family:var(--mono); font-size:12px; color:var(--teal); }
+  .facts { margin-top:44px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .fact { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; }
+  .fact .n { font-family:var(--serif); font-size:30px; }
+  .fact .l { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:4px; }
+  @media (max-width:720px){ .cta-grid,.facts{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <p class="eyebrow">Your Say News · Design exploration · 09 Jul 2026</p>
+  <h1 class="page-title">"How others voted"<br />— making the data land</h1>
+  <p class="page-lede">Two open questions on the results screen, each with a few directions to choose between. Nothing is built yet — pick the winners here and we'll implement. Every mockup uses the app's real editorial theme and real breakdown data (agree / disagree counts per group).</p>
+
+  <div class="cta-grid">
+    <a class="cta" href="chart-types.html">
+      <div class="k">Question 1 · Seven options</div>
+      <div class="h">How the data is displayed</div>
+      <p class="p">Moving from percentage-only bars toward totals and distribution — split columns, diverging bars, dot plots and more, so it's clear how many people voted and which way each group leaned.</p>
+      <span class="go">View display types →</span>
+    </a>
+    <a class="cta" href="selectors.html">
+      <div class="k">Question 2 · Four options</div>
+      <div class="h">The characteristic selector</div>
+      <p class="p">Replacing the horizontal scroll so more of the ten (soon thirty-six) breakdown options are visible at once — vertical list, two-column grid, grouped sections, wrapping chips.</p>
+      <span class="go">View selector options →</span>
+    </a>
+  </div>
+
+  <div class="facts">
+    <div class="fact"><div class="n">10 → 36</div><div class="l">Breakdown axes surfaced now / supported by the backend</div></div>
+    <div class="fact"><div class="n">Agree / Disagree</div><div class="l">Binary vote per post — teal / coral throughout</div></div>
+    <div class="fact"><div class="n">0 PII</div><div class="l">Aggregated & anonymised — never an individual beside their vote</div></div>
+  </div>
+
+  <div style="margin-top:36px">
+    <a class="cta" href="results-screen.html" style="display:block">
+      <div class="k">Assembled · Interactive</div>
+      <div class="h">The final results screen →</div>
+      <p class="p">Overall divide pinned at the top, then a View-as selector — Vote-count bars (default) · Current bars · Ranked table · Split columns. Tap to switch.</p>
+    </a>
+  </div>
+
+  <hr class="rule" />
+  <p class="eyebrow">How to use this</p>
+  <p class="page-lede" style="margin-top:10px">Open each page, tell me which display type(s) and which selector you want as the default (and any you'd keep as switchable alternates). I'll wire the chosen ones into <code>features/votes</code> — <code>SentimentResults</code> and the axis picker — keeping the existing theme tokens and the privacy floor intact.</p>
+
+</main>
+</body>
+</html>

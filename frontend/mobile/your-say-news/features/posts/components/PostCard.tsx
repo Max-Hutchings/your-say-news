@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont, feedMediaHeight } from "@/constants/theme";
 import { VoteControls } from "@/features/votes";
 import type { Post } from "../types";
@@ -41,6 +42,7 @@ export function PostCard({
   isActive?: boolean;
   height?: number;
 }) {
+  const router = useRouter();
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   const window = useWindowDimensions();
@@ -104,6 +106,17 @@ export function PostCard({
 
   // The vote — always visible. The votes domain owns the interaction, locked state and errors.
   const voteRow = <VoteControls postId={post.id} />;
+  const authorLink = (
+    <Pressable
+      style={[styles.authorPill, { borderColor: e.border, backgroundColor: e.surface }]}
+      onPress={() => router.push(`/profiles/${post.userId}` as Href)}
+      accessibilityRole="button"
+      accessibilityLabel="Open author profile"
+    >
+      <Ionicons name="person-circle-outline" size={15} color={e.ink} />
+      <Text style={[styles.authorText, { color: e.ink }]}>Author {post.userId}</Text>
+    </Pressable>
+  );
 
   // Two fixed shapes: a tall 4:5 box for the immersive portrait layout, a wide 16:9 box otherwise.
   const mediaBoxHeight = feedMediaHeight(immersive ? "PORTRAIT" : "LANDSCAPE", window.width);
@@ -150,6 +163,10 @@ export function PostCard({
 
           {/* Falls back to cardHeight before the media area is measured so the panel stays hidden. */}
           <Animated.View
+            testID="portrait-story-panel"
+            pointerEvents={expanded ? "auto" : "none"}
+            accessibilityElementsHidden={!expanded}
+            importantForAccessibility={expanded ? "auto" : "no-hide-descendants"}
             style={[
               styles.storyPanel,
               {
@@ -173,6 +190,7 @@ export function PostCard({
           <Text style={[styles.title, { color: e.ink }]} numberOfLines={2}>
             {post.title}
           </Text>
+          {authorLink}
           {motionBox}
           {!expanded && (
             <Pressable
@@ -222,6 +240,7 @@ export function PostCard({
         <Text style={[styles.title, { color: e.ink }]} numberOfLines={hasMedia ? 3 : 4}>
           {post.title}
         </Text>
+        {authorLink}
 
         {/* The scroll region: summary, then the case-for/against cards at the bottom. */}
         <ScrollableSummary text={post.summary} footer={caseFooter} />
@@ -331,6 +350,21 @@ const styles = StyleSheet.create({
   meta: {
     fontFamily: EditorialFont.mono,
     fontSize: 10,
+  },
+  authorPill: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  authorText: {
+    fontFamily: EditorialFont.monoSemiBold,
+    fontSize: 10,
+    fontWeight: "600",
   },
   title: {
     fontFamily: EditorialFont.serifRegular,

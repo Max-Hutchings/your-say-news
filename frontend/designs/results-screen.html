@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Final mockup · How others voted</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="_shared.css" />
+<style>
+  .stage { display: flex; justify-content: center; margin-top: 34px; }
+  .phone { width: 412px; max-width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 32px; box-shadow: 0 34px 70px -24px rgba(20,15,8,0.35); overflow: hidden; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--border); margin: 12px auto 0; }
+  .sheet-top { display: flex; justify-content: space-between; align-items: center; padding: 14px 22px 4px; }
+  .sheet-top .title { font-family: var(--serif); font-size: 22px; }
+  .sheet-top .x { color: var(--muted); font-size: 22px; line-height: 1; }
+  .sheet-body { padding: 6px 20px 30px; }
+
+  .divh { height: 1px; background: var(--border); margin: 16px 0; }
+  .eyb { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+
+  /* overall divide (pinned top) */
+  .overall .lab { display: flex; justify-content: space-between; align-items: baseline; }
+  .overall .lab .l { font-family: var(--serif); font-size: 20px; }
+  .overall .lab .p { font-family: var(--serif); font-size: 26px; color: var(--teal); font-variant-numeric: tabular-nums; }
+  .overall .track { height: 18px; border-radius: 9px; background: var(--coral); overflow: hidden; margin-top: 6px; }
+  .overall .fill { height: 100%; background: var(--teal-fill); border-radius: 9px; }
+  .overall .c { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  /* axis chips (unchanged) */
+  .hscroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+  .hscroll::-webkit-scrollbar { height: 4px; }
+  .hscroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .pill { flex: 0 0 auto; font-family: var(--sans); font-weight: 600; font-size: 13px; padding: 8px 14px; border: 1.5px solid var(--chip-border); border-radius: 999px; background: var(--chip-bg); color: var(--chip-text); white-space: nowrap; }
+  .pill.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+  /* view-as selector */
+  .viewsel { display: flex; gap: 4px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 13px; padding: 4px; }
+  .viewsel button { flex: 1; font-family: var(--sans); font-weight: 600; font-size: 12px; padding: 9px 4px; border: 0; background: transparent; color: var(--secondary); border-radius: 9px; cursor: pointer; }
+  .viewsel button.on { background: var(--ink); color: var(--bg); }
+
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 0 14px; }
+  .chart-head .h { font-family: var(--serif); font-size: 17px; }
+  .chart-head .a { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+
+  .view[hidden] { display: none; }
+
+  /* ---- F: vote-count bars ---- */
+  .f2chart { display: flex; align-items: flex-end; gap: 12px; height: 250px; }
+  .f2 { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .f2 .pair2 { display: flex; align-items: flex-end; gap: 5px; height: 200px; }
+  .f2 .colb { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+  .f2 .cnt { font-family: var(--mono); font-size: 12px; font-weight: 600; margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+  .f2 .cnt.a { color: var(--teal); } .f2 .cnt.d { color: var(--coral); }
+  .f2 .b { width: 24px; border-radius: 4px 4px 0 0; }
+  .f2 .b.a { background: var(--teal-fill); } .f2 .b.d { background: var(--coral); }
+  .f2 .label, .col .label { font-family: var(--mono); font-size: 10.5px; color: var(--secondary); margin-top: 9px; text-align: center; line-height: 1.15; min-height: 26px; }
+
+  /* ---- Current bars ---- */
+  .curbar { margin-bottom: 16px; }
+  .curbar .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+  .curbar .top .l { font-weight: 600; font-size: 14px; }
+  .curbar .top .p { color: var(--teal); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .curbar .track { height: 12px; border-radius: 6px; background: var(--coral); overflow: hidden; }
+  .curbar .fill { height: 100%; background: var(--teal-fill); border-radius: 6px; }
+  .curbar .c { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+  /* ---- E: ranked table ---- */
+  .vtable { width: 100%; border-collapse: collapse; }
+  .vtable th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); text-align: right; padding: 0 0 10px; font-weight: 500; }
+  .vtable th:first-child { text-align: left; }
+  .vtable td { padding: 11px 0; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .vtable td.name { font-family: var(--sans); font-weight: 600; font-size: 13.5px; }
+  .vtable td.n { text-align: right; font-family: var(--mono); font-size: 12.5px; }
+  .vtable td.n.a { color: var(--teal); } .vtable td.n.d { color: var(--coral); } .vtable td.n.tot { color: var(--ink); font-weight: 600; }
+  .vtable td.bar { width: 84px; padding-left: 14px; }
+  .minibar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 1px; background: var(--surface); }
+  .minibar .a { background: var(--teal-fill); } .minibar .d { background: var(--coral); }
+
+  /* ---- A: split columns ---- */
+  .colchart { display: flex; align-items: flex-end; gap: 8px; height: 250px; }
+  .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .col .total { font-family: var(--mono); font-size: 13px; color: var(--ink); margin-bottom: 7px; font-variant-numeric: tabular-nums; }
+  .col .stack { width: 100%; max-width: 44px; display: flex; flex-direction: column-reverse; gap: 2px; border-radius: 5px; overflow: hidden; background: var(--bg); }
+  .col .s-agree { background: var(--teal-fill); } .col .s-dis { background: var(--coral); }
+  .col .pct { font-size: 11px; color: var(--teal); font-weight: 600; margin-top: 3px; }
+
+  .intro { text-align: center; max-width: 60ch; margin: 0 auto; }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <p class="eyebrow" style="text-align:center">Your Say News · Final mockup</p>
+  <h1 class="page-title" style="text-align:center">How others voted</h1>
+  <p class="page-lede intro">The results sheet, assembled. Overall divide stays pinned at the top; a <b>View as</b> selector switches the breakdown between the four you chose — in your order. <b>Tap the selector to try it.</b></p>
+
+  <nav class="topnav" style="justify-content:center">
+    <a href="index.html">← Overview</a>
+    <a href="chart-types.html">Display types</a>
+    <a href="selectors.html">Characteristic selector</a>
+    <a href="results-screen.html" aria-current="page">Final mockup</a>
+  </nav>
+
+  <div class="stage">
+    <div class="phone">
+      <div class="grab"></div>
+      <div class="sheet-top"><span class="title">How others voted</span><span class="x">✕</span></div>
+      <div class="sheet-body">
+
+        <!-- OVERALL DIVIDE (pinned) -->
+        <p class="eyb">How everyone voted</p>
+        <div class="overall">
+          <div class="lab"><span class="l">Overall</span><span class="p">53%</span></div>
+          <div class="track"><div class="fill" style="width:53.4%"></div></div>
+          <div class="c">1,135 agree · 990 disagree · 2,125 voted</div>
+        </div>
+
+        <div class="divh"></div>
+
+        <!-- AXIS -->
+        <p class="eyb">Break it down by</p>
+        <div class="hscroll">
+          <span class="pill on">Political leaning</span>
+          <span class="pill">Age</span>
+          <span class="pill">Gender</span>
+          <span class="pill">Race</span>
+          <span class="pill">Country</span>
+        </div>
+
+        <!-- VIEW-AS SELECTOR (user's order) -->
+        <p class="eyb" style="margin-top:16px">View as</p>
+        <div class="viewsel" role="tablist">
+          <button data-view="counts" class="on">Counts</button>
+          <button data-view="bars">Bars</button>
+          <button data-view="table">Table</button>
+          <button data-view="columns">Columns</button>
+        </div>
+
+        <div style="margin-top:20px">
+
+          <!-- 1 · COUNTS (Option F) — default -->
+          <section class="view" data-view="counts">
+            <div class="chart-head"><span class="h">Political leaning</span><span class="a">Number of votes</span></div>
+            <div class="f2chart">
+              <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">420</span><div class="b a" style="height:180px"></div></div><div class="colb"><span class="cnt d">55</span><div class="b d" style="height:24px"></div></div></div><span class="label">Left</span></div>
+              <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">310</span><div class="b a" style="height:133px"></div></div><div class="colb"><span class="cnt d">90</span><div class="b d" style="height:39px"></div></div></div><span class="label">Centre-<br>left</span></div>
+              <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">180</span><div class="b a" style="height:77px"></div></div><div class="colb"><span class="cnt d">165</span><div class="b d" style="height:71px"></div></div></div><span class="label">Centre</span></div>
+              <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">95</span><div class="b a" style="height:41px"></div></div><div class="colb"><span class="cnt d">240</span><div class="b d" style="height:103px"></div></div></div><span class="label">Centre-<br>right</span></div>
+              <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">60</span><div class="b a" style="height:26px"></div></div><div class="colb"><span class="cnt d">380</span><div class="b d" style="height:163px"></div></div></div><span class="label">Right</span></div>
+              <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">70</span><div class="b a" style="height:30px"></div></div><div class="colb"><span class="cnt d">60</span><div class="b d" style="height:26px"></div></div></div><span class="label">Apoli-<br>tical</span></div>
+            </div>
+          </section>
+
+          <!-- 2 · BARS (current) -->
+          <section class="view" data-view="bars" hidden>
+            <div class="chart-head"><span class="h">Political leaning</span><span class="a">Share that agree</span></div>
+            <div class="curbar"><div class="top"><span class="l">Left</span><span class="p">88%</span></div><div class="track"><div class="fill" style="width:88.4%"></div></div><div class="c">420 agree · 55 disagree · 475 voted</div></div>
+            <div class="curbar"><div class="top"><span class="l">Centre-left</span><span class="p">78%</span></div><div class="track"><div class="fill" style="width:77.5%"></div></div><div class="c">310 agree · 90 disagree · 400 voted</div></div>
+            <div class="curbar"><div class="top"><span class="l">Centre</span><span class="p">52%</span></div><div class="track"><div class="fill" style="width:52.2%"></div></div><div class="c">180 agree · 165 disagree · 345 voted</div></div>
+            <div class="curbar"><div class="top"><span class="l">Centre-right</span><span class="p">28%</span></div><div class="track"><div class="fill" style="width:28.4%"></div></div><div class="c">95 agree · 240 disagree · 335 voted</div></div>
+            <div class="curbar"><div class="top"><span class="l">Right</span><span class="p">14%</span></div><div class="track"><div class="fill" style="width:13.6%"></div></div><div class="c">60 agree · 380 disagree · 440 voted</div></div>
+            <div class="curbar"><div class="top"><span class="l">Apolitical</span><span class="p">54%</span></div><div class="track"><div class="fill" style="width:53.8%"></div></div><div class="c">70 agree · 60 disagree · 130 voted</div></div>
+          </section>
+
+          <!-- 3 · TABLE (Option E) -->
+          <section class="view" data-view="table" hidden>
+            <div class="chart-head"><span class="h">Political leaning</span><span class="a">Sorted by total</span></div>
+            <table class="vtable">
+              <thead><tr><th>Group</th><th>Agree</th><th>Disagree</th><th>Total</th><th style="text-align:left;padding-left:14px">Lean</th></tr></thead>
+              <tbody>
+                <tr><td class="name">Left</td><td class="n a">420</td><td class="n d">55</td><td class="n tot">475</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:420"></div><div class="d" style="flex-grow:55"></div></div></td></tr>
+                <tr><td class="name">Right</td><td class="n a">60</td><td class="n d">380</td><td class="n tot">440</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:60"></div><div class="d" style="flex-grow:380"></div></div></td></tr>
+                <tr><td class="name">Centre-left</td><td class="n a">310</td><td class="n d">90</td><td class="n tot">400</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:310"></div><div class="d" style="flex-grow:90"></div></div></td></tr>
+                <tr><td class="name">Centre</td><td class="n a">180</td><td class="n d">165</td><td class="n tot">345</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:180"></div><div class="d" style="flex-grow:165"></div></div></td></tr>
+                <tr><td class="name">Centre-right</td><td class="n a">95</td><td class="n d">240</td><td class="n tot">335</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:95"></div><div class="d" style="flex-grow:240"></div></div></td></tr>
+                <tr><td class="name">Apolitical</td><td class="n a">70</td><td class="n d">60</td><td class="n tot">130</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:70"></div><div class="d" style="flex-grow:60"></div></div></td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- 4 · COLUMNS (Option A) -->
+          <section class="view" data-view="columns" hidden>
+            <div class="chart-head"><span class="h">Political leaning</span><span class="a">Height = total votes</span></div>
+            <div class="colchart">
+              <div class="col"><span class="total">475</span><div class="stack" style="height:210px"><div class="s-agree" style="flex-grow:420"></div><div class="s-dis" style="flex-grow:55"></div></div><span class="label">Left</span><span class="pct">88%</span></div>
+              <div class="col"><span class="total">400</span><div class="stack" style="height:177px"><div class="s-agree" style="flex-grow:310"></div><div class="s-dis" style="flex-grow:90"></div></div><span class="label">Centre-<br>left</span><span class="pct">78%</span></div>
+              <div class="col"><span class="total">345</span><div class="stack" style="height:153px"><div class="s-agree" style="flex-grow:180"></div><div class="s-dis" style="flex-grow:165"></div></div><span class="label">Centre</span><span class="pct">52%</span></div>
+              <div class="col"><span class="total">335</span><div class="stack" style="height:148px"><div class="s-agree" style="flex-grow:95"></div><div class="s-dis" style="flex-grow:240"></div></div><span class="label">Centre-<br>right</span><span class="pct">28%</span></div>
+              <div class="col"><span class="total">440</span><div class="stack" style="height:195px"><div class="s-agree" style="flex-grow:60"></div><div class="s-dis" style="flex-grow:380"></div></div><span class="label">Right</span><span class="pct">14%</span></div>
+              <div class="col"><span class="total">130</span><div class="stack" style="height:58px"><div class="s-agree" style="flex-grow:70"></div><div class="s-dis" style="flex-grow:60"></div></div><span class="label">Apoli-<br>tical</span><span class="pct">54%</span></div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const sel = document.querySelector('.viewsel');
+  const views = document.querySelectorAll('.view');
+  function activate(name) {
+    sel.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.view === name));
+    views.forEach(v => v.hidden = v.dataset.view !== name);
+  }
+  sel.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (btn) activate(btn.dataset.view);
+  });
+  if (location.hash) activate(location.hash.slice(1));
+</script>
+</body>
+</html>

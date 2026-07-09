@@ -10,10 +10,10 @@ import {
   type LayoutChangeEvent,
   type ViewToken,
 } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { useAuthStore } from "@/features/auth";
-import { getRecent, FEED_PAGE_SIZE } from "../services/PostService";
+import { getFeed, FEED_PAGE_SIZE } from "../services/PostService";
 import type { Post } from "../types";
 import { PostCard } from "./PostCard";
 import { Masthead } from "./Masthead";
@@ -58,7 +58,7 @@ export function HomeFeed() {
   const loadFirst = useCallback(async () => {
     setError(null);
     try {
-      const first = await getRecent(0, FEED_PAGE_SIZE);
+      const first = await getFeed(0, FEED_PAGE_SIZE);
       setPosts(first);
       page.current = 0;
       reachedEnd.current = first.length < FEED_PAGE_SIZE;
@@ -76,7 +76,7 @@ export function HomeFeed() {
     setLoadingMore(true);
     try {
       const next = page.current + 1;
-      const more = await getRecent(next, FEED_PAGE_SIZE);
+      const more = await getFeed(next, FEED_PAGE_SIZE);
       if (more.length > 0) {
         // Guard against a page that overlaps what we already hold (e.g. a post added between
         // fetches shifting the window) so keys stay unique.
@@ -123,7 +123,7 @@ export function HomeFeed() {
   return (
     <View style={[styles.container, { backgroundColor: e.bg }]}>
       <View style={[styles.masthead, { backgroundColor: e.bg, borderBottomColor: e.border }]}>
-        <Masthead avatarLabel={avatarLabel} />
+        <Masthead avatarLabel={avatarLabel} onPressAvatar={() => router.push("/account" as Href)} />
         <View style={styles.tabs}>
           <FeedTabs />
         </View>

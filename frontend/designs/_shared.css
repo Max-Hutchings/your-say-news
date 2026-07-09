@@ -1,0 +1,123 @@
+/* Shared editorial tokens + primitives for the Your Say News design mockups.
+   Mirrors constants/theme/editorial.ts (light theme). */
+
+:root {
+  --bg:        #F6F1E7;
+  --bg-feed:   #F1EBDD;
+  --surface:   #FFFDF8;
+  --surface-alt:#F4EFE3;
+  --border:    #DCD4C4;
+  --ink:       #1B1815;
+  --secondary: #5A564E;
+  --muted:     #9A9183;
+  --lime:      #C6FF4A;   /* CTA / brand signal ONLY — never vote data */
+  --teal:      #157A63;   /* AGREE */
+  --teal-fill: #3E9B7C;
+  --coral:     #D6402F;   /* DISAGREE */
+  --track:     #EDE6D8;
+  --chip-bg:   #FFFDF8;
+  --chip-border:#DCD4C4;
+  --chip-text: #3A352D;
+  --scrim:     rgba(15,13,10,0.7);
+
+  --serif: "Newsreader", Georgia, serif;
+  --sans:  "Schibsted Grotesk", system-ui, sans-serif;
+  --mono:  "Spline Sans Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
+}
+
+/* ---- page shell ---- */
+.page { max-width: 1180px; margin: 0 auto; padding: 56px 28px 96px; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+.page-title {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+  margin: 10px 0 0;
+}
+.page-lede {
+  max-width: 60ch;
+  font-size: 17px;
+  color: var(--secondary);
+  margin: 16px 0 0;
+}
+.rule { height: 1px; background: var(--border); border: 0; margin: 40px 0; }
+
+/* context strip: the post these votes belong to */
+.context {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px;
+  margin-top: 28px; padding: 16px 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+}
+.context .q { font-family: var(--serif); font-size: 20px; }
+.context .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* legend */
+.legend { display: flex; gap: 18px; align-items: center; }
+.legend .item { display: flex; gap: 7px; align-items: center; font-size: 13px; color: var(--secondary); }
+.legend .sw { width: 12px; height: 12px; border-radius: 3px; }
+.sw.agree { background: var(--teal-fill); }
+.sw.dis   { background: var(--coral); }
+
+/* nav between the two galleries */
+.topnav { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+.topnav a {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
+  text-decoration: none; color: var(--ink);
+  padding: 9px 14px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface);
+}
+.topnav a:hover { border-color: var(--ink); }
+.topnav a[aria-current="page"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* ---- option card grid ---- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 28px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  padding: 22px 22px 26px; position: relative; overflow: hidden;
+}
+.card .badge {
+  position: absolute; top: 18px; right: 18px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--lime); color: var(--ink); padding: 5px 9px; border-radius: 999px; font-weight: 600;
+}
+.card .opt { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; }
+.card .name { font-family: var(--serif); font-size: 25px; margin: 4px 0 6px; letter-spacing: -0.01em; }
+.card .desc { font-size: 14.5px; color: var(--secondary); margin: 0 0 20px; }
+.card .note { font-size: 13px; color: var(--muted); margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--border); }
+.card .note b { color: var(--secondary); font-weight: 600; }
+
+/* the "screen" the chart is rendered on (a slice of the results sheet) */
+.screen {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 18px 16px 20px;
+}
+.screen.paper { background: var(--bg); }
+.screen-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.screen-head .h { font-family: var(--serif); font-size: 17px; }
+.screen-head .a { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* value type helpers */
+.num { font-variant-numeric: tabular-nums; }
+.agree-pct { color: var(--teal); font-weight: 600; }

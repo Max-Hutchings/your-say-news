@@ -1,13 +1,20 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 
 /**
  * The feed masthead (design handoff): an editorial front-page header — a dated
  * eyebrow line over the "Your Say News" wordmark (lime "Y" mark, a lime
- * highlight under "News"), a 2px ink rule, and the reader's avatar.
+ * highlight under "News"), a 2px ink rule, and the reader's avatar. Tapping the
+ * avatar opens the account menu (profile, settings, log out).
  */
-export function Masthead({ avatarLabel }: { avatarLabel?: string }) {
+export function Masthead({
+  avatarLabel,
+  onPressAvatar,
+}: {
+  avatarLabel?: string;
+  onPressAvatar?: () => void;
+}) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
 
@@ -36,11 +43,16 @@ export function Masthead({ avatarLabel }: { avatarLabel?: string }) {
 
         {avatarLabel ? (
           // Dark mode: the brand primary green with near-black initials; light mode keeps ink-on-lime.
-          <View style={[styles.avatar, { backgroundColor: isDark ? e.lime : e.ink }]}>
+          <Pressable
+            onPress={onPressAvatar}
+            accessibilityRole="button"
+            accessibilityLabel="Account"
+            style={[styles.avatar, { backgroundColor: isDark ? e.lime : e.ink }]}
+          >
             <Text style={[styles.avatarLabel, { color: isDark ? e.onLime : e.lime }]}>
               {avatarLabel}
             </Text>
-          </View>
+          </Pressable>
         ) : null}
       </View>
     </View>

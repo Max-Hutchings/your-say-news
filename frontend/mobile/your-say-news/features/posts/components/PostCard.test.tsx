@@ -4,6 +4,11 @@ import { ThemeProvider } from "@/constants/theme";
 import { PostCard } from "./PostCard";
 import type { Post } from "../types";
 
+const mockPush = jest.fn();
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 // The vote controls (from @/features/votes) fetch the caller's vote on mount; stub the votes
 // service so PostCard tests stay offline and deterministic. Default: the caller has not voted.
 const mockGetMine = jest.fn().mockResolvedValue(null);
@@ -14,12 +19,24 @@ jest.mock("@/features/votes/services/VoteService", () => ({
 }));
 
 // expo-video is a native module; stub the player + a testable VideoView surface.
+const mockUseVideoPlayer = jest.fn();
 jest.mock("expo-video", () => ({
-  useVideoPlayer: () => ({ play: jest.fn(), pause: jest.fn(), muted: true, loop: true, currentTime: 0 }),
-  VideoView: ({ testID }: { testID?: string }) => {
+  useVideoPlayer: (...args: unknown[]) => {
+    mockUseVideoPlayer(...args);
+    return {
+      play: jest.fn(),
+      pause: jest.fn(),
+      muted: true,
+      loop: true,
+      currentTime: 0,
+      status: "readyToPlay",
+      addListener: jest.fn(() => ({ remove: jest.fn() })),
+    };
+  },
+  VideoView: ({ testID, player }: { testID?: string; player?: unknown }) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.mock factories can't close over imports
     const { View } = require("react-native");
-    return <View testID={testID} />;
+    return <View testID={testID} player={player} />;
   },
 }));
 
@@ -68,8 +85,10 @@ const portraitPost: Post = {
 
 describe("PostCard", () => {
   beforeEach(() => {
+    mockPush.mockReset();
     mockGetMine.mockReset().mockResolvedValue(null);
     mockCast.mockReset();
+    mockUseVideoPlayer.mockReset();
   });
 
   it("renders the headline, full summary and support question in place", () => {
@@ -85,6 +104,12 @@ describe("PostCard", () => {
     renderWithTheme(<PostCard post={basePost} />);
     expect(screen.getByText("Agree")).toBeOnTheScreen();
     expect(screen.getByText("Disagree")).toBeOnTheScreen();
+  });
+
+  it("opens the author's profile from the card", () => {
+    renderWithTheme(<PostCard post={basePost} />);
+    fireEvent.press(screen.getByLabelText("Open author profile"));
+    expect(mockPush).toHaveBeenCalledWith("/profiles/3");
   });
 
   it("keeps the support question and case cards after voting (voting doesn't disrupt the story)", async () => {
@@ -125,6 +150,10 @@ describe("PostCard", () => {
     renderWithTheme(<PostCard post={videoPost} />);
     expect(screen.getByTestId("post-card-video")).toBeOnTheScreen();
     expect(screen.queryByTestId("post-card-media")).toBeNull();
+    expect(mockUseVideoPlayer).toHaveBeenCalledWith(
+      "https://s3.local/clip.mp4",
+      expect.any(Function)
+    );
   });
 
   it("renders no media when the post has none", () => {
@@ -178,6 +207,11 @@ describe("PostCard", () => {
     expect(screen.getByText("Disagree")).toBeOnTheScreen();
     // The summary and case cards are reached via See more; the panel stays mounted so it opens instantly.
     expect(screen.getByText("See more")).toBeOnTheScreen();
+    expect(screen.getByTestId("portrait-story-panel").props.pointerEvents).toBe("none");
+    expect(screen.getByTestId("portrait-story-panel").props.accessibilityElementsHidden).toBe(true);
+    expect(screen.getByTestId("portrait-story-panel").props.importantForAccessibility).toBe(
+      "no-hide-descendants"
+    );
     expect(screen.getByText(portraitPost.summary)).toBeOnTheScreen();
     expect(screen.getByText("THE CASE FOR")).toBeOnTheScreen();
   });
@@ -189,6 +223,9 @@ describe("PostCard", () => {
     fireEvent.press(screen.getByText("See more"));
     expect(screen.getByText("See less")).toBeOnTheScreen();
     expect(screen.queryByText("See more")).toBeNull();
+    expect(screen.getByTestId("portrait-story-panel").props.pointerEvents).toBe("auto");
+    expect(screen.getByTestId("portrait-story-panel").props.accessibilityElementsHidden).toBe(false);
+    expect(screen.getByTestId("portrait-story-panel").props.importantForAccessibility).toBe("auto");
 
     fireEvent.press(screen.getByText("See less"));
     expect(screen.getByText("See more")).toBeOnTheScreen();

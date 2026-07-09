@@ -18,12 +18,14 @@ jest.mock("./UserService", () => ({
 import { useAuthStore } from "./authContext";
 import { loginWithKeycloak, refreshTokens, revokeTokens } from "./keycloakService";
 import { getOnboardingStatus, getUser } from "./UserService";
+import * as SecureStore from "expo-secure-store";
 
 const mockLogin = loginWithKeycloak as jest.Mock;
 const mockRefresh = refreshTokens as jest.Mock;
 const mockRevoke = revokeTokens as jest.Mock;
 const mockGetUser = getUser as jest.Mock;
 const mockGetOnboardingStatus = getOnboardingStatus as jest.Mock;
+const mockDeleteItem = SecureStore.deleteItemAsync as jest.Mock;
 
 const HOUR = 60 * 60 * 1000;
 
@@ -248,5 +250,14 @@ describe("logout", () => {
         expect(state.accessToken).toBeNull();
         expect(state.refreshToken).toBeNull();
         expect(state.accessTokenExpiresAt).toBeNull();
+    });
+
+    it("wipes the persisted session from storage", async () => {
+        useAuthStore.setState({ isLoggedIn: true, refreshToken: "refresh-1" });
+
+        await useAuthStore.getState().logout();
+
+        // clearStorage() removes the persisted store key from the device (SecureStore on native).
+        expect(mockDeleteItem).toHaveBeenCalledWith("auth-store");
     });
 });

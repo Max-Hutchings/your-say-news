@@ -48,3 +48,12 @@ export async function getRecent(page = 0, size = FEED_PAGE_SIZE): Promise<Post[]
   });
   return data ?? [];
 }
+
+/** Main social feed: recent posts ranked with the viewer's follow graph. */
+export async function getFeed(page = 0, size = FEED_PAGE_SIZE): Promise<Post[]> {
+  const feedUrl = `${extra.POST_SERVICE_HOST}${extra.POST_SERVICE_PORT}/feed`;
+  const { data } = await YsnHttpClient.getSecure().get<Post[]>(feedUrl, {
+    params: { page, size },
+  });
+  return data ?? [];
+}

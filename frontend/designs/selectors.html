@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Characteristic selector · How others voted</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="_shared.css" />
+<style>
+  /* selected accent shared */
+  .selected-note { display:flex; gap:7px; align-items:center; font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:14px; }
+
+  /* ---- 1. Current horizontal scroll (reference) ---- */
+  .hscroll { display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; -webkit-overflow-scrolling:touch; }
+  .hscroll::-webkit-scrollbar { height:4px; }
+  .hscroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+  .pill { flex:0 0 auto; font-family:var(--sans); font-weight:600; font-size:13px; padding:8px 14px; border:1.5px solid var(--chip-border); border-radius:999px; background:var(--chip-bg); color:var(--chip-text); white-space:nowrap; }
+  .pill.on { background:var(--ink); border-color:var(--ink); color:var(--bg); }
+  .fade-hint { font-family:var(--mono); font-size:10px; color:var(--muted); margin-top:6px; text-align:right; }
+
+  /* ---- Option 1: Vertical list ---- */
+  .vlist { display:flex; flex-direction:column; }
+  .vrow { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:12px; padding:13px 12px; border-radius:12px; border:1px solid transparent; }
+  .vrow + .vrow { margin-top:2px; }
+  .vrow .main .t { font-size:14.5px; font-weight:600; }
+  .vrow .main .s { font-family:var(--mono); font-size:10.5px; color:var(--muted); margin-top:2px; }
+  .vrow .spark { display:flex; height:7px; width:60px; border-radius:4px; overflow:hidden; gap:1px; background:var(--surface); }
+  .vrow .spark .a { background:var(--teal-fill); } .vrow .spark .d { background:var(--coral); }
+  .vrow .chev { color:var(--muted); font-size:16px; }
+  .vrow.on { background:var(--surface-alt); border-color:var(--border); }
+  .vrow.on .chev { color:var(--ink); }
+  .vrow.on::before { content:""; position:absolute; }
+
+  /* ---- Option 2: Two-column grid ---- */
+  .cardgrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .gcard { padding:14px 12px; border:1.5px solid var(--chip-border); border-radius:14px; background:var(--chip-bg); text-align:left; }
+  .gcard .t { font-size:14px; font-weight:600; }
+  .gcard .s { font-family:var(--mono); font-size:10px; color:var(--muted); margin-top:3px; }
+  .gcard.on { background:var(--ink); border-color:var(--ink); }
+  .gcard.on .t { color:var(--bg); } .gcard.on .s { color:rgba(246,241,231,0.7); }
+
+  /* ---- Option 3: Sectioned ---- */
+  .sec + .sec { margin-top:16px; }
+  .sec h4 { font-family:var(--mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin:0 0 9px; }
+  .chipwrap { display:flex; flex-wrap:wrap; gap:7px; }
+
+  /* ---- Option 4: Chip cloud ---- */
+  .cloud { display:flex; flex-wrap:wrap; gap:8px; }
+
+  /* narrower cards so the phone feel reads */
+  .card.narrow .screen { max-width:360px; }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <p class="eyebrow">Your Say News · Design exploration</p>
+  <h1 class="page-title">Break it down by —<br />selector options</h1>
+  <p class="page-lede">The characteristic picker is currently a horizontal scroll, so you only see three or four options and have to swipe to discover the rest. Four ways to surface <b>more at once</b> — all sit in the results sheet, above the chart. "Political leaning" shown selected throughout.</p>
+
+  <nav class="topnav">
+    <a href="index.html">← Overview</a>
+    <a href="chart-types.html">Display types</a>
+    <a href="selectors.html" aria-current="page">Characteristic selector</a>
+  </nav>
+
+  <hr class="rule" />
+
+  <div class="grid">
+
+    <!-- Reference: current -->
+    <section class="card narrow" style="border-style:dashed">
+      <p class="opt">For reference</p>
+      <h2 class="name">Current — scroll</h2>
+      <p class="desc">A single horizontal row. Fine, but only ~3½ options are visible; the other six are off-screen until you swipe.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Break it down by</span></div>
+        <div class="hscroll">
+          <span class="pill on">Political leaning</span>
+          <span class="pill">Age</span>
+          <span class="pill">Gender</span>
+          <span class="pill">Race</span>
+          <span class="pill">Country</span>
+          <span class="pill">Region</span>
+        </div>
+        <div class="fade-hint">4 more →</div>
+      </div>
+      <p class="note"><b>The gap:</b> options are hidden; nothing tells you Income or Religion even exist without swiping.</p>
+    </section>
+
+    <!-- Option 1: Vertical list -->
+    <section class="card narrow">
+      <span class="badge">Suggested default</span>
+      <p class="opt">Option 1</p>
+      <h2 class="name">Vertical list</h2>
+      <p class="desc">One row per characteristic, all visible at once. Each row previews its group count and a tiny lean-bar, so you know what you'll get before tapping.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Break it down by</span></div>
+        <div class="vlist">
+          <div class="vrow on" style="position:relative"><div class="main"><div class="t">Political leaning</div><div class="s">6 groups</div></div><div class="spark"><div class="a" style="flex-grow:52"></div><div class="d" style="flex-grow:48"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Age</div><div class="s">8 bands</div></div><div class="spark"><div class="a" style="flex-grow:61"></div><div class="d" style="flex-grow:39"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Gender</div><div class="s">3 groups</div></div><div class="spark"><div class="a" style="flex-grow:55"></div><div class="d" style="flex-grow:45"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Race</div><div class="s">7 groups</div></div><div class="spark"><div class="a" style="flex-grow:58"></div><div class="d" style="flex-grow:42"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Country</div><div class="s">12 groups</div></div><div class="spark"><div class="a" style="flex-grow:49"></div><div class="d" style="flex-grow:51"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Region</div><div class="s">9 groups</div></div><div class="spark"><div class="a" style="flex-grow:53"></div><div class="d" style="flex-grow:47"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Urban / rural</div><div class="s">3 groups</div></div><div class="spark"><div class="a" style="flex-grow:47"></div><div class="d" style="flex-grow:53"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Religion</div><div class="s">8 groups</div></div><div class="spark"><div class="a" style="flex-grow:51"></div><div class="d" style="flex-grow:49"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Education</div><div class="s">5 groups</div></div><div class="spark"><div class="a" style="flex-grow:60"></div><div class="d" style="flex-grow:40"></div></div><span class="chev">›</span></div>
+          <div class="vrow"><div class="main"><div class="t">Income</div><div class="s">8 groups</div></div><div class="spark"><div class="a" style="flex-grow:44"></div><div class="d" style="flex-grow:56"></div></div><span class="chev">›</span></div>
+        </div>
+      </div>
+      <p class="note"><b>Best for:</b> discovery — everything on one screen, scannable, with a preview per row. <b>Watch:</b> taller; the chart could sit below it or the list collapse to the picked row once chosen.</p>
+    </section>
+
+    <!-- Option 2: Two-column grid -->
+    <section class="card narrow">
+      <p class="opt">Option 2</p>
+      <h2 class="name">Two-column grid</h2>
+      <p class="desc">Compact cards, two across. Roughly twice the density of the scroll, all visible without swiping, and it stays tidy as axes grow.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Break it down by</span></div>
+        <div class="cardgrid">
+          <button class="gcard on"><div class="t">Political leaning</div><div class="s">6 groups</div></button>
+          <button class="gcard"><div class="t">Age</div><div class="s">8 bands</div></button>
+          <button class="gcard"><div class="t">Gender</div><div class="s">3 groups</div></button>
+          <button class="gcard"><div class="t">Race</div><div class="s">7 groups</div></button>
+          <button class="gcard"><div class="t">Country</div><div class="s">12 groups</div></button>
+          <button class="gcard"><div class="t">Region</div><div class="s">9 groups</div></button>
+          <button class="gcard"><div class="t">Urban / rural</div><div class="s">3 groups</div></button>
+          <button class="gcard"><div class="t">Religion</div><div class="s">8 groups</div></button>
+          <button class="gcard"><div class="t">Education</div><div class="s">5 groups</div></button>
+          <button class="gcard"><div class="t">Income</div><div class="s">8 groups</div></button>
+        </div>
+      </div>
+      <p class="note"><b>Best for:</b> a balance of density and calm. Keeps the tap targets big. <b>Watch:</b> less room for a per-item preview than the list.</p>
+    </section>
+
+    <!-- Option 3: Sectioned -->
+    <section class="card narrow">
+      <p class="opt">Option 3</p>
+      <h2 class="name">Grouped sections</h2>
+      <p class="desc">Chips organised under headings. The one that scales cleanly to the 36 characteristics the backend already supports — you'd add rows, not clutter.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Break it down by</span></div>
+        <div class="sec"><h4>Who they are</h4><div class="chipwrap"><span class="pill">Age</span><span class="pill">Gender</span><span class="pill">Race</span></div></div>
+        <div class="sec"><h4>Where they are</h4><div class="chipwrap"><span class="pill">Country</span><span class="pill">Region</span><span class="pill">Urban / rural</span></div></div>
+        <div class="sec"><h4>Beliefs</h4><div class="chipwrap"><span class="pill on">Political leaning</span><span class="pill">Religion</span></div></div>
+        <div class="sec"><h4>Money &amp; work</h4><div class="chipwrap"><span class="pill">Education</span><span class="pill">Income</span></div></div>
+      </div>
+      <p class="note"><b>Best for:</b> the long term — 36 axes stay navigable, related ones sit together. <b>Watch:</b> most structure; overkill if you stay at ~10 axes.</p>
+    </section>
+
+    <!-- Option 4: Chip cloud -->
+    <section class="card narrow">
+      <p class="opt">Option 4</p>
+      <h2 class="name">Wrapping chips</h2>
+      <p class="desc">The same pills you have now, but wrapped to fill the width instead of scrolling. The smallest change — every option visible, nothing else moves.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Break it down by</span></div>
+        <div class="cloud">
+          <span class="pill on">Political leaning</span>
+          <span class="pill">Age</span>
+          <span class="pill">Gender</span>
+          <span class="pill">Race</span>
+          <span class="pill">Country</span>
+          <span class="pill">Region</span>
+          <span class="pill">Urban / rural</span>
+          <span class="pill">Religion</span>
+          <span class="pill">Education</span>
+          <span class="pill">Income</span>
+        </div>
+      </div>
+      <p class="note"><b>Best for:</b> the lowest-effort win — reuses the existing chip, just removes the scroll. <b>Watch:</b> no room for previews or grouping; a 36-axis future gets busy.</p>
+    </section>
+
+  </div>
+
+  <hr class="rule" />
+  <p class="eyebrow">Recommendation</p>
+  <p class="page-lede" style="margin-top:10px">Start with <b>Option 1 (Vertical list)</b> — it solves the real problem (everything visible + a preview of what each split looks like) and feels considered. If vertical height in the sheet is tight, <b>Option 4 (Wrapping chips)</b> is the near-zero-effort fallback, and <b>Option 3 (Sections)</b> is where to head once you surface more of the 36 backend characteristics.</p>
+
+</main>
+</body>
+</html>

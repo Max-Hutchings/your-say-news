@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Display options · How others voted</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="_shared.css" />
+<style>
+  /* ---------- shared chart primitives ---------- */
+  .group-label { font-family: var(--mono); font-size: 11px; color: var(--secondary); }
+
+  /* A / D — column charts */
+  .colchart { display: flex; align-items: flex-end; gap: 8px; height: 268px; }
+  .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .col .total { font-family: var(--mono); font-size: 13px; color: var(--ink); margin-bottom: 7px; font-variant-numeric: tabular-nums; }
+  .col .stack { width: 100%; max-width: 44px; display: flex; flex-direction: column-reverse; gap: 2px; border-radius: 5px; overflow: hidden; background: var(--surface); }
+  .col .s-agree { background: var(--teal-fill); }
+  .col .s-dis { background: var(--coral); }
+  .col .label { font-family: var(--mono); font-size: 10.5px; color: var(--secondary); margin-top: 9px; text-align: center; line-height: 1.15; min-height: 26px; }
+  .col .pct { font-size: 11px; color: var(--teal); font-weight: 600; margin-top: 3px; }
+
+  /* paired */
+  .pair { flex-direction: row; align-items: flex-end; gap: 3px; max-width: 54px; width: 100%; height: 100%; justify-content: center; }
+  .pair .pb { flex: 1; max-width: 20px; border-radius: 4px 4px 0 0; }
+  .pair .pb.agree { background: var(--teal-fill); }
+  .pair .pb.dis { background: var(--coral); }
+
+  /* B — diverging */
+  .divchart { display: flex; flex-direction: column; gap: 12px; }
+  .divrow { display: grid; grid-template-columns: 88px 1fr; align-items: center; gap: 12px; }
+  .divrow .rl { font-family: var(--mono); font-size: 11.5px; color: var(--secondary); text-align: right; }
+  .divbars { position: relative; display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
+  .divbars::before { content: ""; position: absolute; left: 50%; top: -4px; bottom: -4px; width: 1px; background: var(--border); }
+  .dcell { display: flex; align-items: center; gap: 7px; }
+  .dcell.left { justify-content: flex-end; }
+  .dcell.right { justify-content: flex-start; }
+  .dbar { height: 22px; border-radius: 5px; }
+  .dbar.agree { background: var(--teal-fill); }
+  .dbar.dis { background: var(--coral); }
+  .dval { font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* C — lollipop */
+  .lolchart { display: flex; flex-direction: column; gap: 4px; }
+  .lolrow { display: grid; grid-template-columns: 104px 1fr 44px; align-items: center; gap: 10px; height: 40px; }
+  .lolrow .ll { line-height: 1.1; }
+  .lolrow .ll .n { font-family: var(--mono); font-size: 11.5px; color: var(--secondary); }
+  .lolrow .ll .t { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .loltrack { position: relative; height: 100%; display: flex; align-items: center; }
+  .loltrack .line { height: 2px; width: 100%; background: var(--track); border-radius: 2px; }
+  .loltrack .mid { position: absolute; left: 50%; top: 8px; bottom: 8px; width: 1px; background: var(--border); }
+  .dot { position: absolute; transform: translateX(-50%); border-radius: 50%; background: var(--teal-fill); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); }
+  .lolrow .lp { font-family: var(--mono); font-size: 13px; color: var(--teal); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  .lol-axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--muted); margin: 6px 0 0 114px; }
+
+  /* E — table */
+  .vtable { width: 100%; border-collapse: collapse; }
+  .vtable th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); text-align: right; padding: 0 0 10px; font-weight: 500; }
+  .vtable th:first-child { text-align: left; }
+  .vtable td { padding: 11px 0; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .vtable td.name { font-family: var(--sans); font-weight: 600; font-size: 13.5px; }
+  .vtable td.n { text-align: right; font-family: var(--mono); font-size: 12.5px; }
+  .vtable td.n.a { color: var(--teal); }
+  .vtable td.n.d { color: var(--coral); }
+  .vtable td.n.tot { color: var(--ink); font-weight: 600; }
+  .vtable td.bar { width: 92px; padding-left: 14px; }
+  .minibar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 1px; background: var(--surface); }
+  .minibar .a { background: var(--teal-fill); }
+  .minibar .d { background: var(--coral); }
+
+  /* F — two separate count bars per group */
+  .f2chart { display: flex; align-items: flex-end; gap: 14px; height: 268px; }
+  .f2 { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .f2 .pair2 { display: flex; align-items: flex-end; gap: 5px; height: 208px; }
+  .f2 .colb { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+  .f2 .colb .cnt { font-family: var(--mono); font-size: 12px; font-weight: 600; margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+  .f2 .colb .cnt.a { color: var(--teal); }
+  .f2 .colb .cnt.d { color: var(--coral); }
+  .f2 .colb .b { width: 24px; border-radius: 4px 4px 0 0; }
+  .f2 .colb .b.a { background: var(--teal-fill); }
+  .f2 .colb .b.d { background: var(--coral); }
+  .f2 .label { font-family: var(--mono); font-size: 10.5px; color: var(--secondary); margin-top: 9px; text-align: center; line-height: 1.15; min-height: 26px; }
+
+  /* Current baseline */
+  .curbar { margin-bottom: 16px; }
+  .curbar .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+  .curbar .top .l { font-weight: 600; font-size: 14px; }
+  .curbar .track { height: 12px; border-radius: 6px; background: var(--coral); overflow: hidden; }
+  .curbar .fill { height: 100%; background: var(--teal-fill); border-radius: 6px; }
+  .curbar .c { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 5px; }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <p class="eyebrow">Your Say News · Design exploration</p>
+  <h1 class="page-title">How others voted<br />— display options</h1>
+  <p class="page-lede">Seven ways to render the same aggregated, anonymised breakdown. The goal: lead with <b>totals and distribution</b>, not just percentages, so it's obvious how many people in each group voted and which way they leaned. Same data in every option — pick the ones worth building.</p>
+
+  <nav class="topnav">
+    <a href="index.html">← Overview</a>
+    <a href="chart-types.html" aria-current="page">Display types</a>
+    <a href="selectors.html">Characteristic selector</a>
+  </nav>
+
+  <div class="context">
+    <span class="q">"Should the UK introduce a wealth tax on assets over £10m?"</span>
+    <span class="meta">2,125 votes · broken down by political leaning</span>
+  </div>
+
+  <div class="legend" style="margin-top:20px">
+    <span class="item"><span class="sw agree"></span> Agree</span>
+    <span class="item"><span class="sw dis"></span> Disagree</span>
+    <span class="item" style="color:var(--muted)">Left → Right ordering preserved where it aids reading</span>
+  </div>
+
+  <hr class="rule" />
+
+  <div class="grid">
+
+    <!-- ============ OPTION A ============ -->
+    <section class="card">
+      <span class="badge">Suggested default</span>
+      <p class="opt">Option A</p>
+      <h2 class="name">Split columns</h2>
+      <p class="desc">Column height = total votes, so you read distribution as a skyline. Each column splits teal / coral for the agree–disagree share within that group.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Political leaning</span><span class="a">HEIGHT = TOTAL VOTES</span></div>
+        <div class="colchart">
+          <div class="col"><span class="total">475</span><div class="stack" style="height:220px"><div class="s-agree" style="flex-grow:420"></div><div class="s-dis" style="flex-grow:55"></div></div><span class="label">Left</span><span class="pct">88%</span></div>
+          <div class="col"><span class="total">400</span><div class="stack" style="height:185px"><div class="s-agree" style="flex-grow:310"></div><div class="s-dis" style="flex-grow:90"></div></div><span class="label">Centre-<br>left</span><span class="pct">78%</span></div>
+          <div class="col"><span class="total">345</span><div class="stack" style="height:160px"><div class="s-agree" style="flex-grow:180"></div><div class="s-dis" style="flex-grow:165"></div></div><span class="label">Centre</span><span class="pct">52%</span></div>
+          <div class="col"><span class="total">335</span><div class="stack" style="height:155px"><div class="s-agree" style="flex-grow:95"></div><div class="s-dis" style="flex-grow:240"></div></div><span class="label">Centre-<br>right</span><span class="pct">28%</span></div>
+          <div class="col"><span class="total">440</span><div class="stack" style="height:204px"><div class="s-agree" style="flex-grow:60"></div><div class="s-dis" style="flex-grow:380"></div></div><span class="label">Right</span><span class="pct">14%</span></div>
+          <div class="col"><span class="total">130</span><div class="stack" style="height:60px"><div class="s-agree" style="flex-grow:70"></div><div class="s-dis" style="flex-grow:60"></div></div><span class="label">Apoli-<br>tical</span><span class="pct">54%</span></div>
+        </div>
+      </div>
+      <p class="note"><b>Best for:</b> the headline "who actually voted, and how they split" view. Distribution and sentiment in one glance. <b>Watch:</b> small groups become tiny columns — pair with the privacy floor.</p>
+    </section>
+
+    <!-- ============ OPTION B ============ -->
+    <section class="card">
+      <p class="opt">Option B</p>
+      <h2 class="name">Diverging bars</h2>
+      <p class="desc">Agree grows right, disagree grows left from a shared centre line. Bar length = number of people, so you see both the lean and the size of each camp.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Political leaning</span><span class="a">← DISAGREE · AGREE →</span></div>
+        <div class="divchart">
+          <div class="divrow"><span class="rl">Left</span><div class="divbars"><div class="dcell left"><span class="dval">55</span><div class="dbar dis" style="width:21px"></div></div><div class="dcell right"><div class="dbar agree" style="width:160px"></div><span class="dval">420</span></div></div></div>
+          <div class="divrow"><span class="rl">Centre-left</span><div class="divbars"><div class="dcell left"><span class="dval">90</span><div class="dbar dis" style="width:34px"></div></div><div class="dcell right"><div class="dbar agree" style="width:118px"></div><span class="dval">310</span></div></div></div>
+          <div class="divrow"><span class="rl">Centre</span><div class="divbars"><div class="dcell left"><span class="dval">165</span><div class="dbar dis" style="width:63px"></div></div><div class="dcell right"><div class="dbar agree" style="width:69px"></div><span class="dval">180</span></div></div></div>
+          <div class="divrow"><span class="rl">Centre-right</span><div class="divbars"><div class="dcell left"><span class="dval">240</span><div class="dbar dis" style="width:91px"></div></div><div class="dcell right"><div class="dbar agree" style="width:36px"></div><span class="dval">95</span></div></div></div>
+          <div class="divrow"><span class="rl">Right</span><div class="divbars"><div class="dcell left"><span class="dval">380</span><div class="dbar dis" style="width:145px"></div></div><div class="dcell right"><div class="dbar agree" style="width:23px"></div><span class="dval">60</span></div></div></div>
+          <div class="divrow"><span class="rl">Apolitical</span><div class="divbars"><div class="dcell left"><span class="dval">60</span><div class="dbar dis" style="width:23px"></div></div><div class="dcell right"><div class="dbar agree" style="width:27px"></div><span class="dval">70</span></div></div></div>
+        </div>
+      </div>
+      <p class="note"><b>Best for:</b> polarised topics — the teal/coral tug-of-war down the centre line is instantly legible. The textbook form for agree↔disagree data. <b>Watch:</b> needs a stable category order (lean order works well).</p>
+    </section>
+
+    <!-- ============ OPTION C ============ -->
+    <section class="card">
+      <p class="opt">Option C</p>
+      <h2 class="name">Dot plot</h2>
+      <p class="desc">One dot per group on a 0–100% agree axis. Dot <i>size</i> encodes total votes, so a big confident group and a tiny loud one never look the same.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Political leaning</span><span class="a">DOT SIZE = TOTAL</span></div>
+        <div class="lolchart">
+          <div class="lolrow"><div class="ll"><div class="n">Left</div><div class="t">475 votes</div></div><div class="loltrack"><div class="line"></div><div class="mid"></div><div class="dot" style="left:88%;width:34px;height:34px"></div></div><div class="lp">88%</div></div>
+          <div class="lolrow"><div class="ll"><div class="n">Centre-left</div><div class="t">400 votes</div></div><div class="loltrack"><div class="line"></div><div class="mid"></div><div class="dot" style="left:78%;width:31px;height:31px"></div></div><div class="lp">78%</div></div>
+          <div class="lolrow"><div class="ll"><div class="n">Centre</div><div class="t">345 votes</div></div><div class="loltrack"><div class="line"></div><div class="mid"></div><div class="dot" style="left:52%;width:28px;height:28px"></div></div><div class="lp">52%</div></div>
+          <div class="lolrow"><div class="ll"><div class="n">Centre-right</div><div class="t">335 votes</div></div><div class="loltrack"><div class="line"></div><div class="mid"></div><div class="dot" style="left:28%;width:27px;height:27px"></div></div><div class="lp">28%</div></div>
+          <div class="lolrow"><div class="ll"><div class="n">Right</div><div class="t">440 votes</div></div><div class="loltrack"><div class="line"></div><div class="mid"></div><div class="dot" style="left:14%;width:32px;height:32px"></div></div><div class="lp">14%</div></div>
+          <div class="lolrow"><div class="ll"><div class="n">Apolitical</div><div class="t">130 votes</div></div><div class="loltrack"><div class="line"></div><div class="mid"></div><div class="dot" style="left:54%;width:14px;height:14px"></div></div><div class="lp">54%</div></div>
+        </div>
+        <div class="lol-axis"><span>0% agree</span><span>50%</span><span>100%</span></div>
+      </div>
+      <p class="note"><b>Best for:</b> compact scanning across many groups (age bands, income) without a wall of bars. Reads like a spectrum. <b>Watch:</b> size-encoded totals are approximate — keep the printed count.</p>
+    </section>
+
+    <!-- ============ OPTION D ============ -->
+    <section class="card">
+      <p class="opt">Option D</p>
+      <h2 class="name">Paired columns</h2>
+      <p class="desc">Agree and disagree stand side by side per group, each a true count. The most literal "compare the raw numbers" reading — no mental maths.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Political leaning</span><span class="a">HEIGHT = VOTE COUNT</span></div>
+        <div class="colchart">
+          <div class="col"><span class="total">475</span><div class="pair"><div class="pb agree" style="height:180px"></div><div class="pb dis" style="height:24px"></div></div><span class="label">Left</span></div>
+          <div class="col"><span class="total">400</span><div class="pair"><div class="pb agree" style="height:133px"></div><div class="pb dis" style="height:39px"></div></div><span class="label">Centre-<br>left</span></div>
+          <div class="col"><span class="total">345</span><div class="pair"><div class="pb agree" style="height:77px"></div><div class="pb dis" style="height:71px"></div></div><span class="label">Centre</span></div>
+          <div class="col"><span class="total">335</span><div class="pair"><div class="pb agree" style="height:41px"></div><div class="pb dis" style="height:103px"></div></div><span class="label">Centre-<br>right</span></div>
+          <div class="col"><span class="total">440</span><div class="pair"><div class="pb agree" style="height:26px"></div><div class="pb dis" style="height:163px"></div></div><span class="label">Right</span></div>
+          <div class="col"><span class="total">130</span><div class="pair"><div class="pb agree" style="height:30px"></div><div class="pb dis" style="height:26px"></div></div><span class="label">Apoli-<br>tical</span></div>
+        </div>
+      </div>
+      <p class="note"><b>Best for:</b> when the exact counts matter more than the share. Honest and unambiguous. <b>Watch:</b> busier than a stacked column; twice the bars to scan.</p>
+    </section>
+
+    <!-- ============ OPTION E ============ -->
+    <section class="card">
+      <p class="opt">Option E</p>
+      <h2 class="name">Ranked table</h2>
+      <p class="desc">Every number, exact, sorted by total. A mini lean-bar on the right keeps the picture. The precise companion to any chart above — great for "show me the data".</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Political leaning</span><span class="a">SORTED BY TOTAL</span></div>
+        <table class="vtable">
+          <thead><tr><th>Group</th><th>Agree</th><th>Disagree</th><th>Total</th><th style="text-align:left;padding-left:14px">Lean</th></tr></thead>
+          <tbody>
+            <tr><td class="name">Left</td><td class="n a">420</td><td class="n d">55</td><td class="n tot">475</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:420"></div><div class="d" style="flex-grow:55"></div></div></td></tr>
+            <tr><td class="name">Right</td><td class="n a">60</td><td class="n d">380</td><td class="n tot">440</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:60"></div><div class="d" style="flex-grow:380"></div></div></td></tr>
+            <tr><td class="name">Centre-left</td><td class="n a">310</td><td class="n d">90</td><td class="n tot">400</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:310"></div><div class="d" style="flex-grow:90"></div></div></td></tr>
+            <tr><td class="name">Centre</td><td class="n a">180</td><td class="n d">165</td><td class="n tot">345</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:180"></div><div class="d" style="flex-grow:165"></div></div></td></tr>
+            <tr><td class="name">Centre-right</td><td class="n a">95</td><td class="n d">240</td><td class="n tot">335</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:95"></div><div class="d" style="flex-grow:240"></div></div></td></tr>
+            <tr><td class="name">Apolitical</td><td class="n a">70</td><td class="n d">60</td><td class="n tot">130</td><td class="bar"><div class="minibar"><div class="a" style="flex-grow:70"></div><div class="d" style="flex-grow:60"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note"><b>Best for:</b> a "view the numbers" toggle beneath the chosen chart, or axes with many buckets. <b>Watch:</b> it's a table — informative, not the emotional hook.</p>
+    </section>
+
+    <!-- ============ OPTION F ============ -->
+    <section class="card">
+      <span class="badge">New</span>
+      <p class="opt">Option F</p>
+      <h2 class="name">Vote-count bars</h2>
+      <p class="desc">Two separate bars per group — one for agree, one for disagree — each showing the raw <b>number of votes</b>, printed above it. No percentages: bar height <i>is</i> the count, comparable across every group.</p>
+      <div class="screen">
+        <div class="screen-head"><span class="h">Political leaning</span><span class="a">NUMBER OF VOTES</span></div>
+        <div class="f2chart">
+          <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">420</span><div class="b a" style="height:180px"></div></div><div class="colb"><span class="cnt d">55</span><div class="b d" style="height:24px"></div></div></div><span class="label">Left</span></div>
+          <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">310</span><div class="b a" style="height:133px"></div></div><div class="colb"><span class="cnt d">90</span><div class="b d" style="height:39px"></div></div></div><span class="label">Centre-<br>left</span></div>
+          <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">180</span><div class="b a" style="height:77px"></div></div><div class="colb"><span class="cnt d">165</span><div class="b d" style="height:71px"></div></div></div><span class="label">Centre</span></div>
+          <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">95</span><div class="b a" style="height:41px"></div></div><div class="colb"><span class="cnt d">240</span><div class="b d" style="height:103px"></div></div></div><span class="label">Centre-<br>right</span></div>
+          <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">60</span><div class="b a" style="height:26px"></div></div><div class="colb"><span class="cnt d">380</span><div class="b d" style="height:163px"></div></div></div><span class="label">Right</span></div>
+          <div class="f2"><div class="pair2"><div class="colb"><span class="cnt a">70</span><div class="b a" style="height:30px"></div></div><div class="colb"><span class="cnt d">60</span><div class="b d" style="height:26px"></div></div></div><span class="label">Apoli-<br>tical</span></div>
+        </div>
+      </div>
+      <p class="note"><b>Best for:</b> when the actual head-count is the point — how many people agreed vs disagreed in each group, read directly off the bars. <b>Watch:</b> tall groups can dwarf small ones; a very lopsided post makes one bar tiny.</p>
+    </section>
+
+    <!-- ============ CURRENT ============ -->
+    <section class="card" style="border-style:dashed">
+      <p class="opt">For reference</p>
+      <h2 class="name">Current bars</h2>
+      <p class="desc">Today's screen: one bar per group, teal agree share over a coral track, the agree % on the right. Percentage-led — totals hide in the small print.</p>
+      <div class="screen paper">
+        <div class="curbar"><div class="top"><span class="l">Left</span><span class="agree-pct num">88%</span></div><div class="track"><div class="fill" style="width:88.4%"></div></div><div class="c">420 agree · 55 disagree · 475 voted</div></div>
+        <div class="curbar"><div class="top"><span class="l">Centre-left</span><span class="agree-pct num">78%</span></div><div class="track"><div class="fill" style="width:77.5%"></div></div><div class="c">310 agree · 90 disagree · 400 voted</div></div>
+        <div class="curbar"><div class="top"><span class="l">Centre</span><span class="agree-pct num">52%</span></div><div class="track"><div class="fill" style="width:52.2%"></div></div><div class="c">180 agree · 165 disagree · 345 voted</div></div>
+        <div class="curbar"><div class="top"><span class="l">Right</span><span class="agree-pct num">14%</span></div><div class="track"><div class="fill" style="width:13.6%"></div></div><div class="c">60 agree · 380 disagree · 440 voted</div></div>
+      </div>
+      <p class="note"><b>The gap:</b> every bar is full-width, so a 2,000-vote group and a 30-vote group look identical. No sense of who showed up.</p>
+    </section>
+
+  </div>
+
+  <hr class="rule" />
+  <p class="eyebrow">Recommendation</p>
+  <p class="page-lede" style="margin-top:10px">Ship <b>A (Split columns)</b> as the default and offer <b>B (Diverging)</b> and <b>E (Table)</b> as switchable views via a small control in the sheet header. A covers the "distribution + sentiment" story you're after; B shines on polarised posts; E is the escape hatch for exact numbers. C and D are strong alternates worth keeping in the picker.</p>
+
+</main>
+</body>
+</html>

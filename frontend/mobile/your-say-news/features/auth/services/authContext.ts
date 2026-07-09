@@ -177,6 +177,36 @@ async function logout(): Promise<void> {
         hasOnboarded: false,
         hasCharacteristics: false,
     })
+
+    await wipeSession();
+}
+
+/**
+ * Wipe every trace of the session from the device/browser after logout. Drops the persisted
+ * auth store (localStorage on web, SecureStore on native) and, on web, clears local/session
+ * storage and any JS-readable cookies for this origin so no identity survives the sign-out.
+ */
+async function wipeSession(): Promise<void> {
+    try {
+        await useAuthStore.persist.clearStorage();
+    } catch {
+        // Ignore — a missing storage entry is fine, we only care that nothing remains.
+    }
+
+    if (isWeb && typeof window !== "undefined") {
+        try {
+            window.localStorage.clear();
+            window.sessionStorage.clear();
+            document.cookie.split(";").forEach((cookie) => {
+                const name = cookie.split("=")[0]?.trim();
+                if (name) {
+                    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+                }
+            });
+        } catch {
+            // Storage/cookies may be unavailable (e.g. privacy mode); best effort only.
+        }
+    }
 }
 
 function setConsentedAt(at: string | null): void {
