@@ -59,6 +59,7 @@ describe("uploadMedia", () => {
     );
     expect(result).toEqual({
       mediaType: "IMAGE",
+      orientation: "PORTRAIT",
       s3Key: "posts/pic.jpg",
       contentType: "image/jpeg",
     });

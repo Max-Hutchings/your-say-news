@@ -116,6 +116,11 @@ describe("PostCard", () => {
     mockCast.mockResolvedValue({ id: 1, postId: basePost.id, voteFor: true });
     renderWithTheme(<PostCard post={basePost} />);
 
+    // The vote buttons stay disabled until the on-mount "have I voted?" lookup settles; press
+    // only once they're live, or fireEvent swallows the press on the disabled control.
+    await waitFor(() =>
+      expect(screen.getByTestId("vote-agree").props.accessibilityState.disabled).toBe(false)
+    );
     fireEvent.press(screen.getByTestId("vote-agree"));
 
     // The vote locks…
@@ -205,15 +210,18 @@ describe("PostCard", () => {
     expect(screen.getByText(/Do you agree the cycle lane should go ahead\?/)).toBeOnTheScreen();
     expect(screen.getByText("Agree")).toBeOnTheScreen();
     expect(screen.getByText("Disagree")).toBeOnTheScreen();
-    // The summary and case cards are reached via See more; the panel stays mounted so it opens instantly.
+    // The summary and case cards are reached via See more; the panel stays mounted so it opens
+    // instantly, but while collapsed it's hidden from accessibility — so query hidden elements
+    // to inspect it and its contents.
     expect(screen.getByText("See more")).toBeOnTheScreen();
-    expect(screen.getByTestId("portrait-story-panel").props.pointerEvents).toBe("none");
-    expect(screen.getByTestId("portrait-story-panel").props.accessibilityElementsHidden).toBe(true);
-    expect(screen.getByTestId("portrait-story-panel").props.importantForAccessibility).toBe(
-      "no-hide-descendants"
-    );
-    expect(screen.getByText(portraitPost.summary)).toBeOnTheScreen();
-    expect(screen.getByText("THE CASE FOR")).toBeOnTheScreen();
+    const panel = screen.getByTestId("portrait-story-panel", { includeHiddenElements: true });
+    expect(panel.props.pointerEvents).toBe("none");
+    expect(panel.props.accessibilityElementsHidden).toBe(true);
+    expect(panel.props.importantForAccessibility).toBe("no-hide-descendants");
+    expect(
+      screen.getByText(portraitPost.summary, { includeHiddenElements: true })
+    ).toBeOnTheScreen();
+    expect(screen.getByText("THE CASE FOR", { includeHiddenElements: true })).toBeOnTheScreen();
   });
 
   it("toggles the portrait story panel between See more and See less", () => {
