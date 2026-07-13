@@ -58,6 +58,7 @@ Use **Bun** for JavaScript package installs and scripts in this repo. Prefer `bu
 ```shell
 bun install                           # one-time: installs the pinned mprocs dev runner at the repo root
 bun run dev                           # Compose infra + both Quarkus services + Expo, in one mprocs TUI
+bun run test                          # user-service + post-service + frontend tests; Testcontainers, no Compose startup
 ./gradlew :user-service:quarkusDev    # OR a single service in dev mode (swap the module path)
 ```
 
