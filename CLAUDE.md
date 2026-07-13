@@ -64,10 +64,10 @@ bun run dev                           # Compose infra + both Quarkus services + 
 `bun run dev` runs [mprocs](https://github.com/pvolok/mprocs) (config in `mprocs.yaml`), which launches
 Compose, `user-service` (:8081), `post-service` (:8082) and the Expo frontend (:5173) — each in its
 own pane. Its startup script first verifies that Docker Desktop's daemon and Docker Compose are
-available. The application panes wait for Compose to become ready. `r` runs `docker compose down`,
-rebuilds the Compose images and brings the stack back up when the Compose process is selected; on
-other selected processes, `r` retains mprocs' normal focused-process restart behavior. `q` quits all
-processes and brings the Compose stack down. Docker volumes are preserved by both operations. Before
+available. The application panes wait for Compose to become ready. When the Compose process is
+selected, `r` runs `docker compose down` and brings the stack back up; on other selected processes,
+`r` retains mprocs' normal focused-process restart behavior. `q` quits all processes and brings the
+Compose stack down. Docker volumes are preserved by both operations. Before
 each application pane starts, mprocs terminates any existing listener on its assigned port (`8081`,
 `8082` or `5173`) so stale local dev processes do not block startup.
 

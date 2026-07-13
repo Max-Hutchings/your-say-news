@@ -8,15 +8,15 @@
 #   - post-service : Quarkus dev mode on :8082 (hot reload)
 #   - expo         : Expo / React Native dev server on :5173
 #
-# Keys: 'r' rebuilds and restarts the full Compose stack, 'x' stops the focused
-# process, and 'q' quits everything. Because Compose is managed by mprocs,
-# quitting also runs `docker compose down`.
+# Keys: 'r' restarts the selected process, 'x' stops it, and 'q' quits
+# everything. Restarting the Compose process runs down -> rebuild -> up, and
+# quitting mprocs also runs `docker compose down`.
 # Before each application process starts, any existing listener on its assigned
 # port is terminated so stale dev processes cannot block startup.
 
 procs:
   compose:
-    shell: "docker compose up --build"
+    shell: "docker compose up"
     stop:
       cmd: "docker compose down"
 
@@ -30,20 +30,6 @@ procs:
     cwd: "frontend/mobile/your-say-news"
     shell: "../../../scripts/free-service-port.sh 5173 expo && ../../../scripts/check-compose-services.sh && bun run start"
 
-# Restarting the Compose pane runs its stop command first (`docker compose
-# down`), then starts it again with `--build`. Bind this in both panes so `r`
-# behaves consistently regardless of which side of the TUI is focused.
-keymap_procs:
-  <r>:
-    c: batch
-    cmds:
-      - { c: select-proc, index: 0 }
-      - { c: restart-proc }
-
-keymap_term:
-  <r>:
-    c: batch
-    cmds:
-      - { c: focus-procs }
-      - { c: select-proc, index: 0 }
-      - { c: restart-proc }
+# Restarting the Compose pane uses its stop command (`docker compose down`),
+# then starts it again with `docker compose up`. Other panes retain mprocs'
+# normal focused-process restart behavior.
