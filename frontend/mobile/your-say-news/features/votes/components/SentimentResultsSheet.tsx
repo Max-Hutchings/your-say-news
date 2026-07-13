@@ -34,7 +34,7 @@ export function SentimentResultsSheet({
           accessibilityRole="button"
           accessibilityLabel="Close voting results"
           onPress={onClose}
-          style={styles.backdropDismiss}
+          style={[StyleSheet.absoluteFill, styles.backdropDismiss]}
         />
         <View style={[styles.sheet, { backgroundColor: e.bg, borderColor: e.border }]}>
           <View style={styles.header}>
@@ -65,7 +65,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   backdropDismiss: {
-    ...StyleSheet.absoluteFillObject,
     zIndex: 0,
   },
   sheet: {
