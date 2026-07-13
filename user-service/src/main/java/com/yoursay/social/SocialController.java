@@ -26,6 +26,24 @@ public class SocialController {
         return new FollowingDto(socialService.getFollowingUserIds(securityIdentity.getPrincipal().getName()));
     }
 
+    private static final int MAX_PAGE_SIZE = 50;
+
+    @GET
+    @Path("/{userId}/followers")
+    public FollowPageDto followers(@PathParam("userId") long userId,
+                                   @QueryParam("page") @DefaultValue("0") int page,
+                                   @QueryParam("size") @DefaultValue("50") int size) {
+        return socialService.listFollowers(viewerEmail(), userId, clampPage(page), clampSize(size));
+    }
+
+    @GET
+    @Path("/{userId}/following")
+    public FollowPageDto followingList(@PathParam("userId") long userId,
+                                       @QueryParam("page") @DefaultValue("0") int page,
+                                       @QueryParam("size") @DefaultValue("50") int size) {
+        return socialService.listFollowing(viewerEmail(), userId, clampPage(page), clampSize(size));
+    }
+
     @GET
     @Path("/follows/{userId}")
     public FollowStatusDto status(@PathParam("userId") long userId) {
@@ -42,5 +60,17 @@ public class SocialController {
     @Path("/follows/{userId}")
     public FollowStatusDto unfollow(@PathParam("userId") long userId) {
         return socialService.unfollow(securityIdentity.getPrincipal().getName(), userId);
+    }
+
+    private String viewerEmail() {
+        return securityIdentity.getPrincipal().getName();
+    }
+
+    private static int clampPage(int page) {
+        return Math.max(page, 0);
+    }
+
+    private static int clampSize(int size) {
+        return Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
     }
 }

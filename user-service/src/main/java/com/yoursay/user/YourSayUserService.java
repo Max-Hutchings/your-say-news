@@ -1,6 +1,7 @@
 package com.yoursay.user;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Public contract for the user domain. Controllers and other domains depend on this
@@ -17,6 +18,9 @@ public interface YourSayUserService {
     YourSayUserDto save(String email, String firstName, String lastName, LocalDate birthDate);
 
     YourSayUserDto getById(long id);
+
+    /** Users for the given ids, in the same order as {@code ids} (unknown ids are dropped). */
+    List<YourSayUserDto> getByIds(List<Long> ids);
 
     YourSayUserDto getByEmail(String email);
 

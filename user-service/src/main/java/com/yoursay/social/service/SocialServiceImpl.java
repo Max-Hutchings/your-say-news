@@ -1,6 +1,8 @@
 package com.yoursay.social.service;
 
+import com.yoursay.social.FollowPageDto;
 import com.yoursay.social.FollowStatusDto;
+import com.yoursay.social.FollowUserDto;
 import com.yoursay.social.SocialService;
 import com.yoursay.social.model.SocialFollow;
 import com.yoursay.social.model.SocialFollowRepository;
@@ -12,6 +14,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 
+import java.util.List;
 import java.util.Set;
 
 @ApplicationScoped
@@ -57,6 +60,33 @@ public class SocialServiceImpl implements SocialService {
     public Set<Long> getFollowingUserIds(String viewerEmail) {
         long viewerId = requireUserByEmail(viewerEmail).id();
         return followRepository.followingIds(viewerId);
+    }
+
+    @Override
+    public FollowPageDto listFollowers(String viewerEmail, long userId, int page, int size) {
+        requireUserById(userId);
+        return page(viewerEmail, followRepository.followerIdsPage(userId, page, size),
+                followRepository.countFollowers(userId), page, size);
+    }
+
+    @Override
+    public FollowPageDto listFollowing(String viewerEmail, long userId, int page, int size) {
+        requireUserById(userId);
+        return page(viewerEmail, followRepository.followingIdsPage(userId, page, size),
+                followRepository.countFollowing(userId), page, size);
+    }
+
+    // Resolve a page of connected-user ids to public profiles, tagging each with whether the viewer
+    // already follows them (one query for the viewer's whole follow set, then a membership check).
+    private FollowPageDto page(String viewerEmail, List<Long> ids, long total, int page, int size) {
+        long viewerId = requireUserByEmail(viewerEmail).id();
+        Set<Long> viewerFollows = followRepository.followingIds(viewerId);
+        List<FollowUserDto> items = userService.getByIds(ids).stream()
+                .map(u -> new FollowUserDto(u.id(), u.displayName(), u.handle(), u.avatarUrl(),
+                        viewerFollows.contains(u.id())))
+                .toList();
+        boolean hasMore = (long) (page + 1) * size < total;
+        return new FollowPageDto(items, hasMore);
     }
 
     @Override

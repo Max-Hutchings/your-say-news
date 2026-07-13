@@ -14,3 +14,18 @@ export interface FollowStatus {
   followerCount: number;
   followingCount: number;
 }
+
+export interface FollowUser {
+  id: number;
+  displayName: string;
+  handle: string;
+  avatarUrl: string | null;
+  followedByViewer: boolean;
+}
+
+export interface FollowPage {
+  items: FollowUser[];
+  hasMore: boolean;
+}
+
+export type ConnectionsTab = "followers" | "following";

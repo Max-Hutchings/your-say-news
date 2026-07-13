@@ -15,6 +15,10 @@ public class YourSayUserRepository implements PanacheRepository<YourSayUser> {
         return findById(id);
     }
 
+    public java.util.List<YourSayUser> findUsersByIds(java.util.List<Long> ids) {
+        return list("id in ?1", ids);
+    }
+
     public YourSayUser findByEmail(String email) {
         return YourSayUser.find("email", email)
             .firstResult();

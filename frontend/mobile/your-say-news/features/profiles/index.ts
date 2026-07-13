@@ -1,2 +1,3 @@
 export { ProfileScreen } from "./components/ProfileScreen";
-export type { PublicProfile, FollowStatus } from "./types";
+export { ConnectionsScreen } from "./components/ConnectionsScreen";
+export type { PublicProfile, FollowStatus, FollowUser, FollowPage, ConnectionsTab } from "./types";

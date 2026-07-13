@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { getEditorial, EditorialFont, useTheme } from "@/constants/theme";
 import { PostCard, listByUser, type Post } from "@/features/posts";
 import { followUser, getMyProfile, getProfile, unfollowUser } from "../services/ProfileService";
@@ -97,8 +97,20 @@ export function ProfileScreen({ userId }: { userId?: number }) {
 
           <View style={styles.statsRow}>
             <Stat label="Posts" value={posts.length} />
-            <Stat label="Followers" value={profile.followerCount} />
-            <Stat label="Following" value={profile.followingCount} />
+            <Stat
+              label="Followers"
+              value={profile.followerCount}
+              onPress={() =>
+                router.push(`/profiles/${profile.id}/connections?tab=followers` as Href)
+              }
+            />
+            <Stat
+              label="Following"
+              value={profile.followingCount}
+              onPress={() =>
+                router.push(`/profiles/${profile.id}/connections?tab=following` as Href)
+              }
+            />
           </View>
 
           {userId && (
@@ -137,14 +149,28 @@ export function ProfileScreen({ userId }: { userId?: number }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: number;
+  onPress?: () => void;
+}) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   return (
-    <View style={styles.stat}>
+    <Pressable
+      style={styles.stat}
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={onPress ? `${value} ${label}` : undefined}
+    >
       <Text style={[styles.statValue, { color: e.ink }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: e.muted }]}>{label}</Text>
-    </View>
+    </Pressable>
   );
 }
 

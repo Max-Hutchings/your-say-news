@@ -11,6 +11,10 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class YourSayUserServiceImpl implements YourSayUserService {
@@ -55,6 +59,17 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     @Override
     public YourSayUserDto getById(long id) {
         return toDto(yourSayUserRepository.findYourSayUserById(id));
+    }
+
+    @Override
+    public List<YourSayUserDto> getByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, YourSayUserDto> byId = yourSayUserRepository.findUsersByIds(ids).stream()
+                .map(YourSayUserServiceImpl::toDto)
+                .collect(Collectors.toMap(YourSayUserDto::id, dto -> dto));
+        return ids.stream().map(byId::get).filter(Objects::nonNull).toList();
     }
 
     @Override

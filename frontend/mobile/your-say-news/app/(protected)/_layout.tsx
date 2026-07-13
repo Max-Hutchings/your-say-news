@@ -27,7 +27,8 @@ export default function ProtectedLayout() {
                 options={{ headerShown: false, presentation: "modal" }}
             />
             <Stack.Screen name="(usercharacteristics)/usercharacteristics" />
-            <Stack.Screen name="profiles/[userId]" />
+            <Stack.Screen name="profiles/[userId]/index" />
+            <Stack.Screen name="profiles/[userId]/connections" />
             <Stack.Screen name="profiles/me" />
             <Stack.Screen name="account" options={{ presentation: "modal" }} />
             <Stack.Screen name="settings" />
