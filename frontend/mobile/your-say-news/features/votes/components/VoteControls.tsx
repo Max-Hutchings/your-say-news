@@ -25,6 +25,7 @@ export function VoteControls({ postId, onNextPost }: { postId: number; onNextPos
 
   const locked = myVote !== null;
   const disabled = loading || submitting || locked;
+  const caption = captionFor({ locked, myVote, submitting, error });
 
   const agree = buttonStyle("agree", myVote, e);
   const disagree = buttonStyle("disagree", myVote, e);
@@ -69,14 +70,16 @@ export function VoteControls({ postId, onNextPost }: { postId: number; onNextPos
         </Pressable>
       </View>
 
-      {/* One reserved caption line so locking/erroring never shifts the layout below it. */}
-      <Text
-        testID="vote-status"
-        style={[styles.status, { color: error ? e.coral : e.muted }]}
-        numberOfLines={1}
-      >
-        {captionFor({ locked, myVote, submitting, error })}
-      </Text>
+      {/* Keep idle controls flush with the card bottom so that space belongs to the story. */}
+      {caption && (
+        <Text
+          testID="vote-status"
+          style={[styles.status, { color: error ? e.coral : e.muted }]}
+          numberOfLines={1}
+        >
+          {caption}
+        </Text>
+      )}
 
       {/* Results are gated behind voting: the affordance only appears once the vote is locked. */}
       {locked && (
@@ -140,7 +143,7 @@ function captionFor({
   if (error === "network") return "No connection. Tap to try again.";
   if (error === "unknown") return "Couldn't record your vote. Tap again.";
   if (locked) return `You voted — ${myVote ? "Agree" : "Disagree"}`;
-  return " ";
+  return "";
 }
 
 const styles = StyleSheet.create({

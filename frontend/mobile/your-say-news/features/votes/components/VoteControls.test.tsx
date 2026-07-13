@@ -34,7 +34,9 @@ describe("VoteControls", () => {
     await waitFor(() => expect(mockGetMine).toHaveBeenCalledWith(7));
     expect(screen.getByText("Agree")).toBeOnTheScreen();
     expect(screen.getByText("Disagree")).toBeOnTheScreen();
-    // No locked caption before voting.
+    // Idle voting sits flush at the bottom of the feed card, returning the old blank status-row
+    // height to portrait media and landscape story text.
+    expect(screen.queryByTestId("vote-status")).toBeNull();
     expect(screen.queryByText(/You voted/)).toBeNull();
   });
 
