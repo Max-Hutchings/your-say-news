@@ -25,13 +25,13 @@ public final class CharacteristicSnapshotMapper {
                 view.sexAtBirth(),
                 view.sexualOrientation(),
                 view.maritalStatus(),
-                joinedRace(view.race()),
+                joined(view.race()),
                 view.country(),
                 view.region(),
                 view.urbanRural(),
                 view.ukCounty(),
                 view.countryOfBirth(),
-                view.citizenship(),
+                joined(view.citizenship()),
                 view.religion(),
                 view.religiosity(),
                 view.education(),
@@ -46,23 +46,28 @@ public final class CharacteristicSnapshotMapper {
                 view.parent(),
                 view.newsFrequency() == null ? null : String.valueOf(view.newsFrequency()),
                 view.hasPet() == null ? null : String.valueOf(view.hasPet()),
-                view.petType(),
+                joined(view.petType()),
                 view.chronotype(),
                 view.outlook(),
                 view.neurodivergent() == null ? null : String.valueOf(view.neurodivergent()),
-                view.neurodivergenceType(),
+                joined(view.neurodivergenceType()),
                 view.hasDisability() == null ? null : String.valueOf(view.hasDisability()),
-                view.disabilityType(),
+                joined(view.disabilityType()),
                 view.housingStatus(),
                 view.propertyType()
         );
     }
 
-    private static String joinedRace(List<String> race) {
-        if (race == null || race.isEmpty()) {
+    /**
+     * Collapses a multi-select axis (ethnicity, nationality, pet, neurodivergence, disability) into a
+     * single deterministic bucket label by sorting and joining with {@code +}, so a voter with the
+     * same set always lands in the same bucket. {@code null}/empty becomes {@code null} (UNKNOWN).
+     */
+    private static String joined(List<String> values) {
+        if (values == null || values.isEmpty()) {
             return null;
         }
-        return race.stream()
+        return values.stream()
                 .sorted()
                 .reduce((left, right) -> left + "+" + right)
                 .orElse(null);

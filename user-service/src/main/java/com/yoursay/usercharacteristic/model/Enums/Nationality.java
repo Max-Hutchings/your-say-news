@@ -97,6 +97,7 @@ public enum Nationality {
     KAZAKHSTAN,
     KENYA,
     KIRIBATI,
+    KOSOVO,
     KUWAIT,
     KYRGYZSTAN,
     LAOS,
@@ -140,6 +141,7 @@ public enum Nationality {
     OMAN,
     PAKISTAN,
     PALAU,
+    PALESTINE,
     PANAMA,
     PAPUA_NEW_GUINEA,
     PARAGUAY,
@@ -192,6 +194,7 @@ public enum Nationality {
     UGANDA,
     UKRAINE,
     UNITED_ARAB_EMIRATES,
+    @Deprecated
     UNITED_KINGDOM,
     UNITED_STATES,
     URUGUAY,

@@ -8,6 +8,10 @@ import java.util.List;
  * <p>Categorical values are strings (enum names) so the domain's internal enum classes stay
  * private. Keys mirror the frontend {@code CharacteristicAnswers} payload exactly.
  *
+ * <p><strong>Age:</strong> inbound requests carry {@code age} (an integer, min 16). The server stores
+ * only the derived birth year (see ADR-017); on responses it returns both the recomputed {@code age}
+ * and the derived reporting band {@code ageRange}. Exact DOB is never stored or reported.
+ *
  * <p><strong>PII boundary:</strong> on inbound save requests the body carries ONLY characteristic
  * answers — {@code id} and {@code userId} are ignored and resolved server-side from the
  * authenticated subject. They are populated only on responses.
@@ -22,6 +26,7 @@ public record UserCharacteristicDto(
         String ukCounty,
         String urbanRural,
         // Who you are
+        Integer age,
         String ageRange,
         String gender,
         String genderSelfDescribe,
@@ -31,7 +36,7 @@ public record UserCharacteristicDto(
         List<String> race,
         // Background
         String countryOfBirth,
-        String citizenship,
+        List<String> citizenship,
         String religion,
         String religiosity,
         String politicalPersuasion,
@@ -47,20 +52,24 @@ public record UserCharacteristicDto(
         String weightRange,
         String eyeColor,
         String parent,
-        Integer newsFrequency,
         // Lifestyle
         Boolean hasPet,
-        String petType,
+        List<String> petType,
         // Quirky
         String chronotype,
         String outlook,
         // Neurodiversity & disability
         Boolean neurodivergent,
-        String neurodivergenceType,
+        List<String> neurodivergenceType,
         Boolean hasDisability,
-        String disabilityType,
-        // Property
+        List<String> disabilityType,
+        // Housing
         String housingStatus,
-        String propertyType
+        String propertyType,
+        // News habits
+        Integer newsFrequency,
+        Boolean balancedNewsViewpoint,
+        Integer mainstreamNewsPercent,
+        Boolean betterWorldWithData
 ) {
 }

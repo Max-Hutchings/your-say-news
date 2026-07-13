@@ -45,6 +45,7 @@ public enum CountryOfBirth {
     CONGO_DEMOCRATIC_REPUBLIC,
     CONGO_REPUBLIC,
     COSTA_RICA,
+    COTE_DIVOIRE,
     CROATIA,
     CUBA,
     CYPRUS,
@@ -92,8 +93,8 @@ public enum CountryOfBirth {
     KAZAKHSTAN,
     KENYA,
     KIRIBATI,
-    KOREA_NORTH,
-    KOREA_SOUTH,
+    NORTH_KOREA,
+    SOUTH_KOREA,
     KOSOVO,
     KUWAIT,
     KYRGYZSTAN,
@@ -202,7 +203,7 @@ public enum CountryOfBirth {
     ZIMBABWE;
 
     @JsonCreator
-    public static Race fromValue(String value){
-        return Race.valueOf(value.toUpperCase());
+    public static CountryOfBirth fromValue(String value){
+        return CountryOfBirth.valueOf(value.toUpperCase());
     }
 }

@@ -258,16 +258,15 @@ public class VoteSentimentControllerTest {
         assertEquals(100.0 - yesPct, ((Number) bucket.get("noPct")).doubleValue(), 0.01);
     }
 
-    /** Insert a bare post and return its id (only the four NOT-NULL columns without a default). */
+    /** Insert a bare post and return its id (only the three NOT-NULL columns without a default). */
     private long insertPost() {
-        String sql = "INSERT INTO post (user_id, title, summary, support_question) "
-                + "VALUES (?, ?, ?, ?) RETURNING id";
+        String sql = "INSERT INTO post (user_id, summary, support_question) "
+                + "VALUES (?, ?, ?) RETURNING id";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, VOTER_ID);
-            ps.setString(2, "Sentiment test post");
-            ps.setString(3, "A seeded post to aggregate votes over.");
-            ps.setString(4, "Do you agree?");
+            ps.setString(2, "A seeded post to aggregate votes over.");
+            ps.setString(3, "Do you agree?");
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 return rs.getLong(1);

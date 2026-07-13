@@ -4,5 +4,6 @@ package com.yoursay.usercharacteristic.model.Enums;
 public enum Outlook {
     OPTIMIST,
     PESSIMIST,
-    DEPENDS
+    DEPENDS,
+    UNSURE
 }

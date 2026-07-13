@@ -3,7 +3,7 @@ package com.yoursay.usercharacteristic.model.Enums;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 public enum WeightRange {
-    KG_30_39,
+    KG_UNDER_40,
     KG_40_49,
     KG_50_59,
     KG_60_69,
@@ -15,7 +15,10 @@ public enum WeightRange {
     KG_120_129,
     KG_130_139,
     KG_140_149,
-    KG_150_PLUS;
+    KG_150_PLUS,
+    // --- legacy (no longer offered) ---
+    @Deprecated
+    KG_30_39;
 
     @JsonCreator
     public WeightRange fromValue(String value){

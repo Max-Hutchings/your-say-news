@@ -47,9 +47,9 @@ public class UserCharacteristic extends PanacheEntityBase {
     private UrbanRural urbanRural;
 
     // --- Who you are ---
-    @Enumerated(EnumType.STRING)
-    @Column(name = "age_range", nullable = false)
-    private AgeRange ageRange;
+    /** Birth year ({@code currentYear - age} at sign-up). Age and reporting band are derived on read (ADR-017). */
+    @Column(name = "birth_year", nullable = false)
+    private Integer birthYear;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "gender", nullable = false)
@@ -84,10 +84,14 @@ public class UserCharacteristic extends PanacheEntityBase {
     @Column(name = "country_of_birth")
     private CountryOfBirth countryOfBirth;
 
-    /** Citizenship / nationality — distinct from country of birth and country of residence. */
+    /** Nationality — multi-select; distinct from country of birth and country of residence. */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "user_characteristic_citizenship",
+            joinColumns = @JoinColumn(name = "user_characteristic_id"))
+    @Column(name = "citizenship", nullable = false)
     @Enumerated(EnumType.STRING)
-    @Column(name = "citizenship")
-    private Nationality citizenship;
+    private Set<Nationality> citizenships = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "religion")
@@ -151,10 +155,14 @@ public class UserCharacteristic extends PanacheEntityBase {
     @Column(name = "has_pet")
     private Boolean hasPet;
 
-    /** Kind of pet — only set when {@link #hasPet} is true, otherwise {@code null}. */
+    /** Kinds of pet — multi-select; empty unless {@link #hasPet} is true. */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "user_characteristic_pet_type",
+            joinColumns = @JoinColumn(name = "user_characteristic_id"))
+    @Column(name = "pet_type", nullable = false)
     @Enumerated(EnumType.STRING)
-    @Column(name = "pet_type")
-    private PetType petType;
+    private Set<PetType> petTypes = new HashSet<>();
 
     /** Morning lark / night owl / in between. */
     @Enumerated(EnumType.STRING)
@@ -170,28 +178,49 @@ public class UserCharacteristic extends PanacheEntityBase {
     @Column(name = "neurodivergent")
     private Boolean neurodivergent;
 
-    /** Kind of neurodivergence — only set when {@link #neurodivergent} is true, otherwise {@code null}. */
+    /** Kinds of neurodivergence — multi-select; empty unless {@link #neurodivergent} is true. */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "user_characteristic_neurodivergence_type",
+            joinColumns = @JoinColumn(name = "user_characteristic_id"))
+    @Column(name = "neurodivergence_type", nullable = false)
     @Enumerated(EnumType.STRING)
-    @Column(name = "neurodivergence_type")
-    private NeurodivergenceType neurodivergenceType;
+    private Set<NeurodivergenceType> neurodivergenceTypes = new HashSet<>();
 
     @Column(name = "has_disability")
     private Boolean hasDisability;
 
-    /** Kind of disability — only set when {@link #hasDisability} is true, otherwise {@code null}. */
+    /** Kinds of disability — multi-select; empty unless {@link #hasDisability} is true. */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "user_characteristic_disability_type",
+            joinColumns = @JoinColumn(name = "user_characteristic_id"))
+    @Column(name = "disability_type", nullable = false)
     @Enumerated(EnumType.STRING)
-    @Column(name = "disability_type")
-    private DisabilityType disabilityType;
+    private Set<DisabilityType> disabilityTypes = new HashSet<>();
 
     // --- Property ---
     @Enumerated(EnumType.STRING)
     @Column(name = "housing_status")
     private HousingStatus housingStatus;
 
-    /** Kind of owned property — only set when {@link #housingStatus} is OWN, otherwise {@code null}. */
+    /** Type of home — asked of everyone with a current home; {@code null} only for no-fixed-address. */
     @Enumerated(EnumType.STRING)
     @Column(name = "property_type")
     private PropertyType propertyType;
+
+    // --- News habits ---
+    /** Whether the user regularly sees more than one viewpoint on the stories they follow. */
+    @Column(name = "balanced_news_viewpoint")
+    private Boolean balancedNewsViewpoint;
+
+    /** Share of news from mainstream sources vs social media, 0–100 (the rest is social media). */
+    @Column(name = "mainstream_news_percent")
+    private Integer mainstreamNewsPercent;
+
+    /** Belief that representative public-opinion data helps people understand society better. */
+    @Column(name = "better_world_with_data")
+    private Boolean betterWorldWithData;
 
     public UserCharacteristic() {
     }
@@ -252,12 +281,12 @@ public class UserCharacteristic extends PanacheEntityBase {
         this.urbanRural = urbanRural;
     }
 
-    public AgeRange getAgeRange() {
-        return ageRange;
+    public Integer getBirthYear() {
+        return birthYear;
     }
 
-    public void setAgeRange(AgeRange ageRange) {
-        this.ageRange = ageRange;
+    public void setBirthYear(Integer birthYear) {
+        this.birthYear = birthYear;
     }
 
     public Gender getGender() {
@@ -316,12 +345,12 @@ public class UserCharacteristic extends PanacheEntityBase {
         this.countryOfBirth = countryOfBirth;
     }
 
-    public Nationality getCitizenship() {
-        return citizenship;
+    public Set<Nationality> getCitizenships() {
+        return citizenships;
     }
 
-    public void setCitizenship(Nationality citizenship) {
-        this.citizenship = citizenship;
+    public void setCitizenships(Set<Nationality> citizenships) {
+        this.citizenships = citizenships;
     }
 
     public Religion getReligion() {
@@ -444,12 +473,12 @@ public class UserCharacteristic extends PanacheEntityBase {
         this.hasPet = hasPet;
     }
 
-    public PetType getPetType() {
-        return petType;
+    public Set<PetType> getPetTypes() {
+        return petTypes;
     }
 
-    public void setPetType(PetType petType) {
-        this.petType = petType;
+    public void setPetTypes(Set<PetType> petTypes) {
+        this.petTypes = petTypes;
     }
 
     public Chronotype getChronotype() {
@@ -476,12 +505,12 @@ public class UserCharacteristic extends PanacheEntityBase {
         this.neurodivergent = neurodivergent;
     }
 
-    public NeurodivergenceType getNeurodivergenceType() {
-        return neurodivergenceType;
+    public Set<NeurodivergenceType> getNeurodivergenceTypes() {
+        return neurodivergenceTypes;
     }
 
-    public void setNeurodivergenceType(NeurodivergenceType neurodivergenceType) {
-        this.neurodivergenceType = neurodivergenceType;
+    public void setNeurodivergenceTypes(Set<NeurodivergenceType> neurodivergenceTypes) {
+        this.neurodivergenceTypes = neurodivergenceTypes;
     }
 
     public Boolean getHasDisability() {
@@ -492,12 +521,12 @@ public class UserCharacteristic extends PanacheEntityBase {
         this.hasDisability = hasDisability;
     }
 
-    public DisabilityType getDisabilityType() {
-        return disabilityType;
+    public Set<DisabilityType> getDisabilityTypes() {
+        return disabilityTypes;
     }
 
-    public void setDisabilityType(DisabilityType disabilityType) {
-        this.disabilityType = disabilityType;
+    public void setDisabilityTypes(Set<DisabilityType> disabilityTypes) {
+        this.disabilityTypes = disabilityTypes;
     }
 
     public HousingStatus getHousingStatus() {
@@ -514,5 +543,29 @@ public class UserCharacteristic extends PanacheEntityBase {
 
     public void setPropertyType(PropertyType propertyType) {
         this.propertyType = propertyType;
+    }
+
+    public Boolean getBalancedNewsViewpoint() {
+        return balancedNewsViewpoint;
+    }
+
+    public void setBalancedNewsViewpoint(Boolean balancedNewsViewpoint) {
+        this.balancedNewsViewpoint = balancedNewsViewpoint;
+    }
+
+    public Integer getMainstreamNewsPercent() {
+        return mainstreamNewsPercent;
+    }
+
+    public void setMainstreamNewsPercent(Integer mainstreamNewsPercent) {
+        this.mainstreamNewsPercent = mainstreamNewsPercent;
+    }
+
+    public Boolean getBetterWorldWithData() {
+        return betterWorldWithData;
+    }
+
+    public void setBetterWorldWithData(Boolean betterWorldWithData) {
+        this.betterWorldWithData = betterWorldWithData;
     }
 }

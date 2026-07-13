@@ -1,0 +1,212 @@
+databaseChangeLog:
+  # Characteristics reform (see docs/characteristics/): age -> birth year, multi-select nationality /
+  # pet / neurodivergence / disability, direct parent-carer status, expanded tenure/home-type options,
+  # and persisted news-habit fields. Enum *value* changes need no DDL (columns are VARCHAR); only new
+  # columns, wider columns and the new join tables are schema changes.
+
+  # Widen columns whose new enum values are longer than the original VARCHAR width.
+  - changeSet:
+      id: 0013-widen-characteristic-columns
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - modifyDataType: { tableName: user_characteristic, columnName: parent, newDataType: VARCHAR(40) }
+        - modifyDataType: { tableName: user_characteristic, columnName: property_type, newDataType: VARCHAR(32) }
+        - modifyDataType: { tableName: user_characteristic, columnName: eye_color, newDataType: VARCHAR(32) }
+
+  # Age is now a number; we store only the derived birth year (ADR-017). Nullable so existing rows stay
+  # valid; the API enforces age (min 16) as required and computes birth_year server-side.
+  - changeSet:
+      id: 0013-age-to-birth-year
+      author: claude
+      # Claude's first local draft added birth_year and dropped age_range without the preservation
+      # UPDATE below. Accept that development-only checksum so already-migrated local databases can
+      # start; fresh databases still execute this final definition and preserve the old answer.
+      validCheckSum: 9:3cbc5d3c08cd920868dcc1b005778040
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            tableName: user_characteristic
+            columns:
+              - column: { name: birth_year, type: INT }
+        - sql:
+            sql: |
+              UPDATE user_characteristic
+              SET birth_year = CAST(EXTRACT(YEAR FROM CURRENT_DATE) AS INT) -
+                CASE age_range
+                  WHEN 'AGE_13_17' THEN 16
+                  WHEN 'AGE_18_24' THEN 21
+                  WHEN 'AGE_25_34' THEN 29
+                  WHEN 'AGE_35_44' THEN 39
+                  WHEN 'AGE_45_54' THEN 49
+                  WHEN 'AGE_55_64' THEN 59
+                  WHEN 'AGE_65_75' THEN 70
+                  WHEN 'AGE_75_PLUS' THEN 80
+                  ELSE 16
+                END
+
+  # Persist the previously-uncaptured news-habit answers.
+  - changeSet:
+      id: 0013-add-news-habit-columns
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            tableName: user_characteristic
+            columns:
+              - column: { name: balanced_news_viewpoint, type: BOOLEAN }
+              - column: { name: mainstream_news_percent, type: INT }
+              - column: { name: better_world_with_data, type: BOOLEAN }
+
+  - changeSet:
+      id: 0013-create-citizenship-table
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            tableName: user_characteristic_citizenship
+            columns:
+              - column: { name: user_characteristic_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: citizenship, type: VARCHAR(64), constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: user_characteristic_citizenship
+            baseColumnNames: user_characteristic_id
+            constraintName: fk_uc_citizenship_user_characteristic
+            referencedTableName: user_characteristic
+            referencedColumnNames: id
+            onDelete: CASCADE
+
+  - changeSet:
+      id: 0013-create-pet-type-table
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            tableName: user_characteristic_pet_type
+            columns:
+              - column: { name: user_characteristic_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: pet_type, type: VARCHAR(32), constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: user_characteristic_pet_type
+            baseColumnNames: user_characteristic_id
+            constraintName: fk_uc_pet_type_user_characteristic
+            referencedTableName: user_characteristic
+            referencedColumnNames: id
+            onDelete: CASCADE
+
+  # Preserve prior answers before the old single-value columns are removed. Older categorical
+  # names that no longer exist are mapped to the closest current reporting bucket.
+  - changeSet:
+      id: 0013-backfill-and-normalize-characteristics
+      author: codex
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      # An early local draft already dropped these source columns. In that state their values cannot
+      # be backfilled again, so mark this preservation step handled. Fresh/pre-reform schemas have the
+      # columns and execute the complete backfill before dropping them.
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists: { tableName: user_characteristic, columnName: citizenship }
+        - columnExists: { tableName: user_characteristic, columnName: pet_type }
+        - columnExists: { tableName: user_characteristic, columnName: age_range }
+      changes:
+        - sql:
+            sql: |
+              INSERT INTO user_characteristic_citizenship (user_characteristic_id, citizenship)
+              SELECT id,
+                     CASE citizenship
+                       WHEN 'KOREA_NORTH' THEN 'NORTH_KOREA'
+                       WHEN 'KOREA_SOUTH' THEN 'SOUTH_KOREA'
+                       ELSE citizenship
+                     END
+              FROM user_characteristic
+              WHERE citizenship IS NOT NULL;
+
+              INSERT INTO user_characteristic_pet_type (user_characteristic_id, pet_type)
+              SELECT id, pet_type FROM user_characteristic WHERE pet_type IS NOT NULL;
+
+              UPDATE user_characteristic_race
+              SET race = CASE race
+                WHEN 'WHITE' THEN 'WHITE_EUROPEAN'
+                WHEN 'BLACK' THEN 'BLACK_AFRICAN'
+                WHEN 'ASIAN' THEN 'SOUTH_ASIAN'
+                WHEN 'HISPANIC' THEN 'HISPANIC_LATINO'
+                WHEN 'NATIVE_AMERICAN' THEN 'INDIGENOUS'
+                WHEN 'OTHER' THEN 'OTHER_ETHNIC_GROUP'
+                ELSE race
+              END;
+
+              UPDATE user_characteristic
+              SET country_of_birth = CASE country_of_birth
+                WHEN 'KOREA_NORTH' THEN 'NORTH_KOREA'
+                WHEN 'KOREA_SOUTH' THEN 'SOUTH_KOREA'
+                ELSE country_of_birth
+              END,
+              height = CASE height
+                WHEN 'FEET_5_0_TO_5_3' THEN 'FEET_5_1_TO_5_3'
+                WHEN 'FEET_6_7_TO_7_0' THEN 'FEET_6_7_TO_6_9'
+                ELSE height
+              END;
+        - dropColumn: { tableName: user_characteristic, columnName: age_range }
+        - dropColumn: { tableName: user_characteristic, columnName: citizenship }
+        - dropColumn: { tableName: user_characteristic, columnName: pet_type }
+
+  - changeSet:
+      id: 0013-create-neurodivergence-type-table
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            tableName: user_characteristic_neurodivergence_type
+            columns:
+              - column: { name: user_characteristic_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: neurodivergence_type, type: VARCHAR(32), constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: user_characteristic_neurodivergence_type
+            baseColumnNames: user_characteristic_id
+            constraintName: fk_uc_neuro_type_user_characteristic
+            referencedTableName: user_characteristic
+            referencedColumnNames: id
+            onDelete: CASCADE
+
+  - changeSet:
+      id: 0013-create-disability-type-table
+      author: claude
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            tableName: user_characteristic_disability_type
+            columns:
+              - column: { name: user_characteristic_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: disability_type, type: VARCHAR(32), constraints: { nullable: false } }
+        - addForeignKeyConstraint:
+            baseTableName: user_characteristic_disability_type
+            baseColumnNames: user_characteristic_id
+            constraintName: fk_uc_disability_type_user_characteristic
+            referencedTableName: user_characteristic
+            referencedColumnNames: id
+            onDelete: CASCADE
+
+  - changeSet:
+      id: 0013-backfill-sensitive-multiselects
+      author: codex
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists: { tableName: user_characteristic, columnName: neurodivergence_type }
+        - columnExists: { tableName: user_characteristic, columnName: disability_type }
+      changes:
+        - sql:
+            sql: |
+              INSERT INTO user_characteristic_neurodivergence_type
+                (user_characteristic_id, neurodivergence_type)
+              SELECT id, neurodivergence_type
+              FROM user_characteristic
+              WHERE neurodivergence_type IS NOT NULL;
+
+              INSERT INTO user_characteristic_disability_type
+                (user_characteristic_id, disability_type)
+              SELECT id, disability_type
+              FROM user_characteristic
+              WHERE disability_type IS NOT NULL;
+        - dropColumn: { tableName: user_characteristic, columnName: neurodivergence_type }
+        - dropColumn: { tableName: user_characteristic, columnName: disability_type }

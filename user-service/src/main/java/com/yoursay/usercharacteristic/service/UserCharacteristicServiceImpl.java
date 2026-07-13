@@ -7,10 +7,13 @@ import com.yoursay.usercharacteristic.error.UserCharacteristicApiException;
 import com.yoursay.usercharacteristic.model.Enums.*;
 import com.yoursay.usercharacteristic.model.UserCharacteristic;
 import com.yoursay.usercharacteristic.model.UserCharacteristicRepository;
+import com.yoursay.usercharacteristic.model.UserCharacteristicRules;
+import com.yoursay.usercharacteristic.model.EnumOptionPolicy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import java.time.Year;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -63,24 +66,50 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         entity.setUkCounty(parse(UKCounty.class, a.ukCounty()));
         entity.setUrbanRural(required(UrbanRural.class, a.urbanRural(), "urbanRural"));
 
-        entity.setAgeRange(required(AgeRange.class, a.ageRange(), "ageRange"));
-        entity.setGender(required(Gender.class, a.gender(), "gender"));
-        entity.setGenderSelfDescribe(null);
+        // Age is collected as a number; we store only the derived birth year (ADR-017).
+        if (a.age() == null) {
+            throw UserCharacteristicApiException.requiredField("age");
+        }
+        if (a.age() < UserCharacteristicRules.MINIMUM_AGE) {
+            throw UserCharacteristicApiException.invalidField(
+                    "age", "must be at least " + UserCharacteristicRules.MINIMUM_AGE);
+        }
+        entity.setBirthYear(Year.now().getValue() - a.age());
+
+        Gender gender = required(Gender.class, a.gender(), "gender");
+        entity.setGender(gender);
+        // Free-text self-description is captured only when the user chose to self-describe.
+        if (gender == Gender.SELF_DESCRIBE) {
+            String selfDescribe = blankToNull(a.genderSelfDescribe());
+            if (selfDescribe == null) {
+                throw UserCharacteristicApiException.requiredField("genderSelfDescribe");
+            }
+            entity.setGenderSelfDescribe(selfDescribe);
+        } else {
+            entity.setGenderSelfDescribe(null);
+        }
+
         entity.setSexAtBirth(required(SexAtBirth.class, a.sexAtBirth(), "sexAtBirth"));
         entity.setSexualOrientation(required(SexualOrientation.class, a.sexualOrientation(), "sexualOrientation"));
         entity.setMaritalStatus(required(MaritalStatus.class, a.maritalStatus(), "maritalStatus"));
-        entity.setRaces(parseRaces(a.race()));
+        if (a.race() == null || a.race().isEmpty()) {
+            throw UserCharacteristicApiException.emptyRace();
+        }
+        entity.setRaces(parseSet(Race.class, a.race(), "race"));
 
         entity.setCountryOfBirth(required(CountryOfBirth.class, a.countryOfBirth(), "countryOfBirth"));
-        entity.setCitizenship(required(Nationality.class, a.citizenship(), "citizenship"));
+        entity.setCitizenships(parseSet(Nationality.class, a.citizenship(), "citizenship"));
         entity.setReligion(required(Religion.class, a.religion(), "religion"));
         entity.setReligiosity(required(Religiosity.class, a.religiosity(), "religiosity"));
         entity.setPoliticalPersuasion(required(PoliticalPersuasion.class, a.politicalPersuasion(), "politicalPersuasion"));
 
-        entity.setEducation(required(EducationLevel.class, a.education(), "education"));
+        EducationLevel education = required(EducationLevel.class, a.education(), "education");
+        entity.setEducation(education);
         entity.setOccupation(required(OccupationStatus.class, a.occupation(), "occupation"));
         entity.setEmploymentSector(required(EmploymentSector.class, a.employmentSector(), "employmentSector"));
-        entity.setUniversitySubject(parse(UniversitySubject.class, a.universitySubject()));
+        entity.setUniversitySubject(isHigherEducation(education)
+                ? parse(UniversitySubject.class, a.universitySubject())
+                : null);
 
         entity.setPersonalIncomeRange(required(IncomeRange.class, a.personalIncomeRange(), "personalIncomeRange"));
         entity.setHouseholdIncomeRange(required(IncomeRange.class, a.householdIncomeRange(), "householdIncomeRange"));
@@ -88,21 +117,19 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         entity.setWeightRange(required(WeightRange.class, a.weightRange(), "weightRange"));
         entity.setEyeColor(required(EyeColor.class, a.eyeColor(), "eyeColor"));
         entity.setParent(required(Parent.class, a.parent(), "parent"));
+
         if (a.newsFrequency() == null) {
             throw UserCharacteristicApiException.requiredField("newsFrequency");
         }
+        requireRange(a.newsFrequency(), 0, 10, "newsFrequency");
         entity.setNewsFrequency(a.newsFrequency());
 
         if (a.hasPet() == null) {
             throw UserCharacteristicApiException.requiredField("hasPet");
         }
         entity.setHasPet(a.hasPet());
-        // petType is only meaningful for pet owners; for non-owners it is forced to null.
-        if (a.hasPet()) {
-            entity.setPetType(required(PetType.class, a.petType(), "petType"));
-        } else {
-            entity.setPetType(null);
-        }
+        // Pet types are only meaningful for pet owners; non-owners carry none.
+        entity.setPetTypes(a.hasPet() ? parseSet(PetType.class, a.petType(), "petType") : new LinkedHashSet<>());
 
         entity.setChronotype(required(Chronotype.class, a.chronotype(), "chronotype"));
         entity.setOutlook(required(Outlook.class, a.outlook(), "outlook"));
@@ -111,43 +138,67 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
             throw UserCharacteristicApiException.requiredField("neurodivergent");
         }
         entity.setNeurodivergent(a.neurodivergent());
-        // neurodivergenceType is only meaningful when neurodivergent; otherwise it is forced to null.
-        if (a.neurodivergent()) {
-            entity.setNeurodivergenceType(required(NeurodivergenceType.class, a.neurodivergenceType(), "neurodivergenceType"));
-        } else {
-            entity.setNeurodivergenceType(null);
-        }
+        entity.setNeurodivergenceTypes(a.neurodivergent()
+                ? parseSet(NeurodivergenceType.class, a.neurodivergenceType(), "neurodivergenceType")
+                : new LinkedHashSet<>());
 
         if (a.hasDisability() == null) {
             throw UserCharacteristicApiException.requiredField("hasDisability");
         }
         entity.setHasDisability(a.hasDisability());
-        // disabilityType is only meaningful when the user has a disability; otherwise forced to null.
-        if (a.hasDisability()) {
-            entity.setDisabilityType(required(DisabilityType.class, a.disabilityType(), "disabilityType"));
-        } else {
-            entity.setDisabilityType(null);
-        }
+        entity.setDisabilityTypes(a.hasDisability()
+                ? parseSet(DisabilityType.class, a.disabilityType(), "disabilityType")
+                : new LinkedHashSet<>());
 
         HousingStatus housingStatus = required(HousingStatus.class, a.housingStatus(), "housingStatus");
         entity.setHousingStatus(housingStatus);
-        // propertyType is only meaningful for owners; otherwise it is forced to null.
-        if (housingStatus == HousingStatus.OWN) {
-            entity.setPropertyType(required(PropertyType.class, a.propertyType(), "propertyType"));
-        } else {
+        // Home type is asked of everyone with a fixed home; no-fixed-address users have no home type.
+        if (housingStatus == HousingStatus.TEMPORARY_NO_FIXED) {
             entity.setPropertyType(null);
+        } else {
+            entity.setPropertyType(required(PropertyType.class, a.propertyType(), "propertyType"));
+        }
+
+        entity.setBalancedNewsViewpoint(requiredBoolean(a.balancedNewsViewpoint(), "balancedNewsViewpoint"));
+        if (a.mainstreamNewsPercent() == null) {
+            throw UserCharacteristicApiException.requiredField("mainstreamNewsPercent");
+        }
+        requireRange(a.mainstreamNewsPercent(), 0, 100, "mainstreamNewsPercent");
+        entity.setMainstreamNewsPercent(a.mainstreamNewsPercent());
+        entity.setBetterWorldWithData(requiredBoolean(a.betterWorldWithData(), "betterWorldWithData"));
+    }
+
+    /** Parse a required multi-select enum list: {@code null}/empty or any unknown value is a 400. */
+    private static <E extends Enum<E>> Set<E> parseSet(Class<E> type, List<String> values, String field) {
+        if (values == null || values.isEmpty()) {
+            throw UserCharacteristicApiException.emptyMultiSelect(field);
+        }
+        Set<E> parsed = new LinkedHashSet<>();
+        for (String value : values) {
+            parsed.add(required(type, value, field));
+        }
+        return parsed;
+    }
+
+    private static Boolean requiredBoolean(Boolean value, String field) {
+        if (value == null) {
+            throw UserCharacteristicApiException.requiredField(field);
+        }
+        return value;
+    }
+
+    private static void requireRange(int value, int minimum, int maximum, String field) {
+        if (value < minimum || value > maximum) {
+            throw UserCharacteristicApiException.invalidField(
+                    field, "must be between " + minimum + " and " + maximum);
         }
     }
 
-    private static Set<Race> parseRaces(List<String> values) {
-        if (values == null || values.isEmpty()) {
-            throw UserCharacteristicApiException.emptyRace();
-        }
-        Set<Race> races = new LinkedHashSet<>();
-        for (String value : values) {
-            races.add(required(Race.class, value, "race"));
-        }
-        return races;
+    private static boolean isHigherEducation(EducationLevel education) {
+        return education == EducationLevel.HIGHER_EDUCATION_BELOW_DEGREE
+                || education == EducationLevel.BACHELORS
+                || education == EducationLevel.MASTERS
+                || education == EducationLevel.DOCTORATE;
     }
 
     private static String blankToNull(String value) {
@@ -160,7 +211,11 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
             return null;
         }
         try {
-            return Enum.valueOf(type, value);
+            E parsed = Enum.valueOf(type, value);
+            if (!EnumOptionPolicy.isOffered(parsed)) {
+                throw UserCharacteristicApiException.invalidEnumValue(type.getSimpleName(), value, type);
+            }
+            return parsed;
         } catch (IllegalArgumentException e) {
             throw UserCharacteristicApiException.invalidEnumValue(type.getSimpleName(), value, type);
         }
@@ -179,6 +234,8 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         if (c == null) {
             return null;
         }
+        Integer age = c.getBirthYear() == null ? null : Year.now().getValue() - c.getBirthYear();
+        String ageRange = age == null ? null : AgeRange.fromAge(age).name();
         return new UserCharacteristicDto(
                 c.getId(),
                 c.getUserId(),
@@ -187,15 +244,16 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
                 c.getRegion(),
                 name(c.getUkCounty()),
                 name(c.getUrbanRural()),
-                name(c.getAgeRange()),
+                age,
+                ageRange,
                 name(c.getGender()),
                 c.getGenderSelfDescribe(),
                 name(c.getSexAtBirth()),
                 name(c.getSexualOrientation()),
                 name(c.getMaritalStatus()),
-                c.getRaces().stream().map(Enum::name).collect(Collectors.toList()),
+                names(c.getRaces()),
                 name(c.getCountryOfBirth()),
-                name(c.getCitizenship()),
+                names(c.getCitizenships()),
                 name(c.getReligion()),
                 name(c.getReligiosity()),
                 name(c.getPoliticalPersuasion()),
@@ -209,22 +267,29 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
                 name(c.getWeightRange()),
                 name(c.getEyeColor()),
                 name(c.getParent()),
-                c.getNewsFrequency(),
                 c.getHasPet(),
-                name(c.getPetType()),
+                names(c.getPetTypes()),
                 name(c.getChronotype()),
                 name(c.getOutlook()),
                 c.getNeurodivergent(),
-                name(c.getNeurodivergenceType()),
+                names(c.getNeurodivergenceTypes()),
                 c.getHasDisability(),
-                name(c.getDisabilityType()),
+                names(c.getDisabilityTypes()),
                 name(c.getHousingStatus()),
-                name(c.getPropertyType())
+                name(c.getPropertyType()),
+                c.getNewsFrequency(),
+                c.getBalancedNewsViewpoint(),
+                c.getMainstreamNewsPercent(),
+                c.getBetterWorldWithData()
         );
     }
 
     private static String name(Enum<?> value) {
         return value == null ? null : value.name();
+    }
+
+    private static List<String> names(Set<? extends Enum<?>> values) {
+        return values == null ? List.of() : values.stream().map(Enum::name).collect(Collectors.toList());
     }
 
     private void recordMetric(String operation, boolean success) {

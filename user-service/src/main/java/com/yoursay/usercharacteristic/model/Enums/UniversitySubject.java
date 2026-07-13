@@ -3,6 +3,7 @@ package com.yoursay.usercharacteristic.model.Enums;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 public enum UniversitySubject {
+    @Deprecated
     NA,
     SCIENCE,
     ENGINEERING,

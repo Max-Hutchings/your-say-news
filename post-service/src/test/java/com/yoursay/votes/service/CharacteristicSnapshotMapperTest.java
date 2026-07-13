@@ -26,13 +26,13 @@ class CharacteristicSnapshotMapperTest {
                 "FEMALE",         // sexAtBirth
                 "HETEROSEXUAL",   // sexualOrientation
                 "SINGLE",         // maritalStatus
-                List.of("WHITE", "ASIAN"), // race (multi)
+                List.of("WHITE_EUROPEAN", "EAST_ASIAN"), // race (multi)
                 "United Kingdom", // country
                 "South East",     // region
                 "URBAN",          // urbanRural
                 "SURREY",         // ukCounty
                 "UNITED_KINGDOM", // countryOfBirth
-                "UNITED_KINGDOM", // citizenship
+                List.of("BRITISH", "IRELAND"), // citizenship (multi)
                 "NO_RELIGION",    // religion
                 "NOT_RELIGIOUS",  // religiosity
                 "BACHELORS",      // education
@@ -44,18 +44,18 @@ class CharacteristicSnapshotMapperTest {
                 "FEET_5_4_TO_5_6", // height
                 "KG_60_69",       // weightRange
                 "GREEN",          // eyeColor
-                "MUM",            // parent
+                "PARENT_CAREGIVER_UNDER_18", // parent
                 7,                // newsFrequency
                 true,             // hasPet
-                "DOG",            // petType
+                List.of("DOG", "CAT"), // petType (multi)
                 "NIGHT_OWL",      // chronotype
                 "OPTIMIST",       // outlook
                 true,             // neurodivergent
-                "ADHD",           // neurodivergenceType
+                List.of("ADHD"),  // neurodivergenceType (multi)
                 true,             // hasDisability
-                "HEARING",        // disabilityType
-                "OWN",            // housingStatus
-                "FLAT"            // propertyType
+                List.of("HEARING"), // disabilityType (multi)
+                "OWN_MORTGAGE",   // housingStatus
+                "FLAT_APARTMENT"  // propertyType
         );
     }
 
@@ -68,11 +68,12 @@ class CharacteristicSnapshotMapperTest {
         assertEquals("WOMAN", s.bucketFor("gender"));
         assertEquals("SURREY", s.bucketFor("ukCounty"));
         assertEquals("BETWEEN_50K_AND_100K", s.bucketFor("personalIncomeRange"));
-        assertEquals("MUM", s.bucketFor("parent"));
+        assertEquals("PARENT_CAREGIVER_UNDER_18", s.bucketFor("parent"));
         // Numeric/boolean axes are stringified.
         assertEquals("7", s.bucketFor("newsFrequency"));
         assertEquals("true", s.bucketFor("hasPet"));
-        assertEquals("DOG", s.bucketFor("petType"));
+        // Multi-select axes join their sorted values with '+'.
+        assertEquals("CAT+DOG", s.bucketFor("petType"));
         // Quirky axes.
         assertEquals("NIGHT_OWL", s.bucketFor("chronotype"));
         assertEquals("OPTIMIST", s.bucketFor("outlook"));
@@ -81,16 +82,16 @@ class CharacteristicSnapshotMapperTest {
         assertEquals("ADHD", s.bucketFor("neurodivergenceType"));
         assertEquals("true", s.bucketFor("hasDisability"));
         assertEquals("HEARING", s.bucketFor("disabilityType"));
-        // Property axes.
-        assertEquals("OWN", s.bucketFor("housingStatus"));
-        assertEquals("FLAT", s.bucketFor("propertyType"));
+        // Housing axes.
+        assertEquals("OWN_MORTGAGE", s.bucketFor("housingStatus"));
+        assertEquals("FLAT_APARTMENT", s.bucketFor("propertyType"));
     }
 
     @Test
-    void joinsMultipleRacesInSortedOrder() {
+    void joinsMultiSelectAxesInSortedOrder() {
         // Order in must not affect the bucket label, so aggregates of the same combo reconcile.
         CharacteristicSnapshot s = CharacteristicSnapshotMapper.from(fullView());
-        assertEquals("ASIAN+WHITE", s.bucketFor("race"));
+        assertEquals("BRITISH+IRELAND", s.bucketFor("citizenship"));
     }
 
     @Test
@@ -132,6 +133,6 @@ class CharacteristicSnapshotMapperTest {
                 1L, "LEFT", "AGE_25_34", "WOMAN", "FEMALE", "HETEROSEXUAL", "SINGLE",
                 race, "United Kingdom", null, "URBAN", null, null, null, null, null, null,
                 null, null, null, "BELOW_20K", "BELOW_20K", null, null, null, null, 3, true,
-                "DOG", "NIGHT_OWL", "OPTIMIST", true, "ADHD", false, null, "OWN", "FLAT");
+                List.of("DOG"), "NIGHT_OWL", "OPTIMIST", true, List.of("ADHD"), false, null, "OWN", "FLAT");
     }
 }

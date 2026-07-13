@@ -3,6 +3,7 @@ package com.yoursay.usercharacteristic;
 import com.yoursay.user.YourSayUserDto;
 import com.yoursay.user.YourSayUserService;
 import com.yoursay.usercharacteristic.error.UserCharacteristicApiException;
+import com.yoursay.usercharacteristic.service.CharacteristicOptionsCatalog;
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -31,6 +32,9 @@ public class UserCharacteristicController {
     UserCharacteristicService characteristicService;
 
     @Inject
+    CharacteristicOptionsCatalog optionsCatalog;
+
+    @Inject
     YourSayUserService userService;
 
     @Inject
@@ -45,19 +49,18 @@ public class UserCharacteristicController {
         return characteristicService.saveForUser(userId, answers);
     }
 
+    /** Ordered enum-backed choices offered by the current onboarding schema. */
+    @GET
+    @Path("/options")
+    public CharacteristicOptionsDto getOptions() {
+        return optionsCatalog.getOptions();
+    }
+
     /** The authenticated user's characteristic profile, or 204 if they have not onboarded. */
     @GET
     @Path("/me")
     public Response getMine() {
         UserCharacteristicDto dto = characteristicService.getByUserId(currentUserId());
-        return dto == null ? Response.noContent().build() : Response.ok(dto).build();
-    }
-
-    /** Lookup by user id — for internal/cross-domain use, not the onboarding flow. */
-    @GET
-    @Path("/{userId}")
-    public Response getByUserId(@PathParam("userId") long userId) {
-        UserCharacteristicDto dto = characteristicService.getByUserId(userId);
         return dto == null ? Response.noContent().build() : Response.ok(dto).build();
     }
 

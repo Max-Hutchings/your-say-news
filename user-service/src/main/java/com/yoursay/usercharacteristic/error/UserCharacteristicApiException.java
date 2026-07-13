@@ -30,6 +30,16 @@ public class UserCharacteristicApiException extends ApiException {
                 "User characteristic race must contain at least one value");
     }
 
+    public static UserCharacteristicApiException emptyMultiSelect(String field) {
+        return new UserCharacteristicApiException("USER_CHARACTERISTIC_EMPTY_MULTI_SELECT", Response.Status.BAD_REQUEST,
+                "User characteristic multi-select field must contain at least one value: field=" + field);
+    }
+
+    public static UserCharacteristicApiException invalidField(String field, String reason) {
+        return new UserCharacteristicApiException("USER_CHARACTERISTIC_INVALID_FIELD", Response.Status.BAD_REQUEST,
+                "Invalid user characteristic field: field=" + field + ", reason=" + reason);
+    }
+
     public static UserCharacteristicApiException userMissing(String email) {
         return new UserCharacteristicApiException("USER_CHARACTERISTIC_USER_MISSING", Response.Status.BAD_REQUEST,
                 "Cannot resolve user characteristic owner for authenticated subject email=" + email);

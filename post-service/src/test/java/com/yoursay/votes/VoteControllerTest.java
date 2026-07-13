@@ -91,11 +91,11 @@ public class VoteControllerTest {
         long postId = insertPost();
         UserCharacteristicView profile = new UserCharacteristicView(
                 VOTER_ID, "LEFT", "25_34", "FEMALE", "FEMALE", "HETEROSEXUAL", "SINGLE",
-                List.of("WHITE_BRITISH"), "GB", "SOUTH_EAST", "URBAN", "SURREY", "GB", "GB",
+                List.of("WHITE_BRITISH"), "GB", "SOUTH_EAST", "URBAN", "SURREY", "GB", List.of("GB"),
                 "CHRISTIAN", "SOMEWHAT_IMPORTANT", "UNDERGRADUATE", "EMPLOYED_FULL_TIME",
                 "TECHNOLOGY", "COMPUTER_SCIENCE", "50K_75K", "100K_150K", "170_179CM", "60_79KG",
-                "BLUE", "NO", 4, true, "DOG", "NIGHT_OWL", "OPTIMIST",
-                true, "ADHD", false, null, "OWN", "FLAT");
+                "BLUE", "NO", 4, true, List.of("DOG"), "NIGHT_OWL", "OPTIMIST",
+                true, List.of("ADHD"), false, null, "OWN", "FLAT");
         Mockito.when(userClient.getMyCharacteristics(Mockito.nullable(String.class)))
                 .thenReturn(Response.ok(profile).build());
 
@@ -267,18 +267,17 @@ public class VoteControllerTest {
     /**
      * Insert a real post and return its id, so a vote written against it satisfies the
      * post-existence guard. Each test gets a fresh post, so the (post_id, user_id) unique
-     * constraint never makes tests interfere. Only the four NOT-NULL columns without a default
+     * constraint never makes tests interfere. Only the three NOT-NULL columns without a default
      * are set; is_unbiased/created_at/updated_at fall back to their DB defaults.
      */
     private long insertPost() {
-        String sql = "INSERT INTO post (user_id, title, summary, support_question) "
-                + "VALUES (?, ?, ?, ?) RETURNING id";
+        String sql = "INSERT INTO post (user_id, summary, support_question) "
+                + "VALUES (?, ?, ?) RETURNING id";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, VOTER_ID);
-            ps.setString(2, "Test post");
-            ps.setString(3, "A seeded post so votes have a real target.");
-            ps.setString(4, "Do you agree?");
+            ps.setString(2, "A seeded post so votes have a real target.");
+            ps.setString(3, "Do you agree?");
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 return rs.getLong(1);

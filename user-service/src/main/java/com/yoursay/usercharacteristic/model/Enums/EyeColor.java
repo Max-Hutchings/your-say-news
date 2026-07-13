@@ -7,7 +7,10 @@ public enum EyeColor {
     BLUE,
     GREEN,
     HAZEL,
-    GRAY;
+    AMBER,
+    GRAY,
+    BLACK_DARK_BROWN,
+    OTHER_UNSURE;
 
     @JsonCreator
     public EyeColor fromValue(String value){
