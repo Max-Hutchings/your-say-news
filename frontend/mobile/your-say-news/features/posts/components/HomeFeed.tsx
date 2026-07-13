@@ -48,7 +48,7 @@ export function HomeFeed() {
   const [error, setError] = useState<string | null>(null);
   const [viewportH, setViewportH] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [postType, setPostType] = useState<FeedPostType | null>(null);
+  const [postType, setPostType] = useState<FeedPostType | null>("VIDEO");
 
   // Paging cursor and end-of-feed flag. A ref guards against overlapping loadMore calls —
   // onEndReached can fire repeatedly before a request resolves, and React state wouldn't

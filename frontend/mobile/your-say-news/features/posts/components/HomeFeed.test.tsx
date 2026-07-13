@@ -96,7 +96,7 @@ describe("HomeFeed", () => {
     scrollToIndex.mockRestore();
   });
 
-  it("reloads the ranked feed from page one when a post type is selected", async () => {
+  it("loads video posts by default and reloads from page one when the type changes", async () => {
     mockGetFeed.mockImplementation(
       (_page: number, _size: number, type?: "VIDEO" | "ARTICLE") => {
         if (type === "VIDEO") return Promise.resolve([videoPost]);
@@ -114,13 +114,10 @@ describe("HomeFeed", () => {
       nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 700 } },
     });
 
-    expect(await screen.findByTestId("mock-post-1")).toBeOnTheScreen();
-    expect(screen.getByTestId("mock-post-3")).toBeOnTheScreen();
-
-    fireEvent.press(screen.getByLabelText("Video posts"));
     await waitFor(() =>
       expect(mockGetFeed).toHaveBeenLastCalledWith(0, 5, "VIDEO")
     );
+    expect(screen.getByLabelText("Video posts").props.accessibilityState.selected).toBe(true);
     expect(await screen.findByTestId("mock-post-3")).toBeOnTheScreen();
     expect(screen.queryByTestId("mock-post-1")).toBeNull();
 
@@ -162,9 +159,6 @@ describe("HomeFeed", () => {
     fireEvent(screen.getByTestId("home-feed-viewport"), "layout", {
       nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 700 } },
     });
-    await screen.findByTestId("mock-post-1");
-
-    fireEvent.press(screen.getByLabelText("Video posts"));
     await screen.findByTestId("mock-post-20");
     fireEvent(screen.UNSAFE_getByType(FlatList), "onEndReached");
 
