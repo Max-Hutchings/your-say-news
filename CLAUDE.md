@@ -52,15 +52,20 @@ Use **Bun** for JavaScript package installs and scripts in this repo. Prefer `bu
 `bun run <script>` over npm/yarn/pnpm commands unless a specific tool explicitly requires npm.
 
 ```shell
-docker compose up                     # infra: Postgres, Keycloak (+ its DB), LocalStack, Liquibase
 bun install                           # one-time: installs the pinned mprocs dev runner at the repo root
-bun run dev                           # all dev processes at once: both Quarkus services + Expo, in one mprocs TUI
+bun run dev                           # Compose infra + both Quarkus services + Expo, in one mprocs TUI
 ./gradlew :user-service:quarkusDev    # OR a single service in dev mode (swap the module path)
 ```
 
 `bun run dev` runs [mprocs](https://github.com/pvolok/mprocs) (config in `mprocs.yaml`), which launches
-`user-service` (:8081), `post-service` (:8082) and the Expo frontend (:5173) — each in its own pane.
-Infra (Compose) is assumed already up. `r` restarts the focused proc, `q` quits all.
+Compose, `user-service` (:8081), `post-service` (:8082) and the Expo frontend (:5173) — each in its
+own pane. Its startup script first verifies that Docker Desktop's daemon and Docker Compose are
+available. The application panes wait for Compose to become ready. `r` runs `docker compose down`,
+rebuilds the Compose images and brings the stack back up when the Compose process is selected; on
+other selected processes, `r` retains mprocs' normal focused-process restart behavior. `q` quits all
+processes and brings the Compose stack down. Docker volumes are preserved by both operations. Before
+each application pane starts, mprocs terminates any existing listener on its assigned port (`8081`,
+`8082` or `5173`) so stale local dev processes do not block startup.
 
 Seed data is injected automatically on Compose startup (see DB section). Keycloak comes up with
 its realm and test users already imported.

@@ -2,12 +2,12 @@
   "name": "your-say-news-dev",
   "version": "1.0.0",
   "private": true,
-  "description": "Local dev tooling for Your Say News. Runs all dev processes (Quarkus services + Expo) in one mprocs TUI. Run infra separately with `docker compose up`.",
+  "description": "Local dev tooling for Your Say News. Runs Docker Compose, both Quarkus services, and Expo in one mprocs TUI.",
   "scripts": {
-    "dev": "./scripts/check-compose-services.sh && mprocs"
+    "dev": "./scripts/start-dev.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "mprocs": "^0.7.3"
+    "mprocs": "^0.9.4"
   }
 }

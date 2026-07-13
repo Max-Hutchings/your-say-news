@@ -10,10 +10,7 @@ if ! command -v docker >/dev/null 2>&1; then
   cat >&2 <<'EOF'
 Warning: Docker was not found, so the app services were not started.
 
-Start the infrastructure first:
-  docker compose up
-
-Then run:
+Install or start Docker, then run:
   bun run dev
 EOF
   exit 1
@@ -23,10 +20,7 @@ if ! docker compose version >/dev/null 2>&1; then
   cat >&2 <<'EOF'
 Warning: Docker Compose is not available, so the app services were not started.
 
-Start the infrastructure first:
-  docker compose up
-
-Then run:
+Install Docker Compose, then run:
   bun run dev
 EOF
   exit 1
@@ -147,7 +141,7 @@ done
 
 if (( ${#missing[@]} > 0 )); then
   {
-    echo "Warning: Docker Compose infrastructure is not ready, so mprocs was not started."
+    echo "Warning: Docker Compose infrastructure is not ready, so this application process was not started."
     echo
     echo "Expected the long-running Compose services to be running/healthy and Liquibase jobs to have completed."
     echo "Current issues:"
@@ -155,10 +149,7 @@ if (( ${#missing[@]} > 0 )); then
       echo "  - $issue"
     done
     echo
-    echo "Start or repair the infrastructure first:"
-    echo "  docker compose up"
-    echo
-    echo "Then run:"
+    echo "Restart the managed Compose stack with 'r' in mprocs, or quit and run:"
     echo "  bun run dev"
     echo
     echo "To bypass this preflight intentionally:"
