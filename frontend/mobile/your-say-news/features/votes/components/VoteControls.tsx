@@ -71,7 +71,7 @@ export function VoteControls({ postId, onNextPost }: { postId: number; onNextPos
       </View>
 
       {/* Keep idle controls flush with the card bottom so that space belongs to the story. */}
-      {caption && (
+      {caption ? (
         <Text
           testID="vote-status"
           style={[styles.status, { color: error ? e.coral : e.muted }]}
@@ -79,7 +79,7 @@ export function VoteControls({ postId, onNextPost }: { postId: number; onNextPos
         >
           {caption}
         </Text>
-      )}
+      ) : null}
 
       {/* Results are gated behind voting: the affordance only appears once the vote is locked. */}
       {locked && (

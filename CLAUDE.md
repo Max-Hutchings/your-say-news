@@ -58,7 +58,7 @@ Use **Bun** for JavaScript package installs and scripts in this repo. Prefer `bu
 ```shell
 bun install                           # one-time: installs the pinned mprocs dev runner at the repo root
 bun run dev                           # Compose infra + both Quarkus services + Expo, in one mprocs TUI
-bun run test                          # user-service + post-service + frontend tests; Testcontainers, no Compose startup
+bun run test                          # three test panes; backend Testcontainers + frontend Jest, no Compose startup
 ./gradlew :user-service:quarkusDev    # OR a single service in dev mode (swap the module path)
 ```
 
@@ -71,6 +71,12 @@ selected, `r` runs `docker compose down` and brings the stack back up; on other 
 Compose stack down. Docker volumes are preserved by both operations. Before
 each application pane starts, mprocs terminates any existing listener on its assigned port (`8081`,
 `8082` or `5173`) so stale local dev processes do not block startup.
+
+`bun run test` uses the separate `mprocs.test.yaml` config to run `user-service`, `post-service` and
+frontend tests in three independent panes. Backend tests use Testcontainers and random Quarkus HTTP
+ports; the test runner does not invoke Docker Compose. Select a pane and press `r` to rerun only that
+suite. Completed panes remain open with an explicit PASS/FAIL result; `bun run tests` is supported as
+an alias.
 
 Seed data is injected automatically on Compose startup (see DB section). Keycloak comes up with
 its realm and test users already imported.

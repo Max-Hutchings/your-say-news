@@ -1,0 +1,17 @@
+# Test runner: runs all three application test suites in separate mprocs panes.
+# Testcontainers provide backend dependencies; this config never starts Compose.
+#
+# Run: bun run test
+#
+# Keys: 'r' reruns the selected test suite, 'x' stops it, and 'q' quits all.
+
+procs:
+  user-service-tests:
+    shell: "./scripts/run-test-pane.sh user-service env QUARKUS_HTTP_TEST_PORT=0 ./gradlew --no-build-cache :user-service:cleanTest :user-service:test --console=plain"
+
+  post-service-tests:
+    shell: "./scripts/run-test-pane.sh post-service env QUARKUS_HTTP_TEST_PORT=0 ./gradlew --no-build-cache :post-service:cleanTest :post-service:test --console=plain"
+
+  frontend-tests:
+    cwd: "frontend/mobile/your-say-news"
+    shell: "../../../scripts/run-test-pane.sh frontend bun run test -- --runInBand"
