@@ -1,0 +1,1 @@
+bun run --cwd frontend/mobile/your-say-news lint

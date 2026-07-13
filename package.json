@@ -4,12 +4,14 @@
   "private": true,
   "description": "Local dev tooling for Your Say News. Runs Docker Compose, both Quarkus services, and Expo in one mprocs TUI.",
   "scripts": {
+    "prepare": "husky",
     "dev": "./scripts/start-dev.sh",
     "test": "./scripts/test-all.sh",
     "tests": "./scripts/test-all.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "husky": "^9.1.7",
     "mprocs": "^0.9.4"
   }
 }
