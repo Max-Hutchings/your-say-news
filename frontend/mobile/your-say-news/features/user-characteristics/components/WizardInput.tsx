@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, TextInput, StyleSheet } from "react-native";
+import { View, TextInput, StyleSheet, type KeyboardTypeOptions } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { Eyebrow } from "@/components/ui";
 
@@ -9,11 +9,15 @@ export function WizardInput({
     placeholder,
     value,
     onChangeText,
+    keyboardType,
+    maxLength,
 }: {
     label: string;
     placeholder?: string;
     value: string;
     onChangeText: (text: string) => void;
+    keyboardType?: KeyboardTypeOptions;
+    maxLength?: number;
 }) {
     const { isDark } = useTheme();
     const e = getEditorial(isDark);
@@ -27,6 +31,8 @@ export function WizardInput({
                 onChangeText={onChangeText}
                 placeholder={placeholder}
                 placeholderTextColor={e.muted}
+                keyboardType={keyboardType}
+                maxLength={maxLength}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 style={[

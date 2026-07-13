@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     StyleSheet,
     Alert,
     Animated,
+    ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,68 +20,53 @@ import {
 } from "@/constants/theme";
 import { useAuthStore } from "@/features/auth";
 
-import { buildCharacteristicAnswers, isRequiredComplete, type OnboardingForm } from "../answers";
 import {
-    AGE_RANGES,
-    GENDER_OPTIONS,
-    SEX_AT_BIRTH_OPTIONS,
-    RACE_OPTIONS,
-    SEXUAL_ORIENTATION_OPTIONS,
-    MARITAL_STATUS_OPTIONS,
-    COUNTRY_OF_BIRTH_OPTIONS,
-    URBAN_RURAL_OPTIONS,
-    RELIGION_OPTIONS,
-    RELIGIOSITY_OPTIONS,
-    POLITICAL_PERSUASION_OPTIONS,
-    EDUCATION_OPTIONS,
-    OCCUPATION_OPTIONS,
-    EMPLOYMENT_SECTOR_OPTIONS,
-    UNIVERSITY_SUBJECT_OPTIONS,
-    HEIGHT_OPTIONS,
-    WEIGHT_OPTIONS,
-    INCOME_OPTIONS,
-    EYE_COLOR_OPTIONS,
-    PARENT_OPTIONS,
-    YES_NO_OPTIONS,
-    PET_TYPE_OPTIONS,
-    CHRONOTYPE_OPTIONS,
-    OUTLOOK_OPTIONS,
-    NEURODIVERGENCE_TYPE_OPTIONS,
-    DISABILITY_TYPE_OPTIONS,
-    HOUSING_STATUS_OPTIONS,
-    PROPERTY_TYPE_OPTIONS,
-    CURRENCY_OPTIONS,
-    NATIONALITY_OPTIONS,
-} from "../data/options";
+    buildCharacteristicAnswers,
+    createEmptyOnboardingForm,
+    findFirstIncompleteStep,
+    isHigherEducation,
+    type OnboardingForm,
+} from "../answers";
+import { CURRENCY_OPTIONS, YES_NO_OPTIONS } from "../data/options";
+import type { CharacteristicOptions } from "../types";
 import { submitCharacteristics } from "../services/CharacteristicService";
+import { fetchCharacteristicOptions } from "../services/CharacteristicOptionsService";
+import {
+    clearOnboardingDraft,
+    loadOnboardingDraft,
+    saveOnboardingDraft,
+} from "../services/OnboardingDraftService";
 import { Eyebrow } from "@/components/ui";
 import { PrivacyNote } from "./PrivacyNote";
 import { WizardChipRow, WizardChipMultiRow } from "./WizardChipRow";
 import { WizardInput } from "./WizardInput";
 import { WizardScale } from "./WizardScale";
 import { SearchableSelect } from "./SearchableSelect";
+import { SearchableMultiSelect } from "./SearchableMultiSelect";
 import { NewsSourceSlider } from "./NewsSourceSlider";
 
 const STEP_META = [
     { title: "Where in the world?", subtitle: "Used to compare regions — never to locate you." },
-    { title: "A little about you", subtitle: "Age and gender, as bands — never exact details." },
+    { title: "A little about you", subtitle: "Your age and gender. Age stays a band in reporting." },
     { title: "How you identify", subtitle: "Pick all that apply. Only ever shown in aggregate." },
-    { title: "Your background", subtitle: "Where you’re from and where you hold citizenship." },
+    { title: "Your background", subtitle: "Where you’re from and the nationalities you hold." },
     { title: "Beliefs & politics", subtitle: "Used only in anonymous aggregate breakdowns." },
     { title: "Education & work", subtitle: "What you studied and the work you do." },
-    { title: "Body & finances", subtitle: "Pick your currency first." },
+    { title: "Body basics", subtitle: "Broad bands only — never exact measurements." },
+    { title: "Family & home life", subtitle: "Only ever shown in anonymous aggregate." },
     { title: "Quirky questions", subtitle: "The fun stuff — only ever shown in aggregate." },
+    { title: "Finances", subtitle: "Pick your currency first." },
     { title: "News habits", subtitle: "How you consume news and your relationship with it." },
     { title: "Neurodiversity & disability", subtitle: "Only ever shown in anonymous aggregate." },
-    { title: "Property", subtitle: "Your housing situation — only ever shown in aggregate." },
+    { title: "Housing", subtitle: "Your housing situation — only ever shown in aggregate." },
 ];
 const TOTAL_STEPS = STEP_META.length;
 
 /**
- * The Characteristics Wizard ("Set up your lens") — an eleven-step editorial onboarding that collects
- * the full characteristic set, including the Stage-1 coverage axes (politics, religion, urban/rural,
- * marital status, sexual orientation, citizenship, employment sector), a Quirky-questions step
- * (pets, chronotype, outlook), a neurodiversity & disability step and a closing property step.
+ * The Characteristics Wizard ("Set up your lens") — a thirteen-step editorial onboarding that collects
+ * the full reformed characteristic set: age as a number, self-describe gender, multi-select ethnicity
+ * and nationality, expanded education/work/tenure options, a family & home-life step, a quirky step,
+ * finances, news habits, a neurodiversity & disability step and a closing housing step.
  *
  * PII separation: only the characteristic answers are submitted — never identity, which travels in
  * the bearer token (see CharacteristicService). Every step carries the persistent privacy note.
@@ -91,116 +77,124 @@ export function OnboardingScreen() {
     const e = getEditorial(isDark);
     const setHasOnboarded = useAuthStore((s) => s.setHasOnboarded);
     const setHasCharacteristics = useAuthStore((s) => s.setHasCharacteristics);
+    const userId = useAuthStore((s) => s.id);
 
     const [step, setStep] = useState(0);
-    const fade = useRef(new Animated.Value(1)).current;
-
-    // Location
-    const [country, setCountry] = useState(""); // human label, e.g. "United Kingdom"
-    const [city, setCity] = useState("");
-    const [region, setRegion] = useState("");
-    const [urbanRural, setUrbanRural] = useState<string | null>(null);
-    // Who you are
-    const [ageRange, setAgeRange] = useState<string | null>(null);
-    const [gender, setGender] = useState<string | null>(null);
-    const [sexAtBirth, setSexAtBirth] = useState<string | null>(null);
-    const [sexualOrientation, setSexualOrientation] = useState<string | null>(null);
-    const [maritalStatus, setMaritalStatus] = useState<string | null>(null);
-    const [raceSelections, setRaceSelections] = useState<string[]>([]);
-    // Background
-    const [countryOfBirth, setCountryOfBirth] = useState<string | null>(null);
-    const [citizenship, setCitizenship] = useState<string | null>(null);
-    const [religion, setReligion] = useState<string | null>(null);
-    const [religiosity, setReligiosity] = useState<string | null>(null);
-    const [politicalPersuasion, setPoliticalPersuasion] = useState<string | null>(null);
-    // Education & work
-    const [education, setEducation] = useState<string | null>(null);
-    const [occupation, setOccupation] = useState<string | null>(null);
-    const [employmentSector, setEmploymentSector] = useState<string | null>(null);
-    const [universitySubject, setUniversitySubject] = useState<string | null>(null);
-    // Finances & body
-    const [personalIncomeRange, setPersonalIncomeRange] = useState<string | null>(null);
-    const [householdIncomeRange, setHouseholdIncomeRange] = useState<string | null>(null);
-    const [height, setHeight] = useState<string | null>(null);
-    const [weightRange, setWeightRange] = useState<string | null>(null);
-    const [eyeColor, setEyeColor] = useState<string | null>(null);
-    const [parent, setParent] = useState<string | null>(null);
-    const [hasPet, setHasPet] = useState<string | null>(null);
-    const [petType, setPetType] = useState<string | null>(null);
-    const [chronotype, setChronotype] = useState<string | null>(null);
-    const [outlook, setOutlook] = useState<string | null>(null);
-    const [neurodivergent, setNeurodivergent] = useState<string | null>(null);
-    const [neurodivergenceType, setNeurodivergenceType] = useState<string | null>(null);
-    const [hasDisability, setHasDisability] = useState<string | null>(null);
-    const [disabilityType, setDisabilityType] = useState<string | null>(null);
-    const [housingStatus, setHousingStatus] = useState<string | null>(null);
-    const [propertyType, setPropertyType] = useState<string | null>(null);
-    const [newsFrequencyScore, setNewsFrequencyScore] = useState<number | null>(null);
-    const [balancedNewsViewpoint, setBalancedNewsViewpoint] = useState<string | null>(null);
-    const [mainstreamNewsPercent, setMainstreamNewsPercent] = useState(50);
-    const [betterWorldWithData, setBetterWorldWithData] = useState<string | null>(null);
-    const [currency, setCurrency] = useState("USD");
-
+    const [fade] = useState(() => new Animated.Value(1));
+    const [form, setForm] = useState<OnboardingForm>(createEmptyOnboardingForm);
+    const [draftLoaded, setDraftLoaded] = useState(userId == null);
+    const [characteristicOptions, setCharacteristicOptions] = useState<CharacteristicOptions | null>(null);
+    const [loadingOptions, setLoadingOptions] = useState(true);
+    const [optionsError, setOptionsError] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [persisting, setPersisting] = useState(false);
 
-    const currencyCode = CURRENCY_OPTIONS.find((c) => c.value === currency)?.symbol ?? "USD";
+    const setField = <K extends keyof OnboardingForm>(field: K, value: OnboardingForm[K]) => {
+        setForm((current) => ({ ...current, [field]: value }));
+    };
+
+    useEffect(() => {
+        if (userId == null) return;
+        let active = true;
+        loadOnboardingDraft(userId)
+            .then((draft) => {
+                if (!active || !draft) return;
+                setForm({ ...createEmptyOnboardingForm(), ...draft.form });
+                setStep(Math.max(0, Math.min(draft.nextStep, TOTAL_STEPS - 1)));
+            })
+            .finally(() => {
+                if (active) setDraftLoaded(true);
+            });
+        return () => {
+            active = false;
+        };
+    }, [userId]);
+
+    const retryOptions = useCallback(async () => {
+        setLoadingOptions(true);
+        setOptionsError(false);
+        try {
+            setCharacteristicOptions(await fetchCharacteristicOptions());
+        } catch {
+            setCharacteristicOptions(null);
+            setOptionsError(true);
+        } finally {
+            setLoadingOptions(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        let active = true;
+        fetchCharacteristicOptions()
+            .then((options) => {
+                if (active) setCharacteristicOptions(options);
+            })
+            .catch(() => {
+                if (active) setOptionsError(true);
+            })
+            .finally(() => {
+                if (active) setLoadingOptions(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const fields = characteristicOptions?.fields;
+    const COUNTRY_OF_BIRTH_OPTIONS = fields?.countryOfBirth ?? [];
+    const URBAN_RURAL_OPTIONS = fields?.urbanRural ?? [];
+    const GENDER_OPTIONS = fields?.gender ?? [];
+    const SEX_AT_BIRTH_OPTIONS = fields?.sexAtBirth ?? [];
+    const RACE_OPTIONS = fields?.race ?? [];
+    const SEXUAL_ORIENTATION_OPTIONS = fields?.sexualOrientation ?? [];
+    const MARITAL_STATUS_OPTIONS = fields?.maritalStatus ?? [];
+    const NATIONALITY_OPTIONS = fields?.citizenship ?? [];
+    const RELIGION_OPTIONS = fields?.religion ?? [];
+    const RELIGIOSITY_OPTIONS = fields?.religiosity ?? [];
+    const POLITICAL_PERSUASION_OPTIONS = fields?.politicalPersuasion ?? [];
+    const EDUCATION_OPTIONS = fields?.education ?? [];
+    const OCCUPATION_OPTIONS = fields?.occupation ?? [];
+    const EMPLOYMENT_SECTOR_OPTIONS = fields?.employmentSector ?? [];
+    const UNIVERSITY_SUBJECT_OPTIONS = fields?.universitySubject ?? [];
+    const HEIGHT_OPTIONS = fields?.height ?? [];
+    const WEIGHT_OPTIONS = fields?.weightRange ?? [];
+    const INCOME_OPTIONS = fields?.incomeRange ?? [];
+    const EYE_COLOR_OPTIONS = fields?.eyeColor ?? [];
+    const PARENT_OPTIONS = fields?.parent ?? [];
+    const PET_TYPE_OPTIONS = fields?.petType ?? [];
+    const CHRONOTYPE_OPTIONS = fields?.chronotype ?? [];
+    const OUTLOOK_OPTIONS = fields?.outlook ?? [];
+    const NEURODIVERGENCE_TYPE_OPTIONS = fields?.neurodivergenceType ?? [];
+    const DISABILITY_TYPE_OPTIONS = fields?.disabilityType ?? [];
+    const HOUSING_STATUS_OPTIONS = fields?.housingStatus ?? [];
+    const PROPERTY_TYPE_OPTIONS = fields?.propertyType ?? [];
+
+    const currencyCode = CURRENCY_OPTIONS.find((c) => c.value === form.currency)?.symbol ?? "USD";
     const incomeOptions = INCOME_OPTIONS.map((o) => ({
         ...o,
         label: o.label.replace(/(\d+(?:k|M)?)/g, `${currencyCode} $1`),
     }));
 
-    const toggleRace = (value: string) =>
-        setRaceSelections((cur) =>
-            cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value]
-        );
+    // Toggle a value in one of the multi-select array fields (ethnicity, nationality, pet, neuro, disability).
+    const toggleIn = (field: "raceSelections" | "citizenship" | "petType" | "neurodivergenceType" | "disabilityType") =>
+        (value: string) =>
+            setForm((current) => {
+                const list = current[field];
+                return {
+                    ...current,
+                    [field]: list.includes(value)
+                        ? list.filter((v) => v !== value)
+                        : [...list, value],
+                };
+            });
 
-    const countryValue = useMemo(
-        () => COUNTRY_OF_BIRTH_OPTIONS.find((o) => o.label === country)?.value ?? null,
-        [country]
-    );
+    const toggleRace = toggleIn("raceSelections");
+    const toggleCitizenship = toggleIn("citizenship");
+    const togglePetType = toggleIn("petType");
+    const toggleNeurodivergenceType = toggleIn("neurodivergenceType");
+    const toggleDisabilityType = toggleIn("disabilityType");
 
-    const form: OnboardingForm = {
-        country,
-        city,
-        region,
-        ukCounty: null,
-        urbanRural,
-        ageRange,
-        gender,
-        sexAtBirth,
-        sexualOrientation,
-        maritalStatus,
-        raceSelections,
-        countryOfBirth,
-        citizenship,
-        religion,
-        religiosity,
-        politicalPersuasion,
-        education,
-        occupation,
-        employmentSector,
-        universitySubject,
-        personalIncomeRange,
-        householdIncomeRange,
-        height,
-        weightRange,
-        eyeColor,
-        parent,
-        hasPet,
-        petType,
-        chronotype,
-        outlook,
-        neurodivergent,
-        neurodivergenceType,
-        hasDisability,
-        disabilityType,
-        housingStatus,
-        propertyType,
-        newsFrequencyScore,
-        balancedNewsViewpoint,
-        mainstreamNewsPercent,
-        betterWorldWithData,
-    };
+    const countryValue = COUNTRY_OF_BIRTH_OPTIONS.find((o) => o.label === form.country)?.value ?? null;
 
     const animateTo = (next: number) => {
         Animated.timing(fade, {
@@ -217,17 +211,29 @@ export function OnboardingScreen() {
         });
     };
 
+    const showIncompleteAnswer = (incompleteStep: { step: number; fieldLabel: string }) => {
+        Alert.alert("Answer required", `Please answer “${incompleteStep.fieldLabel}” before continuing.`);
+        if (incompleteStep.step !== step) {
+            animateTo(incompleteStep.step);
+        }
+    };
+
     const handleSubmit = async () => {
-        if (!isRequiredComplete(form)) {
-            Alert.alert(
-                "A few required answers are missing",
-                "Please complete every required characteristic. City, region and university subject can be skipped when they do not apply."
-            );
+        if (!characteristicOptions) return;
+        const incompleteStep = findFirstIncompleteStep(form, characteristicOptions.minimumAge);
+        if (incompleteStep) {
+            showIncompleteAnswer(incompleteStep);
             return;
         }
         setSubmitting(true);
         try {
+            if (userId != null) {
+                await saveOnboardingDraft(userId, form, step);
+            }
             await submitCharacteristics(buildCharacteristicAnswers(form));
+            if (userId != null) {
+                await clearOnboardingDraft(userId);
+            }
             setHasCharacteristics(true);
             setHasOnboarded(true);
             router.replace("/(protected)");
@@ -238,11 +244,51 @@ export function OnboardingScreen() {
         }
     };
 
-    const goNext = () => (step < TOTAL_STEPS - 1 ? animateTo(step + 1) : handleSubmit());
+    const goNext = async () => {
+        if (step === TOTAL_STEPS - 1) {
+            await handleSubmit();
+            return;
+        }
+        setPersisting(true);
+        try {
+            if (userId != null) {
+                await saveOnboardingDraft(userId, form, step + 1);
+            }
+            animateTo(step + 1);
+        } catch {
+            Alert.alert("Couldn’t save your progress", "Please try again before continuing.");
+        } finally {
+            setPersisting(false);
+        }
+    };
     const goBack = () => step > 0 && animateTo(step - 1);
 
     const isLast = step === TOTAL_STEPS - 1;
     const meta = STEP_META[step];
+
+    if (optionsError && !loadingOptions) {
+        return (
+            <SafeAreaView style={[styles.loadingScreen, { backgroundColor: e.bg }]}>
+                <Text style={[styles.loadTitle, { color: e.ink }]}>We couldn’t load the questions</Text>
+                <Text style={[styles.loadMessage, { color: e.secondary }]}>Check your connection, then try again.</Text>
+                <Pressable
+                    accessibilityRole="button"
+                    onPress={() => void retryOptions()}
+                    style={[styles.retryButton, { backgroundColor: e.ink }]}
+                >
+                    <Text style={[styles.retryLabel, { color: e.bg }]}>Try again</Text>
+                </Pressable>
+            </SafeAreaView>
+        );
+    }
+
+    if (!draftLoaded || loadingOptions || !characteristicOptions) {
+        return (
+            <SafeAreaView style={[styles.loadingScreen, { backgroundColor: e.bg }]}>
+                <ActivityIndicator color={e.lime} />
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={[styles.screen, { backgroundColor: e.bg }]} edges={["top", "bottom"]}>
@@ -278,42 +324,69 @@ export function OnboardingScreen() {
                     {step === 0 && (
                         <View style={styles.fields}>
                             <SearchableSelect
-                                label="Country or region you live in *"
+                                label="Country of residence *"
                                 placeholder="Search 195 countries"
                                 options={COUNTRY_OF_BIRTH_OPTIONS}
                                 selected={countryValue}
                                 onSelect={(v) =>
-                                    setCountry(COUNTRY_OF_BIRTH_OPTIONS.find((o) => o.value === v)?.label ?? "")
+                                    setField("country", COUNTRY_OF_BIRTH_OPTIONS.find((o) => o.value === v)?.label ?? "")
                                 }
                             />
                             <WizardInput
                                 label="City / nearest city"
                                 placeholder="Optional"
-                                value={city}
-                                onChangeText={setCity}
+                                value={form.city}
+                                onChangeText={(value) => setField("city", value)}
                             />
                             <WizardInput
                                 label="Region / state / county"
                                 placeholder="Optional"
-                                value={region}
-                                onChangeText={setRegion}
+                                value={form.region}
+                                onChangeText={(value) => setField("region", value)}
                             />
                             <Field label="Settlement type *">
-                                <WizardChipRow options={URBAN_RURAL_OPTIONS} selected={urbanRural} onSelect={setUrbanRural} />
+                                <WizardChipRow options={URBAN_RURAL_OPTIONS} selected={form.urbanRural} onSelect={(value) => setField("urbanRural", value)} />
                             </Field>
                         </View>
                     )}
 
                     {step === 1 && (
                         <View style={styles.fields}>
-                            <Field label="Age range *">
-                                <WizardChipRow options={AGE_RANGES} selected={ageRange} onSelect={setAgeRange} />
-                            </Field>
+                            <WizardInput
+                                label="Your age *"
+                                placeholder={`${characteristicOptions.minimumAge} or older`}
+                                value={form.age?.toString() ?? ""}
+                                onChangeText={(t) => {
+                                    const digits = t.replace(/[^0-9]/g, "");
+                                    setField("age", digits === "" ? null : Number(digits));
+                                }}
+                                keyboardType="number-pad"
+                                maxLength={3}
+                            />
                             <Field label="Gender *">
-                                <WizardChipRow options={GENDER_OPTIONS} selected={gender} onSelect={setGender} />
+                                <WizardChipRow
+                                    options={GENDER_OPTIONS}
+                                    selected={form.gender}
+                                    onSelect={(v) =>
+                                        setForm((current) => ({
+                                            ...current,
+                                            gender: v,
+                                            genderSelfDescribe: v === "SELF_DESCRIBE" ? current.genderSelfDescribe : "",
+                                        }))
+                                    }
+                                />
                             </Field>
-                            <Field label="Sex assigned at birth *">
-                                <WizardChipRow options={SEX_AT_BIRTH_OPTIONS} selected={sexAtBirth} onSelect={setSexAtBirth} />
+                            {form.gender === "SELF_DESCRIBE" && (
+                                <WizardInput
+                                    label="Describe your gender *"
+                                    placeholder="How you identify"
+                                    value={form.genderSelfDescribe}
+                                    onChangeText={(value) => setField("genderSelfDescribe", value)}
+                                    maxLength={60}
+                                />
+                            )}
+                            <Field label="Sex registered at birth *">
+                                <WizardChipRow options={SEX_AT_BIRTH_OPTIONS} selected={form.sexAtBirth} onSelect={(value) => setField("sexAtBirth", value)} />
                             </Field>
                         </View>
                     )}
@@ -321,24 +394,24 @@ export function OnboardingScreen() {
                     {step === 2 && (
                         <View style={styles.fields}>
                             <Field
-                                label="Race / ethnicity *"
+                                label="Ethnic background *"
                                 trailing={
-                                    raceSelections.length > 0
-                                        ? `${raceSelections.length} SELECTED`
+                                    form.raceSelections.length > 0
+                                        ? `${form.raceSelections.length} SELECTED`
                                         : "SELECT ALL THAT APPLY"
                                 }
                             >
-                                <WizardChipMultiRow options={RACE_OPTIONS} selected={raceSelections} onToggle={toggleRace} />
+                                <WizardChipMultiRow options={RACE_OPTIONS} selected={form.raceSelections} onToggle={toggleRace} />
                             </Field>
                             <Field label="Sexual orientation *">
                                 <WizardChipRow
                                     options={SEXUAL_ORIENTATION_OPTIONS}
-                                    selected={sexualOrientation}
-                                    onSelect={setSexualOrientation}
+                                    selected={form.sexualOrientation}
+                                    onSelect={(value) => setField("sexualOrientation", value)}
                                 />
                             </Field>
                             <Field label="Relationship status *">
-                                <WizardChipRow options={MARITAL_STATUS_OPTIONS} selected={maritalStatus} onSelect={setMaritalStatus} />
+                                <WizardChipRow options={MARITAL_STATUS_OPTIONS} selected={form.maritalStatus} onSelect={(value) => setField("maritalStatus", value)} />
                             </Field>
                         </View>
                     )}
@@ -349,15 +422,15 @@ export function OnboardingScreen() {
                                 label="Country of birth *"
                                 placeholder="Search 195 countries"
                                 options={COUNTRY_OF_BIRTH_OPTIONS}
-                                selected={countryOfBirth}
-                                onSelect={setCountryOfBirth}
+                                selected={form.countryOfBirth}
+                                onSelect={(value) => setField("countryOfBirth", value)}
                             />
-                            <SearchableSelect
-                                label="Citizenship / nationality *"
-                                placeholder="Search nationalities"
+                            <SearchableMultiSelect
+                                label="Nationality *"
+                                placeholder="Search nationalities — pick all you hold"
                                 options={NATIONALITY_OPTIONS}
-                                selected={citizenship}
-                                onSelect={setCitizenship}
+                                selected={form.citizenship}
+                                onToggle={toggleCitizenship}
                             />
                         </View>
                     )}
@@ -367,15 +440,15 @@ export function OnboardingScreen() {
                             <Field label="Political leaning *">
                                 <WizardChipRow
                                     options={POLITICAL_PERSUASION_OPTIONS}
-                                    selected={politicalPersuasion}
-                                    onSelect={setPoliticalPersuasion}
+                                    selected={form.politicalPersuasion}
+                                    onSelect={(value) => setField("politicalPersuasion", value)}
                                 />
                             </Field>
                             <Field label="Religion *">
-                                <WizardChipRow options={RELIGION_OPTIONS} selected={religion} onSelect={setReligion} />
+                                <WizardChipRow options={RELIGION_OPTIONS} selected={form.religion} onSelect={(value) => setField("religion", value)} />
                             </Field>
                             <Field label="How important is religion to you? *">
-                                <WizardChipRow options={RELIGIOSITY_OPTIONS} selected={religiosity} onSelect={setReligiosity} />
+                                <WizardChipRow options={RELIGIOSITY_OPTIONS} selected={form.religiosity} onSelect={(value) => setField("religiosity", value)} />
                             </Field>
                         </View>
                     )}
@@ -383,173 +456,202 @@ export function OnboardingScreen() {
                     {step === 5 && (
                         <View style={styles.fields}>
                             <Field label="Highest education *">
-                                <WizardChipRow options={EDUCATION_OPTIONS} selected={education} onSelect={setEducation} />
+                                <WizardChipRow options={EDUCATION_OPTIONS} selected={form.education} onSelect={(value) => setField("education", value)} />
                             </Field>
-                            <Field label="Employment status *">
-                                <WizardChipRow options={OCCUPATION_OPTIONS} selected={occupation} onSelect={setOccupation} />
+                            <Field label="Current work or study status *">
+                                <WizardChipRow options={OCCUPATION_OPTIONS} selected={form.occupation} onSelect={(value) => setField("occupation", value)} />
                             </Field>
                             <Field label="Industry / sector *">
-                                <WizardChipRow options={EMPLOYMENT_SECTOR_OPTIONS} selected={employmentSector} onSelect={setEmploymentSector} />
+                                <WizardChipRow options={EMPLOYMENT_SECTOR_OPTIONS} selected={form.employmentSector} onSelect={(value) => setField("employmentSector", value)} />
                             </Field>
-                            <SearchableSelect
-                                label="University subject (if applicable)"
-                                placeholder="Select your subject"
-                                options={UNIVERSITY_SUBJECT_OPTIONS}
-                                selected={universitySubject}
-                                onSelect={setUniversitySubject}
-                            />
+                            {isHigherEducation(form.education) && (
+                                <SearchableSelect
+                                    label="University subject"
+                                    placeholder="Select your subject"
+                                    options={UNIVERSITY_SUBJECT_OPTIONS}
+                                    selected={form.universitySubject}
+                                    onSelect={(value) => setField("universitySubject", value)}
+                                />
+                            )}
                         </View>
                     )}
 
                     {step === 6 && (
                         <View style={styles.fields}>
                             <Field label="Height *">
-                                <WizardChipRow options={HEIGHT_OPTIONS} selected={height} onSelect={setHeight} />
+                                <WizardChipRow options={HEIGHT_OPTIONS} selected={form.height} onSelect={(value) => setField("height", value)} />
                             </Field>
                             <Field label="Weight *">
-                                <WizardChipRow options={WEIGHT_OPTIONS} selected={weightRange} onSelect={setWeightRange} />
-                            </Field>
-                            <Field label="Currency">
-                                <WizardChipRow options={CURRENCY_OPTIONS} selected={currency} onSelect={setCurrency} />
-                            </Field>
-                            <Field label="Annual personal income *">
-                                <WizardChipRow
-                                    options={incomeOptions}
-                                    selected={personalIncomeRange}
-                                    onSelect={setPersonalIncomeRange}
-                                />
-                            </Field>
-                            <Field label="Annual household income *">
-                                <WizardChipRow
-                                    options={incomeOptions}
-                                    selected={householdIncomeRange}
-                                    onSelect={setHouseholdIncomeRange}
-                                />
+                                <WizardChipRow options={WEIGHT_OPTIONS} selected={form.weightRange} onSelect={(value) => setField("weightRange", value)} />
                             </Field>
                             <Field label="Eye colour *">
-                                <WizardChipRow options={EYE_COLOR_OPTIONS} selected={eyeColor} onSelect={setEyeColor} />
-                            </Field>
-                            <Field label="Are you a parent? *">
-                                <WizardChipRow options={PARENT_OPTIONS} selected={parent} onSelect={setParent} />
+                                <WizardChipRow options={EYE_COLOR_OPTIONS} selected={form.eyeColor} onSelect={(value) => setField("eyeColor", value)} />
                             </Field>
                         </View>
                     )}
 
                     {step === 7 && (
                         <View style={styles.fields}>
+                            <Field label="Are you a parent or caregiver? *">
+                                <WizardChipRow options={PARENT_OPTIONS} selected={form.parent} onSelect={(value) => setField("parent", value)} />
+                            </Field>
                             <Field label="Do you have a pet? *">
                                 <WizardChipRow
                                     options={YES_NO_OPTIONS}
-                                    selected={hasPet}
+                                    selected={form.hasPet}
                                     onSelect={(v) => {
-                                        setHasPet(v);
-                                        if (v !== "YES") setPetType(null);
+                                        setForm((current) => ({ ...current, hasPet: v, petType: v === "YES" ? current.petType : [] }));
                                     }}
                                 />
                             </Field>
-                            {hasPet === "YES" && (
-                                <Field label="What kind of pet? *">
-                                    <WizardChipRow options={PET_TYPE_OPTIONS} selected={petType} onSelect={setPetType} />
+                            {form.hasPet === "YES" && (
+                                <Field
+                                    label="What kinds of pet? *"
+                                    trailing={
+                                        form.petType.length > 0
+                                            ? `${form.petType.length} SELECTED`
+                                            : "SELECT ALL THAT APPLY"
+                                    }
+                                >
+                                    <WizardChipMultiRow options={PET_TYPE_OPTIONS} selected={form.petType} onToggle={togglePetType} />
                                 </Field>
                             )}
-                            <Field label="Are you a morning person or a night owl? *">
-                                <WizardChipRow options={CHRONOTYPE_OPTIONS} selected={chronotype} onSelect={setChronotype} />
-                            </Field>
-                            <Field label="Optimist or pessimist about the future? *">
-                                <WizardChipRow options={OUTLOOK_OPTIONS} selected={outlook} onSelect={setOutlook} />
-                            </Field>
                         </View>
                     )}
 
                     {step === 8 && (
                         <View style={styles.fields}>
-                            <Field label="Do you feel you see a balanced viewpoint of news? *">
-                                <WizardChipRow
-                                    options={YES_NO_OPTIONS}
-                                    selected={balancedNewsViewpoint}
-                                    onSelect={setBalancedNewsViewpoint}
-                                />
+                            <Field label="Are you more of a morning or an evening person? *">
+                                <WizardChipRow options={CHRONOTYPE_OPTIONS} selected={form.chronotype} onSelect={(value) => setField("chronotype", value)} />
                             </Field>
-                            <Field label="What percentage of the news you absorb comes from mainstream news vs social media? *">
-                                <NewsSourceSlider
-                                    value={mainstreamNewsPercent}
-                                    onChange={setMainstreamNewsPercent}
-                                />
-                            </Field>
-                            <Field label="How often do you follow the news? *">
-                                <WizardScale value={newsFrequencyScore} onChange={setNewsFrequencyScore} />
-                            </Field>
-                            <Field label="Do you think the world will be a better place if we can see real representative data on how society feels about topics? *">
-                                <WizardChipRow
-                                    options={YES_NO_OPTIONS}
-                                    selected={betterWorldWithData}
-                                    onSelect={setBetterWorldWithData}
-                                />
+                            <Field label="How do you feel about the future? *">
+                                <WizardChipRow options={OUTLOOK_OPTIONS} selected={form.outlook} onSelect={(value) => setField("outlook", value)} />
                             </Field>
                         </View>
                     )}
 
                     {step === 9 && (
                         <View style={styles.fields}>
-                            <Field label="Are you neurodivergent? *">
+                            <Field label="Currency">
+                                <WizardChipRow options={CURRENCY_OPTIONS} selected={form.currency} onSelect={(value) => setField("currency", value)} />
+                            </Field>
+                            <Field label="Your annual personal income before tax *">
+                                <WizardChipRow
+                                    options={incomeOptions}
+                                    selected={form.personalIncomeRange}
+                                    onSelect={(value) => setField("personalIncomeRange", value)}
+                                />
+                            </Field>
+                            <Field label="Total annual household income before tax *">
+                                <WizardChipRow
+                                    options={incomeOptions}
+                                    selected={form.householdIncomeRange}
+                                    onSelect={(value) => setField("householdIncomeRange", value)}
+                                />
+                            </Field>
+                        </View>
+                    )}
+
+                    {step === 10 && (
+                        <View style={styles.fields}>
+                            <Field label="Do you regularly see more than one viewpoint on the news stories you follow? *">
                                 <WizardChipRow
                                     options={YES_NO_OPTIONS}
-                                    selected={neurodivergent}
+                                    selected={form.balancedNewsViewpoint}
+                                    onSelect={(value) => setField("balancedNewsViewpoint", value)}
+                                />
+                            </Field>
+                            <Field label="Of the news you absorb, how much comes from mainstream news vs social media? *">
+                                <NewsSourceSlider
+                                    value={form.mainstreamNewsPercent}
+                                    onChange={(value) => setField("mainstreamNewsPercent", value)}
+                                />
+                            </Field>
+                            <Field label="How often do you follow the news? *">
+                                <WizardScale value={form.newsFrequencyScore} onChange={(value) => setField("newsFrequencyScore", value)} />
+                            </Field>
+                            <Field label="Representative public-opinion data can help people understand society better. *">
+                                <WizardChipRow
+                                    options={YES_NO_OPTIONS}
+                                    selected={form.betterWorldWithData}
+                                    onSelect={(value) => setField("betterWorldWithData", value)}
+                                />
+                            </Field>
+                        </View>
+                    )}
+
+                    {step === 11 && (
+                        <View style={styles.fields}>
+                            <Field label="Do you identify as neurodivergent, neurodiverse, or having a learning difference? *">
+                                <WizardChipRow
+                                    options={YES_NO_OPTIONS}
+                                    selected={form.neurodivergent}
                                     onSelect={(v) => {
-                                        setNeurodivergent(v);
-                                        if (v !== "YES") setNeurodivergenceType(null);
+                                        setForm((current) => ({ ...current, neurodivergent: v, neurodivergenceType: v === "YES" ? current.neurodivergenceType : [] }));
                                     }}
                                 />
                             </Field>
-                            {neurodivergent === "YES" && (
-                                <Field label="Which best describes it? *">
-                                    <WizardChipRow
+                            {form.neurodivergent === "YES" && (
+                                <Field
+                                    label="Which apply? *"
+                                    trailing={
+                                        form.neurodivergenceType.length > 0
+                                            ? `${form.neurodivergenceType.length} SELECTED`
+                                            : "SELECT ALL THAT APPLY"
+                                    }
+                                >
+                                    <WizardChipMultiRow
                                         options={NEURODIVERGENCE_TYPE_OPTIONS}
-                                        selected={neurodivergenceType}
-                                        onSelect={setNeurodivergenceType}
+                                        selected={form.neurodivergenceType}
+                                        onToggle={toggleNeurodivergenceType}
                                     />
                                 </Field>
                             )}
-                            <Field label="Do you have a disability? *">
+                            <Field label="Do you have a long-term condition, illness, impairment or day-to-day limitation? *">
                                 <WizardChipRow
                                     options={YES_NO_OPTIONS}
-                                    selected={hasDisability}
+                                    selected={form.hasDisability}
                                     onSelect={(v) => {
-                                        setHasDisability(v);
-                                        if (v !== "YES") setDisabilityType(null);
+                                        setForm((current) => ({ ...current, hasDisability: v, disabilityType: v === "YES" ? current.disabilityType : [] }));
                                     }}
                                 />
                             </Field>
-                            {hasDisability === "YES" && (
-                                <Field label="Which best describes it? *">
-                                    <WizardChipRow
+                            {form.hasDisability === "YES" && (
+                                <Field
+                                    label="Which apply? *"
+                                    trailing={
+                                        form.disabilityType.length > 0
+                                            ? `${form.disabilityType.length} SELECTED`
+                                            : "SELECT ALL THAT APPLY"
+                                    }
+                                >
+                                    <WizardChipMultiRow
                                         options={DISABILITY_TYPE_OPTIONS}
-                                        selected={disabilityType}
-                                        onSelect={setDisabilityType}
+                                        selected={form.disabilityType}
+                                        onToggle={toggleDisabilityType}
                                     />
                                 </Field>
                             )}
                         </View>
                     )}
 
-                    {step === 10 && (
+                    {step === 12 && (
                         <View style={styles.fields}>
-                            <Field label="Do you… *">
+                            <Field label="What is your housing situation? *">
                                 <WizardChipRow
                                     options={HOUSING_STATUS_OPTIONS}
-                                    selected={housingStatus}
+                                    selected={form.housingStatus}
                                     onSelect={(v) => {
-                                        setHousingStatus(v);
-                                        if (v !== "OWN") setPropertyType(null);
+                                        setForm((current) => ({ ...current, housingStatus: v, propertyType: v === "TEMPORARY_NO_FIXED" ? null : current.propertyType }));
                                     }}
                                 />
                             </Field>
-                            {housingStatus === "OWN" && (
-                                <Field label="Do you own a house or a flat? *">
+                            {form.housingStatus !== null && form.housingStatus !== "TEMPORARY_NO_FIXED" && (
+                                <Field label="What type of home do you live in? *">
                                     <WizardChipRow
                                         options={PROPERTY_TYPE_OPTIONS}
-                                        selected={propertyType}
-                                        onSelect={setPropertyType}
+                                        selected={form.propertyType}
+                                        onSelect={(value) => setField("propertyType", value)}
                                     />
                                 </Field>
                             )}
@@ -564,7 +666,7 @@ export function OnboardingScreen() {
                 <View style={styles.footerRow}>
                     <Pressable
                         onPress={goBack}
-                        disabled={step === 0 || submitting}
+                        disabled={step === 0 || submitting || persisting}
                         style={[
                             styles.backBtn,
                             { borderColor: e.border, opacity: step === 0 ? 0.4 : 1 },
@@ -574,8 +676,8 @@ export function OnboardingScreen() {
                     </Pressable>
                     <Pressable
                         onPress={goNext}
-                        disabled={submitting}
-                        style={[styles.nextBtn, { backgroundColor: e.ink, opacity: submitting ? 0.7 : 1 }]}
+                        disabled={submitting || persisting}
+                        style={[styles.nextBtn, { backgroundColor: e.ink, opacity: submitting || persisting ? 0.7 : 1 }]}
                     >
                         <Text style={[styles.nextLabel, { color: e.bg }]}>
                             {isLast ? "Finish setup" : "Continue"}
@@ -615,6 +717,21 @@ function Field({
 
 const styles = StyleSheet.create({
     screen: { flex: 1 },
+    loadingScreen: { flex: 1, alignItems: "center", justifyContent: "center" },
+    loadTitle: {
+        fontFamily: EditorialFont.serif,
+        fontSize: 26,
+        textAlign: "center",
+        marginBottom: 8,
+    },
+    loadMessage: {
+        fontFamily: EditorialFont.sans,
+        fontSize: 14,
+        textAlign: "center",
+        marginBottom: 22,
+    },
+    retryButton: { paddingHorizontal: 24, paddingVertical: 13, borderRadius: 4 },
+    retryLabel: { fontFamily: EditorialFont.sansBold, fontSize: 14 },
     header: { paddingHorizontal: 26, paddingTop: 6 },
     headerTop: {
         flexDirection: "row",

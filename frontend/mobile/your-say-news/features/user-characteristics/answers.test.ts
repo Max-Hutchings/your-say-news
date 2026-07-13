@@ -1,4 +1,12 @@
-import { buildCharacteristicAnswers, isRequiredComplete, type OnboardingForm } from "./answers";
+import {
+    buildCharacteristicAnswers,
+    createEmptyOnboardingForm,
+    findFirstIncompleteStep,
+    isRequiredComplete,
+    type OnboardingForm,
+} from "./answers";
+
+const isComplete = (form: OnboardingForm) => isRequiredComplete(form, 16);
 
 /** A fully-completed form used as the baseline; individual tests blank out fields. */
 function completeForm(): OnboardingForm {
@@ -8,14 +16,15 @@ function completeForm(): OnboardingForm {
         region: "",
         ukCounty: "BRISTOL",
         urbanRural: "URBAN",
-        ageRange: "AGE_25_34",
+        age: 30,
         gender: "WOMAN",
+        genderSelfDescribe: "",
         sexAtBirth: "FEMALE",
-        sexualOrientation: "HETEROSEXUAL",
+        sexualOrientation: "STRAIGHT_HETEROSEXUAL",
         maritalStatus: "SINGLE",
-        raceSelections: ["WHITE"],
+        raceSelections: ["WHITE_EUROPEAN"],
         countryOfBirth: "UNITED_KINGDOM",
-        citizenship: "UNITED_KINGDOM",
+        citizenship: ["BRITISH"],
         religion: "NO_RELIGION",
         religiosity: "NOT_RELIGIOUS",
         politicalPersuasion: "CENTRE_LEFT",
@@ -23,22 +32,23 @@ function completeForm(): OnboardingForm {
         occupation: "EMPLOYED_FULL_TIME",
         employmentSector: "IT_TECHNOLOGY",
         universitySubject: "COMPUTER_SCIENCE",
-        personalIncomeRange: "BETWEEN_50K_AND_100K",
+        currency: "USD",
+        personalIncomeRange: "BETWEEN_50K_AND_75K",
         householdIncomeRange: "BETWEEN_100K_AND_150K",
         height: "FEET_5_4_TO_5_6",
         weightRange: "KG_60_69",
         eyeColor: "GREEN",
-        parent: "NO",
+        parent: "NOT_PARENT_CAREGIVER",
         hasPet: "YES",
-        petType: "DOG",
+        petType: ["DOG"],
         chronotype: "NIGHT_OWL",
         outlook: "OPTIMIST",
         neurodivergent: "YES",
-        neurodivergenceType: "ADHD",
+        neurodivergenceType: ["ADHD"],
         hasDisability: "NO",
-        disabilityType: null,
-        housingStatus: "OWN",
-        propertyType: "FLAT",
+        disabilityType: [],
+        housingStatus: "OWN_MORTGAGE",
+        propertyType: "FLAT_APARTMENT",
         newsFrequencyScore: 7,
         balancedNewsViewpoint: "YES",
         mainstreamNewsPercent: 60,
@@ -48,7 +58,7 @@ function completeForm(): OnboardingForm {
 
 describe("isRequiredComplete", () => {
     it("returns true when every required field is filled", () => {
-        expect(isRequiredComplete(completeForm())).toBe(true);
+        expect(isComplete(completeForm())).toBe(true);
     });
 
     it("ignores optional location and conditional fields", () => {
@@ -59,40 +69,70 @@ describe("isRequiredComplete", () => {
             ukCounty: null,
             universitySubject: null,
         };
-        expect(isRequiredComplete(form)).toBe(true);
+        expect(isComplete(form)).toBe(true);
     });
 
     it("does not require petType when the user has no pet", () => {
-        const form = { ...completeForm(), hasPet: "NO", petType: null };
-        expect(isRequiredComplete(form)).toBe(true);
+        const form = { ...completeForm(), hasPet: "NO", petType: [] };
+        expect(isComplete(form)).toBe(true);
     });
 
     it("does not require a type when not neurodivergent or not disabled", () => {
         const form = {
             ...completeForm(),
             neurodivergent: "NO",
-            neurodivergenceType: null,
+            neurodivergenceType: [],
             hasDisability: "NO",
-            disabilityType: null,
+            disabilityType: [],
         };
-        expect(isRequiredComplete(form)).toBe(true);
+        expect(isComplete(form)).toBe(true);
     });
 
-    it("does not require propertyType unless the user owns a property", () => {
-        const form = { ...completeForm(), housingStatus: "RENT", propertyType: null };
-        expect(isRequiredComplete(form)).toBe(true);
+    it("requires a home type for renters (everyone with a fixed home)", () => {
+        const form = { ...completeForm(), housingStatus: "PRIVATE_RENT", propertyType: null };
+        expect(isComplete(form)).toBe(false);
+    });
+
+    it("does not require a home type when there is no fixed address", () => {
+        const form = { ...completeForm(), housingStatus: "TEMPORARY_NO_FIXED", propertyType: null };
+        expect(isComplete(form)).toBe(true);
+    });
+
+    it("requires the free-text description only when gender is self-describe", () => {
+        expect(isComplete({ ...completeForm(), gender: "SELF_DESCRIBE", genderSelfDescribe: "" })).toBe(false);
+        expect(isComplete({ ...completeForm(), gender: "SELF_DESCRIBE", genderSelfDescribe: "Agender" })).toBe(true);
+    });
+
+    it("rejects an age below the minimum of 16", () => {
+        expect(isComplete({ ...completeForm(), age: 15 })).toBe(false);
+        expect(isComplete({ ...completeForm(), age: 16 })).toBe(true);
+    });
+
+    it.each([
+        [0, 0],
+        [10, 100],
+    ])("accepts news scale boundaries %i and %i", (newsFrequencyScore, mainstreamNewsPercent) => {
+        expect(isComplete({ ...completeForm(), newsFrequencyScore, mainstreamNewsPercent })).toBe(true);
+    });
+
+    it.each([
+        [-1, 50],
+        [11, 50],
+        [5, -1],
+        [5, 101],
+    ])("rejects out-of-range news values %i and %i", (newsFrequencyScore, mainstreamNewsPercent) => {
+        expect(isComplete({ ...completeForm(), newsFrequencyScore, mainstreamNewsPercent })).toBe(false);
     });
 
     it.each([
         ["country", { country: "   " }],
         ["urbanRural", { urbanRural: null }],
-        ["ageRange", { ageRange: null }],
+        ["age", { age: null }],
         ["gender", { gender: null }],
         ["sexAtBirth", { sexAtBirth: null }],
         ["sexualOrientation", { sexualOrientation: null }],
         ["maritalStatus", { maritalStatus: null }],
         ["countryOfBirth", { countryOfBirth: null }],
-        ["citizenship", { citizenship: null }],
         ["religion", { religion: null }],
         ["religiosity", { religiosity: null }],
         ["politicalPersuasion", { politicalPersuasion: null }],
@@ -106,22 +146,61 @@ describe("isRequiredComplete", () => {
         ["eyeColor", { eyeColor: null }],
         ["parent", { parent: null }],
         ["hasPet", { hasPet: null }],
-        ["petType (when hasPet is YES)", { hasPet: "YES", petType: null }],
+        ["petType (when hasPet is YES)", { hasPet: "YES", petType: [] }],
         ["chronotype", { chronotype: null }],
         ["outlook", { outlook: null }],
         ["neurodivergent", { neurodivergent: null }],
-        ["neurodivergenceType (when neurodivergent is YES)", { neurodivergent: "YES", neurodivergenceType: null }],
+        ["neurodivergenceType (when neurodivergent is YES)", { neurodivergent: "YES", neurodivergenceType: [] }],
         ["hasDisability", { hasDisability: null }],
-        ["disabilityType (when hasDisability is YES)", { hasDisability: "YES", disabilityType: null }],
+        ["disabilityType (when hasDisability is YES)", { hasDisability: "YES", disabilityType: [] }],
         ["housingStatus", { housingStatus: null }],
-        ["propertyType (when housingStatus is OWN)", { housingStatus: "OWN", propertyType: null }],
+        ["propertyType (with a fixed home)", { housingStatus: "PRIVATE_RENT", propertyType: null }],
         ["newsFrequencyScore", { newsFrequencyScore: null }],
         ["balancedNewsViewpoint", { balancedNewsViewpoint: null }],
         ["betterWorldWithData", { betterWorldWithData: null }],
         ["race (empty)", { raceSelections: [] }],
+        ["citizenship (empty)", { citizenship: [] }],
     ])("returns false when %s is missing", (_label, override) => {
         const form = { ...completeForm(), ...override } as OnboardingForm;
-        expect(isRequiredComplete(form)).toBe(false);
+        expect(isComplete(form)).toBe(false);
+    });
+});
+
+describe("findFirstIncompleteStep", () => {
+    it("identifies a skipped news-viewpoint answer on its original page", () => {
+        expect(findFirstIncompleteStep({ ...completeForm(), balancedNewsViewpoint: null }, 16)).toEqual({
+            step: 10,
+            fieldLabel: "Seeing more than one news viewpoint",
+        });
+    });
+
+    it("returns the earliest missing answer rather than the current final-page answer", () => {
+        expect(findFirstIncompleteStep({
+            ...completeForm(),
+            country: "",
+            housingStatus: null,
+        }, 16)).toEqual({
+            step: 0,
+            fieldLabel: "Country of residence",
+        });
+    });
+});
+
+describe("createEmptyOnboardingForm", () => {
+    it("returns the complete stable draft shape", () => {
+        expect(createEmptyOnboardingForm()).toEqual({
+            country: "", city: "", region: "", ukCounty: null, urbanRural: null,
+            age: null, gender: null, genderSelfDescribe: "", sexAtBirth: null,
+            sexualOrientation: null, maritalStatus: null, raceSelections: [], countryOfBirth: null,
+            citizenship: [], religion: null, religiosity: null, politicalPersuasion: null,
+            education: null, occupation: null, employmentSector: null, universitySubject: null,
+            currency: "USD", personalIncomeRange: null, householdIncomeRange: null, height: null,
+            weightRange: null, eyeColor: null, parent: null, hasPet: null, petType: [],
+            chronotype: null, outlook: null, neurodivergent: null, neurodivergenceType: [],
+            hasDisability: null, disabilityType: [], housingStatus: null, propertyType: null,
+            newsFrequencyScore: null, balancedNewsViewpoint: null, mainstreamNewsPercent: 50,
+            betterWorldWithData: null,
+        });
     });
 });
 
@@ -135,15 +214,15 @@ describe("buildCharacteristicAnswers", () => {
             region: null,
             ukCounty: "BRISTOL",
             urbanRural: "URBAN",
-            ageRange: "AGE_25_34",
+            age: 30,
             gender: "WOMAN",
             genderSelfDescribe: "",
             sexAtBirth: "FEMALE",
-            sexualOrientation: "HETEROSEXUAL",
+            sexualOrientation: "STRAIGHT_HETEROSEXUAL",
             maritalStatus: "SINGLE",
-            race: ["WHITE"],
+            race: ["WHITE_EUROPEAN"],
             countryOfBirth: "UNITED_KINGDOM",
-            citizenship: "UNITED_KINGDOM",
+            citizenship: ["BRITISH"],
             religion: "NO_RELIGION",
             religiosity: "NOT_RELIGIOUS",
             politicalPersuasion: "CENTRE_LEFT",
@@ -151,71 +230,95 @@ describe("buildCharacteristicAnswers", () => {
             occupation: "EMPLOYED_FULL_TIME",
             employmentSector: "IT_TECHNOLOGY",
             universitySubject: "COMPUTER_SCIENCE",
-            personalIncomeRange: "BETWEEN_50K_AND_100K",
+            personalIncomeRange: "BETWEEN_50K_AND_75K",
             householdIncomeRange: "BETWEEN_100K_AND_150K",
             height: "FEET_5_4_TO_5_6",
             weightRange: "KG_60_69",
             eyeColor: "GREEN",
-            parent: "NO",
-            newsFrequency: 7,
+            parent: "NOT_PARENT_CAREGIVER",
             hasPet: true,
-            petType: "DOG",
+            petType: ["DOG"],
             chronotype: "NIGHT_OWL",
             outlook: "OPTIMIST",
             neurodivergent: true,
-            neurodivergenceType: "ADHD",
+            neurodivergenceType: ["ADHD"],
             hasDisability: false,
-            disabilityType: null,
-            housingStatus: "OWN",
-            propertyType: "FLAT",
+            disabilityType: [],
+            housingStatus: "OWN_MORTGAGE",
+            propertyType: "FLAT_APARTMENT",
+            newsFrequency: 7,
+            balancedNewsViewpoint: true,
+            mainstreamNewsPercent: 60,
+            betterWorldWithData: true,
         });
     });
 
+    it("carries the parent/caregiver answer straight through (no derivation)", () => {
+        const answers = buildCharacteristicAnswers({ ...completeForm(), parent: "PARENT_CAREGIVER_UNDER_18" });
+        expect(answers.parent).toBe("PARENT_CAREGIVER_UNDER_18");
+    });
+
+    it("carries a self-described gender only when self-describe is chosen", () => {
+        expect(
+            buildCharacteristicAnswers({ ...completeForm(), gender: "SELF_DESCRIBE", genderSelfDescribe: " Agender " })
+                .genderSelfDescribe
+        ).toBe("Agender");
+        expect(
+            buildCharacteristicAnswers({ ...completeForm(), gender: "WOMAN", genderSelfDescribe: "ignored" })
+                .genderSelfDescribe
+        ).toBe("");
+    });
+
+    it("only sends a university subject for higher-education answers", () => {
+        expect(buildCharacteristicAnswers({ ...completeForm(), education: "MASTERS" }).universitySubject).toBe("COMPUTER_SCIENCE");
+        expect(buildCharacteristicAnswers({ ...completeForm(), education: "SECONDARY_SCHOOL" }).universitySubject).toBeNull();
+    });
+
     it.each([
-        ["pet owner keeps their pet type", "YES", "CAT", true, "CAT"],
-        ["non-owner sends false and drops any pet type", "NO", "CAT", false, null],
+        ["pet owner keeps their pet types", "YES", ["CAT", "FISH"], true, ["CAT", "FISH"]],
+        ["non-owner sends false and drops any pet types", "NO", ["CAT"], false, []],
     ])("%s", (_label, hasPet, petType, expectedHasPet, expectedPetType) => {
-        const answers = buildCharacteristicAnswers({ ...completeForm(), hasPet, petType });
+        const answers = buildCharacteristicAnswers({ ...completeForm(), hasPet, petType } as OnboardingForm);
         expect(answers.hasPet).toBe(expectedHasPet);
-        expect(answers.petType).toBe(expectedPetType);
+        expect(answers.petType).toEqual(expectedPetType);
     });
 
-    it("maps a null pet-ownership answer to a null boolean", () => {
-        const answers = buildCharacteristicAnswers({ ...completeForm(), hasPet: null, petType: null });
+    it("maps a null pet-ownership answer to a null boolean and no pet types", () => {
+        const answers = buildCharacteristicAnswers({ ...completeForm(), hasPet: null, petType: [] });
         expect(answers.hasPet).toBeNull();
-        expect(answers.petType).toBeNull();
+        expect(answers.petType).toEqual([]);
     });
 
     it.each([
-        ["neurodivergent keeps their type", "YES", "AUTISM", true, "AUTISM"],
-        ["non-neurodivergent sends false and drops the type", "NO", "AUTISM", false, null],
+        ["neurodivergent keeps their types", "YES", ["AUTISM", "ADHD"], true, ["AUTISM", "ADHD"]],
+        ["non-neurodivergent sends false and drops the types", "NO", ["AUTISM"], false, []],
     ])("%s", (_label, neurodivergent, neurodivergenceType, expectedFlag, expectedType) => {
         const answers = buildCharacteristicAnswers({
             ...completeForm(),
             neurodivergent,
             neurodivergenceType,
-        });
+        } as OnboardingForm);
         expect(answers.neurodivergent).toBe(expectedFlag);
-        expect(answers.neurodivergenceType).toBe(expectedType);
+        expect(answers.neurodivergenceType).toEqual(expectedType);
     });
 
     it.each([
-        ["disabled keeps their type", "YES", "HEARING", true, "HEARING"],
-        ["non-disabled sends false and drops the type", "NO", "HEARING", false, null],
+        ["disabled keeps their types", "YES", ["HEARING"], true, ["HEARING"]],
+        ["non-disabled sends false and drops the types", "NO", ["HEARING"], false, []],
     ])("%s", (_label, hasDisability, disabilityType, expectedFlag, expectedType) => {
         const answers = buildCharacteristicAnswers({
             ...completeForm(),
             hasDisability,
             disabilityType,
-        });
+        } as OnboardingForm);
         expect(answers.hasDisability).toBe(expectedFlag);
-        expect(answers.disabilityType).toBe(expectedType);
+        expect(answers.disabilityType).toEqual(expectedType);
     });
 
     it.each([
-        ["owner keeps their property type", "OWN", "HOUSE", "HOUSE"],
-        ["renter drops any property type", "RENT", "HOUSE", null],
-        ["living with parents drops any property type", "LIVE_WITH_PARENTS", "FLAT", null],
+        ["owner keeps their home type", "OWN_OUTRIGHT", "DETACHED", "DETACHED"],
+        ["renter keeps their home type", "PRIVATE_RENT", "TERRACED", "TERRACED"],
+        ["no fixed address drops any home type", "TEMPORARY_NO_FIXED", "FLAT_APARTMENT", null],
     ])("%s", (_label, housingStatus, propertyType, expectedType) => {
         const answers = buildCharacteristicAnswers({
             ...completeForm(),
@@ -245,14 +348,5 @@ describe("buildCharacteristicAnswers", () => {
         expect(answers).not.toHaveProperty("email");
         expect(answers).not.toHaveProperty("name");
         expect(answers).not.toHaveProperty("firstName");
-    });
-
-    it.each([
-        ["female parent derives MUM", "YES", "FEMALE", "MUM"],
-        ["male parent derives DAD", "YES", "MALE", "DAD"],
-        ["non-parent passes NO through", "NO", "FEMALE", "NO"],
-    ])("%s", (_label, parent, sexAtBirth, expectedParent) => {
-        const answers = buildCharacteristicAnswers({ ...completeForm(), parent, sexAtBirth });
-        expect(answers.parent).toBe(expectedParent);
     });
 });

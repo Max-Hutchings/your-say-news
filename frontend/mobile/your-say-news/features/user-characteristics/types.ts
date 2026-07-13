@@ -8,6 +8,46 @@ export type Option = {
     value: string;
 };
 
+export const CHARACTERISTIC_OPTION_FIELDS = [
+    "urbanRural",
+    "gender",
+    "sexAtBirth",
+    "race",
+    "sexualOrientation",
+    "maritalStatus",
+    "countryOfBirth",
+    "citizenship",
+    "ukCounty",
+    "religion",
+    "religiosity",
+    "politicalPersuasion",
+    "education",
+    "occupation",
+    "employmentSector",
+    "universitySubject",
+    "height",
+    "weightRange",
+    "incomeRange",
+    "eyeColor",
+    "parent",
+    "petType",
+    "chronotype",
+    "outlook",
+    "neurodivergenceType",
+    "disabilityType",
+    "housingStatus",
+    "propertyType",
+] as const;
+
+export type CharacteristicOptionField = (typeof CHARACTERISTIC_OPTION_FIELDS)[number];
+
+/** Versioned, backend-owned enum choices required to render characteristic onboarding. */
+export type CharacteristicOptions = {
+    schemaVersion: number;
+    minimumAge: number;
+    fields: Record<CharacteristicOptionField, Option[]>;
+};
+
 /**
  * The characteristic answers a user submits during onboarding. Keys mirror the backend
  * `UserCharacteristicDto` exactly so the payload maps 1:1.
@@ -22,17 +62,17 @@ export type CharacteristicAnswers = {
     region: string | null;
     ukCounty: string | null;
     urbanRural: string | null;
-    // Who you are
-    ageRange: string | null;
+    // Who you are. `age` is a number (min 16); the server stores the derived birth year (ADR-017).
+    age: number | null;
     gender: string | null;
     genderSelfDescribe: string;
     sexAtBirth: string | null;
     sexualOrientation: string | null;
     maritalStatus: string | null;
     race: string[];
-    // Background
+    // Background. `citizenship` (nationality) is multi-select.
     countryOfBirth: string | null;
-    citizenship: string | null;
+    citizenship: string[];
     religion: string | null;
     religiosity: string | null;
     politicalPersuasion: string | null;
@@ -48,19 +88,23 @@ export type CharacteristicAnswers = {
     weightRange: string | null;
     eyeColor: string | null;
     parent: string | null;
-    newsFrequency: number | null;
-    // Lifestyle
+    // Lifestyle. `petType` is multi-select and only carried when `hasPet` is true.
     hasPet: boolean | null;
-    petType: string | null;
+    petType: string[];
     // Quirky
     chronotype: string | null;
     outlook: string | null;
-    // Neurodiversity & disability
+    // Neurodiversity & disability. Types are multi-select, only carried when the flag is true.
     neurodivergent: boolean | null;
-    neurodivergenceType: string | null;
+    neurodivergenceType: string[];
     hasDisability: boolean | null;
-    disabilityType: string | null;
-    // Property
+    disabilityType: string[];
+    // Housing
     housingStatus: string | null;
     propertyType: string | null;
+    // News habits
+    newsFrequency: number | null;
+    balancedNewsViewpoint: boolean | null;
+    mainstreamNewsPercent: number | null;
+    betterWorldWithData: boolean | null;
 };
