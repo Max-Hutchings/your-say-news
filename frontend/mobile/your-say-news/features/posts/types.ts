@@ -6,6 +6,7 @@
 
 /** The kinds of media a post can carry. */
 export type MediaType = "IMAGE" | "VIDEO";
+export type FeedPostType = "VIDEO" | "ARTICLE";
 
 /**
  * How a media item is shaped, so the feed sizes it deterministically: LANDSCAPE renders in a fixed

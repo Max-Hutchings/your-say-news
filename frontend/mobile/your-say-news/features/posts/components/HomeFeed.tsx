@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,10 +14,11 @@ import { useFocusEffect, useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { useAuthStore } from "@/features/auth";
 import { getFeed, FEED_PAGE_SIZE } from "../services/PostService";
-import type { Post } from "../types";
+import type { FeedPostType, Post } from "../types";
 import { PostCard } from "./PostCard";
 import { Masthead } from "./Masthead";
 import { FeedTabs } from "./FeedTabs";
+import { FeedTypeFilters } from "./FeedTypeFilters";
 
 // A post counts as on-screen (and autoplays its video) once 80% visible. Kept module-level
 // so its identity is stable — FlatList rejects a viewability config that changes between renders.
@@ -47,6 +48,7 @@ export function HomeFeed() {
   const [error, setError] = useState<string | null>(null);
   const [viewportH, setViewportH] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [postType, setPostType] = useState<FeedPostType | null>(null);
 
   // Paging cursor and end-of-feed flag. A ref guards against overlapping loadMore calls —
   // onEndReached can fire repeatedly before a request resolves, and React state wouldn't
@@ -54,29 +56,40 @@ export function HomeFeed() {
   const page = useRef(0);
   const reachedEnd = useRef(false);
   const loadingMoreRef = useRef(false);
+  const pendingNextIndex = useRef<number | null>(null);
+  const feedGeneration = useRef(0);
+  const listRef = useRef<FlatList<Post>>(null);
 
   const loadFirst = useCallback(async () => {
+    const generation = ++feedGeneration.current;
     setError(null);
     try {
-      const first = await getFeed(0, FEED_PAGE_SIZE);
+      const first = await getFeed(0, FEED_PAGE_SIZE, postType ?? undefined);
+      if (generation !== feedGeneration.current) return;
       setPosts(first);
       page.current = 0;
       reachedEnd.current = first.length < FEED_PAGE_SIZE;
     } catch {
-      setError("We couldn't load the feed. Pull to try again.");
+      if (generation === feedGeneration.current) {
+        setError("We couldn't load the feed. Pull to try again.");
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (generation === feedGeneration.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [postType]);
 
   const loadMore = useCallback(async () => {
     if (loadingMoreRef.current || reachedEnd.current) return;
+    const generation = feedGeneration.current;
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
       const next = page.current + 1;
-      const more = await getFeed(next, FEED_PAGE_SIZE);
+      const more = await getFeed(next, FEED_PAGE_SIZE, postType ?? undefined);
+      if (generation !== feedGeneration.current) return;
       if (more.length > 0) {
         // Guard against a page that overlaps what we already hold (e.g. a post added between
         // fetches shifting the window) so keys stay unique.
@@ -90,16 +103,25 @@ export function HomeFeed() {
     } catch {
       // Leave the flags as they are so a later scroll retries the same page.
     } finally {
-      loadingMoreRef.current = false;
-      setLoadingMore(false);
+      if (generation === feedGeneration.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
-  }, []);
+  }, [postType]);
 
   useFocusEffect(
     useCallback(() => {
       loadFirst();
     }, [loadFirst])
   );
+
+  useEffect(() => {
+    const nextIndex = pendingNextIndex.current;
+    if (nextIndex == null || nextIndex >= posts.length) return;
+    listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    pendingNextIndex.current = null;
+  }, [posts.length]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -119,6 +141,28 @@ export function HomeFeed() {
 
   const onLayout = (ev: LayoutChangeEvent) => setViewportH(ev.nativeEvent.layout.height);
   const avatarLabel = email?.[0]?.toUpperCase();
+  const changePostType = (next: FeedPostType | null) => {
+    feedGeneration.current += 1;
+    loadingMoreRef.current = false;
+    setPostType(next);
+    setPosts([]);
+    setLoading(true);
+    setLoadingMore(false);
+    setActiveIndex(0);
+    pendingNextIndex.current = null;
+    page.current = 0;
+    reachedEnd.current = false;
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  };
+  const moveToNextPost = (currentIndex: number) => {
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < posts.length) {
+      listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+      return;
+    }
+    pendingNextIndex.current = nextIndex;
+    void loadMore();
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: e.bg }]}>
@@ -127,19 +171,28 @@ export function HomeFeed() {
         <View style={styles.tabs}>
           <FeedTabs />
         </View>
+        <View style={styles.typeFilters}>
+          <FeedTypeFilters value={postType} onChange={changePostType} />
+        </View>
       </View>
 
-      <View style={styles.feed} onLayout={onLayout}>
+      <View testID="home-feed-viewport" style={styles.feed} onLayout={onLayout}>
         {loading || viewportH === 0 ? (
           <View style={styles.centered}>
             <ActivityIndicator color={e.lime} />
           </View>
         ) : (
           <FlatList
+            ref={listRef}
             data={posts}
             keyExtractor={(p) => String(p.id)}
             renderItem={({ item, index }) => (
-              <PostCard post={item} isActive={index === activeIndex} height={viewportH} />
+              <PostCard
+                post={item}
+                isActive={index === activeIndex}
+                height={viewportH}
+                onNextPost={() => moveToNextPost(index)}
+              />
             )}
             pagingEnabled
             decelerationRate="fast"
@@ -168,7 +221,7 @@ export function HomeFeed() {
             ListEmptyComponent={
               <View style={[styles.centered, { height: viewportH }]}>
                 <Text style={[styles.message, { color: error ? e.coral : e.muted }]}>
-                  {error ?? "No stories yet. Be the first to share one."}
+                  {error ?? emptyMessage(postType)}
                 </Text>
               </View>
             }
@@ -188,6 +241,12 @@ export function HomeFeed() {
   );
 }
 
+function emptyMessage(postType: FeedPostType | null): string {
+  if (postType === "VIDEO") return "No video posts yet.";
+  if (postType === "ARTICLE") return "No article posts yet.";
+  return "No stories yet. Be the first to share one.";
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -199,6 +258,9 @@ const styles = StyleSheet.create({
   },
   tabs: {
     marginTop: 12,
+  },
+  typeFilters: {
+    marginTop: 7,
   },
   feed: {
     flex: 1,

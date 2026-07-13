@@ -14,6 +14,8 @@ const mockPlayer = {
   status: "readyToPlay",
   addListener: jest.fn(() => ({ remove: jest.fn() })),
 };
+const mockIonicons = jest.fn((_props: { name: string }) => null);
+
 jest.mock("expo-video", () => ({
   useVideoPlayer: (_uri: string, setup?: (p: unknown) => void) => {
     setup?.(mockPlayer);
@@ -25,6 +27,12 @@ jest.mock("expo-video", () => ({
     return <View testID={testID} />;
   },
 }));
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: (props: { name: string }) => {
+    mockIonicons(props);
+    return null;
+  },
+}));
 
 function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
@@ -33,6 +41,7 @@ function renderWithTheme(ui: React.ReactElement) {
 beforeEach(() => {
   mockPlayer.play.mockClear();
   mockPlayer.pause.mockClear();
+  mockIonicons.mockClear();
   mockPlayer.muted = false;
   mockPlayer.currentTime = 5;
 });
@@ -54,12 +63,28 @@ describe("PostVideo autoplay", () => {
   });
 
   it("starts muted and unmutes when the control is tapped", () => {
-    renderWithTheme(<PostVideo uri="https://s3.local/clip.mp4" isActive width={200} height={200} />);
+    renderWithTheme(
+      <PostVideo
+        uri="https://s3.local/clip.mp4"
+        isActive
+        width={200}
+        height={200}
+        controlsBottomInset={52}
+      />
+    );
     // The setup + muted effect force it muted regardless of the stub's initial value.
     expect(mockPlayer.muted).toBe(true);
+    expect(screen.getByTestId("video-sound-control")).toHaveStyle({ bottom: 52 });
+    expect(mockIonicons).toHaveBeenLastCalledWith(
+      expect.objectContaining({ name: "volume-mute-outline" })
+    );
+    expect(screen.queryByText("🔇")).toBeNull();
 
     fireEvent.press(screen.getByLabelText("Unmute video"));
     expect(mockPlayer.muted).toBe(false);
     expect(screen.getByLabelText("Mute video")).toBeOnTheScreen();
+    expect(mockIonicons).toHaveBeenLastCalledWith(
+      expect.objectContaining({ name: "volume-high-outline" })
+    );
   });
 });

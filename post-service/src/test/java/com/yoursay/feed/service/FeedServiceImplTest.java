@@ -3,6 +3,7 @@ package com.yoursay.feed.service;
 import com.yoursay.feed.client.FeedUserClient;
 import com.yoursay.feed.client.SocialClient;
 import com.yoursay.feed.FeedContext;
+import com.yoursay.feed.FeedPostType;
 import com.yoursay.feed.FeedRanker;
 import com.yoursay.feed.RankablePost;
 import com.yoursay.posts.*;
@@ -20,6 +21,35 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FeedServiceImplTest {
+
+    @Test
+    void filtersVideoAndArticlePostsBeforePaging() {
+        FeedFixture fixture = baseService(List.of(
+                postWithMedia(1, 20, "2026-07-09T12:00:00Z", MediaType.VIDEO),
+                post(2, 20, "2026-07-09T11:00:00Z"),
+                postWithMedia(3, 20, "2026-07-09T10:00:00Z", MediaType.IMAGE),
+                postWithMedia(4, 20, "2026-07-09T09:00:00Z", MediaType.VIDEO),
+                postWithMedia(5, 20, "2026-07-09T08:00:00Z", MediaType.IMAGE, MediaType.VIDEO)
+        ));
+
+        List<PostDto> firstVideoPage = fixture.service
+                .getFeed("viewer@example.com", "Bearer token", 0, 1, FeedPostType.VIDEO)
+                .await().indefinitely();
+        List<PostDto> secondVideoPage = fixture.service
+                .getFeed("viewer@example.com", "Bearer token", 1, 1, FeedPostType.VIDEO)
+                .await().indefinitely();
+        List<PostDto> articles = fixture.service
+                .getFeed("viewer@example.com", "Bearer token", 0, 5, FeedPostType.ARTICLE)
+                .await().indefinitely();
+        List<PostDto> allVideos = fixture.service
+                .getFeed("viewer@example.com", "Bearer token", 0, 5, FeedPostType.VIDEO)
+                .await().indefinitely();
+
+        assertEquals(List.of(1L), firstVideoPage.stream().map(PostDto::id).toList());
+        assertEquals(List.of(4L), secondVideoPage.stream().map(PostDto::id).toList());
+        assertEquals(List.of(2L, 3L), articles.stream().map(PostDto::id).toList());
+        assertEquals(List.of(1L, 4L, 5L), allVideos.stream().map(PostDto::id).toList());
+    }
 
     @Test
     void assemblesFeedWithFollowBoostBeforePaging() {
@@ -140,14 +170,39 @@ class FeedServiceImplTest {
         return new PostDto(
                 id,
                 authorId,
-                "Post " + id,
                 "Summary " + id,
-                "Do you agree?",
+                "Should post " + id + " be supported?",
                 null,
                 null,
                 false,
                 Instant.parse(createdAt),
                 List.of());
+    }
+
+    private static PostDto postWithMedia(long id, long authorId, String createdAt,
+                                         MediaType... mediaTypes) {
+        return new PostDto(
+                id,
+                authorId,
+                "Summary " + id,
+                "Should post " + id + " be supported?",
+                null,
+                null,
+                false,
+                Instant.parse(createdAt),
+                java.util.stream.IntStream.range(0, mediaTypes.length)
+                        .mapToObj(index -> {
+                            MediaType mediaType = mediaTypes[index];
+                            return new PostMediaDto(
+                                    mediaType,
+                                    Orientation.LANDSCAPE,
+                                    "posts/" + id + "/" + index,
+                                    mediaType == MediaType.VIDEO ? "video/mp4" : "image/jpeg",
+                                    null,
+                                    "https://media.local/" + id + "/" + index,
+                                    null);
+                        })
+                        .toList());
     }
 
     private static FeedFixture baseService(List<PostDto> sourcePosts) {

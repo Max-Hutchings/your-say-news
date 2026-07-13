@@ -3,6 +3,7 @@ package com.yoursay.feed.service;
 import com.yoursay.feed.FeedContext;
 import com.yoursay.feed.FeedRanker;
 import com.yoursay.feed.FeedService;
+import com.yoursay.feed.FeedPostType;
 import com.yoursay.feed.RankablePost;
 import com.yoursay.feed.client.FeedUserClient;
 import com.yoursay.feed.client.SocialClient;
@@ -37,7 +38,8 @@ public class FeedServiceImpl implements FeedService {
     SocialClient socialClient;
 
     @Override
-    public Uni<List<PostDto>> getFeed(String viewerEmail, String authorization, int page, int size) {
+    public Uni<List<PostDto>> getFeed(String viewerEmail, String authorization, int page, int size,
+                                      FeedPostType postType) {
         int safePage = Math.max(0, page);
         int safeSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
         int requested = MAX_RANKING_WINDOW;
@@ -61,10 +63,11 @@ public class FeedServiceImpl implements FeedService {
                     Map<Long, PostDto> byId = posts.stream()
                             .collect(Collectors.toMap(PostDto::id, p -> p));
                     return rankedIds.stream()
-                            .skip((long) safePage * safeSize)
-                            .limit(safeSize)
                             .map(byId::get)
                             .filter(Objects::nonNull)
+                            .filter(post -> postType == null || postType.matches(post))
+                            .skip((long) safePage * safeSize)
+                            .limit(safeSize)
                             .toList();
                 });
     }

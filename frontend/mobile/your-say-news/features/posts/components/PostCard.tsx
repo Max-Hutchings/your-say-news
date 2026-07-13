@@ -17,16 +17,18 @@ import { PostVideo } from "./PostVideo";
 import { PostImageCarousel } from "./PostImageCarousel";
 import { ScrollableSummary } from "./ScrollableSummary";
 
+const VIDEO_SOUND_BOTTOM_INSET = 52;
+
 /**
  * One story, sized to fill a single screen in the immersive feed — the whole post is shown here,
  * there is no detail screen to tap into.
  *
  * There are two layouts, chosen by the media's orientation:
  *
- * - LANDSCAPE / text-only — a stacked card: a 16:9 media box on top, then the headline, a scrolling
- *   summary, the motion and the vote below it. Everything is visible at once.
- * - PORTRAIT — immersive: a headline band sits above a tall 4:5 media box (they never overlap), with
- *   the support question and vote pinned below, always visible. The rest of the story (summary + the
+ * - LANDSCAPE / text-only — a stacked card: a 16:9 media box on top, then the support question as
+ *   the heading, a scrolling summary and the vote below it. Everything is visible at once.
+ * - PORTRAIT — immersive: a tall 4:5 media box sits above the support question and vote, which stay
+ *   pinned below and always visible. The rest of the story (summary + the
  *   case-for/against cards) is hidden behind a "See more" that slides a panel up over the media;
  *   "See less" drops it back.
  *
@@ -37,10 +39,12 @@ export function PostCard({
   post,
   isActive = false,
   height,
+  onNextPost,
 }: {
   post: Post;
   isActive?: boolean;
   height?: number;
+  onNextPost?: () => void;
 }) {
   const router = useRouter();
   const { isDark } = useTheme();
@@ -56,7 +60,7 @@ export function PostCard({
 
   // Immersive portrait only: the story panel rises over the video on "See more".
   const [expanded, setExpanded] = useState(false);
-  // The media fills whatever height is left above the fixed headline/question/vote block; we measure
+  // The media fills whatever height is left above the fixed question/vote block; we measure
   // that space so the media components (which need concrete pixel sizes) fill it exactly — no dead gap.
   const [mediaBox, setMediaBox] = useState({ w: 0, h: 0 });
   const reveal = useMemo(() => new Animated.Value(0), []);
@@ -105,16 +109,23 @@ export function PostCard({
   );
 
   // The vote — always visible. The votes domain owns the interaction, locked state and errors.
-  const voteRow = <VoteControls postId={post.id} />;
-  const authorLink = (
+  const voteRow = <VoteControls postId={post.id} onNextPost={onNextPost} />;
+  const authorLink = (overMedia = false) => (
     <Pressable
-      style={[styles.authorPill, { borderColor: e.border, backgroundColor: e.surface }]}
+      style={[
+        styles.authorPill,
+        overMedia && styles.authorOverlay,
+        {
+          borderColor: overMedia ? e.mediaScrim : e.border,
+          backgroundColor: overMedia ? e.mediaScrim : e.surface,
+        },
+      ]}
       onPress={() => router.push(`/profiles/${post.userId}` as Href)}
       accessibilityRole="button"
       accessibilityLabel="Open author profile"
     >
-      <Ionicons name="person-circle-outline" size={15} color={e.ink} />
-      <Text style={[styles.authorText, { color: e.ink }]}>Author {post.userId}</Text>
+      <Ionicons name="person-circle-outline" size={15} color={overMedia ? e.onMedia : e.ink} />
+      <Text style={[styles.authorText, { color: overMedia ? e.onMedia : e.ink }]}>Author {post.userId}</Text>
     </Pressable>
   );
 
@@ -127,15 +138,23 @@ export function PostCard({
       isActive={isActive}
       width={window.width}
       height={mediaBoxHeight}
+      controlsBottomInset={VIDEO_SOUND_BOTTOM_INSET}
     />
   ) : (
     <PostImageCarousel images={images} width={window.width} height={mediaBoxHeight} />
   );
 
-  // ── Immersive portrait: media fills the space above a fixed headline + question + vote block. ────
+  // ── Immersive portrait: media fills the space above a fixed question + vote block. ──────────────
   if (immersive) {
     const immersiveMedia = video?.url ? (
-      <PostVideo uri={video.url} posterUri={video.posterUrl} isActive={isActive} width={mediaBox.w} height={mediaBox.h} />
+      <PostVideo
+        uri={video.url}
+        posterUri={video.posterUrl}
+        isActive={isActive}
+        width={mediaBox.w}
+        height={mediaBox.h}
+        controlsBottomInset={VIDEO_SOUND_BOTTOM_INSET}
+      />
     ) : (
       <PostImageCarousel images={images} width={mediaBox.w} height={mediaBox.h} />
     );
@@ -144,6 +163,7 @@ export function PostCard({
         {/* Media fills the leftover space above the body and is measured so it never leaves a gap.
             The story panel slides up over it on "See more" — kept mounted so the read is instant. */}
         <View
+          testID="post-media-stage"
           style={styles.immersiveMedia}
           onLayout={(ev) => {
             const { width: w, height: h } = ev.nativeEvent.layout;
@@ -160,6 +180,7 @@ export function PostCard({
           <View style={[styles.timeOverlay, { backgroundColor: e.mediaScrim }]}>
             <Text style={[styles.timeOverlayText, { color: e.onMedia }]}>{timeAgo(post.createdAt)}</Text>
           </View>
+          {authorLink(true)}
 
           {/* Falls back to cardHeight before the media area is measured so the panel stays hidden. */}
           <Animated.View
@@ -183,25 +204,29 @@ export function PostCard({
             </Pressable>
             <ScrollableSummary text={post.summary} footer={caseFooter} />
           </Animated.View>
+
+          {!expanded && (
+            <View testID="portrait-see-more-slot" style={styles.seeMoreOverlay} pointerEvents="box-none">
+              <Pressable
+                testID="portrait-see-more"
+                style={[
+                  styles.seeMorePill,
+                  { borderColor: e.mediaScrim, backgroundColor: e.mediaScrim },
+                ]}
+                onPress={() => toggle(true)}
+                accessibilityRole="button"
+                accessibilityLabel="See more"
+              >
+                <Text style={[styles.seeMoreText, { color: e.onMedia }]}>See more</Text>
+                <Ionicons name="chevron-up" size={15} color={e.onMedia} />
+              </Pressable>
+            </View>
+          )}
         </View>
 
-        {/* Fixed under the media — headline, support question, See more and the vote. Never pushed off. */}
-        <View style={styles.immersiveBody}>
-          <Text style={[styles.title, { color: e.ink }]} numberOfLines={2}>
-            {post.title}
-          </Text>
-          {authorLink}
+        {/* Fixed under the media — only the support question and vote, leaving more height for media. */}
+        <View testID="post-card-body" style={styles.immersiveBody}>
           {motionBox}
-          {!expanded && (
-            <Pressable
-              style={[styles.seeMorePill, { borderColor: e.border, backgroundColor: e.surface }]}
-              onPress={() => toggle(true)}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.seeMoreText, { color: e.ink }]}>See more</Text>
-              <Ionicons name="chevron-up" size={15} color={e.ink} />
-            </Pressable>
-          )}
           {voteRow}
         </View>
       </View>
@@ -212,7 +237,7 @@ export function PostCard({
   return (
     <View style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
       {hasMedia && (
-        <View style={{ width: window.width, height: mediaBoxHeight }}>
+        <View testID="post-media-stage" style={{ width: window.width, height: mediaBoxHeight }}>
           {mediaContent}
 
           {post.isUnbiased && (
@@ -225,10 +250,11 @@ export function PostCard({
           <View style={[styles.timeOverlay, { backgroundColor: e.mediaScrim }]}>
             <Text style={[styles.timeOverlayText, { color: e.onMedia }]}>{timeAgo(post.createdAt)}</Text>
           </View>
+          {authorLink(true)}
         </View>
       )}
 
-      <View style={styles.body}>
+      <View testID="post-card-body" style={styles.body}>
         {/* Text-only posts have no media to overlay, so the meta shows here. */}
         {!hasMedia && (
           <View style={styles.metaRow}>
@@ -237,15 +263,12 @@ export function PostCard({
           </View>
         )}
 
-        <Text style={[styles.title, { color: e.ink }]} numberOfLines={hasMedia ? 3 : 4}>
-          {post.title}
-        </Text>
-        {authorLink}
+        {motionBox}
+        {!hasMedia && authorLink()}
 
         {/* The scroll region: summary, then the case-for/against cards at the bottom. */}
         <ScrollableSummary text={post.summary} footer={caseFooter} />
 
-        {motionBox}
         {voteRow}
       </View>
     </View>
@@ -270,7 +293,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 18,
+    paddingBottom: 8,
     gap: 11,
   },
   // ── Immersive portrait ──
@@ -282,7 +305,7 @@ const styles = StyleSheet.create({
   immersiveBody: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 18,
+    paddingBottom: 8,
     gap: 10,
   },
   storyPanel: {
@@ -291,6 +314,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 4,
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 24,
@@ -309,7 +333,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   seeMorePill: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -322,6 +346,14 @@ const styles = StyleSheet.create({
     fontFamily: EditorialFont.sansBold,
     fontWeight: "700",
     fontSize: 13,
+  },
+  seeMoreOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 11,
+    zIndex: 3,
+    alignItems: "center",
   },
   // ── Stacked (landscape / text-only) ──
   badgeOverlay: {
@@ -366,11 +398,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
   },
-  title: {
-    fontFamily: EditorialFont.serifRegular,
-    fontSize: 26,
-    lineHeight: 30,
-    letterSpacing: -0.35,
+  authorOverlay: {
+    position: "absolute",
+    right: 12,
+    bottom: 12,
+    zIndex: 2,
   },
   motionBox: {
     flexDirection: "row",

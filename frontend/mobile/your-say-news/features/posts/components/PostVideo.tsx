@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
+import { Ionicons } from "@expo/vector-icons";
 import { getEditorial, useTheme, EditorialFont } from "@/constants/theme";
 
 /**
@@ -28,7 +29,7 @@ export function PostVideo({
   isActive: boolean;
   width: number;
   height: number;
-  /** Raises the mute control off the bottom edge — used by the immersive layout so it clears the vote bar. */
+  /** Raises the sound control off the bottom edge so another media overlay can sit beneath it. */
   controlsBottomInset?: number;
 }) {
   const { isDark } = useTheme();
@@ -87,9 +88,18 @@ export function PostVideo({
         onPress={() => setMuted((m) => !m)}
         accessibilityRole="button"
         accessibilityLabel={muted ? "Unmute video" : "Mute video"}
-        style={[styles.mute, { bottom: controlsBottomInset, backgroundColor: e.mediaScrim }]}
+        testID="video-sound-control"
+        style={[
+          styles.soundControl,
+          { bottom: controlsBottomInset, backgroundColor: e.mediaScrim, borderColor: e.muted },
+        ]}
       >
-        <Text style={[styles.muteIcon, { color: e.onMedia }]}>{muted ? "🔇" : "🔊"}</Text>
+        <Ionicons
+          testID="video-sound-icon"
+          name={muted ? "volume-mute-outline" : "volume-high-outline"}
+          size={18}
+          color={e.onMedia}
+        />
       </Pressable>
     </View>
   );
@@ -118,18 +128,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.8,
   },
-  mute: {
+  soundControl: {
     position: "absolute",
     right: 12,
     bottom: 12,
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 11,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  muteIcon: {
-    fontFamily: EditorialFont.sans,
-    fontSize: 15,
   },
 });

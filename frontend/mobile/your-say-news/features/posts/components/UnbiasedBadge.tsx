@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 
 /**
- * Marks a post as produced by the unbiased-post agent (Stage 6). Only ever
+ * Marks a post as produced by the unbiased-post agent (Stage 7). Only ever
  * rendered when a post's `isUnbiased` flag is true — never decorative. Editorial
  * design handoff: a small ink pill with a lime "scales" glyph and mono label.
  */

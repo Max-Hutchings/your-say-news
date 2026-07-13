@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react-native";
 import { ThemeProvider } from "@/constants/theme";
 import { PostCard } from "./PostCard";
 import type { Post } from "../types";
@@ -91,13 +91,11 @@ describe("PostCard", () => {
     mockUseVideoPlayer.mockReset();
   });
 
-  it("renders the headline, full summary and support question in place", () => {
+  it("uses the support question as the sole heading above the article", () => {
     renderWithTheme(<PostCard post={basePost} />);
 
-    expect(screen.getByText("Council approves the new cycle lane")).toBeOnTheScreen();
     expect(screen.getByText(basePost.summary)).toBeOnTheScreen();
-    // The motion is shown quoted; match the question text regardless of the surrounding quotes.
-    expect(screen.getByText(/Do you agree the cycle lane should go ahead\?/)).toBeOnTheScreen();
+    expect(screen.getAllByText(/Do you agree the cycle lane should go ahead\?/)).toHaveLength(1);
   });
 
   it("offers Agree and Disagree in place (the whole post is shown, no detail screen)", () => {
@@ -133,8 +131,15 @@ describe("PostCard", () => {
 
   it("renders an image from its presigned url", () => {
     renderWithTheme(<PostCard post={basePost} />);
-    const media = screen.getByTestId("post-card-media");
+    const mediaStage = screen.getByTestId("post-media-stage");
+    const media = within(mediaStage).getByTestId("post-card-media");
     expect(media.props.source).toEqual([{ uri: "https://s3.local/abc.jpg" }]);
+    expect(screen.getAllByLabelText("Open author profile")).toHaveLength(1);
+    expect(within(mediaStage).getByLabelText("Open author profile")).toHaveStyle({
+      position: "absolute",
+      right: 12,
+      bottom: 12,
+    });
   });
 
   it("renders a video (not an image) when the post carries a clip", () => {
@@ -153,12 +158,20 @@ describe("PostCard", () => {
       ],
     };
     renderWithTheme(<PostCard post={videoPost} />);
-    expect(screen.getByTestId("post-card-video")).toBeOnTheScreen();
+    const mediaStage = screen.getByTestId("post-media-stage");
+    expect(within(mediaStage).getByTestId("post-card-video")).toBeOnTheScreen();
     expect(screen.queryByTestId("post-card-media")).toBeNull();
     expect(mockUseVideoPlayer).toHaveBeenCalledWith(
       "https://s3.local/clip.mp4",
       expect.any(Function)
     );
+    expect(screen.getAllByLabelText("Open author profile")).toHaveLength(1);
+    expect(within(mediaStage).getByLabelText("Open author profile")).toHaveStyle({
+      position: "absolute",
+      right: 12,
+      bottom: 12,
+    });
+    expect(within(mediaStage).getByTestId("video-sound-control")).toHaveStyle({ bottom: 52 });
   });
 
   it("renders no media when the post has none", () => {
@@ -203,17 +216,51 @@ describe("PostCard", () => {
     expect(screen.queryByText("See less")).toBeNull();
   });
 
-  it("shows a portrait post immersively: headline, support question and vote always visible", () => {
+  it("uses the space beneath voting to sit both post layouts slightly lower", () => {
+    const view = renderWithTheme(<PostCard post={basePost} />);
+    expect(screen.getByTestId("post-card-body")).toHaveStyle({ paddingBottom: 8 });
+
+    view.rerender(
+      <ThemeProvider>
+        <PostCard post={portraitPost} />
+      </ThemeProvider>
+    );
+    expect(screen.getByTestId("post-card-body")).toHaveStyle({ paddingBottom: 8 });
+  });
+
+  it("shows a portrait post immersively: support question and vote always visible", () => {
     renderWithTheme(<PostCard post={portraitPost} />);
-    // Headline, support question and vote are always visible — never behind See more.
-    expect(screen.getByText("Council approves the new cycle lane")).toBeOnTheScreen();
+    const mediaStage = screen.getByTestId("post-media-stage");
+    fireEvent(mediaStage, "layout", {
+      nativeEvent: { layout: { width: 390, height: 520 } },
+    });
+    const portraitImage = within(mediaStage).getByTestId("post-card-media");
+    expect(portraitImage.props.source).toEqual([{ uri: "https://s3.local/tall.jpg" }]);
+    expect(portraitImage).toHaveStyle({ width: 390, height: 520 });
+    // The support question and vote are always visible — never behind See more.
     expect(screen.getByText(/Do you agree the cycle lane should go ahead\?/)).toBeOnTheScreen();
     expect(screen.getByText("Agree")).toBeOnTheScreen();
     expect(screen.getByText("Disagree")).toBeOnTheScreen();
+    expect(within(mediaStage).getByLabelText("Open author profile")).toHaveStyle({
+      position: "absolute",
+      right: 12,
+      bottom: 12,
+    });
     // The summary and case cards are reached via See more; the panel stays mounted so it opens
     // instantly, but while collapsed it's hidden from accessibility — so query hidden elements
     // to inspect it and its contents.
     expect(screen.getByText("See more")).toBeOnTheScreen();
+    const seeMoreSlot = within(mediaStage).getByTestId("portrait-see-more-slot");
+    expect(seeMoreSlot).toHaveStyle({
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 11,
+      alignItems: "center",
+    });
+    expect(within(seeMoreSlot).getByTestId("portrait-see-more")).toHaveStyle({
+      alignSelf: "center",
+    });
     const panel = screen.getByTestId("portrait-story-panel", { includeHiddenElements: true });
     expect(panel.props.pointerEvents).toBe("none");
     expect(panel.props.accessibilityElementsHidden).toBe(true);

@@ -10,4 +10,4 @@ export { CreatePostScreen } from "./components/CreatePostScreen";
 export { PostCard } from "./components/PostCard";
 export { listByUser } from "./services/PostService";
 
-export type { Post, PostMedia, MediaType, CreatePostInput } from "./types";
+export type { Post, PostMedia, MediaType, FeedPostType, CreatePostInput } from "./types";

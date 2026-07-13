@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { YsnHttpClient } from "@/features/auth";
-import type { CreatePostInput, Post } from "../types";
+import type { CreatePostInput, FeedPostType, Post } from "../types";
 
 /**
  * Talks to post-service for post CRUD over the shared authenticated HTTP
@@ -50,10 +50,14 @@ export async function getRecent(page = 0, size = FEED_PAGE_SIZE): Promise<Post[]
 }
 
 /** Main social feed: recent posts ranked with the viewer's follow graph. */
-export async function getFeed(page = 0, size = FEED_PAGE_SIZE): Promise<Post[]> {
+export async function getFeed(
+  page = 0,
+  size = FEED_PAGE_SIZE,
+  postType?: FeedPostType
+): Promise<Post[]> {
   const feedUrl = `${extra.POST_SERVICE_HOST}${extra.POST_SERVICE_PORT}/feed`;
   const { data } = await YsnHttpClient.getSecure().get<Post[]>(feedUrl, {
-    params: { page, size },
+    params: { page, size, ...(postType ? { type: postType } : {}) },
   });
   return data ?? [];
 }

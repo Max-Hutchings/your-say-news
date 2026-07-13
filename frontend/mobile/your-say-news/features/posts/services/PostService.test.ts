@@ -1,4 +1,4 @@
-import { getRecent, FEED_PAGE_SIZE } from "./PostService";
+import { getFeed, getRecent, FEED_PAGE_SIZE } from "./PostService";
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -47,5 +47,28 @@ describe("getRecent", () => {
     mockGet.mockResolvedValue({ data: null });
 
     expect(await getRecent(9)).toEqual([]);
+  });
+});
+
+describe("getFeed", () => {
+  it("sends the selected post type with every ranked feed page request", async () => {
+    mockGet.mockResolvedValue({ data: [{ id: 8 }] });
+
+    const posts = await getFeed(2, FEED_PAGE_SIZE, "VIDEO");
+
+    expect(mockGet).toHaveBeenCalledWith("http://posts.local:8082/feed", {
+      params: { page: 2, size: FEED_PAGE_SIZE, type: "VIDEO" },
+    });
+    expect(posts).toEqual([{ id: 8 }]);
+  });
+
+  it("omits the type query parameter for the unfiltered feed", async () => {
+    mockGet.mockResolvedValue({ data: [] });
+
+    await getFeed();
+
+    expect(mockGet).toHaveBeenCalledWith("http://posts.local:8082/feed", {
+      params: { page: 0, size: FEED_PAGE_SIZE },
+    });
   });
 });

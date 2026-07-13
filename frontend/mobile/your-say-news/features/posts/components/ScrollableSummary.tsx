@@ -79,8 +79,8 @@ const styles = StyleSheet.create({
   },
   summary: {
     fontFamily: EditorialFont.serifRegular,
-    fontSize: 16,
-    lineHeight: 25,
+    fontSize: 17,
+    lineHeight: 27,
   },
   track: {
     position: "absolute",

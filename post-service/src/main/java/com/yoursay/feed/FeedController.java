@@ -26,9 +26,11 @@ public class FeedController {
     @GET
     public Uni<List<PostDto>> feed(@QueryParam("page") @DefaultValue("0") int page,
                                    @QueryParam("size") @DefaultValue("5") int size,
+                                   @QueryParam("type") FeedPostType postType,
                                    @HeaderParam("Authorization") String authorization) {
         String email = securityIdentity.getPrincipal().getName();
-        Log.infof("Endpoint Called: feed - page %d size %d viewer %s", page, size, email);
-        return feedService.getFeed(email, authorization, page, size);
+        Log.infof("Endpoint Called: feed - page %d size %d type %s viewer %s",
+                page, size, postType, email);
+        return feedService.getFeed(email, authorization, page, size, postType);
     }
 }
