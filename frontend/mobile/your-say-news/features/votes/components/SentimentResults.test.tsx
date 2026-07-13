@@ -42,10 +42,10 @@ function byAxis(_postId: number, axis: string) {
   return Promise.resolve({ postId: 3, characteristic: axis, buckets: [], suppressedBuckets: 0 });
 }
 
-function renderResults(postId = 3) {
+function renderResults(postId = 3, onNextPost?: () => void) {
   return render(
     <ThemeProvider>
-      <SentimentResults postId={postId} />
+      <SentimentResults postId={postId} onNextPost={onNextPost} />
     </ThemeProvider>
   );
 }
@@ -207,5 +207,70 @@ describe("SentimentResults", () => {
     renderResults();
 
     expect(screen.getByTestId("breakdown-loading")).toBeOnTheScreen();
+  });
+
+  it("advances only when the user swipes up from the bottom of voting data", async () => {
+    mockOverall.mockResolvedValue(OVERALL);
+    mockAxis.mockImplementation(byAxis);
+    const onNextPost = jest.fn();
+
+    renderResults(3, onNextPost);
+
+    const results = await screen.findByTestId("sentiment-results-scroll");
+    expect(screen.queryByText("Next story")).toBeNull();
+    expect(screen.queryByTestId("next-post")).toBeNull();
+
+    // A normal upward scroll before the end keeps exploring the voting data.
+    fireEvent.scroll(results, {
+      nativeEvent: {
+        contentOffset: { y: 100 },
+        layoutMeasurement: { height: 600 },
+        contentSize: { height: 1200 },
+      },
+    });
+    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
+    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 400 } });
+    expect(onNextPost).not.toHaveBeenCalled();
+
+    // Once at the bottom, the same upward swipe closes results and moves the feed on.
+    fireEvent.scroll(results, {
+      nativeEvent: {
+        contentOffset: { y: 600 },
+        layoutMeasurement: { height: 600 },
+        contentSize: { height: 1200 },
+      },
+    });
+    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
+    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 470 } });
+    fireEvent(results, "touchStart", { nativeEvent: { pageY: 400 } });
+    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 500 } });
+    expect(onNextPost).not.toHaveBeenCalled();
+
+    // Starting 25px from the end is just outside the 24px bottom tolerance.
+    fireEvent.scroll(results, {
+      nativeEvent: {
+        contentOffset: { y: 575 },
+        layoutMeasurement: { height: 600 },
+        contentSize: { height: 1200 },
+      },
+    });
+    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
+    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 400 } });
+    expect(onNextPost).not.toHaveBeenCalled();
+
+    // At 24px from the end, 47px is too short but the exact 48px threshold advances once.
+    fireEvent.scroll(results, {
+      nativeEvent: {
+        contentOffset: { y: 576 },
+        layoutMeasurement: { height: 600 },
+        contentSize: { height: 1200 },
+      },
+    });
+    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
+    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 453 } });
+    expect(onNextPost).not.toHaveBeenCalled();
+    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
+    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 452 } });
+    expect(onNextPost).toHaveBeenCalledTimes(1);
   });
 });

@@ -70,6 +70,32 @@ describe("useVote", () => {
     expect(result.current.myVote).toBe(true);
   });
 
+  it("blocks a second rapid vote while the first request is still in flight", async () => {
+    mockGetMine.mockResolvedValue(null);
+    let resolveCast: ((value: { id: number; postId: number; voteFor: boolean }) => void) | undefined;
+    mockCast.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCast = resolve;
+      })
+    );
+
+    const { result } = renderHook(() => useVote(7));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      void result.current.vote(true);
+      void result.current.vote(false);
+    });
+
+    expect(mockCast).toHaveBeenCalledTimes(1);
+    expect(mockCast).toHaveBeenCalledWith(7, true);
+
+    await act(async () => {
+      resolveCast?.({ id: 2, postId: 7, voteFor: true });
+    });
+    expect(result.current.myVote).toBe(true);
+  });
+
   it("treats a 409 duplicate as already-voted: reconciles to the stored stance, no error", async () => {
     mockGetMine
       .mockResolvedValueOnce(null) // mount: appears unvoted

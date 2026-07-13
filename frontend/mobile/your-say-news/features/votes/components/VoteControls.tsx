@@ -17,7 +17,7 @@ import { SentimentResultsSheet } from "./SentimentResultsSheet";
  *
  * Colours come from `constants/theme` so it matches the feed's unvoted vote row exactly.
  */
-export function VoteControls({ postId }: { postId: number }) {
+export function VoteControls({ postId, onNextPost }: { postId: number; onNextPost?: () => void }) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   const { loading, myVote, submitting, error, vote } = useVote(postId);
@@ -29,6 +29,12 @@ export function VoteControls({ postId }: { postId: number }) {
   const agree = buttonStyle("agree", myVote, e);
   const disagree = buttonStyle("disagree", myVote, e);
 
+  const handleVote = async (voteFor: boolean) => {
+    if (await vote(voteFor)) {
+      setResultsOpen(true);
+    }
+  };
+
   return (
     <View>
       <View style={styles.voteRow}>
@@ -38,7 +44,7 @@ export function VoteControls({ postId }: { postId: number }) {
           accessibilityLabel="Agree"
           accessibilityState={{ disabled, selected: myVote === true }}
           disabled={disabled}
-          onPress={() => vote(true)}
+          onPress={() => void handleVote(true)}
           style={[styles.voteBtn, { backgroundColor: agree.bg, borderColor: agree.border, opacity: agree.opacity }]}
         >
           <Ionicons name={myVote === true ? "checkmark-circle" : "thumbs-up"} size={19} color={agree.fg} />
@@ -51,7 +57,7 @@ export function VoteControls({ postId }: { postId: number }) {
           accessibilityLabel="Disagree"
           accessibilityState={{ disabled, selected: myVote === false }}
           disabled={disabled}
-          onPress={() => vote(false)}
+          onPress={() => void handleVote(false)}
           style={[styles.voteBtn, { backgroundColor: disagree.bg, borderColor: disagree.border, opacity: disagree.opacity }]}
         >
           {submitting ? (
@@ -89,6 +95,7 @@ export function VoteControls({ postId }: { postId: number }) {
         postId={postId}
         visible={resultsOpen}
         onClose={() => setResultsOpen(false)}
+        onNextPost={onNextPost}
       />
     </View>
   );

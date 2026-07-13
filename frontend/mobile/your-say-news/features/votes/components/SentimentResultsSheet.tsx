@@ -13,21 +13,30 @@ export function SentimentResultsSheet({
   postId,
   visible,
   onClose,
+  onNextPost,
 }: {
   postId: number;
   visible: boolean;
   onClose: () => void;
+  onNextPost?: () => void;
 }) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
+  const moveToNextPost = () => {
+    onClose();
+    onNextPost?.();
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={[styles.backdrop, { backgroundColor: e.mediaScrim }]} onPress={onClose}>
+      <View style={[styles.backdrop, { backgroundColor: e.mediaScrim }]}>
         <Pressable
-          style={[styles.sheet, { backgroundColor: e.bg, borderColor: e.border }]}
-          onPress={(ev) => ev.stopPropagation()}
-        >
+          accessibilityRole="button"
+          accessibilityLabel="Close voting results"
+          onPress={onClose}
+          style={styles.backdropDismiss}
+        />
+        <View style={[styles.sheet, { backgroundColor: e.bg, borderColor: e.border }]}>
           <View style={styles.header}>
             <View style={[styles.handle, { backgroundColor: e.border }]} />
             <View style={styles.headerRow}>
@@ -43,9 +52,9 @@ export function SentimentResultsSheet({
               </Pressable>
             </View>
           </View>
-          {visible && <SentimentResults postId={postId} />}
-        </Pressable>
-      </Pressable>
+          {visible && <SentimentResults postId={postId} onNextPost={onNextPost ? moveToNextPost : undefined} />}
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -55,8 +64,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  backdropDismiss: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
   sheet: {
     height: "86%",
+    zIndex: 1,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     borderWidth: 1,

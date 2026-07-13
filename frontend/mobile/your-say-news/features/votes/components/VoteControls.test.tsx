@@ -5,6 +5,7 @@ import { VoteControls } from "./VoteControls";
 import { castVote, getMyVote } from "../services/VoteService";
 
 jest.mock("../services/VoteService");
+jest.mock("./SentimentResults", () => ({ SentimentResults: () => null }));
 const mockCast = castVote as jest.Mock;
 const mockGetMine = getMyVote as jest.Mock;
 
@@ -61,9 +62,11 @@ describe("VoteControls", () => {
     expect(mockCast).not.toHaveBeenCalled();
   });
 
-  it("shows an auth message when the cast is rejected and stays votable", async () => {
+  it("shows an auth message when the cast is rejected and lets the user retry", async () => {
     mockGetMine.mockResolvedValue(null);
-    mockCast.mockRejectedValue(axiosError(401));
+    mockCast
+      .mockRejectedValueOnce(axiosError(401))
+      .mockResolvedValueOnce({ id: 1, postId: 7, voteFor: false });
 
     renderControls();
     await waitFor(() => expect(mockGetMine).toHaveBeenCalled());
@@ -73,11 +76,15 @@ describe("VoteControls", () => {
     await waitFor(() =>
       expect(screen.getByText("Please sign in again to vote.")).toBeOnTheScreen()
     );
-    // Not locked — the user can try again.
+    // Not locked — the user can try again and a successful retry opens the data.
     expect(screen.queryByText(/You voted/)).toBeNull();
+    fireEvent.press(screen.getByTestId("vote-disagree"));
+    await waitFor(() => expect(screen.getByText("You voted — Disagree")).toBeOnTheScreen());
+    expect(mockCast).toHaveBeenNthCalledWith(2, 7, false);
+    expect(screen.getByText("How others voted")).toBeOnTheScreen();
   });
 
-  it("reveals 'See how others voted' only once the vote is locked", async () => {
+  it("opens voting data automatically once the vote is recorded", async () => {
     mockGetMine.mockResolvedValue(null);
     mockCast.mockResolvedValue({ id: 1, postId: 7, voteFor: true });
 
@@ -91,6 +98,7 @@ describe("VoteControls", () => {
 
     await waitFor(() => expect(screen.getByTestId("see-results")).toBeOnTheScreen());
     expect(screen.getByText("See how others voted")).toBeOnTheScreen();
+    expect(screen.getByText("How others voted")).toBeOnTheScreen();
   });
 
   it("does not treat a 409 duplicate as an error — it locks to the stored stance", async () => {
@@ -105,6 +113,6 @@ describe("VoteControls", () => {
     fireEvent.press(screen.getByTestId("vote-disagree"));
 
     await waitFor(() => expect(screen.getByText("You voted — Agree")).toBeOnTheScreen());
-    expect(screen.queryByText(/try again/)).toBeNull();
+    expect(screen.getByText("How others voted")).toBeOnTheScreen();
   });
 });

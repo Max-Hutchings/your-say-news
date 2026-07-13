@@ -22,8 +22,8 @@ export interface VoteState {
   submitting: boolean;
   /** The last non-duplicate failure, cleared when a new cast starts; null otherwise. */
   error: VoteErrorKind | null;
-  /** Cast a vote. No-op once locked or while submitting. */
-  vote: (voteFor: boolean) => Promise<void>;
+  /** Cast a vote. Resolves true when a vote is recorded (including a duplicate reconciliation). */
+  vote: (voteFor: boolean) => Promise<boolean>;
 }
 
 function classifyError(err: unknown): VoteErrorKind {
@@ -44,6 +44,9 @@ export function useVote(postId: number): VoteState {
 
   // Guards state writes after unmount — feed cards mount/unmount as the reader swipes.
   const mounted = useRef(true);
+  // State updates do not take effect until the next render. This ref closes the gap between two
+  // rapid taps in the same render, so only the first can start a network request.
+  const submittingRef = useRef(false);
 
   // Fetch the caller's existing vote once on mount. `loading` starts true; a feed card's postId
   // is stable for its lifetime, so there's no need to reset state synchronously here.
@@ -67,12 +70,14 @@ export function useVote(postId: number): VoteState {
   const vote = useCallback(
     async (voteFor: boolean) => {
       // Locked after the first vote, and never fire two casts at once.
-      if (submitting || myVote !== null) return;
+      if (submittingRef.current || myVote !== null) return false;
+      submittingRef.current = true;
       setSubmitting(true);
       setError(null);
       try {
         const created = await castVoteRequest(postId, voteFor);
         if (mounted.current) setMyVote(created.voteFor);
+        return true;
       } catch (err) {
         const kind = classifyError(err);
         if (kind === "duplicate") {
@@ -86,10 +91,13 @@ export function useVote(postId: number): VoteState {
             // Keep the attempted stance if the reconciling lookup also fails.
           }
           if (mounted.current) setMyVote(stance);
+          return true;
         } else if (mounted.current) {
           setError(kind);
         }
+        return false;
       } finally {
+        submittingRef.current = false;
         if (mounted.current) setSubmitting(false);
       }
     },

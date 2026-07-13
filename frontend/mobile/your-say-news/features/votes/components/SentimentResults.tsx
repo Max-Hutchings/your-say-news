@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { View, Text, ScrollView, ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { Eyebrow } from "@/components/ui";
@@ -15,29 +15,68 @@ import { SentimentBars } from "./SentimentBars";
 import { SentimentTable } from "./SentimentTable";
 import { SentimentColumns } from "./SentimentColumns";
 
+const NEXT_POST_SWIPE_DISTANCE = 48;
+const BOTTOM_TOLERANCE = 24;
+
 /**
  * The results view for a post the caller has voted on: the overall agree/disagree split up top,
  * a characteristic-axis selector, and one animated bar per group in the chosen axis (largest group
  * first — the backend sorts). Explore "how do Left / 25–34 / UK voters feel about this?" — always
  * counts and percentages, never a named person.
  */
-export function SentimentResults({ postId }: { postId: number }) {
+export function SentimentResults({ postId, onNextPost }: { postId: number; onNextPost?: () => void }) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   const [axis, setAxis] = useState(SENTIMENT_AXES[0].field);
   const [view, setView] = useState<SentimentViewKey>("counts");
   const { overall, breakdown, loading, error, retry } = useSentiment(postId, axis);
+  const scrollMetrics = useRef({ offsetY: 0, viewportHeight: 0, contentHeight: 0 });
+  const touchStartY = useRef(0);
+  const swipeStartedAtBottom = useRef(false);
 
   const axisLabel = SENTIMENT_AXES.find((a) => a.field === axis)?.label ?? "";
   const caption = SENTIMENT_VIEWS.find((v) => v.key === view)?.caption ?? "";
 
   const overallBar = useMemo(() => aggregateOverall(overall), [overall]);
 
+  const isAtBottom = () => {
+    const { offsetY, viewportHeight, contentHeight } = scrollMetrics.current;
+    return contentHeight > 0 && offsetY + viewportHeight >= contentHeight - BOTTOM_TOLERANCE;
+  };
+
   return (
     <ScrollView
-      style={{ backgroundColor: e.bg }}
+      testID="sentiment-results-scroll"
+      style={[styles.scroll, { backgroundColor: e.bg }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      nestedScrollEnabled
+      scrollEventThrottle={16}
+      onLayout={(event) => {
+        scrollMetrics.current.viewportHeight = event.nativeEvent.layout.height;
+      }}
+      onContentSizeChange={(_width, height) => {
+        scrollMetrics.current.contentHeight = height;
+      }}
+      onScroll={(event) => {
+        scrollMetrics.current.offsetY = event.nativeEvent.contentOffset.y;
+        scrollMetrics.current.viewportHeight = event.nativeEvent.layoutMeasurement.height;
+        scrollMetrics.current.contentHeight = event.nativeEvent.contentSize.height;
+      }}
+      onTouchStart={(event) => {
+        touchStartY.current = event.nativeEvent.pageY;
+        swipeStartedAtBottom.current = isAtBottom();
+      }}
+      onTouchEnd={(event) => {
+        const swipedUp = touchStartY.current - event.nativeEvent.pageY >= NEXT_POST_SWIPE_DISTANCE;
+        if (onNextPost && swipeStartedAtBottom.current && swipedUp) {
+          onNextPost();
+        }
+        swipeStartedAtBottom.current = false;
+      }}
+      onTouchCancel={() => {
+        swipeStartedAtBottom.current = false;
+      }}
     >
       <Eyebrow text="How everyone voted" />
       {overallBar ? (
@@ -73,6 +112,7 @@ export function SentimentResults({ postId }: { postId: number }) {
       <View style={styles.chart}>
         {renderBreakdown({ breakdown, loading, error, retry, view, axisLabel, caption, e })}
       </View>
+
     </ScrollView>
   );
 }
@@ -185,6 +225,9 @@ function aggregateOverall(overall: SentimentBreakdown | null): BucketSentiment |
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+  },
   content: {
     padding: 20,
     gap: 12,
