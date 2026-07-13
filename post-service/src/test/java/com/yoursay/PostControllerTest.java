@@ -74,16 +74,16 @@ public class PostControllerTest {
                 .thenReturn(get);
     }
 
-    private static String createBody(String title, String summary, String question) {
+    private static String createBody(String summary, String question) {
         return """
-                { "title": "%s", "summary": "%s", "supportQuestion": "%s",
+                { "summary": "%s", "supportQuestion": "%s",
                   "media": [] }
-                """.formatted(title, summary, question);
+                """.formatted(summary, question);
     }
 
-    private static int createPost(String title) {
+    private static int createPost(String question) {
         return given().contentType("application/json")
-                .body(createBody(title, "s", "q"))
+                .body(createBody("Article context for the vote.", question))
                 .when().post("/posts")
                 .then().statusCode(201)
                 .extract().path("id");
@@ -184,7 +184,7 @@ public class PostControllerTest {
         String posterKey = presignKey("IMAGE", "image/jpeg");
 
         String body = """
-                { "title": "Headline", "summary": "Body summary", "supportQuestion": "Do you agree?",
+                { "summary": "Body summary", "supportQuestion": "Should large platforms be accountable?",
                   "caseFor": "Reach means responsibility.", "caseAgainst": "Scale makes it unenforceable.",
                   "media": [
                     { "mediaType": "IMAGE", "s3Key": "%s", "contentType": "image/jpeg",
@@ -201,9 +201,9 @@ public class PostControllerTest {
                 .then()
                 .statusCode(201)
                 .body("userId", is((int) AUTHOR_ID))
-                .body("title", is("Headline"))
+                .body("$", not(hasKey("title")))
                 .body("summary", is("Body summary"))
-                .body("supportQuestion", is("Do you agree?"))
+                .body("supportQuestion", is("Should large platforms be accountable?"))
                 .body("caseFor", is("Reach means responsibility."))
                 .body("caseAgainst", is("Scale makes it unenforceable."))
                 .body("isUnbiased", is(false))
@@ -230,9 +230,9 @@ public class PostControllerTest {
                 .statusCode(200)
                 .body("id", is(id))
                 .body("userId", is((int) AUTHOR_ID))
-                .body("title", is("Headline"))
+                .body("$", not(hasKey("title")))
                 .body("summary", is("Body summary"))
-                .body("supportQuestion", is("Do you agree?"))
+                .body("supportQuestion", is("Should large platforms be accountable?"))
                 .body("isUnbiased", is(false))
                 .body("createdAt", notNullValue())
                 // order survives the round trip: IMAGE before VIDEO
@@ -252,8 +252,8 @@ public class PostControllerTest {
     public void createIgnoresUserIdAndIsUnbiasedInBody() {
         // Body tries to spoof a different author and force the unbiased badge — both must be ignored.
         String json = """
-                { "userId": 999, "isUnbiased": true, "title": "Spoof",
-                  "summary": "Trying to spoof", "supportQuestion": "Really?", "media": [] }
+                { "userId": 999, "isUnbiased": true,
+                  "summary": "Trying to spoof", "supportQuestion": "Should this be trusted?", "media": [] }
                 """;
 
         given()
@@ -276,8 +276,8 @@ public class PostControllerTest {
 
     @Test
     public void listByAuthorReturnsOnlyThatAuthorsPosts() {
-        int earlier = createPost("First by author");
-        int later = createPost("Second by author");
+        int earlier = createPost("Should the first proposal pass?");
+        int later = createPost("Should the second proposal pass?");
 
         given()
                 .when().get("/posts/user/" + AUTHOR_ID)
@@ -288,8 +288,9 @@ public class PostControllerTest {
                 // both this test's posts are present...
                 .body("id", hasItems(earlier, later))
                 // ...newest of the two ordered before the older (relative order, collision-safe)
-                .body("findAll { it.title == 'First by author' || it.title == 'Second by author' }.title",
-                        contains("Second by author", "First by author"));
+                .body("findAll { it.supportQuestion == 'Should the first proposal pass?' || "
+                                + "it.supportQuestion == 'Should the second proposal pass?' }.supportQuestion",
+                        contains("Should the second proposal pass?", "Should the first proposal pass?"));
     }
 
     @Test
@@ -315,7 +316,7 @@ public class PostControllerTest {
         given()
                 .header("Authorization", "Bearer test-jwt-123")
                 .contentType("application/json")
-                .body(createBody("Auth header forwarded", "s", "q"))
+                .body(createBody("Context for an authenticated post.", "Should this request be published?"))
                 .when().post("/posts")
                 .then()
                 .statusCode(201);
@@ -332,7 +333,7 @@ public class PostControllerTest {
 
         given()
                 .contentType("application/json")
-                .body(createBody("Orphan", "s", "q"))
+                .body(createBody("Context from an unknown author.", "Should this orphan post exist?"))
                 .when().post("/posts")
                 .then()
                 .statusCode(401);
@@ -342,27 +343,29 @@ public class PostControllerTest {
     public void createRejectsBlankRequiredFields() {
         given()
                 .contentType("application/json")
-                .body("{ \"title\": \"  \", \"summary\": \"\", \"supportQuestion\": \"  \", \"media\": [] }")
+                .body("{ \"summary\": \"\", \"supportQuestion\": \"  \", \"media\": [] }")
                 .when().post("/posts")
                 .then()
                 .statusCode(400);
     }
 
     @Test
-    public void createRejectsBlankTitleOnly() {
+    public void createDoesNotRequireALegacyTitle() {
         given()
                 .contentType("application/json")
-                .body("{ \"title\": \"  \", \"summary\": \"A summary\", \"supportQuestion\": \"Do you agree?\", \"media\": [] }")
+                .body("{ \"summary\": \"A complete summary.\", \"supportQuestion\": \"Should this be published?\", \"media\": [] }")
                 .when().post("/posts")
                 .then()
-                .statusCode(400);
+                .statusCode(201)
+                .body("$", not(hasKey("title")))
+                .body("supportQuestion", is("Should this be published?"));
     }
 
     @Test
     public void createRejectsBlankSummaryOnly() {
         given()
                 .contentType("application/json")
-                .body("{ \"title\": \"A headline\", \"summary\": \"  \", \"supportQuestion\": \"Do you agree?\", \"media\": [] }")
+                .body("{ \"summary\": \"  \", \"supportQuestion\": \"Should this be published?\", \"media\": [] }")
                 .when().post("/posts")
                 .then()
                 .statusCode(400);
@@ -372,7 +375,7 @@ public class PostControllerTest {
     public void createRejectsBlankSupportQuestionOnly() {
         given()
                 .contentType("application/json")
-                .body("{ \"title\": \"A headline\", \"summary\": \"A summary\", \"supportQuestion\": \"  \", \"media\": [] }")
+                .body("{ \"summary\": \"A summary\", \"supportQuestion\": \"  \", \"media\": [] }")
                 .when().post("/posts")
                 .then()
                 .statusCode(400);
@@ -383,8 +386,8 @@ public class PostControllerTest {
         given()
                 .contentType("application/json")
                 .body("""
-                        { "title": "A headline", "summary": "A summary",
-                          "supportQuestion": "Do you agree?", "media": [null] }
+                        { "summary": "A summary",
+                          "supportQuestion": "Should this be published?", "media": [null] }
                         """)
                 .when().post("/posts")
                 .then()
@@ -396,8 +399,8 @@ public class PostControllerTest {
         given()
                 .contentType("application/json")
                 .body("""
-                        { "title": "A headline", "summary": "A summary",
-                          "supportQuestion": "Do you agree?",
+                        { "summary": "A summary",
+                          "supportQuestion": "Should this be published?",
                           "media": [
                             { "mediaType": "IMAGE", "contentType": "image/jpeg", "posterS3Key": null }
                           ] }
@@ -412,8 +415,8 @@ public class PostControllerTest {
         given()
                 .contentType("application/json")
                 .body("""
-                        { "title": "A headline", "summary": "A summary",
-                          "supportQuestion": "Do you agree?",
+                        { "summary": "A summary",
+                          "supportQuestion": "Should this be published?",
                           "media": [
                             { "mediaType": "IMAGE", "s3Key": "posts/missing-content-type.jpg",
                               "posterS3Key": null }
@@ -427,16 +430,16 @@ public class PostControllerTest {
     @Test
     public void createRejectsMediaKeyThatWasNotPresignedForTheAuthor() {
         String key = "posts/other-user-" + UUID.randomUUID() + ".jpg";
-        String title = "Rejected other user media " + UUID.randomUUID();
+        String question = "Should rejected media be published " + UUID.randomUUID() + "?";
         insertUpload(OTHER_AUTHOR_ID, MediaType.IMAGE, key, "image/jpeg", Instant.now().plusSeconds(900));
 
         String json = """
-                { "title": "%s", "summary": "A summary", "supportQuestion": "Do you agree?",
+                { "summary": "A summary", "supportQuestion": "%s",
                   "media": [
                     { "mediaType": "IMAGE", "s3Key": "%s",
                       "contentType": "image/jpeg", "posterS3Key": null }
                   ] }
-                """.formatted(title, key);
+                """.formatted(question, key);
 
         given()
                 .contentType("application/json")
@@ -449,14 +452,14 @@ public class PostControllerTest {
                 .when().get("/posts/user/" + AUTHOR_ID)
                 .then()
                 .statusCode(200)
-                .body("title", not(hasItem(title)));
+                .body("supportQuestion", not(hasItem(question)));
     }
 
     @Test
     public void createRejectsMismatchedMediaContentType() {
         String key = presignKey("IMAGE", "image/jpeg");
         String json = """
-                { "title": "Wrong content type", "summary": "A summary", "supportQuestion": "Do you agree?",
+                { "summary": "A summary", "supportQuestion": "Should this image be published?",
                   "media": [
                     { "mediaType": "IMAGE", "s3Key": "%s",
                       "contentType": "image/png", "posterS3Key": null }
@@ -475,7 +478,7 @@ public class PostControllerTest {
     public void createRejectsMismatchedMediaReservationType() {
         String key = presignKey("IMAGE", "image/jpeg");
         String json = """
-                { "title": "Wrong media type", "summary": "A summary", "supportQuestion": "Do you agree?",
+                { "summary": "A summary", "supportQuestion": "Should this video be published?",
                   "media": [
                     { "mediaType": "VIDEO", "s3Key": "%s",
                       "contentType": "video/mp4", "posterS3Key": null }
@@ -497,7 +500,7 @@ public class PostControllerTest {
         insertUpload(OTHER_AUTHOR_ID, MediaType.IMAGE, posterKey, "image/jpeg", Instant.now().plusSeconds(900));
 
         String json = """
-                { "title": "Bad poster", "summary": "A summary", "supportQuestion": "Do you agree?",
+                { "summary": "A summary", "supportQuestion": "Should this video be published?",
                   "media": [
                     { "mediaType": "VIDEO", "s3Key": "%s",
                       "contentType": "video/mp4", "posterS3Key": "%s" }
@@ -516,7 +519,7 @@ public class PostControllerTest {
     public void createRejectsDuplicateMediaKeysInOneRequest() {
         String key = presignKey("IMAGE", "image/jpeg");
         String json = """
-                { "title": "Duplicate keys", "summary": "A summary", "supportQuestion": "Do you agree?",
+                { "summary": "A summary", "supportQuestion": "Should these images be published?",
                   "media": [
                     { "mediaType": "IMAGE", "s3Key": "%s",
                       "contentType": "image/jpeg", "posterS3Key": null },
@@ -538,7 +541,7 @@ public class PostControllerTest {
         String key = "posts/expired-" + UUID.randomUUID() + ".jpg";
         insertUpload(AUTHOR_ID, MediaType.IMAGE, key, "image/jpeg", Instant.now().minusSeconds(1));
         String json = """
-                { "title": "Expired media", "summary": "A summary", "supportQuestion": "Do you agree?",
+                { "summary": "A summary", "supportQuestion": "Should this expired image be published?",
                   "media": [
                     { "mediaType": "IMAGE", "s3Key": "%s",
                       "contentType": "image/jpeg", "posterS3Key": null }
@@ -571,8 +574,8 @@ public class PostControllerTest {
         given()
                 .contentType("application/json")
                 .body("""
-                        { "title": "Too much media", "summary": "A summary",
-                          "supportQuestion": "Do you agree?", "media": %s }
+                        { "summary": "A summary",
+                          "supportQuestion": "Should all these images be published?", "media": %s }
                         """.formatted(media))
                 .when().post("/posts")
                 .then()
@@ -583,7 +586,7 @@ public class PostControllerTest {
     public void createRejectsReusedMediaKey() {
         String key = presignKey("IMAGE", "image/jpeg");
         String json = """
-                { "title": "First use", "summary": "A summary", "supportQuestion": "Do you agree?",
+                { "summary": "A summary", "supportQuestion": "Should this first use be published?",
                   "media": [
                     { "mediaType": "IMAGE", "s3Key": "%s",
                       "contentType": "image/jpeg", "posterS3Key": null }
@@ -594,7 +597,7 @@ public class PostControllerTest {
                 .when().post("/posts")
                 .then().statusCode(201);
 
-        given().contentType("application/json").body(json.replace("First use", "Second use"))
+        given().contentType("application/json").body(json.replace("first use", "second use"))
                 .when().post("/posts")
                 .then().statusCode(400);
     }

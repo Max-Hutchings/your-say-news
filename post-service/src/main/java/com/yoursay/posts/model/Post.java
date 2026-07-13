@@ -18,9 +18,6 @@ public class Post extends PanacheEntityBase {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "title", nullable = false)
-    private String title;
-
     @Column(name = "summary", nullable = false, columnDefinition = "text")
     private String summary;
 
@@ -51,9 +48,8 @@ public class Post extends PanacheEntityBase {
     public Post() {
     }
 
-    public Post(Long userId, String title, String summary, String supportQuestion, boolean isUnbiased) {
+    public Post(Long userId, String summary, String supportQuestion, boolean isUnbiased) {
         this.userId = userId;
-        this.title = title;
         this.summary = summary;
         this.supportQuestion = supportQuestion;
         this.isUnbiased = isUnbiased;
@@ -92,14 +88,6 @@ public class Post extends PanacheEntityBase {
 
     public void setUserId(Long userId) {
         this.userId = userId;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
     }
 
     public String getSummary() {

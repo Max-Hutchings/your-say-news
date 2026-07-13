@@ -16,7 +16,6 @@
         <insert tableName="post">
             <column name="id" value="1007"/>
             <column name="user_id" value="1"/>
-            <column name="title" value="The busker who turned a subway corner into a concert hall"/>
             <column name="summary" value="Every evening at six, the tiled corner where two tunnels meet fills with the sound of a cello. Commuters who normally never break stride stop, set down their bags, and stay.&#10;&#10;He has played the same spot for three years, and the acoustics — an accident of curved tile and low ceiling — have made it a small institution. Regulars know the routine; strangers film it and leave more than they meant to.&#10;&#10;The transport authority once tried to move him on. A petition with four thousand names changed their mind, and now there is a small brass plaque on the wall marking the spot as an official pitch."/>
             <column name="support_question" value="Should cities protect established street-performance spots?"/>
             <column name="case_for" value="Great pitches build culture and community that's worth safeguarding."/>
@@ -30,7 +29,6 @@
         <insert tableName="post">
             <column name="id" value="1008"/>
             <column name="user_id" value="1"/>
-            <column name="title" value="Sixty seconds with the dawn swimmers who never miss a day"/>
             <column name="summary" value="It is four degrees and barely light, and a dozen people are wading into the harbour as if it were the most natural thing in the world. Some have done this every morning for a decade.&#10;&#10;They talk about it less as exercise than as medicine — for anxiety, for grief, for the flat grey months. The science on cold water is still thin, but the group is not waiting for a trial to tell them how they feel.&#10;&#10;What started as three friends is now a roster of eighty, with a rule that has never been written down but everyone obeys: whoever gets there first waits for whoever comes last."/>
             <column name="support_question" value="Should councils provide safe open-water swimming spots?"/>
             <column name="case_for" value="Safe access spreads a proven boost to physical and mental health."/>

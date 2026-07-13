@@ -84,7 +84,7 @@ public class PostServiceImpl implements PostService {
                     }
                     return validation.chain(() -> {
                         // Author from the token; body userId (if any) and isUnbiased are ignored/forced.
-                        Post post = new Post(author.id(), request.title().trim(), request.summary().trim(),
+                        Post post = new Post(author.id(), request.summary().trim(),
                                 request.supportQuestion().trim(), false);
                         post.setCaseFor(emptyToNull(request.caseFor()));
                         post.setCaseAgainst(emptyToNull(request.caseAgainst()));
@@ -132,7 +132,6 @@ public class PostServiceImpl implements PostService {
         return new PostDto(
                 post.getId(),
                 post.getUserId(),
-                post.getTitle(),
                 post.getSummary(),
                 post.getSupportQuestion(),
                 post.getCaseFor(),

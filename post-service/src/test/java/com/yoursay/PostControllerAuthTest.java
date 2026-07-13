@@ -60,7 +60,7 @@ public class PostControllerAuthTest {
     public void createRejectsAnonymousCaller() {
         given()
                 .contentType("application/json")
-                .body("{ \"title\": \"x\", \"summary\": \"y\", \"supportQuestion\": \"z\", \"media\": [] }")
+                .body("{ \"summary\": \"A concise article.\", \"supportQuestion\": \"Should this happen?\", \"media\": [] }")
                 .when().post("/posts")
                 .then()
                 .statusCode(401);
@@ -73,7 +73,7 @@ public class PostControllerAuthTest {
     public void createRejectsAuthenticatedCallerWithoutUserRole() {
         given()
                 .contentType("application/json")
-                .body("{ \"title\": \"x\", \"summary\": \"y\", \"supportQuestion\": \"z\", \"media\": [] }")
+                .body("{ \"summary\": \"A concise article.\", \"supportQuestion\": \"Should this happen?\", \"media\": [] }")
                 .when().post("/posts")
                 .then()
                 .statusCode(403);

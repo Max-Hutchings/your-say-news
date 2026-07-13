@@ -20,7 +20,6 @@ const mockLaunch = ImagePicker.launchImageLibraryAsync as jest.Mock;
 const imageAsset = (uri: string) => ({ uri, type: "image", mimeType: "image/png", width: 1200, height: 800 });
 
 const validFields = {
-  title: "Headline",
   summary: "A summary",
   supportQuestion: "Do you agree?",
 };
@@ -36,12 +35,11 @@ describe("useCreatePost validation", () => {
 
     let created;
     await act(async () => {
-      created = await result.current.submit({ title: "  ", summary: "", supportQuestion: "  " });
+      created = await result.current.submit({ summary: "", supportQuestion: "  " });
     });
 
     expect(created).toBeNull();
     expect(result.current.fieldErrors).toEqual({
-      title: "Add a headline.",
       summary: "Add a summary.",
       supportQuestion: "Add a support question.",
     });
@@ -69,7 +67,6 @@ describe("useCreatePost submit", () => {
     let created;
     await act(async () => {
       created = await result.current.submit({
-        title: "  Headline  ",
         summary: "  A summary ",
         supportQuestion: " Do you agree? ",
       });
@@ -77,7 +74,6 @@ describe("useCreatePost submit", () => {
 
     expect(mockUpload).not.toHaveBeenCalled();
     expect(mockCreate).toHaveBeenCalledWith({
-      title: "Headline",
       summary: "A summary",
       supportQuestion: "Do you agree?",
       media: [],
@@ -126,7 +122,6 @@ describe("useCreatePost submit", () => {
     expect(mockUpload).toHaveBeenCalledTimes(2);
     expect(mockUpload).toHaveBeenNthCalledWith(1, result.current.picked[0], expect.any(Function));
     expect(mockCreate).toHaveBeenCalledWith({
-      title: "Headline",
       summary: "A summary",
       supportQuestion: "Do you agree?",
       media: [

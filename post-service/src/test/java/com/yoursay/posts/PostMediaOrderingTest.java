@@ -16,7 +16,7 @@ class PostMediaOrderingTest {
 
     @Test
     void addMediaAssignsAscendingOrdinalsAndBackReference() {
-        Post post = new Post(7L, "Title", "Summary", "Do you agree?", false);
+        Post post = new Post(7L, "Summary", "Do you agree?", false);
 
         // Deliberately pass descending/wrong constructor ordinals so the test proves addMedia
         // OVERWRITES them with the insertion index (not that the constructor value happened to fit).

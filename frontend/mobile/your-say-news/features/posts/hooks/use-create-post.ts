@@ -18,17 +18,15 @@ import type { CreatePostMedia, MediaType, Post } from "../types";
 export const MAX_IMAGES = 5;
 
 export interface CreatePostFields {
-  title: string;
   summary: string;
   supportQuestion: string;
 }
 
-/** Trimmed-empty checks for the three required fields; keys with errors map to a message. */
+/** Trimmed-empty checks for the two required fields; keys with errors map to a message. */
 export type CreatePostErrors = Partial<Record<keyof CreatePostFields, string>>;
 
 function validate(fields: CreatePostFields): CreatePostErrors {
   const errors: CreatePostErrors = {};
-  if (!fields.title.trim()) errors.title = "Add a headline.";
   if (!fields.summary.trim()) errors.summary = "Add a summary.";
   if (!fields.supportQuestion.trim()) errors.supportQuestion = "Add a support question.";
   return errors;
@@ -134,7 +132,6 @@ export function useCreatePost() {
           // `uploaded` already carries mediaType/orientation/s3Key/contentType.
         }
         return await createPost({
-          title: fields.title.trim(),
           summary: fields.summary.trim(),
           supportQuestion: fields.supportQuestion.trim(),
           media,

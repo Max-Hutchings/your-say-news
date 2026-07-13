@@ -10,7 +10,6 @@ import java.util.List;
 public record PostDto(
         Long id,
         Long userId,
-        String title,
         String summary,
         String supportQuestion,
         String caseFor,

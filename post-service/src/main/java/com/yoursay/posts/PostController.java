@@ -42,7 +42,7 @@ public class PostController {
     public Uni<PostDto> createPost(@Valid @NotNull CreatePostRequest request,
                                    @HeaderParam("Authorization") String authorization) {
         String email = securityIdentity.getPrincipal().getName();
-        Log.infof("Endpoint Called: createPost - %s by %s", request.title(), email);
+        Log.infof("Endpoint Called: createPost - %s by %s", request.supportQuestion(), email);
         // Forward the caller's bearer so the role-gated user-service lookup authorises (resolves the
         // author id behind this email). The token only travels service-to-service, never onto the post.
         return postService.create(email, authorization, request);

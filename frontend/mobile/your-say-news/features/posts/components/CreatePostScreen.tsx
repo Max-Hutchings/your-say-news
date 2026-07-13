@@ -21,13 +21,13 @@ import { PepperCompose } from "./PepperCompose";
 /**
  * The create-post experience in the editorial design language (design handoff).
  * A compose header, a Manual / Pepper AI mode switch, then either the manual
- * form — headline (serif), summary, the support question inverted onto ink, and
+ * form — the support question as its primary heading, summary, and
  * an optional media well — or the Pepper AI template. Orchestration for the
  * manual path lives in useCreatePost; Pepper is a template only (no wiring yet).
  */
 
-const HEADLINE_MAX = 120;
 const SUMMARY_MAX = 2000;
+const SUPPORT_QUESTION_MAX = 512;
 
 export function CreatePostScreen() {
   const router = useRouter();
@@ -37,12 +37,11 @@ export function CreatePostScreen() {
     useCreatePost();
 
   const [mode, setMode] = useState<ComposeMode>("manual");
-  const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [supportQuestion, setSupportQuestion] = useState("");
 
   const handlePublish = async () => {
-    const created = await submit({ title, summary, supportQuestion });
+    const created = await submit({ summary, supportQuestion });
     if (created) router.back();
   };
 
@@ -66,26 +65,42 @@ export function CreatePostScreen() {
             <PepperCompose />
           ) : (
             <>
-              {/* HEADLINE */}
+              {/* SUPPORT QUESTION — the post's title, inverted onto ink */}
               <View style={styles.labelRow}>
-                <Eyebrow text="HEADLINE" />
+                <Eyebrow text="SUPPORT QUESTION" />
                 <Text style={[styles.count, { color: e.chipText }]}>
-                  {title.length} / {HEADLINE_MAX}
+                  {supportQuestion.length} / {SUPPORT_QUESTION_MAX}
                 </Text>
               </View>
-              <View style={[styles.field, { backgroundColor: e.surface, borderColor: e.border }]}>
-                <TextInput
-                  value={title}
-                  onChangeText={setTitle}
-                  maxLength={HEADLINE_MAX}
-                  placeholder="Schools are banning phones. Grades are climbing."
-                  placeholderTextColor={e.muted}
-                  multiline
-                  style={[styles.headlineInput, { color: e.ink }]}
-                />
+              <View style={[styles.supportBlock, { backgroundColor: e.inkBlock }]}>
+                <View style={styles.quoteRow}>
+                  <Text style={[styles.quoteMark, { color: e.lime }]}>{"“"}</Text>
+                  <TextInput
+                    value={supportQuestion}
+                    onChangeText={setSupportQuestion}
+                    maxLength={SUPPORT_QUESTION_MAX}
+                    placeholder="Should phones be banned in schools during class hours?"
+                    placeholderTextColor={e.onInkBlockMuted}
+                    multiline
+                    style={[styles.supportInput, { color: e.onInkBlock }]}
+                  />
+                </View>
+                <View style={styles.voteRow}>
+                  <View style={[styles.votePill, { borderColor: e.agreePreviewBorder }]}>
+                    <Text style={[styles.votePillText, { color: e.agreePreview }]}>AGREE</Text>
+                  </View>
+                  <View style={[styles.votePill, { borderColor: e.disagreePreviewBorder }]}>
+                    <Text style={[styles.votePillText, { color: e.disagreePreview }]}>DISAGREE</Text>
+                  </View>
+                </View>
+                <Text style={[styles.supportHelp, { color: e.onInkBlockMuted }]}>
+                  This becomes the post title. Make it clear and answerable with Agree or Disagree.
+                </Text>
               </View>
-              {fieldErrors.title && (
-                <Text style={[styles.fieldError, { color: e.coral }]}>{fieldErrors.title}</Text>
+              {fieldErrors.supportQuestion && (
+                <Text style={[styles.fieldError, { color: e.coral }]}>
+                  {fieldErrors.supportQuestion}
+                </Text>
               )}
 
               {/* SUMMARY */}
@@ -108,38 +123,6 @@ export function CreatePostScreen() {
               </View>
               {fieldErrors.summary && (
                 <Text style={[styles.fieldError, { color: e.coral }]}>{fieldErrors.summary}</Text>
-              )}
-
-              {/* SUPPORT QUESTION — inverted onto ink */}
-              <Eyebrow text="SUPPORT QUESTION" style={styles.blockLabel} />
-              <View style={[styles.supportBlock, { backgroundColor: e.inkBlock }]}>
-                <View style={styles.quoteRow}>
-                  <Text style={[styles.quoteMark, { color: e.lime }]}>{"“"}</Text>
-                  <TextInput
-                    value={supportQuestion}
-                    onChangeText={setSupportQuestion}
-                    placeholder="Phones should be banned in all schools during class hours."
-                    placeholderTextColor={e.onInkBlockMuted}
-                    multiline
-                    style={[styles.supportInput, { color: e.onInkBlock }]}
-                  />
-                </View>
-                <View style={styles.voteRow}>
-                  <View style={[styles.votePill, { borderColor: e.agreePreviewBorder }]}>
-                    <Text style={[styles.votePillText, { color: e.agreePreview }]}>AGREE</Text>
-                  </View>
-                  <View style={[styles.votePill, { borderColor: e.disagreePreviewBorder }]}>
-                    <Text style={[styles.votePillText, { color: e.disagreePreview }]}>DISAGREE</Text>
-                  </View>
-                </View>
-                <Text style={[styles.supportHelp, { color: e.onInkBlockMuted }]}>
-                  Readers vote once. Phrase it as a clear yes/no motion.
-                </Text>
-              </View>
-              {fieldErrors.supportQuestion && (
-                <Text style={[styles.fieldError, { color: e.coral }]}>
-                  {fieldErrors.supportQuestion}
-                </Text>
               )}
 
               {/* MEDIA */}
@@ -181,10 +164,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 7,
   },
-  blockLabel: {
-    marginTop: 16,
-    marginBottom: 7,
-  },
   count: {
     fontFamily: EditorialFont.mono,
     fontSize: 10,
@@ -195,12 +174,6 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     paddingHorizontal: 14,
     paddingVertical: 12,
-  },
-  headlineInput: {
-    fontFamily: EditorialFont.serifRegular,
-    fontSize: 20,
-    lineHeight: 23,
-    padding: 0,
   },
   summaryInput: {
     fontFamily: EditorialFont.sans,
@@ -228,10 +201,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: EditorialFont.serifItalic,
     fontStyle: "italic",
-    fontSize: 16.5,
-    lineHeight: 22,
+    fontSize: 20,
+    lineHeight: 26,
     padding: 0,
-    minHeight: 44,
+    minHeight: 58,
     textAlignVertical: "top",
   },
   voteRow: {

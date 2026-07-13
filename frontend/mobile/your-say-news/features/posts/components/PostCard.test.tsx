@@ -47,7 +47,6 @@ function renderWithTheme(ui: React.ReactElement) {
 const basePost: Post = {
   id: 7,
   userId: 3,
-  title: "Council approves the new cycle lane",
   summary:
     "The plan adds two miles of protected lane through the city centre.\n\nSupporters call it overdue; drivers worry about the lost road space.",
   supportQuestion: "Do you agree the cycle lane should go ahead?",

@@ -33,13 +33,12 @@ export interface PostMedia {
 export interface Post {
   id: number;
   userId: number;
-  title: string;
   summary: string;
   supportQuestion: string;
   /** Optional one-line arguments shown as the "case for" / "case against" cards. */
   caseFor: string | null;
   caseAgainst: string | null;
-  /** Only the Stage 6 agent sets this true; it drives the unbiased badge. */
+  /** Only the Stage 7 agent sets this true; it drives the unbiased badge. */
   isUnbiased: boolean;
   createdAt: string;
   media: PostMedia[];
@@ -59,7 +58,6 @@ export interface CreatePostMedia {
 
 /** The body for `POST /posts`. The author is taken from the token, never the body. */
 export interface CreatePostInput {
-  title: string;
   summary: string;
   supportQuestion: string;
   media: CreatePostMedia[];

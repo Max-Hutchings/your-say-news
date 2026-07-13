@@ -17,7 +17,6 @@
         <insert tableName="post">
             <column name="id" value="1005"/>
             <column name="user_id" value="1"/>
-            <column name="title" value="The teenager quietly mapping every tree in her city"/>
             <column name="summary" value="Most weekends, sixteen-year-old Amara walks a different postcode with a phone in one hand and a tape measure in the other. Two years in, she has logged more than eleven thousand trees — species, height, health — into an open map anyone can use.&#10;&#10;It started as a school project and became something the council now quietly relies on. When a developer applies to fell a row of limes, residents cite her data; when a heatwave hits, planners can see exactly which streets have no shade at all.&#10;&#10;She is careful to say she is not an expert, just stubborn. But her map has already changed three planning decisions, and a dozen other teenagers in other cities have asked her how to start their own."/>
             <column name="support_question" value="Should councils be required to publish an open tree map?"/>
             <column name="case_for" value="Public data lets residents challenge felling and target shade where it's needed."/>
@@ -31,7 +30,6 @@
         <insert tableName="post">
             <column name="id" value="1006"/>
             <column name="user_id" value="1"/>
-            <column name="title" value="One minute inside the vertical farm feeding a tower block"/>
             <column name="summary" value="On the ground floor of a 1970s tower, a disused storage room now grows salad. Stacked trays climb from floor to ceiling under pink light, fed by water that recirculates and uses a fraction of what a field would drink.&#10;&#10;The residents' co-op that runs it says the harvest already covers the building's communal kitchen and a small stall out front. No lorries, no packaging, no supermarket markup — just leaves cut the morning they are eaten.&#10;&#10;Critics point out the electricity bill for all that light, and question whether it could ever scale beyond a novelty. The growers counter that the point was never scale — it was showing a block of flats it could feed itself."/>
             <column name="support_question" value="Should councils fund vertical farms in social housing?"/>
             <column name="case_for" value="Fresh food on-site with no lorries, packaging or supermarket markup."/>

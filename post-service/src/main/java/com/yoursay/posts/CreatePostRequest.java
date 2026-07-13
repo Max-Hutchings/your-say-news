@@ -9,12 +9,9 @@ import java.util.List;
 
 /**
  * Body for creating a post. The author is derived from the authenticated token, never this body,
- * and {@code isUnbiased} is always forced false on create (only the Stage 6 agent sets it).
+ * and {@code isUnbiased} is always forced false on create (only the Stage 7 agent sets it).
  */
 public record CreatePostRequest(
-        @NotBlank
-        @Size(max = 255)
-        String title,
         @NotBlank
         @Size(max = 4000)
         String summary,
