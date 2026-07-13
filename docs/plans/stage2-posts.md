@@ -15,7 +15,7 @@ against the shared contract below. The contract is fixed here so the two streams
   `user-service` (`GET /your-say-user/email/{email}`), preserving the PII boundary. A create body
   that carries `userId` is ignored.
 - **`isUnbiased` always `false` here.** The column/flag exists and renders a badge when true, but
-  only the Stage 6 agent sets it.
+  only the Stage 7 agent sets it.
 - **Model build-out.** This is the stage that builds `posts` out, so we migrate the scaffold to the
   real shape (rename `description`→`summary`, drop single `image_url` in favour of a `post_media`
   table, replace `posted_date` with `created_at`/`updated_at`) rather than bolting on.

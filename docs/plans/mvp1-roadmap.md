@@ -9,8 +9,8 @@ These were decided up front and shape the stages below:
 
 | Area | MVP1 decision | Notes / fast-follow |
 | --- | --- | --- |
-| Recommendation feed | **Chronological + follows** (reverse-chron, boost followed accounts). Real rec engine is post-MVP1. | Feed code structured behind an interface so the ranker can be swapped. |
-| Unbiased Post agent | **LLM + live web search** — Claude with a web-search/fetch tool pulls real sources at creation time, then synthesises summary + both sides + support question. | Sources always linked. Latency handled async (see Stage 6). |
+| Recommendation feed | **Chronological + follows + topic signals** (reverse-chron, boost followed accounts, capture up to seven declared interests plus author-selected/inferred post topics). A full behavioural rec engine is post-MVP1. | Feed code structured behind an interface so topic weighting can be added without replacing feed assembly or post storage. |
+| Unbiased Post agent | **LLM + live web search** — Claude with a web-search/fetch tool pulls real sources at creation time, then synthesises summary + both sides + support question. | Sources always linked. Latency handled async (see Stage 7). |
 | Post media | **Images + video** via the existing S3/LocalStack setup. | Video needs an upload + (basic) transcode/poster path. |
 | Privacy guard | **Aggregate-only, no minimum bucket threshold** for MVP1. | ⚠️ Re-identification risk on tiny buckets. Aggregation layer built so a `k`-anonymity threshold is a single config flip — **top privacy fast-follow.** |
 
@@ -31,16 +31,16 @@ The core PII boundary is already modelled correctly: `CharacteristicAnswers` car
 Lock the cross-cutting pieces every later stage depends on, so we don't rework them.
 
 - **Privacy aggregation contract.** Define the DTO shape for "sentiment by characteristic" (vote tallies + percentages per characteristic bucket, never per-user rows). Build the query/aggregation layer behind an interface with a `suppressBelow=k` config (default `k=0` for MVP1, flip later). This is the single most important contract — get it right once.
-- **Feed contract.** A `FeedRanker` interface returning post IDs for a user; MVP1 implementation = chronological + follow-boost. Keeps the real rec engine a drop-in later.
+- **Feed contract.** A `FeedRanker` interface returning post IDs for a user; MVP1 implementation = chronological + follow-boost, with topic/theme signals available once Stage 6 lands. Keeps the real rec engine a drop-in later.
 - **Service map (decided).** Three services, with clean DDD domains *inside* each. A low service count is cheaper to run and reason about; because every domain is a top-level package touched only through its controllers/interfaces/DTOs, extracting one into its own service later is a near-mechanical package move, not a rewrite. So we keep boundaries strict at the **domain** level and pay for extra services only when something actually needs to scale or deploy independently:
 
   | Service | Port | Domains it owns |
   | --- | --- | --- |
   | `user-service` | 8081 | `user` (Identity/PII, public profile), `usercharacteristic`, `social` (follow graph) |
-  | `post-service` | 8082 | `posts` (create/view), `votes` (**votes + by-characteristic sentiment aggregation** — the privacy core), `feed` (**recommendation algorithm**, feed assembly/return) |
+  | `post-service` | 8082 | `posts` (create/view), `votes` (**votes + by-characteristic sentiment aggregation** — the privacy core), `feed` (**recommendation algorithm**, feed assembly/return), `topics` (controlled taxonomy, classification, private interests and moderation) |
   | `agent-service` | new | `agent` — Unbiased-post creation (LLM + live web search) |
 
-  **Why this split.** `votes` + aggregation stay in `post-service` next to the content they vote on; the privacy boundary is enforced at the **domain** layer (each vote carries a **characteristic snapshot**, so aggregation never query-time cross-joins into `user-service`), not by a service hop. `feed` is a read/orchestration domain in the same service as `posts`: it ranks local post content and calls `user-service` for the `social` follow graph (and later `votes`/`user-service` for ranking signals), so the rec engine swaps in behind `FeedRanker` without touching anyone else. `social` (follows) sits with `user` because a follow is a user-to-user relationship and pairs with the public profile. **`agent-service` is the only new service** — it's isolated, latency-heavy, separately scaled/metered (live web research), and depends on nothing else at write time. Wire `service.*` rest-client URLs in `application.properties` as each cross-service call comes online (`post-service` → `user-service` already exists).
+  **Why this split.** `votes` + aggregation stay in `post-service` next to the content they vote on; the privacy boundary is enforced at the **domain** layer (each vote carries a **characteristic snapshot**, so aggregation never query-time cross-joins into `user-service`), not by a service hop. `feed` is a read/orchestration domain in the same service as `posts`: it ranks local post content and calls `user-service` for the `social` follow graph (and later `votes`/`user-service` for ranking signals), so the rec engine swaps in behind `FeedRanker` without touching anyone else. `topics` stays beside `posts` because it classifies and indexes local content, owns private user interests, then supplies canonical signals to `feed`; its domain boundary keeps those records separate from post persistence and aggregate-only characteristics. `social` (follows) sits with `user` because a follow is a user-to-user relationship and pairs with the public profile. **`agent-service` is the only new service** — it's isolated, latency-heavy, separately scaled/metered (live web research), and depends on nothing else at write time. Wire `service.*` rest-client URLs in `application.properties` as each cross-service call comes online (`post-service` → `user-service` already exists).
 
 Stage 0 is **backend contracts only** — no UI. The shared design-system work (confirming `constants/theme` tokens + `components/ui` primitives cover cards, chips, vote controls, bottom-sheet/modal) moves into the UI stages that first need each primitive, built just-in-time rather than as one upfront pass (chips in onboarding/results, vote controls in Stage 3, etc.).
 
@@ -108,13 +108,54 @@ Identity-light social graph plus the feed that ties it together.
 - **Personal profile page** — your posts, basic public profile (display name/handle/avatar — public-by-choice identity, distinct from the private PII used for aggregation). See vote/post counts.
 - **Other users' profiles** — view anyone's posts; navigate from a post author to their profile.
 - **Follow / unfollow** (**`user-service` `social` domain**) — follow graph, follower/following counts.
-- **Main feed** (**`post-service` `feed` domain**) — hosts the `FeedRanker` (chronological + follow-boost for MVP1, real rec engine later): orchestrates local `posts` content + the `user-service` `social` follow graph; infinite scroll, pull-to-refresh, modern feed UX.
+- **Main feed** (**`post-service` `feed` domain**) — hosts the `FeedRanker` (chronological + follow-boost for MVP1, topic signals from Stage 6, real behavioural rec engine later): orchestrates local `posts` content + the `user-service` `social` follow graph; infinite scroll, pull-to-refresh, modern feed UX.
 
 **Demoable:** follow an account, see their posts rise in your feed, browse profiles, view your own post history.
 
 ---
 
-## Stage 6 — The Unbiased Post agent
+## Stage 6 — Topics & theme signals
+
+Make posts discoverable by meaning through a governed topic system. The detailed build order,
+contracts and release gates are in [`stage6-topics-and-theme-signals.md`](stage6-topics-and-theme-signals.md);
+[`ADR-020`](../../wiki/ADR-020-2026-07-13-controlled-canonical-topic-taxonomy.md) records the
+taxonomy decision.
+
+- **Broad controlled taxonomy** — a wide, grouped catalogue spanning politics, world affairs,
+  money, society, science, climate, transport, culture and sport. Authors choose up to three
+  canonical topics; clients never submit arbitrary labels.
+- **Onboarding interests** — add a final “Topics of interest” step to the characteristics wizard.
+  Users may skip it or select up to seven canonical topics, stored in a dedicated
+  `post-service` table—not in `CharacteristicAnswers`. The step clearly says these choices are
+  private account-linked personalisation data, not anonymous sentiment characteristics.
+- **Inferred canonical topics** — a versioned classifier maps post text and named-entity cues onto
+  that same taxonomy. It stores provenance, confidence, classifier version and review state; it
+  never invents new public topics.
+- **Reliable asynchronous classification** — publishing does not wait for inference. An idempotent
+  job is queued with the post, retried on failure and can be safely re-run when classifier rules
+  change. Existing posts are backfilled through the same path.
+- **Visible discovery** — effective topics render as tappable chips. A topic page returns matching
+  posts newest-first with proper pagination, empty/loading/error states and no N+1 topic reads.
+- **Feed-ready interest signals** — the user's selected interests are exposed privately to `feed`;
+  the MVP ranker remains chronological + follow-boost until a separately tested topic-weighting
+  policy is approved.
+- **Observable by design** — aggregate metrics show which topics are selected during onboarding and
+  how that changes over time, how often inferred topics agree with author-selected topics, and
+  interest-save failures, classifier health, queue age, browse performance and moderation outcomes.
+  Logs are structured and diagnostic without recording identity, post text or an individual's
+  selected-topic set.
+- **Moderation with preserved provenance** — admin-only tools can verify, hide, replace or re-run
+  inferred assignments. Review actions are audited, and inference cannot silently undo a human
+  decision.
+
+**Demoable:** two posts about bills, parliament or policy changes appear under the shared
+`legislation` topic without either author selecting it; users can tap the topic and browse both
+posts alongside related coverage. A new user can also choose up to seven interests on the final
+onboarding step and edit them later from settings.
+
+---
+
+## Stage 7 — The Unbiased Post agent
 
 The differentiator. Built last because it depends on the post + support-question + media pipeline already working.
 
@@ -129,12 +170,12 @@ The differentiator. Built last because it depends on the post + support-question
 
 ---
 
-## Stage 7 — Hardening for MVP1 release
+## Stage 8 — Hardening for MVP1 release
 
-- **Tests:** Quarkus + Testcontainers on every new domain (real Postgres/Keycloak/S3); React Testing Library on onboarding, voting, results breakdowns, feed, agent flow. Run `test-audit` after each suite.
+- **Tests:** Quarkus + Testcontainers on every new domain (real Postgres/Keycloak/S3); React Testing Library on onboarding, voting, results breakdowns, feed, topic browsing, agent flow. Run `test-audit` after each suite.
 - **Privacy audit:** prove no endpoint returns a vote next to identity; review aggregation outputs for the small-bucket risk; final go/no-go on whether `k`-threshold ships with MVP1.
-- **Telemetry:** traces/metrics on agent runs (latency, source counts), vote/aggregation queries, feed build.
-- **Performance:** feed + aggregation query load, media delivery, agent timeouts/retries.
+- **Telemetry:** dashboards/alerts for onboarding-interest trends, author/inference topic agreement, topic API errors, inference queue health, agent runs (latency, source counts), vote/aggregation queries and feed build.
+- **Performance:** feed + topic query load, aggregation query load, media delivery, agent timeouts/retries.
 - Polish, empty/error states, accessibility pass on the core loop.
 
 ---
@@ -180,12 +221,13 @@ Aggregates are only meaningful at volume and across a realistic spread of charac
 ```
 Stage 0 (contracts) → 1 (onboarding) → 2 (posts) → 3 (voting) → 4 (aggregation)
                                               └→ 5 (profiles/follows/feed)  [needs 2]
-                                                        6 (agent)           [needs 2,3]
+                                                        6 (topics)          [needs 2,5]
+                                                        7 (agent)           [needs 2,3]
        Workstream T (test users + fixtures) ─────────── [spans 1–4, gates 4]
-                                                        7 (hardening)       [continuous, gates release]
+                                                        8 (hardening)       [continuous, gates release]
 ```
 
-Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (agent) is isolated in its own service and can start as soon as Stage 2's post/support-question model is stable. Workstream T starts once the characteristic model is fixed in Stage 1 and must be in place to meaningfully test Stage 4.
+Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (topics) starts once Stage 2's post model and Stage 5's feed surface exist. Stage 7 (agent) is isolated in its own service and can start as soon as Stage 2's post/support-question model is stable. Workstream T starts once the characteristic model is fixed in Stage 1 and must be in place to meaningfully test Stage 4.
 
 ## Top risks to watch
 
@@ -194,3 +236,4 @@ Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (agent) is isolated 
 3. **Agent latency/cost** — live web research per post is slow and metered; async + caching essential.
 4. **Characteristic snapshotting** — get vote-time snapshots right early, or historical aggregates become wrong when users edit their profile.
 5. **Characteristic coverage frozen too early** — adding an axis (e.g. political persuasion) after onboarding ships means re-onboarding users and back-filling test data. Close the coverage gaps in Stage 1 before the schema sets.
+6. **Topic quality / feedback loops** — inferred topics can misclassify posts or over-cluster viewpoints. Keep labels visible, corrections possible and ranking boosts modest for MVP1.

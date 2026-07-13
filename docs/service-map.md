@@ -9,7 +9,7 @@ MVP1 runs **three backend services**, with strict DDD **domains** inside each:
 | Service | Port | Domains |
 | --- | --- | --- |
 | `user-service` | 8081 | `user` (identity/PII, public profile), `usercharacteristic`, `social` (follow graph) |
-| `post-service` | 8082 | `posts` (create/view), `votes` (votes **+ by-characteristic sentiment aggregation**), `feed` (ranking/assembly) |
+| `post-service` | 8082 | `posts` (create/view), `votes` (votes **+ by-characteristic sentiment aggregation**), `feed` (ranking/assembly), `topics` (taxonomy, classification and private user interests) |
 | `agent-service` | new | `agent` — unbiased-post creation (LLM + live web search) |
 
 `agent-service` is the **only** new service. Votes, feed and the follow graph are domains inside the
@@ -31,6 +31,9 @@ two services that already exist, not standalone services.
 - **`feed` stays with `posts`** because it ranks local post content. It calls `user-service` for the
   `social` follow graph via the existing rest-client pattern; the ranker is swappable behind an
   interface (see [feed-ranking.md](./feed-ranking.md)).
+- **`topics` stays with `posts`** because it classifies and indexes local post content, owns private
+  user topic interests, then supplies canonical signals to `feed`. Its public interface
+  keeps those records separate from both post persistence and aggregate-only user characteristics.
 - **`social` (follows) sits with `user`** because a follow is a user-to-user relationship that pairs
   with the public profile.
 - **`agent` is split out** because it is isolated, latency-heavy and separately scaled/metered (live
