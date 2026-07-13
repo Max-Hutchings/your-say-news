@@ -226,6 +226,57 @@
         }
       ],
       "realmRoles": ["user", "offline_access"]
+    },
+    {
+      "username": "maya.patel",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Maya",
+      "lastName": "Patel",
+      "email": "maya.patel@example.com",
+      "createdTimestamp": 1717372800000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "offline_access"]
+    },
+    {
+      "username": "theo.campbell",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Theo",
+      "lastName": "Campbell",
+      "email": "theo.campbell@example.com",
+      "createdTimestamp": 1717459200000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "offline_access"]
+    },
+    {
+      "username": "casey.morgan",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Casey",
+      "lastName": "Morgan",
+      "email": "casey.morgan@example.com",
+      "createdTimestamp": 1717545600000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "offline_access"]
     }
   ]
 }
