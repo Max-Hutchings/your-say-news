@@ -1,0 +1,271 @@
+/*
+ * Your Say News — editorial reskin of the Keycloak login/register pages.
+ *
+ * Mirrors the app's fixed dark brand moment (see constants/theme/editorial.ts, dark palette):
+ * paper-dark background, ink text, a lime brand signal, Newsreader (serif headlines),
+ * Schibsted Grotesk (UI/body) and Spline Sans Mono (labels/eyebrows/privacy notes).
+ */
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Schibsted+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --e-bg: #14110d;
+  --e-surface: #1b1712;
+  --e-surface-alt: #1e1a15;
+  --e-border: #2e2920;
+  --e-ink: #f2ecdf;
+  --e-secondary: #a39a8a;
+  --e-muted: #8e8576;
+  --e-lime: #c6ff4a;
+  --e-on-lime: #1b1815;
+  --e-focus: #3fb592;
+  --e-error: #ff6a57;
+  --e-privacy-bg: #1b231a;
+  --e-privacy-border: #2c3a26;
+  --e-privacy-text: #afc97f;
+  --e-privacy-icon: #9fcb5b;
+
+  --e-serif: "Newsreader", Georgia, serif;
+  --e-sans: "Schibsted Grotesk", system-ui, sans-serif;
+  --e-mono: "Spline Sans Mono", ui-monospace, monospace;
+}
+
+/* ---- Page canvas ------------------------------------------------------- */
+html,
+body,
+body.login-pf,
+.login-pf body {
+  background: var(--e-bg) !important;
+  color: var(--e-ink);
+  font-family: var(--e-sans);
+}
+
+.login-pf-page {
+  padding-top: 40px;
+}
+
+/* Kill PatternFly's photographic login background. */
+.login-pf-page .login-pf-page-header,
+.login-pf body::before {
+  background-image: none !important;
+}
+
+/* ---- Brand lockup in the header --------------------------------------- */
+#kc-header,
+#kc-header-wrapper {
+  color: var(--e-ink);
+}
+
+#kc-header-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-family: var(--e-serif) !important;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+  text-transform: none;
+  padding: 8px 0 28px;
+}
+
+/* Lime "Y" badge before the wordmark. */
+#kc-header-wrapper::before {
+  content: "Y";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--e-lime);
+  color: var(--e-on-lime);
+  font-family: var(--e-serif);
+  font-size: 26px;
+  font-weight: 600;
+}
+
+/* ---- Card ------------------------------------------------------------- */
+.card-pf {
+  background: var(--e-surface);
+  border: 1px solid var(--e-border);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  padding: 30px 30px 34px;
+}
+
+#kc-page-title {
+  font-family: var(--e-serif);
+  font-size: 30px;
+  line-height: 34px;
+  letter-spacing: -0.6px;
+  color: var(--e-ink);
+  margin: 0 0 22px;
+}
+
+/* ---- Labels & inputs -------------------------------------------------- */
+.pf-c-form__label,
+label,
+.control-label {
+  font-family: var(--e-mono) !important;
+  font-size: 11px !important;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--e-secondary) !important;
+  font-weight: 500 !important;
+}
+
+.pf-c-form-control,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+  background: var(--e-surface-alt) !important;
+  border: 1px solid var(--e-border) !important;
+  border-radius: 12px !important;
+  color: var(--e-ink) !important;
+  font-family: var(--e-sans) !important;
+  font-size: 15px !important;
+  height: 50px;
+  padding: 0 14px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pf-c-form-control::placeholder,
+input::placeholder {
+  color: var(--e-muted) !important;
+}
+
+.pf-c-form-control:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--e-focus) !important;
+  box-shadow: 0 0 0 3px rgba(63, 181, 146, 0.25) !important;
+  outline: none !important;
+}
+
+/* Password reveal button sits flush inside the field. */
+.pf-c-input-group,
+.kc-input-group {
+  background: transparent !important;
+}
+.pf-c-button.pf-m-control {
+  background: var(--e-surface-alt) !important;
+  border: 1px solid var(--e-border) !important;
+  border-left: none !important;
+  border-radius: 0 12px 12px 0 !important;
+  color: var(--e-muted) !important;
+}
+
+/* ---- Primary button (Register / Sign in) ------------------------------ */
+.pf-c-button.pf-m-primary,
+input[type="submit"].pf-m-primary,
+#kc-form-buttons input[type="submit"],
+.pf-c-button.pf-m-primary.pf-m-block {
+  background: var(--e-lime) !important;
+  color: var(--e-on-lime) !important;
+  border: none !important;
+  border-radius: 14px !important;
+  height: 54px;
+  font-family: var(--e-sans) !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+  letter-spacing: 0.2px;
+  box-shadow: none !important;
+  transition: opacity 0.15s ease, transform 0.05s ease;
+}
+.pf-c-button.pf-m-primary:hover,
+#kc-form-buttons input[type="submit"]:hover {
+  opacity: 0.9;
+}
+.pf-c-button.pf-m-primary:active {
+  transform: translateY(1px);
+}
+
+/* ---- Links & secondary actions ---------------------------------------- */
+a,
+#kc-registration a,
+#kc-form-options a,
+.kc-login-tooltip {
+  color: var(--e-lime);
+  font-family: var(--e-sans);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+#kc-registration,
+#kc-form-options {
+  font-family: var(--e-sans);
+  color: var(--e-secondary);
+  font-size: 14px;
+}
+
+/* ---- Alerts / field errors -------------------------------------------- */
+.pf-c-alert,
+.alert {
+  border-radius: 12px;
+  font-family: var(--e-sans);
+}
+.pf-c-form__helper-text.pf-m-error,
+#input-error,
+[id^="input-error"],
+.kc-feedback-text {
+  color: var(--e-error) !important;
+  font-family: var(--e-mono);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+}
+
+/* ---- Privacy note (injected in register.ftl before the username field) - */
+.ysn-privacy-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--e-privacy-bg);
+  border: 1px solid var(--e-privacy-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 4px 0 14px;
+}
+.ysn-privacy-note__mark {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--e-privacy-icon);
+  color: var(--e-privacy-bg);
+  font-family: var(--e-serif);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.ysn-privacy-note__text {
+  font-family: var(--e-sans);
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--e-privacy-text);
+}
+.ysn-privacy-note__text strong {
+  font-weight: 600;
+  color: var(--e-privacy-text);
+}
+
+/* ---- Misc PatternFly cleanup ------------------------------------------ */
+#kc-content,
+#kc-content-wrapper {
+  color: var(--e-ink);
+}
+.pf-c-check__label,
+#kc-form-login .checkbox,
+label.pf-c-check__label {
+  text-transform: none;
+  font-family: var(--e-sans) !important;
+  letter-spacing: 0;
+  color: var(--e-secondary) !important;
+}

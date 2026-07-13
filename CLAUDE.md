@@ -205,6 +205,8 @@ hooks/                       <- SHARED cross-cutting hooks (use-color-scheme, us
 constants/theme/             <- design tokens: colours, spacing, typography, effects
 ```
 
+**Authoritative visual design** (the "editorial" language — paper/ink/lime palette, teal=Agree/coral=Disagree, Newsreader + Schibsted Grotesk + Spline Sans Mono) lives in `frontend/mobile/your-say-news/constants/theme/editorial.ts` — consume via `getEditorial(isDark)` / `EditorialFont`, not the legacy enterprise `Colors`/`BrandColors` (blue).
+
 Rules:
 
 1. **Domain at the top, technical concerns inside** — same shape as the backend. Each

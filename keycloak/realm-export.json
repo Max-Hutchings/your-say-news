@@ -1,5 +1,7 @@
 {
   "realm": "your-say-news",
+  "displayName": "Your Say News",
+  "loginTheme": "yoursay",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": true,
@@ -16,6 +18,13 @@
   "accessCodeLifespan": 60,
   "accessCodeLifespanUserAction": 300,
   "accessCodeLifespanLogin": 1800,
+  "defaultRole": {
+    "name": "default-roles-your-say-news",
+    "description": "${role_default-roles}",
+    "composite": true,
+    "clientRole": false,
+    "containerId": "your-say-news"
+  },
   "roles": {
     "realm": [
       {
@@ -27,6 +36,16 @@
         "name": "admin",
         "description": "Administrator role",
         "composite": false
+      },
+      {
+        "name": "default-roles-your-say-news",
+        "description": "${role_default-roles}",
+        "composite": true,
+        "composites": {
+          "realm": ["user"]
+        },
+        "clientRole": false,
+        "containerId": "your-say-news"
       }
     ]
   },

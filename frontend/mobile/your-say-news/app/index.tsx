@@ -5,18 +5,13 @@
  */
 
 import { useEffect, useState } from "react";
-import { Platform, View, ActivityIndicator, StyleSheet } from "react-native";
+import { Platform, View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { Redirect } from "expo-router";
 import { completeKeycloakWebRedirectFromUrl, useAuthStore } from "@/features/auth";
-import { LinearGradient } from "expo-linear-gradient";
-import type { LinearGradientProps } from "expo-linear-gradient";
-import { ThemedText } from "@/components/themed-text";
-import {
-  useTheme,
-  Spacing,
-  BrandColors,
-  NeutralColors,
-} from "@/constants/theme";
+import { getEditorial, EditorialFont } from "@/constants/theme";
+
+// The pre-auth loading moment shares the sign-in screen's fixed dark brand palette.
+const e = getEditorial(true);
 
 function hasAuthRedirectParams(): boolean {
   if (typeof window === "undefined") {
@@ -31,7 +26,6 @@ const isWeb = Platform.OS === "web";
 
 export default function SplashScreen() {
   const { completeLogin, isLoggedIn, _stateHydrated } = useAuthStore();
-  const { isDark } = useTheme();
   const [processingAuthRedirect, setProcessingAuthRedirect] = useState(hasAuthRedirectParams);
 
   useEffect(() => {
@@ -76,49 +70,24 @@ export default function SplashScreen() {
 
   // Wait for auth state to be hydrated before redirecting
   if ((!isWeb && !_stateHydrated) || processingAuthRedirect) {
-    // Gradient colors based on theme
-    const gradientColors: LinearGradientProps["colors"] = isDark
-      ? [NeutralColors.slate[950], BrandColors.primary[950], NeutralColors.slate[900]]
-      : [BrandColors.primary[500], BrandColors.primary[600], BrandColors.primary[700]];
-
     return (
-      <LinearGradient colors={gradientColors} style={styles.container}>
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <ThemedText
-            variant="displayLarge"
-            style={[styles.logoText, { color: NeutralColors.white }]}
-          >
-            YS
-          </ThemedText>
+      <View style={[styles.container, { backgroundColor: e.bg }]}>
+        {/* Brand lockup — lime badge + serif wordmark, matching sign-in */}
+        <View style={styles.brandRow}>
+          <View style={[styles.logo, { backgroundColor: e.lime }]}>
+            <Text style={[styles.logoY, { color: e.onLime }]}>Y</Text>
+          </View>
+          <Text style={[styles.wordmark, { color: e.ink }]}>Your Say News</Text>
         </View>
 
-        {/* Brand Text */}
-        <ThemedText
-          variant="displaySmall"
-          style={[styles.title, { color: NeutralColors.white }]}
-        >
-          YourSay News
-        </ThemedText>
-
-        <ThemedText
-          variant="bodyLarge"
-          style={[styles.subtitle, { color: NeutralColors.slate[200] }]}
-        >
-          Neutral, people-powered news
-        </ThemedText>
+        <Text style={[styles.eyebrow, { color: e.muted }]}>NEUTRAL · PEOPLE-POWERED</Text>
 
         {/* Loading Indicator */}
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={NeutralColors.white} />
-          <ThemedText
-            variant="labelMedium"
-            style={[styles.loadingText, { color: NeutralColors.slate[300] }]}
-          >
-            Loading...
-          </ThemedText>
+          <ActivityIndicator size="small" color={e.lime} />
+          <Text style={[styles.loadingText, { color: e.muted }]}>LOADING</Text>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -135,39 +104,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: 26,
   },
-  logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 32,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing["2xl"],
-    // Glass effect border
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-  logoText: {
-    fontWeight: "900",
-    letterSpacing: -2,
-  },
-  title: {
-    textAlign: "center",
-    marginBottom: Spacing.sm,
-    fontWeight: "700",
-  },
-  subtitle: {
-    textAlign: "center",
-    marginBottom: Spacing["4xl"],
-  },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logo: { width: 36, height: 36, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  logoY: { fontFamily: EditorialFont.serif, fontSize: 24, fontWeight: "600" },
+  wordmark: { fontFamily: EditorialFont.serif, fontSize: 24, letterSpacing: -0.2 },
+  eyebrow: { fontFamily: EditorialFont.mono, fontSize: 11, letterSpacing: 1.6, marginTop: 18 },
   loadingContainer: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
+    gap: 10,
+    marginTop: 40,
   },
-  loadingText: {
-    textTransform: "uppercase",
-    letterSpacing: 2,
-  },
+  loadingText: { fontFamily: EditorialFont.mono, fontSize: 10.5, letterSpacing: 2 },
 });
