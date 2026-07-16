@@ -4,7 +4,9 @@ Implementation plan for MVP1 Stage 6. This stage adds a governed topic system to
 without changing the three-service map. The new `topics` domain owns the taxonomy, post-topic
 assignments, inference jobs, private user interests and moderation. `posts` remains the
 content owner; `feed` remains the read/ranking orchestrator. The governing taxonomy decision is
-[`ADR-017`](../../wiki/ADR-017-2026-07-13-controlled-canonical-topic-taxonomy.md).
+[`ADR-020`](../../wiki/ADR-020-2026-07-13-controlled-canonical-topic-taxonomy.md), and the
+category-first feed decision is
+[`ADR-021`](../../wiki/ADR-021-2026-07-14-category-first-feed-ranking.md).
 
 ## Outcome
 
@@ -14,10 +16,13 @@ At the end of this stage:
   to seven canonical topics;
 - authors can optionally select up to three topics from the canonical taxonomy;
 - every published post is queued for asynchronous classification against the same taxonomy;
-- topic chips on a post open a paginated feed of related posts;
+- topic chips on a post open a paginated category feed ranked by topic-relative popularity and
+  recency;
+- a viewer does not immediately receive the same category post again unless unseen inventory is
+  exhausted, in which case seen posts are massively deprioritised;
 - admins can inspect and correct inferred assignments without destroying their provenance; and
-- topic signals are available to `FeedRanker`, while MVP1 ordering remains chronological with the
-  existing follow boost.
+- the Following/Latest feed remains chronological with the existing follow boost; and
+- no cross-category “For You” page or behavioural recommendation ranker ships in MVP1.
 
 The acceptance scenario is deliberately specific: a new user selects seven interests on the final
 onboarding step and those choices are stored separately from their characteristics. Posts mentioning
@@ -128,15 +133,31 @@ transaction.
 The input contract includes optional source metadata and named entities now, even though manual
 posts leave them empty. Stage 7 can populate those fields without another topic schema change.
 
-### 6. Interests are explicit but do not rank MVP1 yet
+### 6. Categories rank simply; interests do not create a For You feed
 
 `user_topic_interest` records only the user's zero-to-seven durable onboarding/settings choices.
 Do not infer interests from dwell time, votes, follows or topic page visits.
 
-`FeedContext` and `RankablePost` gain the topic data needed by a future ranker, but
-`ChronologicalFollowBoostRanker` deliberately ignores it in this stage. Its existing ordering tests
-must continue to pass with topic-rich candidates. Topic weighting needs a separate product rule and
-test matrix so it cannot accidentally create a viewpoint feedback loop.
+The Following/Latest feed continues to use `ChronologicalFollowBoostRanker`. Category browsing uses
+a separate `CategoryPopularityRanker` over candidates from exactly one canonical topic. Its simple
+ordering is:
+
+1. calculate popularity from bounded recent engagement within that topic, not a global lifetime
+   count;
+2. apply recency decay and a deterministic `(postedAt, postId)` tie-break; and
+3. exclude already impressed posts while unseen candidates exist, otherwise apply a deliberately
+   large seen penalty so a small/exhausted category can still return content.
+
+`FeedContext` and `RankablePost` gain the category, popularity and impression inputs needed by that
+ranker. Feed assembly owns private, account-linked impression history and records an impression only
+after the client reports that the post was actually displayed—not when it was merely returned in a
+prefetched page. The implementation contract must set bounded score windows, decay constants,
+impression retention and the seen penalty before code is written.
+
+Declared interests do not combine categories or change their weights in MVP1. Do not infer
+interests from dwell time, votes, follows or category visits. A behavioural cross-category “For
+You” page is deferred until a separate ADR defines signals, diversity safeguards and evaluation
+against this category-feed baseline.
 
 ### 7. Moderation changes state, not history
 
@@ -159,7 +180,8 @@ Add `com.yoursay.topics` as a sibling of `posts`, `votes` and `feed` in `post-se
 onboarding/settings ── replace current user's interests ─> topics
 posts ── validate/attach author topics + enqueue input ──> topics
 posts <── batch effective topic summaries ─────────────── topics
-feed  ── topic post IDs + viewer interests ─────────────> topics
+feed  ── topic candidate IDs ───────────────────────────> topics
+feed  ── bounded engagement counts ─────────────────────> votes
 feed  ── batch post DTOs in requested order ────────────> posts
 ```
 
@@ -170,11 +192,12 @@ domain's `model`, `repository` or implementation package.
 - `posts` accepts `topicIds`, supplies the immutable classification input and batch-assembles topic
   summaries into `PostDto`.
 - `feed` owns `/feed/topics/{topicId}` because it assembles ranked/read post DTOs. The topic domain
-  returns ordered IDs; it does not reach into post persistence.
+  returns eligible candidate IDs; it does not reach into post persistence or decide rank order.
 
-Store `postCreatedAt` on the assignment so `topics` can page IDs newest-first without querying the
-`posts` table. Post creation timestamps are immutable, so this denormalisation has one writer and no
-sync problem.
+Store `postCreatedAt` on the assignment so category candidate reads and deterministic tie-breaking
+do not query the `posts` table. Post creation timestamps are immutable, so this denormalisation has
+one writer and no sync problem. The feed domain stores per-user impression history separately; it
+must never appear in public post, topic, vote or characteristic DTOs.
 
 ## Persistence and migration
 
@@ -234,6 +257,17 @@ IDs, takes a per-user transaction lock, then replaces that user's set atomically
 prevents topic duplicates; `ordinal` is constrained to `0..6` and unique per user, so the database
 also makes an eighth row impossible. Rows are private and never joined into vote or aggregation
 queries.
+
+### `feed_post_impression`
+
+- composite primary key `(user_id, post_id)` with no foreign key into `user-service`;
+- `first_impressed_at`, `last_impressed_at` and bounded `impression_count`; and
+- index `(user_id, last_impressed_at desc)` for retention-bounded seen-candidate lookup.
+
+The feed domain upserts this row only from an authenticated display-impression call. A scheduled
+retention job deletes expired rows in bounded batches. Impression history is operational
+personalisation data, not public engagement: it is never returned through topic, post, profile,
+vote or characteristic APIs and does not contribute to the post's popularity score.
 
 ### `topic_review_audit`
 
@@ -303,25 +337,35 @@ Extend `PostDto` with effective topics, batch-loaded for list/feed responses:
 ]
 ```
 
-All post read paths—single post, author profile, recent feed, personalised feed and topic feed—must
-return the same topic shape. Batch lookup is required; do not introduce one topic query per post.
+All post read paths—single post, author profile, recent feed, Following/Latest feed and category
+feed—must return the same topic shape. Batch lookup is required; do not introduce one topic query
+per post.
 
 ### Topic browsing
 
-`GET /feed/topics/{topicId}?page=0&size=5` returns:
+The first page uses `GET /feed/topics/{topicId}?size=5`; subsequent pages send the opaque
+`nextCursor` returned by the previous response:
 
 ```json
 {
   "topic": { "id": "legislation", "label": "Legislation" },
   "posts": [],
-  "page": 0,
+  "nextCursor": null,
   "hasMore": false,
   "viewerInterest": true
 }
 ```
 
-Use `(postCreatedAt, postId)` as the deterministic newest-first tie-break. Unknown/retired topics are
-`404`; a valid topic with no posts is `200` with an empty list.
+Return category-ranked posts with an opaque stable cursor that carries the ranking snapshot/tie-break
+needed to avoid duplicates while popularity changes. `(postCreatedAt, postId)` is the deterministic
+final tie-break. Unknown/retired topics are `404`; a valid topic with no posts is `200` with an empty
+list.
+
+`POST /feed/impressions` accepts one or more actually displayed post IDs plus bounded surface
+context (`CATEGORY` and its canonical `topicId` here). The backend derives the viewer from the
+bearer token, validates the posts, and idempotently upserts private impression state. Prefetching a
+category response must not call this endpoint; the mobile viewability rule that constitutes
+“displayed” is fixed in the implementation contract and tested before release.
 
 ### Admin review
 
@@ -346,11 +390,12 @@ vote/user-characteristic data.
 5. Extend post create/read contracts and implement a single batch topic lookup for post lists.
 6. Add the idempotent classification job writer, worker, retry policy, versioned rules and fixture
    corpus. Keep the classifier pure so most tests need no Quarkus boot.
-7. Add topic-ID paging to `TopicService`, ordered batch post reads to `PostService`, and assemble
-   `/feed/topics/{topicId}` in `feed`.
+7. Add topic candidate paging to `TopicService`, bounded topic engagement inputs from `votes`,
+   ordered batch post reads to `PostService`, impression persistence/reporting in `feed`, and
+   assemble `/feed/topics/{topicId}` with `CategoryPopularityRanker`.
 8. Add admin review/audit endpoints.
-9. Extend `FeedContext`/`RankablePost` with interest and topic signals without changing MVP rank
-   order.
+9. Extend `FeedContext`/`RankablePost` with category popularity and seen-post signals while keeping
+   the Following/Latest rank order unchanged.
 10. Implement the metrics, traces, dashboards, alerts and structured logging contract below.
 
 ## Frontend workstream
@@ -376,7 +421,8 @@ Create `features/topics/` with `index.ts` as its only public face.
 7. Add compact `TopicChip`/`TopicChipRow` rendering to every post layout without displacing the
    always-visible support question and vote controls. Chips navigate to the topic route.
 8. Add thin route `app/(protected)/topics/[topicId].tsx`, backed by `TopicFeedScreen`, with title,
-   newest-first infinite paging, refresh and empty/loading/error/retry states.
+   ranked infinite paging, display-impression reporting, refresh and empty/loading/error/retry
+   states.
 9. Add a minimally linked admin-only review route. Decode roles for presentation, but rely on the
    backend `admin` check for security. The screen shows pending assignments, reason IDs and
    verify/hide/replace/re-run actions.
@@ -443,6 +489,9 @@ Interest-save error codes are a closed enum such as `NONE`, `TOO_MANY_TOPICS`, `
   - a Jaccard-overlap distribution (`intersection / union`) by classifier version for posts that
     have at least one author topic.
 - Topic browsing: requests, empty results, errors and latency by canonical topic.
+- Category ranking: candidate/unseen/seen counts, recycled-seen responses, score-age distribution
+  and impression-report success/failure by canonical topic or bounded error code. Never use user or
+  post IDs as metric labels.
 - Moderation: pending review count and verify/hide/restore/reclassify totals by canonical topic.
 - Topic decoration/feed assembly: batch lookup duration, missing-assignment count and assembly
   failures so an N+1 or partial-read regression is visible.
@@ -551,6 +600,10 @@ Write both unit and integration tests, then run the `test-audit` skill after mod
   summaries and exact metric deltas;
 - existing-post backfill through the job path;
 - topic browse ordering, pagination, empty valid topic and hidden-assignment exclusion;
+- category popularity is calculated within the requested topic, recency changes the expected order,
+  deterministic ties stay stable, and a popularity update between pages causes no duplicate;
+- an actually displayed post is suppressed on the next category request, a merely prefetched post
+  is not marked seen, and exhausted categories recycle seen posts only in penalised order;
 - consistent topic decoration across all post/feed endpoints;
 - `/q/metrics` exposes the expected interest, job and error series after representative operations,
   with exact counter deltas and no identity/high-cardinality labels;
@@ -571,7 +624,8 @@ Write both unit and integration tests, then run the `test-audit` skill after mod
 - Settings loads and completely replaces the current user's interests;
 - picker loads only canonical options, enforces three and submits IDs;
 - chips render and navigate in both portrait and stacked post layouts;
-- topic feed loading, pagination, refresh, empty, error and retry behaviour;
+- category feed ranking, pagination, display-impression reporting, repeat suppression, exhausted
+  inventory fallback, refresh, empty, error and retry behaviour;
 - admin controls are not linked for ordinary users and surface API failures safely.
 
 ### Ship gates
@@ -584,10 +638,13 @@ Write both unit and integration tests, then run the `test-audit` skill after mod
 - Publishing succeeds when inference is disabled or failing.
 - Reprocessing the same post/version creates no duplicate assignments.
 - Human-hidden assignments remain hidden after a worker run.
-- Topic feed queries are indexed and perform a bounded number of reads per page.
+- Category feed queries are indexed and perform a bounded number of reads per page.
+- Popularity is topic-relative and time-bounded; unseen posts outrank seen posts whenever unseen
+  inventory exists, and impression history is private and retention-bounded.
 - The classifier fixture corpus has positive and ambiguous-negative coverage for every topic, and
   the legislation acceptance pair classifies exactly as specified.
-- Existing feed ranking tests pass unchanged.
+- Existing Following/Latest ranking tests pass unchanged; category ranking tests pin exact order for
+  popularity, recency, deterministic ties and seen-post suppression.
 - No public response exposes classifier evidence, another user's interests, admin identity, vote
   identity or characteristic rows.
 - Grafana dashboards load with working queries for onboarding-topic trends, current popularity,
@@ -606,12 +663,14 @@ Deliver in reversible vertical slices:
 3. **Author topics:** create validation, post decoration, picker and chips.
 4. **Inference:** job path, deterministic classifier, retries, worker metrics/logging and
    existing-post backfill.
-5. **Discovery:** topic feed endpoint and mobile browse screen.
+5. **Discovery:** category popularity ranker, impression history, topic feed endpoint and mobile
+   browse screen.
 6. **Control:** admin moderation/audit.
-7. **Feed seam and hardening:** pass signals into ranking inputs, prove baseline ordering is stable,
+7. **Feed seam and hardening:** prove Following/Latest ordering is stable, category pagination does
+   not replay posts and impression retention is bounded,
    validate dashboard/alert provisioning, run full backend/frontend suites and complete the test
    audits.
 
-Use `topics.inference.enabled` to deploy storage and explicit topics before activating workers. Keep
-interest consumption out of ranking until a later ADR defines weights, diversity constraints and an
-offline comparison against the chronological/follow baseline.
+Use `topics.inference.enabled` to deploy storage and explicit topics before activating workers. Do
+not build a “For You” page until a later ADR defines weights, diversity constraints and an offline
+comparison against both the chronological/follow and category-popularity baselines.

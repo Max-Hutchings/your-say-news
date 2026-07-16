@@ -9,7 +9,7 @@ These were decided up front and shape the stages below:
 
 | Area | MVP1 decision | Notes / fast-follow |
 | --- | --- | --- |
-| Recommendation feed | **Chronological + follows + topic signals** (reverse-chron, boost followed accounts, capture up to seven declared interests plus author-selected/inferred post topics). A full behavioural rec engine is post-MVP1. | Feed code structured behind an interface so topic weighting can be added without replacing feed assembly or post storage. |
+| Feed discovery | **Categories first; no “For You” page in MVP1.** Keep the Following/Latest feed chronological with a follow boost. Category feeds rank posts by popularity within the selected canonical topic, tempered by recency, and strongly suppress posts already shown to that user. | A behavioural/personalised For You recommender is deferred until category feeds provide a simpler, measurable baseline. Feed code remains behind an interface. |
 | Unbiased Post agent | **Grok + live web search** inside the `post-service` `agent` domain pulls real sources at creation time, then synthesises summary + both sides + support question. | Sources always linked. Latency handled with durable async jobs (see Stage 7). |
 | Post media | **Images + video** via the existing S3/LocalStack setup. | Video needs an upload + (basic) transcode/poster path. |
 | Privacy guard | **Aggregate-only, no minimum bucket threshold** for MVP1. | ⚠️ Re-identification risk on tiny buckets. Aggregation layer built so a `k`-anonymity threshold is a single config flip — **top privacy fast-follow.** |
@@ -31,7 +31,10 @@ The core PII boundary is already modelled correctly: `CharacteristicAnswers` car
 Lock the cross-cutting pieces every later stage depends on, so we don't rework them.
 
 - **Privacy aggregation contract.** Define the DTO shape for "sentiment by characteristic" (vote tallies + percentages per characteristic bucket, never per-user rows). Build the query/aggregation layer behind an interface with a `suppressBelow=k` config (default `k=0` for MVP1, flip later). This is the single most important contract — get it right once.
-- **Feed contract.** A `FeedRanker` interface returning post IDs for a user; MVP1 implementation = chronological + follow-boost, with topic/theme signals available once Stage 6 lands. Keeps the real rec engine a drop-in later.
+- **Feed contract.** A `FeedRanker` interface returning post IDs for a user. Following/Latest uses
+  chronological + follow-boost; Stage 6 adds a separate category ranker using topic-relative
+  popularity, recency and per-user impression suppression. There is no cross-category “For You”
+  ranker or page in MVP1.
 - **Service map (decided).** Two services, with clean DDD domains *inside* each. A low service count is cheaper to run and reason about; because every domain is a top-level package touched only through its controllers/interfaces/DTOs, extracting one into its own service later is a near-mechanical package move, not a rewrite. So we keep boundaries strict at the **domain** level and pay for extra services only when something actually needs to scale or deploy independently:
 
   | Service | Port | Domains it owns |
@@ -107,7 +110,10 @@ Identity-light social graph plus the feed that ties it together.
 - **Personal profile page** — your posts, basic public profile (display name/handle/avatar — public-by-choice identity, distinct from the private PII used for aggregation). See vote/post counts.
 - **Other users' profiles** — view anyone's posts; navigate from a post author to their profile.
 - **Follow / unfollow** (**`user-service` `social` domain**) — follow graph, follower/following counts.
-- **Main feed** (**`post-service` `feed` domain**) — hosts the `FeedRanker` (chronological + follow-boost for MVP1, topic signals from Stage 6, real behavioural rec engine later): orchestrates local `posts` content + the `user-service` `social` follow graph; infinite scroll, pull-to-refresh, modern feed UX.
+- **Following/Latest feed** (**`post-service` `feed` domain**) — hosts the chronological +
+  follow-boost `FeedRanker`, orchestrates local `posts` content + the `user-service` `social` follow
+  graph, and provides infinite scroll and pull-to-refresh. Do not label or present this as “For
+  You”; behavioural recommendation is explicitly deferred.
 
 **Demoable:** follow an account, see their posts rise in your feed, browse profiles, view your own post history.
 
@@ -133,11 +139,17 @@ taxonomy decision.
 - **Reliable asynchronous classification** — publishing does not wait for inference. An idempotent
   job is queued with the post, retried on failure and can be safely re-run when classifier rules
   change. Existing posts are backfilled through the same path.
-- **Visible discovery** — effective topics render as tappable chips. A topic page returns matching
-  posts newest-first with proper pagination, empty/loading/error states and no N+1 topic reads.
-- **Feed-ready interest signals** — the user's selected interests are exposed privately to `feed`;
-  the MVP ranker remains chronological + follow-boost until a separately tested topic-weighting
-  policy is approved.
+- **Visible category discovery** — effective topics render as tappable chips. A category page
+  returns matching posts ordered by popularity within that topic, with recency decay/tie-breaking
+  so old winners do not permanently dominate. It has stable pagination, empty/loading/error states
+  and no N+1 topic reads.
+- **Seen-post suppression** — category discovery records a private, account-linked impression only
+  once a post is actually shown. Previously shown posts are excluded while enough unseen posts
+  exist; if the category is exhausted, they may return only with a large ranking penalty. Refresh
+  and pagination must not immediately replay the same post.
+- **Interests remain future inputs** — selected interests stay private and editable, but they do
+  not assemble a cross-category personalised feed in MVP1. A “For You” page requires a later ADR,
+  explicit weights/diversity rules and comparison against the category baseline.
 - **Observable by design** — aggregate metrics show which topics are selected during onboarding and
   how that changes over time, how often inferred topics agree with author-selected topics, and
   interest-save failures, classifier health, queue age, browse performance and moderation outcomes.
@@ -148,9 +160,9 @@ taxonomy decision.
   decision.
 
 **Demoable:** two posts about bills, parliament or policy changes appear under the shared
-`legislation` topic without either author selecting it; users can tap the topic and browse both
-posts alongside related coverage. A new user can also choose up to seven interests on the final
-onboarding step and edit them later from settings.
+`legislation` category without either author selecting it; users can tap the category and browse
+popular related coverage without immediately seeing the same post again. A new user can also
+choose up to seven interests on the final onboarding step and edit them later from settings.
 
 ---
 
@@ -236,4 +248,6 @@ Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (topics) starts once
 3. **Agent latency/cost** — live web research per post is slow and metered; async + caching essential.
 4. **Characteristic snapshotting** — get vote-time snapshots right early, or historical aggregates become wrong when users edit their profile.
 5. **Characteristic coverage frozen too early** — adding an axis (e.g. political persuasion) after onboarding ships means re-onboarding users and back-filling test data. Close the coverage gaps in Stage 1 before the schema sets.
-6. **Topic quality / feedback loops** — inferred topics can misclassify posts or over-cluster viewpoints. Keep labels visible, corrections possible and ranking boosts modest for MVP1.
+6. **Topic quality / popularity feedback loops** — inferred topics can misclassify posts, while
+   raw engagement can entrench early winners or one viewpoint. Keep labels visible, corrections
+   possible, popularity time-aware, repeat impressions suppressed and category ranking observable.
