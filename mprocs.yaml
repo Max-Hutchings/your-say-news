@@ -16,7 +16,7 @@
 
 procs:
   compose:
-    shell: "docker compose up"
+    shell: "docker compose up --build"
     stop:
       cmd: "docker compose down"
 
@@ -31,5 +31,5 @@ procs:
     shell: "../../../scripts/free-service-port.sh 5173 expo && ../../../scripts/check-compose-services.sh && bun run start"
 
 # Restarting the Compose pane uses its stop command (`docker compose down`),
-# then starts it again with `docker compose up`. Other panes retain mprocs'
+# then starts it again with `docker compose up --build`. Other panes retain mprocs'
 # normal focused-process restart behavior.
