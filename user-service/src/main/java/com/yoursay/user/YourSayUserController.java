@@ -98,16 +98,29 @@ public class YourSayUserController {
         return userService.save(email, firstName, lastName, birthDate);
     }
 
+    /**
+     * Resolve a user id to its anonymised {@link UserRefDto}. Deliberately returns no PII: these
+     * lookup endpoints are only role-gated, so returning email/name/date-of-birth would let any
+     * authenticated caller harvest the whole user base's identity by iterating ids. Cross-service
+     * callers only read the id anyway.
+     */
     @GET
     @Path("/id/{id}")
-    public YourSayUserDto getUserById(@PathParam(value = "id") long userId) {
-        return userService.getById(userId);
+    public UserRefDto getUserById(@PathParam(value = "id") long userId) {
+        YourSayUserDto user = userService.getById(userId);
+        return user == null ? null : new UserRefDto(user.id());
     }
 
 
+    /**
+     * Resolve an email to its anonymised {@link UserRefDto} (used by other services to turn the
+     * authenticated caller's email into the internal id). Returns no PII, for the same reason as
+     * {@link #getUserById}.
+     */
     @GET
     @Path("/email/{email}")
-    public YourSayUserDto getUserByEmail(@PathParam(value = "email") String email) {
-        return userService.getByEmail(email);
+    public UserRefDto getUserByEmail(@PathParam(value = "email") String email) {
+        YourSayUserDto user = userService.getByEmail(email);
+        return user == null ? null : new UserRefDto(user.id());
     }
 }

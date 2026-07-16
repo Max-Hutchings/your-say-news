@@ -53,7 +53,9 @@ public class YourSayUserControllerTest {
 
     @Test
     @TestSecurity(user="test@example.com", roles={"user"})
-    public void testGetUserById() {
+    public void testGetUserByIdReturnsIdOnlyNeverPii() {
+        // Lookup endpoints must expose only the anonymised id — never PII — so an authenticated
+        // caller cannot harvest the user base by iterating ids.
         given()
                 .contentType(ContentType.JSON)
                 .when()
@@ -61,11 +63,10 @@ public class YourSayUserControllerTest {
                 .then()
                 .statusCode(200)
                 .body("id", equalTo(1))
-                .body("email", equalTo("john.doe@example.com"))
-                .body("firstName", equalTo("John"))
-                .body("lastName", equalTo("Doe"))
-                .body("dateOfBirth", equalTo("1990-05-15"))
-                .body("active", equalTo(true));
+                .body("email", nullValue())
+                .body("firstName", nullValue())
+                .body("lastName", nullValue())
+                .body("dateOfBirth", nullValue());
     }
 
     @Test
@@ -81,18 +82,19 @@ public class YourSayUserControllerTest {
 
     @Test
     @TestSecurity(user="test@example.com", roles={"user"})
-    public void testGetUserByEmail() {
+    public void testGetUserByEmailReturnsIdOnlyNeverPii() {
+        // Resolves the email to the internal id for cross-service callers, exposing no PII.
         given()
                 .contentType(ContentType.JSON)
                 .when()
                 .get(BASE_URL + "/email/jane.smith@example.com")
                 .then()
                 .statusCode(200)
-                .body("email", equalTo("jane.smith@example.com"))
-                .body("firstName", equalTo("Jane"))
-                .body("lastName", equalTo("Smith"))
-                .body("dateOfBirth", equalTo("1985-08-22"))
-                .body("active", equalTo(true));
+                .body("id", equalTo(2))
+                .body("email", nullValue())
+                .body("firstName", nullValue())
+                .body("lastName", nullValue())
+                .body("dateOfBirth", nullValue());
     }
 
     @Test
@@ -108,15 +110,17 @@ public class YourSayUserControllerTest {
 
     @Test
     @TestSecurity(user="test@example.com", roles={"user"})
-    public void testGetInactiveUser() {
+    public void testGetInactiveUserStillResolvesToIdOnly() {
+        // An inactive user is still resolvable to its id, and still leaks no PII.
         given()
                 .contentType(ContentType.JSON)
                 .when()
                 .get(BASE_URL + "/id/3")
                 .then()
                 .statusCode(200)
-                .body("email", equalTo("bob.johnson@example.com"))
-                .body("active", equalTo(false));
+                .body("id", equalTo(3))
+                .body("email", nullValue())
+                .body("active", nullValue());
     }
 
     @Test
