@@ -58,7 +58,8 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
             if (element.getClassName().startsWith("com.yoursay.")
                     && !element.getClassName().startsWith("com.yoursay.observability.")
                     && !element.getClassName().contains(".error.")) {
-                return new SourceLocation(element.getFileName(), element.getLineNumber());
+                String file = element.getFileName() == null ? "unknown" : element.getFileName();
+                return new SourceLocation(file, element.getLineNumber());
             }
         }
         return new SourceLocation("unknown", -1);

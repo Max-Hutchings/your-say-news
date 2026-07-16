@@ -32,8 +32,9 @@ personalisation data owned by the `post-service` `topics` domain. Never put them
   Modules today: `user-service` (port 8081), `post-service` (port 8082). MVP1 keeps a **low
   service count** with strict DDD *domains* inside each (so a domain can be extracted to its own
   service later as a near-mechanical package move): `user-service` owns `user`, `usercharacteristic`,
-  `social`; `post-service` owns `posts`, `votes`, `feed`, `topics`. The only new service planned is
-  `agent-service` (unbiased-post agent) — see `docs/plans/mvp1-roadmap.md`. Wire cross-service
+  `social`; `post-service` owns `posts`, `votes`, `feed`, `topics`, `agent`. The Stage 7
+  unbiased-post agent remains a DDD domain inside `post-service` — see
+  `docs/plans/mvp1-roadmap.md`. Wire cross-service
   `service.*` rest-client URLs in `application.properties` as each call comes online.
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
   Routing via `expo-router` (file-based, with route groups like `(protected)`).

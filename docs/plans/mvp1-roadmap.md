@@ -10,7 +10,7 @@ These were decided up front and shape the stages below:
 | Area | MVP1 decision | Notes / fast-follow |
 | --- | --- | --- |
 | Recommendation feed | **Chronological + follows + topic signals** (reverse-chron, boost followed accounts, capture up to seven declared interests plus author-selected/inferred post topics). A full behavioural rec engine is post-MVP1. | Feed code structured behind an interface so topic weighting can be added without replacing feed assembly or post storage. |
-| Unbiased Post agent | **LLM + live web search** — Claude with a web-search/fetch tool pulls real sources at creation time, then synthesises summary + both sides + support question. | Sources always linked. Latency handled async (see Stage 7). |
+| Unbiased Post agent | **Grok + live web search** inside the `post-service` `agent` domain pulls real sources at creation time, then synthesises summary + both sides + support question. | Sources always linked. Latency handled with durable async jobs (see Stage 7). |
 | Post media | **Images + video** via the existing S3/LocalStack setup. | Video needs an upload + (basic) transcode/poster path. |
 | Privacy guard | **Aggregate-only, no minimum bucket threshold** for MVP1. | ⚠️ Re-identification risk on tiny buckets. Aggregation layer built so a `k`-anonymity threshold is a single config flip — **top privacy fast-follow.** |
 
@@ -32,15 +32,14 @@ Lock the cross-cutting pieces every later stage depends on, so we don't rework t
 
 - **Privacy aggregation contract.** Define the DTO shape for "sentiment by characteristic" (vote tallies + percentages per characteristic bucket, never per-user rows). Build the query/aggregation layer behind an interface with a `suppressBelow=k` config (default `k=0` for MVP1, flip later). This is the single most important contract — get it right once.
 - **Feed contract.** A `FeedRanker` interface returning post IDs for a user; MVP1 implementation = chronological + follow-boost, with topic/theme signals available once Stage 6 lands. Keeps the real rec engine a drop-in later.
-- **Service map (decided).** Three services, with clean DDD domains *inside* each. A low service count is cheaper to run and reason about; because every domain is a top-level package touched only through its controllers/interfaces/DTOs, extracting one into its own service later is a near-mechanical package move, not a rewrite. So we keep boundaries strict at the **domain** level and pay for extra services only when something actually needs to scale or deploy independently:
+- **Service map (decided).** Two services, with clean DDD domains *inside* each. A low service count is cheaper to run and reason about; because every domain is a top-level package touched only through its controllers/interfaces/DTOs, extracting one into its own service later is a near-mechanical package move, not a rewrite. So we keep boundaries strict at the **domain** level and pay for extra services only when something actually needs to scale or deploy independently:
 
   | Service | Port | Domains it owns |
   | --- | --- | --- |
   | `user-service` | 8081 | `user` (Identity/PII, public profile), `usercharacteristic`, `social` (follow graph) |
-  | `post-service` | 8082 | `posts` (create/view), `votes` (**votes + by-characteristic sentiment aggregation** — the privacy core), `feed` (**recommendation algorithm**, feed assembly/return), `topics` (controlled taxonomy, classification, private interests and moderation) |
-  | `agent-service` | new | `agent` — Unbiased-post creation (LLM + live web search) |
+  | `post-service` | 8082 | `posts` (create/view), `votes` (**votes + by-characteristic sentiment aggregation** — the privacy core), `feed` (**recommendation algorithm**, feed assembly/return), `topics` (controlled taxonomy, classification, private interests and moderation), `agent` (Grok-backed unbiased-post creation) |
 
-  **Why this split.** `votes` + aggregation stay in `post-service` next to the content they vote on; the privacy boundary is enforced at the **domain** layer (each vote carries a **characteristic snapshot**, so aggregation never query-time cross-joins into `user-service`), not by a service hop. `feed` is a read/orchestration domain in the same service as `posts`: it ranks local post content and calls `user-service` for the `social` follow graph (and later `votes`/`user-service` for ranking signals), so the rec engine swaps in behind `FeedRanker` without touching anyone else. `topics` stays beside `posts` because it classifies and indexes local content, owns private user interests, then supplies canonical signals to `feed`; its domain boundary keeps those records separate from post persistence and aggregate-only characteristics. `social` (follows) sits with `user` because a follow is a user-to-user relationship and pairs with the public profile. **`agent-service` is the only new service** — it's isolated, latency-heavy, separately scaled/metered (live web research), and depends on nothing else at write time. Wire `service.*` rest-client URLs in `application.properties` as each cross-service call comes online (`post-service` → `user-service` already exists).
+  **Why this split.** `votes` + aggregation stay in `post-service` next to the content they vote on; the privacy boundary is enforced at the **domain** layer (each vote carries a **characteristic snapshot**, so aggregation never query-time cross-joins into `user-service`), not by a service hop. `feed` is a read/orchestration domain in the same service as `posts`: it ranks local post content and calls `user-service` for the `social` follow graph (and later `votes`/`user-service` for ranking signals), so the rec engine swaps in behind `FeedRanker` without touching anyone else. `topics` stays beside `posts` because it classifies and indexes local content, owns private user interests, then supplies canonical signals to `feed`; its domain boundary keeps those records separate from post persistence and aggregate-only characteristics. `social` (follows) sits with `user` because a follow is a user-to-user relationship and pairs with the public profile. Stage 7 keeps `agent` as another strict domain inside `post-service`: durable jobs isolate the latency, while approval can publish through the public `posts` contract without a distributed transaction. Wire `service.*` rest-client URLs in `application.properties` as each cross-service call comes online (`post-service` → `user-service` already exists).
 
 Stage 0 is **backend contracts only** — no UI. The shared design-system work (confirming `constants/theme` tokens + `components/ui` primitives cover cards, chips, vote controls, bottom-sheet/modal) moves into the UI stages that first need each primitive, built just-in-time rather than as one upfront pass (chips in onboarding/results, vote controls in Stage 3, etc.).
 
@@ -159,10 +158,11 @@ onboarding step and edit them later from settings.
 
 The differentiator. Built last because it depends on the post + support-question + media pipeline already working.
 
-- **`agent-service`** — hosts the post-creation agent (Claude, latest model) with a **strong unbiased system prompt** and a **web-search/fetch tool** over official news sources + social feeds.
+- **`post-service` `agent` domain** — hosts the post-creation agent using configurable **Grok** models, a strong balanced-reporting system prompt and live web search.
 - **Conversational creation flow** (mobile) — user speaks/types what they want covered; agent researches, then produces: **neutral summary**, **what side A believes**, **what side B believes**, **linked sources** (always), and a **generated support question** asking which side the user agrees with.
-- **Fact-grounding + sourcing** — every claim backed by a linked source; agent instructed to prefer verifiable facts and present both sides proportionally.
-- **Async handling** — research has latency; creation runs as a job with progress UI, producing a draft the user reviews/approves before publish.
+- **Fact-grounding + sourcing** — every claim backed by linked sources that are validated against Grok's returned search citations; prefer primary and strong independent reporting, represent uncertainty and avoid false balance.
+- **Async handling** — research has latency; creation runs as a durable `post-service` job with progress UI, producing a draft the user reviews/approves before publish.
+- **Human-reviewed media for MVP1** — the agent supplies an image brief/search query, but the user owns or verifies and uploads the selected image. Do not republish arbitrary image-search results.
 - **Unbiased mark** — `isUnbiased=true` posts render a distinct corner badge everywhere they appear (feed, profile, detail).
 - Unbiased posts flow into the same vote + aggregation pipeline as any other post.
 
@@ -227,7 +227,7 @@ Stage 0 (contracts) → 1 (onboarding) → 2 (posts) → 3 (voting) → 4 (aggre
                                                         8 (hardening)       [continuous, gates release]
 ```
 
-Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (topics) starts once Stage 2's post model and Stage 5's feed surface exist. Stage 7 (agent) is isolated in its own service and can start as soon as Stage 2's post/support-question model is stable. Workstream T starts once the characteristic model is fixed in Stage 1 and must be in place to meaningfully test Stage 4.
+Stages 4 and 5 can run in parallel once 2–3 land. Stage 6 (topics) starts once Stage 2's post model and Stage 5's feed surface exist. Stage 7 (`post-service` agent domain) can start as soon as Stage 2's post/support-question model is stable. Workstream T starts once the characteristic model is fixed in Stage 1 and must be in place to meaningfully test Stage 4.
 
 ## Top risks to watch
 

@@ -4,16 +4,15 @@
 
 ## Decision
 
-MVP1 runs **three backend services**, with strict DDD **domains** inside each:
+MVP1 runs **two backend services**, with strict DDD **domains** inside each:
 
 | Service | Port | Domains |
 | --- | --- | --- |
 | `user-service` | 8081 | `user` (identity/PII, public profile), `usercharacteristic`, `social` (follow graph) |
-| `post-service` | 8082 | `posts` (create/view), `votes` (votes **+ by-characteristic sentiment aggregation**), `feed` (ranking/assembly), `topics` (taxonomy, classification and private user interests) |
-| `agent-service` | new | `agent` — unbiased-post creation (LLM + live web search) |
+| `post-service` | 8082 | `posts` (create/view), `votes` (votes **+ by-characteristic sentiment aggregation**), `feed` (ranking/assembly), `topics` (taxonomy, classification and private user interests), `agent` (Grok-backed unbiased-post creation) |
 
-`agent-service` is the **only** new service. Votes, feed and the follow graph are domains inside the
-two services that already exist, not standalone services.
+No new deployable service is required for MVP1. Votes, feed, topics and the agent are domains
+inside the two existing services, not standalone services.
 
 ## Why
 
@@ -36,8 +35,8 @@ two services that already exist, not standalone services.
   keeps those records separate from both post persistence and aggregate-only user characteristics.
 - **`social` (follows) sits with `user`** because a follow is a user-to-user relationship that pairs
   with the public profile.
-- **`agent` is split out** because it is isolated, latency-heavy and separately scaled/metered (live
-  web research), and depends on nothing else at write time.
+- **`agent` stays with `posts`** because work is durable and asynchronous, and approval writes a
+  local post. Its strict domain boundary keeps later extraction possible if load justifies it.
 
 ## Consequences
 

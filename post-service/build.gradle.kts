@@ -25,6 +25,7 @@ dependencies {
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-oidc")
     implementation("io.quarkus:quarkus-hibernate-validator")
+    implementation("io.quarkus:quarkus-scheduler")
     implementation("io.quarkiverse.amazonservices:quarkus-amazon-s3")
     implementation("org.jetbrains:annotations")
 
