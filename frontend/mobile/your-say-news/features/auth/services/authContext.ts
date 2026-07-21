@@ -22,6 +22,9 @@ export const useAuthStore = create(
             lastName: null,
             dateOfBirth: null,
             consentedAt: null,
+            accountType: "STANDARD",
+            publisherStatus: "NONE",
+            canPublish: false,
             accessToken: null,
             refreshToken: null,
             accessTokenExpiresAt: null,
@@ -115,10 +118,21 @@ async function completeLogin(tokens: {
 
     if (!user){
         useAuthStore.setState({
+            id: null,
+            email: null,
+            firstName: null,
+            lastName: null,
+            dateOfBirth: null,
+            consentedAt: null,
+            accountType: "STANDARD",
+            publisherStatus: "NONE",
+            canPublish: false,
             accessToken: null,
             refreshToken: null,
             accessTokenExpiresAt: null,
             isLoggedIn: false,
+            hasOnboarded: false,
+            hasCharacteristics: false,
         });
         return false;
     }
@@ -136,6 +150,9 @@ async function completeLogin(tokens: {
         lastName: user.lastName,
         dateOfBirth: user.dateOfBirth,
         consentedAt: user.consentedAt,
+        accountType: user.accountType,
+        publisherStatus: user.publisherStatus,
+        canPublish: user.canPublish,
         hasCharacteristics: status?.hasCharacteristics ?? false,
         hasOnboarded: status?.onboarded ?? !!user.consentedAt,
         isLoggedIn: true,
@@ -170,6 +187,9 @@ async function logout(): Promise<void> {
         lastName: null,
         dateOfBirth: null,
         consentedAt: null,
+        accountType: "STANDARD",
+        publisherStatus: "NONE",
+        canPublish: false,
         accessToken: null,
         refreshToken: null,
         accessTokenExpiresAt: null,

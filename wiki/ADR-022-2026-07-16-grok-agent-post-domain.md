@@ -30,9 +30,11 @@ Create an `agent` domain inside `post-service`. It owns durable asynchronous gen
 provider orchestration, sourced draft validation and the review/publish workflow. It crosses into
 post creation only through the public `PostService` contract.
 
-Use the xAI Responses API with live web search and strict structured output. Default to configurable
+Use Quarkus LangChain4j's declarative AI service and OpenAI-compatible model integration to call the
+xAI Responses API with live web search and strict structured output. Default to configurable
 `grok-4.3` with low reasoning effort as the value option; allow configuration to select Grok 4.5 or
-a later evaluated model. Persist the model used for every job.
+a later evaluated model. Persist the model used for every job. Do not duplicate provider transport,
+structured-output schema generation or response conversion in a hand-written REST client.
 
 Require every generated claim to list supporting URLs and verify those URLs were returned in the
 provider's collected search citations. Provider output fails closed when source mapping is absent or

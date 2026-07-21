@@ -63,6 +63,13 @@ public class YourSayUserController {
         return new OnboardingStatusDto(consented, hasCharacteristics, consented && hasCharacteristics);
     }
 
+    /** PII-free publishing access for the bearer-token subject. */
+    @GET
+    @Path("/me/access")
+    public UserAccessDto getCurrentAccess() {
+        return userService.getAccessByEmail(securityIdentity.getPrincipal().getName());
+    }
+
 
     @GET
     @Path("/data")

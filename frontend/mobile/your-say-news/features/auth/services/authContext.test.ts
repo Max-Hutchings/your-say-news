@@ -40,6 +40,9 @@ beforeEach(() => {
         isLoggedIn: false,
         hasOnboarded: false,
         hasCharacteristics: false,
+        accountType: "STANDARD",
+        publisherStatus: "NONE",
+        canPublish: false,
         accessToken: null,
         refreshToken: null,
         accessTokenExpiresAt: null,
@@ -82,6 +85,9 @@ describe("login", () => {
             lastName: "Lovelace",
             dateOfBirth: "1990-05-21",
             consentedAt: "2026-06-01T00:00:00Z",
+            accountType: "OFFICIAL",
+            publisherStatus: "ACTIVE",
+            canPublish: true,
         });
         mockGetOnboardingStatus.mockResolvedValue({
             consented: true,
@@ -99,6 +105,13 @@ describe("login", () => {
         expect(state.refreshToken).toBe("refresh-1");
         expect(state.email).toBe("ada@example.com");
         expect(state.id).toBe(7);
+        expect(state.firstName).toBe("Ada");
+        expect(state.lastName).toBe("Lovelace");
+        expect(state.dateOfBirth).toBe("1990-05-21");
+        expect(state.consentedAt).toBe("2026-06-01T00:00:00Z");
+        expect(state.accountType).toBe("OFFICIAL");
+        expect(state.publisherStatus).toBe("ACTIVE");
+        expect(state.canPublish).toBe(true);
         expect(state.hasCharacteristics).toBe(true);
         expect(state.hasOnboarded).toBe(true);
         // 300s expiry recorded as an absolute timestamp.
@@ -120,6 +133,9 @@ describe("login", () => {
             lastName: "Doe",
             dateOfBirth: "1990-05-15",
             consentedAt: null,
+            accountType: "STANDARD",
+            publisherStatus: "NONE",
+            canPublish: false,
         });
         // John has a saved profile but has never consented — the server reports him not onboarded.
         mockGetOnboardingStatus.mockResolvedValue({
@@ -149,6 +165,9 @@ describe("login", () => {
             lastName: "Lovelace",
             dateOfBirth: "1990-05-21",
             consentedAt: "2026-06-01T00:00:00Z",
+            accountType: "STANDARD",
+            publisherStatus: "NONE",
+            canPublish: false,
         });
         mockGetOnboardingStatus.mockResolvedValue(null);
 
@@ -170,6 +189,19 @@ describe("login", () => {
     });
 
     it("returns false when user details cannot be fetched", async () => {
+        useAuthStore.setState({
+            id: 44,
+            email: "old@example.com",
+            firstName: "Old",
+            lastName: "Identity",
+            dateOfBirth: "1970-01-01",
+            consentedAt: "2026-01-01T00:00:00Z",
+            hasOnboarded: true,
+            hasCharacteristics: true,
+            accountType: "OFFICIAL",
+            publisherStatus: "ACTIVE",
+            canPublish: true,
+        });
         mockLogin.mockResolvedValue({
             accessToken: "access-1",
             refreshToken: "refresh-1",
@@ -182,6 +214,20 @@ describe("login", () => {
 
         expect(ok).toBe(false);
         expect(useAuthStore.getState().isLoggedIn).toBe(false);
+        expect(useAuthStore.getState().accessToken).toBeNull();
+        expect(useAuthStore.getState().refreshToken).toBeNull();
+        expect(useAuthStore.getState().accessTokenExpiresAt).toBeNull();
+        expect(useAuthStore.getState().id).toBeNull();
+        expect(useAuthStore.getState().email).toBeNull();
+        expect(useAuthStore.getState().firstName).toBeNull();
+        expect(useAuthStore.getState().lastName).toBeNull();
+        expect(useAuthStore.getState().dateOfBirth).toBeNull();
+        expect(useAuthStore.getState().consentedAt).toBeNull();
+        expect(useAuthStore.getState().accountType).toBe("STANDARD");
+        expect(useAuthStore.getState().publisherStatus).toBe("NONE");
+        expect(useAuthStore.getState().canPublish).toBe(false);
+        expect(useAuthStore.getState().hasOnboarded).toBe(false);
+        expect(useAuthStore.getState().hasCharacteristics).toBe(false);
     });
 });
 
@@ -234,6 +280,9 @@ describe("logout", () => {
             email: "ada@example.com",
             isLoggedIn: true,
             hasOnboarded: true,
+            accountType: "OFFICIAL",
+            publisherStatus: "ACTIVE",
+            canPublish: true,
             accessToken: "access-1",
             refreshToken: "refresh-1",
             accessTokenExpiresAt: Date.now() + HOUR,
@@ -245,8 +294,16 @@ describe("logout", () => {
         expect(mockRevoke).toHaveBeenCalledWith("refresh-1");
         expect(state.isLoggedIn).toBe(false);
         expect(state.hasOnboarded).toBe(false);
+        expect(state.accountType).toBe("STANDARD");
+        expect(state.publisherStatus).toBe("NONE");
+        expect(state.canPublish).toBe(false);
         expect(state.id).toBeNull();
         expect(state.email).toBeNull();
+        expect(state.firstName).toBeNull();
+        expect(state.lastName).toBeNull();
+        expect(state.dateOfBirth).toBeNull();
+        expect(state.consentedAt).toBeNull();
+        expect(state.hasCharacteristics).toBe(false);
         expect(state.accessToken).toBeNull();
         expect(state.refreshToken).toBeNull();
         expect(state.accessTokenExpiresAt).toBeNull();

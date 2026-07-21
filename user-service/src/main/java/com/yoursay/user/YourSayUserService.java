@@ -24,6 +24,9 @@ public interface YourSayUserService {
 
     YourSayUserDto getByEmail(String email);
 
+    /** PII-free account classification and publishing capability for the authenticated subject. */
+    UserAccessDto getAccessByEmail(String email);
+
     /**
      * Record explicit consent to the privacy promise for the authenticated user, stamping the time
      * and the policy version they agreed to.

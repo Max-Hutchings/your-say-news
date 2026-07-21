@@ -17,6 +17,9 @@ public record YourSayUserDto(
         LocalDate dateOfBirth,
         LocalDate createdDate,
         boolean active,
+        AccountType accountType,
+        PublisherStatus publisherStatus,
+        boolean canPublish,
         Instant consentedAt,
         String privacyPolicyVersion
 ) {

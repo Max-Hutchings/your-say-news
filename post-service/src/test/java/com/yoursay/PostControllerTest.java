@@ -4,6 +4,7 @@ import com.yoursay.posts.MediaType;
 import com.yoursay.posts.client.UserServiceClient;
 import com.yoursay.posts.model.PostMediaUpload;
 import com.yoursay.posts.model.PostMediaUploadRepository;
+import io.agroal.api.AgroalDataSource;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.vertx.VertxContextSupport;
 import io.quarkus.test.InjectMock;
@@ -24,6 +25,9 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import java.time.Duration;
 import java.net.URI;
 import java.time.Instant;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -53,13 +57,17 @@ public class PostControllerTest {
     @Inject
     PostMediaUploadRepository uploadRepository;
 
+    @Inject
+    AgroalDataSource dataSource;
+
     @BeforeEach
     public void setup() throws Exception {
         Mockito.reset(userServiceClient, presigner);
 
-        // The authenticated email resolves to a known user id (any forwarded bearer is accepted here).
-        Mockito.when(userServiceClient.getUserByEmail(Mockito.eq(AUTHOR_EMAIL), Mockito.any()))
-                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserRef(AUTHOR_ID)));
+        // The forwarded bearer resolves to an active official publisher and a known user id.
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
 
         PresignedPutObjectRequest put = Mockito.mock(PresignedPutObjectRequest.class);
         Mockito.when(put.url()).thenReturn(URI.create("https://s3.local/upload?sig=put").toURL());
@@ -114,6 +122,15 @@ public class PostControllerTest {
         }
     }
 
+    private long countPosts() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("select count(*) from post");
+             ResultSet result = statement.executeQuery()) {
+            result.next();
+            return result.getLong(1);
+        }
+    }
+
     @Test
     public void presignReturnsAKeyUploadUrlAndTtl() {
         ArgumentCaptor<PutObjectPresignRequest> request =
@@ -138,13 +155,13 @@ public class PostControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals("post-videos", actual.putObjectRequest().bucket());
         org.junit.jupiter.api.Assertions.assertEquals("image/jpeg", actual.putObjectRequest().contentType());
         org.junit.jupiter.api.Assertions.assertTrue(actual.putObjectRequest().key().startsWith("posts/"));
-        Mockito.verify(userServiceClient).getUserByEmail(Mockito.eq(AUTHOR_EMAIL), auth.capture());
+        Mockito.verify(userServiceClient).getCurrentUserAccess(auth.capture());
         org.junit.jupiter.api.Assertions.assertEquals("Bearer presign-token-123", auth.getValue());
     }
 
     @Test
     public void presignRejectsAnUnknownAuthor() {
-        Mockito.when(userServiceClient.getUserByEmail(Mockito.eq(AUTHOR_EMAIL), Mockito.any()))
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().nullItem());
 
         given()
@@ -321,22 +338,91 @@ public class PostControllerTest {
                 .then()
                 .statusCode(201);
 
-        Mockito.verify(userServiceClient).getUserByEmail(Mockito.eq(AUTHOR_EMAIL), auth.capture());
+        Mockito.verify(userServiceClient).getCurrentUserAccess(auth.capture());
         org.junit.jupiter.api.Assertions.assertEquals("Bearer test-jwt-123", auth.getValue());
     }
 
     @Test
-    public void createRejectsAnUnknownAuthor() {
+    public void createRejectsAnUnknownAuthor() throws Exception {
         // The token email resolves to no user in user-service -> the author can't be established.
-        Mockito.when(userServiceClient.getUserByEmail(Mockito.eq(AUTHOR_EMAIL), Mockito.any()))
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().nullItem());
+        long before = countPosts();
 
         given()
                 .contentType("application/json")
                 .body(createBody("Context from an unknown author.", "Should this orphan post exist?"))
                 .when().post("/posts")
                 .then()
-                .statusCode(401);
+                .statusCode(401)
+                .body("code", is("POST_AUTHOR_NOT_FOUND"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(before, countPosts());
+    }
+
+    @Test
+    public void createRejectsAStandardAccountEvenWhenAuthenticated() throws Exception {
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        AUTHOR_ID, "STANDARD", "NONE", false)));
+        long before = countPosts();
+
+        given()
+                .contentType("application/json")
+                .body(createBody("Context from a reader.", "Should readers be able to publish?"))
+                .when().post("/posts")
+                .then()
+                .statusCode(403)
+                .body("code", is("POST_PUBLISHING_FORBIDDEN"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(before, countPosts());
+    }
+
+    @Test
+    public void createRejectsContradictoryAccessDataRatherThanTrustingOneFlag() throws Exception {
+        long before = countPosts();
+
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        AUTHOR_ID, "STANDARD", "NONE", true)));
+        given()
+                .contentType("application/json")
+                .body(createBody("A standard account with a bad flag.", "Should this be rejected?"))
+                .when().post("/posts")
+                .then()
+                .statusCode(403)
+                .body("code", is("POST_PUBLISHING_FORBIDDEN"));
+
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        AUTHOR_ID, "OFFICIAL", "ACTIVE", false)));
+        given()
+                .contentType("application/json")
+                .body(createBody("An official account with a denied capability.", "Should this be rejected too?"))
+                .when().post("/posts")
+                .then()
+                .statusCode(403)
+                .body("code", is("POST_PUBLISHING_FORBIDDEN"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(before, countPosts());
+    }
+
+    @Test
+    public void presignRejectsASuspendedOfficialBeforeMintingAnUploadUrl() {
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        AUTHOR_ID, "OFFICIAL", "SUSPENDED", false)));
+
+        given()
+                .contentType("application/json")
+                .body("{ \"mediaType\": \"IMAGE\", \"contentType\": \"image/jpeg\" }")
+                .when().post("/posts/media/presign")
+                .then()
+                .statusCode(403)
+                .body("code", is("POST_PUBLISHING_FORBIDDEN"));
+
+        Mockito.verify(presigner, Mockito.never())
+                .presignPutObject(Mockito.any(PutObjectPresignRequest.class));
     }
 
     @Test

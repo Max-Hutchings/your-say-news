@@ -41,6 +41,7 @@ export function HomeFeed() {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   const email = useAuthStore((s) => s.email);
+  const canPublish = useAuthStore((s) => s.canPublish);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -229,14 +230,16 @@ export function HomeFeed() {
         )}
       </View>
 
-      <Pressable
-        onPress={() => router.push("/create-post")}
-        accessibilityRole="button"
-        accessibilityLabel="New post"
-        style={[styles.fab, { backgroundColor: e.lime }]}
-      >
-        <Text style={[styles.fabText, { color: e.onLime }]}>＋ Post</Text>
-      </Pressable>
+      {canPublish ? (
+        <Pressable
+          onPress={() => router.push("/create-post")}
+          accessibilityRole="button"
+          accessibilityLabel="New post"
+          style={[styles.fab, { backgroundColor: e.lime }]}
+        >
+          <Text style={[styles.fabText, { color: e.onLime }]}>＋ Post</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

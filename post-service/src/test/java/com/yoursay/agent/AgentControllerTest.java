@@ -6,7 +6,6 @@ import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,12 +38,12 @@ class AgentControllerTest {
     @BeforeEach
     void setUp() throws Exception {
         Mockito.reset(userClient);
-        Mockito.when(userClient.getUserByEmail(
-                        Mockito.eq("editor@yoursay.com"), Mockito.eq(EDITOR_AUTH)))
-                .thenReturn(Response.ok(new AgentUserClient.UserRef(EDITOR_ID)).build());
-        Mockito.when(userClient.getUserByEmail(
-                        Mockito.eq("other@yoursay.com"), Mockito.eq(OTHER_AUTH)))
-                .thenReturn(Response.ok(new AgentUserClient.UserRef(OTHER_USER_ID)).build());
+        Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
+                .thenReturn(new AgentUserClient.UserAccess(
+                        EDITOR_ID, "OFFICIAL", "ACTIVE", true));
+        Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(OTHER_AUTH)))
+                .thenReturn(new AgentUserClient.UserAccess(
+                        OTHER_USER_ID, "STANDARD", "NONE", false));
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("delete from agent_generation_job")) {
             statement.executeUpdate();
@@ -125,6 +124,67 @@ class AgentControllerTest {
                 .statusCode(400)
                 .body("code", is("VALIDATION_FAILED"))
                 .body("message", is("Invalid request."));
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select count(*) from agent_generation_job");
+             ResultSet result = statement.executeQuery()) {
+            result.next();
+            org.junit.jupiter.api.Assertions.assertEquals(0, result.getInt(1));
+        }
+    }
+
+    @Test
+    void officialWithoutActivePublisherStatusCannotStartJob() throws Exception {
+        Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
+                .thenReturn(new AgentUserClient.UserAccess(
+                        EDITOR_ID, "OFFICIAL", "NONE", false));
+
+        given()
+                .header("Authorization", EDITOR_AUTH)
+                .contentType("application/json")
+                .body("{\"request\":\"Cover a current policy dispute.\"}")
+                .when().post("/agent/jobs")
+                .then()
+                .statusCode(403)
+                .body("code", is("AGENT_PUBLISHING_FORBIDDEN"));
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select count(*) from agent_generation_job");
+             ResultSet result = statement.executeQuery()) {
+            result.next();
+            org.junit.jupiter.api.Assertions.assertEquals(0, result.getInt(1));
+        }
+    }
+
+    @Test
+    void contradictoryAccessDataCannotBypassAgentPublishingRule() throws Exception {
+        Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
+                .thenReturn(new AgentUserClient.UserAccess(
+                        EDITOR_ID, "STANDARD", "NONE", true));
+
+        given()
+                .header("Authorization", EDITOR_AUTH)
+                .contentType("application/json")
+                .body("{\"request\":\"Research a current transport dispute.\"}")
+                .when().post("/agent/jobs")
+                .then()
+                .statusCode(403)
+                .body("code", is("AGENT_PUBLISHING_FORBIDDEN"));
+
+        Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
+                .thenReturn(new AgentUserClient.UserAccess(
+                        EDITOR_ID, "OFFICIAL", "ACTIVE", false));
+
+        given()
+                .header("Authorization", EDITOR_AUTH)
+                .contentType("application/json")
+                .body("{\"request\":\"Research a current housing dispute.\"}")
+                .when().post("/agent/jobs")
+                .then()
+                .statusCode(403)
+                .body("code", is("AGENT_PUBLISHING_FORBIDDEN"));
 
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(

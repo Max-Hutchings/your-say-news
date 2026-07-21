@@ -14,7 +14,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import com.yoursay.agent.error.AgentApiException;
+import org.jboss.resteasy.reactive.ResponseStatus;
 
 import java.util.UUID;
 
@@ -32,19 +33,18 @@ public class AgentController {
     SecurityIdentity securityIdentity;
 
     @POST
-    public Response start(@Valid @NotNull GenerateAgentPostRequest request,
+    @ResponseStatus(202)
+    public AgentJobDto start(@Valid @NotNull GenerateAgentPostRequest request,
                           @HeaderParam("Authorization") String authorization) {
-        AgentJobDto job = agentService.start(
+        return agentService.start(
                 securityIdentity.getPrincipal().getName(), authorization, request);
-        return Response.accepted(job).build();
     }
 
     @GET
     @Path("/{jobId}")
-    public Response get(@PathParam("jobId") UUID jobId,
-                        @HeaderParam("Authorization") String authorization) {
+    public AgentJobDto get(@PathParam("jobId") UUID jobId,
+                           @HeaderParam("Authorization") String authorization) {
         return agentService.get(jobId, securityIdentity.getPrincipal().getName(), authorization)
-                .map(job -> Response.ok(job).build())
-                .orElse(Response.status(Response.Status.NOT_FOUND).build());
+                .orElseThrow(() -> AgentApiException.jobMissing(jobId));
     }
 }

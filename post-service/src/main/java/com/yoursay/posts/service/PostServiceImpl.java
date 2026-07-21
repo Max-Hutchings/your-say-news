@@ -54,7 +54,7 @@ public class PostServiceImpl implements PostService {
                             request.mediaType(), request.contentType());
                     Instant expiresAt = Instant.now().plusSeconds(upload.expiresInSeconds());
                     return uploadRepository.saveUpload(new PostMediaUpload(
-                                    author.id(), request.mediaType(), upload.s3Key(), request.contentType(), expiresAt))
+                                    author.userId(), request.mediaType(), upload.s3Key(), request.contentType(), expiresAt))
                             .replaceWith(new PresignResponse(
                                     upload.s3Key(), upload.uploadUrl(), upload.expiresInSeconds()));
                 })
@@ -76,15 +76,15 @@ public class PostServiceImpl implements PostService {
                     Uni<Void> validation = Uni.createFrom().voidItem();
                     for (CreatePostRequest.Media item : media) {
                         validation = validation.chain(() -> consumeUpload(
-                                item.s3Key(), author.id(), item.mediaType(), item.contentType()));
+                                item.s3Key(), author.userId(), item.mediaType(), item.contentType()));
                         if (item.posterS3Key() != null && !item.posterS3Key().isBlank()) {
                             validation = validation.chain(() -> consumeUpload(
-                                    item.posterS3Key(), author.id(), MediaType.IMAGE, null));
+                                    item.posterS3Key(), author.userId(), MediaType.IMAGE, null));
                         }
                     }
                     return validation.chain(() -> {
                         // Author from the token; body userId (if any) and isUnbiased are ignored/forced.
-                        Post post = new Post(author.id(), request.summary().trim(),
+                        Post post = new Post(author.userId(), request.summary().trim(),
                                 request.supportQuestion().trim(), false);
                         post.setCaseFor(emptyToNull(request.caseFor()));
                         post.setCaseAgainst(emptyToNull(request.caseAgainst()));
@@ -154,10 +154,15 @@ public class PostServiceImpl implements PostService {
         );
     }
 
-    private Uni<UserServiceClient.UserRef> resolveAuthor(String authorEmail, String authorization) {
-        return userServiceClient.getUserByEmail(authorEmail, authorization)
+    private Uni<UserServiceClient.UserAccess> resolveAuthor(String authorEmail, String authorization) {
+        return userServiceClient.getCurrentUserAccess(authorization)
                 .onItem().ifNull().failWith(() ->
-                        PostApiException.unknownAuthor(authorEmail));
+                        PostApiException.unknownAuthor(authorEmail))
+                .invoke(access -> {
+                    if (!access.isActiveOfficialPublisher()) {
+                        throw PostApiException.publishingForbidden(access.userId());
+                    }
+                });
     }
 
     private Uni<Void> consumeUpload(String s3Key, Long userId, MediaType mediaType, String contentType) {

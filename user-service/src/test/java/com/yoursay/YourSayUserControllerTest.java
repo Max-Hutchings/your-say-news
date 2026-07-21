@@ -1,12 +1,16 @@
 package com.yoursay;
 
 
+import io.agroal.api.AgroalDataSource;
+import jakarta.inject.Inject;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.SecurityAttribute;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -16,6 +20,9 @@ import static org.hamcrest.Matchers.*;
 public class YourSayUserControllerTest {
 
     final String BASE_URL = "/your-say-user";
+
+    @Inject
+    AgroalDataSource dataSource;
 
 
     @Test
@@ -109,6 +116,65 @@ public class YourSayUserControllerTest {
     }
 
     @Test
+    @TestSecurity(user="john.doe@example.com", roles={"user"})
+    public void currentAccessIdentifiesAnActiveOfficialPublisher() {
+        given()
+                .when()
+                .get(BASE_URL + "/me/access")
+                .then()
+                .statusCode(200)
+                .body("userId", equalTo(1))
+                .body("accountType", equalTo("OFFICIAL"))
+                .body("publisherStatus", equalTo("ACTIVE"))
+                .body("canPublish", equalTo(true))
+                .body("email", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user="john.doe@example.com", roles={"user"})
+    public void currentAccessDeniesPublishingWhenAnOfficialAccountIsInactive() throws Exception {
+        setUserActive(1, false);
+        try {
+            given()
+                    .when()
+                    .get(BASE_URL + "/me/access")
+                    .then()
+                    .statusCode(200)
+                    .body("userId", equalTo(1))
+                    .body("accountType", equalTo("OFFICIAL"))
+                    .body("publisherStatus", equalTo("ACTIVE"))
+                    .body("canPublish", equalTo(false));
+        } finally {
+            setUserActive(1, true);
+        }
+    }
+
+    @Test
+    @TestSecurity(user="nora.new@example.com", roles={"user"})
+    public void currentAccessKeepsANonAuthorStandardAndUnableToPublish() {
+        given()
+                .when()
+                .get(BASE_URL + "/me/access")
+                .then()
+                .statusCode(200)
+                .body("userId", equalTo(5))
+                .body("accountType", equalTo("STANDARD"))
+                .body("publisherStatus", equalTo("NONE"))
+                .body("canPublish", equalTo(false))
+                .body("email", nullValue());
+    }
+
+    private void setUserActive(long userId, boolean active) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "update your_say_user set active = ? where id = ?")) {
+            statement.setBoolean(1, active);
+            statement.setLong(2, userId);
+            statement.executeUpdate();
+        }
+    }
+
+    @Test
     @TestSecurity(user="test@example.com", roles={"user"})
     public void testGetInactiveUserStillResolvesToIdOnly() {
         // An inactive user is still resolvable to its id, and still leaks no PII.
@@ -183,4 +249,3 @@ public class YourSayUserControllerTest {
     }
 
 }
-

@@ -15,6 +15,11 @@ public class PostApiException extends ApiException {
                 "Cannot create post because author lookup failed: authorEmail=" + authorEmail);
     }
 
+    public static PostApiException publishingForbidden(Long userId) {
+        return new PostApiException("POST_PUBLISHING_FORBIDDEN", Response.Status.FORBIDDEN,
+                "Post publishing requires an active official publisher: userId=" + userId);
+    }
+
     public static PostApiException uploadNotOwned(String s3Key, Long userId) {
         return new PostApiException("POST_MEDIA_UPLOAD_NOT_OWNED", Response.Status.BAD_REQUEST,
                 "Media upload was not created for user: s3Key=" + s3Key + ", userId=" + userId);

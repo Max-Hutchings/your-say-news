@@ -3,6 +3,7 @@ package com.yoursay.user.service;
 import com.yoursay.observability.DomainMetrics;
 import com.yoursay.user.YourSayUserDto;
 import com.yoursay.user.YourSayUserService;
+import com.yoursay.user.UserAccessDto;
 import com.yoursay.user.error.UserApiException;
 import com.yoursay.user.model.YourSayUser;
 import com.yoursay.user.model.YourSayUserRepository;
@@ -78,6 +79,20 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     }
 
     @Override
+    public UserAccessDto getAccessByEmail(String email) {
+        YourSayUser user = yourSayUserRepository.findByEmail(email);
+        if (user == null) {
+            return null;
+        }
+        return new UserAccessDto(
+                user.getId(),
+                user.getAccountType(),
+                user.getPublisherStatus(),
+                user.canPublish()
+        );
+    }
+
+    @Override
     @Transactional
     public YourSayUserDto recordConsent(String email, String privacyPolicyVersion) {
         try {
@@ -115,6 +130,9 @@ public class YourSayUserServiceImpl implements YourSayUserService {
                 user.getDateOfBirth(),
                 user.getCreatedDate(),
                 user.isActive(),
+                user.getAccountType(),
+                user.getPublisherStatus(),
+                user.canPublish(),
                 user.getConsentedAt(),
                 user.getPrivacyPolicyVersion()
         );

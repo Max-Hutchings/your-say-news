@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260721-0014-1
+      author: codex
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: account_type
+                  type: VARCHAR(20)
+                  defaultValue: STANDARD
+                  constraints:
+                    nullable: false
+              - column:
+                  name: publisher_status
+                  type: VARCHAR(20)
+                  defaultValue: NONE
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: >-
+              ALTER TABLE your_say_user
+              ADD CONSTRAINT ck_your_say_user_account_type
+              CHECK (account_type IN ('STANDARD', 'OFFICIAL'))
+        - sql:
+            sql: >-
+              ALTER TABLE your_say_user
+              ADD CONSTRAINT ck_your_say_user_publisher_status
+              CHECK (publisher_status IN ('NONE', 'ACTIVE', 'SUSPENDED'))
+        - sql:
+            sql: >-
+              ALTER TABLE your_say_user
+              ADD CONSTRAINT ck_your_say_user_standard_cannot_publish
+              CHECK (account_type <> 'STANDARD' OR publisher_status = 'NONE')

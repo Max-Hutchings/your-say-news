@@ -1,0 +1,20 @@
+databaseChangeLog:
+  # Every user referenced as an author by the post-service seed data must be able to publish.
+  # All other seeded users retain the schema defaults STANDARD/NONE, giving local development
+  # representative non-official, non-publishing accounts as well.
+  - changeSet:
+      id: 0005-seed-official-publishers
+      author: codex
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - update:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: account_type
+                  value: OFFICIAL
+              - column:
+                  name: publisher_status
+                  value: ACTIVE
+            where: id IN (1, 2, 4, 7, 8)

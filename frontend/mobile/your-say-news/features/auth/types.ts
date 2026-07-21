@@ -7,6 +7,9 @@ export type User = {
     dateOfBirth: string | null;
     // ISO-8601 timestamp of privacy-promise consent, or null if they have not consented yet.
     consentedAt: string | null;
+    accountType: "STANDARD" | "OFFICIAL";
+    publisherStatus: "NONE" | "ACTIVE" | "SUSPENDED";
+    canPublish: boolean;
 };
 
 /** Server's view of how far the user is through onboarding (GET /your-say-user/onboarding). */

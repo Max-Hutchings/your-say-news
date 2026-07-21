@@ -6,17 +6,21 @@ import { HomeFeed } from "./HomeFeed";
 import { getFeed } from "../services/PostService";
 import type { Post } from "../types";
 
+const mockPush = jest.fn();
+
 jest.mock("expo-router", () => {
   const React = jest.requireActual("react");
   return {
-    useRouter: () => ({ push: jest.fn() }),
+    useRouter: () => ({ push: mockPush }),
     useFocusEffect: (callback: () => void | (() => void)) => React.useEffect(callback, [callback]),
   };
 });
 
+let mockCanPublish = true;
+
 jest.mock("@/features/auth", () => ({
-  useAuthStore: (selector: (state: { email: string }) => unknown) =>
-    selector({ email: "reader@example.com" }),
+  useAuthStore: (selector: (state: { email: string; canPublish: boolean }) => unknown) =>
+    selector({ email: "reader@example.com", canPublish: mockCanPublish }),
 }));
 
 jest.mock("../services/PostService");
@@ -71,6 +75,32 @@ const videoPost: Post = {
 describe("HomeFeed", () => {
   beforeEach(() => {
     mockGetFeed.mockReset();
+    mockPush.mockReset();
+    mockCanPublish = true;
+  });
+
+  it("shows the create-post action only to an active publisher", () => {
+    // The publishing action is independent of feed loading; keep that request pending so this test
+    // observes only the capability-driven render and produces no unrelated async state updates.
+    mockGetFeed.mockReturnValue(new Promise<Post[]>(() => undefined));
+
+    const { rerender } = render(
+      <ThemeProvider>
+        <HomeFeed />
+      </ThemeProvider>
+    );
+    expect(screen.getByLabelText("New post")).toBeOnTheScreen();
+    fireEvent.press(screen.getByLabelText("New post"));
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith("/create-post");
+
+    mockCanPublish = false;
+    rerender(
+      <ThemeProvider>
+        <HomeFeed />
+      </ThemeProvider>
+    );
+    expect(screen.queryByLabelText("New post")).toBeNull();
   });
 
   it("scrolls the paged feed to the following post when the active card requests it", async () => {

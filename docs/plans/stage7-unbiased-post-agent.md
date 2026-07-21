@@ -23,7 +23,8 @@ At the end of this stage:
 Add `com.yoursay.agent` as a sibling of `posts`, `votes`, `feed` and `topics`.
 
 - The public face is `AgentController`, `AgentService` and DTOs at the package top level.
-- Persistence, Grok transport, prompts and worker logic remain in internal subpackages.
+- Persistence, LangChain4j AI-service configuration, prompts and worker logic remain in internal
+  subpackages.
 - `agent` calls the public `PostService` contract to publish an approved draft. It never reaches
   into `posts.model` or `posts.service`.
 - `post-service` remains the only deployable changed by Stage 7.
@@ -33,7 +34,8 @@ changed without changing job persistence or HTTP contracts.
 
 ## Provider choice and cost controls
 
-Use the xAI Responses API with:
+Use Quarkus LangChain4j's OpenAI-compatible AI-service integration to call the xAI Responses API
+with:
 
 - default model `grok-4.3`, configurable by `agent.grok.model`;
 - configurable reasoning effort, default `low`;
@@ -181,7 +183,7 @@ No test calls the live xAI API.
 
 1. Lock this plan and ADR-022.
 2. Add generation-job migration, public DTOs and authenticated create/status endpoints.
-3. Add the generator interface, Grok client, strict schema/prompt and worker.
+3. Add the generator interface, LangChain4j Grok AI service, structured prompt and worker.
 4. Add publish/source persistence through the public `posts` contract.
 5. Add mobile conversation, progress, review/edit, media attachment and publish flow.
 6. Add unbiased badges and source rendering everywhere a post appears.

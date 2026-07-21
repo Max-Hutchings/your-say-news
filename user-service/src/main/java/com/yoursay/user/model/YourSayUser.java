@@ -1,6 +1,8 @@
 package com.yoursay.user.model;
 
 
+import com.yoursay.user.AccountType;
+import com.yoursay.user.PublisherStatus;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 
@@ -43,6 +45,14 @@ public class YourSayUser extends PanacheEntityBase {
 
     @Column(name = "active", nullable = false)
     private boolean active = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", nullable = false)
+    private AccountType accountType = AccountType.STANDARD;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "publisher_status", nullable = false)
+    private PublisherStatus publisherStatus = PublisherStatus.NONE;
 
     /**
      * When the user gave explicit consent to the privacy promise, and the policy version they
@@ -200,6 +210,33 @@ public class YourSayUser extends PanacheEntityBase {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public AccountType getAccountType() {
+        return accountType;
+    }
+
+    public void setAccountType(AccountType accountType) {
+        this.accountType = accountType;
+        if (accountType == AccountType.STANDARD) {
+            this.publisherStatus = PublisherStatus.NONE;
+        }
+    }
+
+    public PublisherStatus getPublisherStatus() {
+        return publisherStatus;
+    }
+
+    public void setPublisherStatus(PublisherStatus publisherStatus) {
+        if (accountType == AccountType.STANDARD && publisherStatus != PublisherStatus.NONE) {
+            throw new IllegalArgumentException("Standard accounts cannot have publisher status " + publisherStatus);
+        }
+        this.publisherStatus = publisherStatus;
+    }
+
+    public boolean canPublish() {
+        return active && accountType == AccountType.OFFICIAL
+                && publisherStatus == PublisherStatus.ACTIVE;
     }
 
     public Instant getConsentedAt() {

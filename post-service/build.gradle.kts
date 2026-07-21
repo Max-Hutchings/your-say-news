@@ -9,6 +9,7 @@ val quarkusPlatformVersion: String by project
 dependencies {
     implementation(enforcedPlatform("$quarkusPlatformGroupId:$quarkusPlatformArtifactId:$quarkusPlatformVersion"))
     implementation(enforcedPlatform("$quarkusPlatformGroupId:quarkus-amazon-services-bom:$quarkusPlatformVersion"))
+    implementation(enforcedPlatform("io.quarkiverse.langchain4j:quarkus-langchain4j-bom:1.12.0"))
 
     implementation("io.quarkus:quarkus-rest")
     implementation("io.quarkus:quarkus-rest-jackson")
@@ -26,6 +27,7 @@ dependencies {
     implementation("io.quarkus:quarkus-oidc")
     implementation("io.quarkus:quarkus-hibernate-validator")
     implementation("io.quarkus:quarkus-scheduler")
+    implementation("io.quarkiverse.langchain4j:quarkus-langchain4j-openai")
     implementation("io.quarkiverse.amazonservices:quarkus-amazon-s3")
     implementation("org.jetbrains:annotations")
 
