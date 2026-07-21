@@ -28,7 +28,7 @@ class AccountPublishingSeedTest {
              PreparedStatement statement = connection.prepareStatement("""
                      select id, account_type, publisher_status
                      from your_say_user
-                     where id between 1 and 9
+                     where id between 1 and 10
                      order by id
                      """);
              ResultSet result = statement.executeQuery()) {
@@ -47,7 +47,8 @@ class AccountPublishingSeedTest {
                 6L, "STANDARD/NONE",
                 7L, "OFFICIAL/ACTIVE",
                 8L, "OFFICIAL/ACTIVE",
-                9L, "STANDARD/NONE"
+                9L, "STANDARD/NONE",
+                10L, "STANDARD/NONE"
         ), actual);
     }
 

@@ -39,8 +39,9 @@ personalisation data owned by the `post-service` `topics` domain. Never put them
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
   Routing via `expo-router` (file-based, with route groups like `(protected)`).
   Styling via NativeWind/Tailwind + a shared theme under `constants/theme`.
-- **Auth:** Keycloak. A realm with **real test data** is auto-imported on startup
-  (`keycloak/realm-export.json`).
+- **Auth:** Keycloak. A realm with **real test data** is imported on first startup
+  (`keycloak/realm-export.json`); the `keycloak-seed-users` Compose job reconciles its users into
+  an already-persisted realm on later startups.
 - **Storage:** Postgres (one DB for the app services, a separate DB for Keycloak).
   S3 via LocalStack for post video/image assets.
 - **DB migrations:** Liquibase.
@@ -82,7 +83,7 @@ suite. Completed panes remain open with an explicit PASS/FAIL result; `bun run t
 an alias.
 
 Seed data is injected automatically on Compose startup (see DB section). Keycloak comes up with
-its realm and test users already imported.
+its realm and test users imported or reconciled from the realm export.
 
 ## Architecture decision records
 

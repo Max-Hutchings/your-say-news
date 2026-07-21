@@ -164,6 +164,34 @@ public class YourSayUserControllerTest {
                 .body("email", nullValue());
     }
 
+    @Test
+    @TestSecurity(user="riley.reader@example.com", roles={"user"})
+    public void profiledReaderIsOnboardedButCannotPublish() {
+        given()
+                .when()
+                .get(BASE_URL + "/me/access")
+                .then()
+                .statusCode(200)
+                .body("userId", equalTo(10))
+                .body("accountType", equalTo("STANDARD"))
+                .body("publisherStatus", equalTo("NONE"))
+                .body("canPublish", equalTo(false))
+                .body("$", aMapWithSize(4))
+                .body("$", not(hasKey("email")))
+                .body("$", not(hasKey("firstName")))
+                .body("$", not(hasKey("lastName")))
+                .body("$", not(hasKey("dateOfBirth")));
+
+        given()
+                .when()
+                .get(BASE_URL + "/onboarding")
+                .then()
+                .statusCode(200)
+                .body("consented", equalTo(true))
+                .body("hasCharacteristics", equalTo(true))
+                .body("onboarded", equalTo(true));
+    }
+
     private void setUserActive(long userId, boolean active) throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(

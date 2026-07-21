@@ -73,7 +73,26 @@ services:
       retries: 15
       start_period: 30s
 
-  # 4) Liquibase migrations - applies schema (migrations/) for every service, then exits
+  # 4) Reconcile seeded users after startup import (which skips an already-persisted realm)
+  keycloak-seed-users:
+    image: python:3.13-alpine
+    container_name: keycloak-seed-users
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: ["python", "/config/sync-seed-users.py"]
+    volumes:
+      - ./keycloak/realm-export.json:/config/realm-export.json:ro
+      - ./keycloak/sync-seed-users.py:/config/sync-seed-users.py:ro
+    networks:
+      - app-net
+    restart: "no"
+
+  # 5) Liquibase migrations - applies schema (migrations/) for every service, then exits
   liquibase-migrate:
     build:
       context: .
@@ -90,7 +109,7 @@ services:
       - app-net
     restart: "no"
 
-  # 5) Liquibase seeding - applies seed data (seeding/, context "seed") after migrations, then exits
+  # 6) Liquibase seeding - applies seed data (seeding/, context "seed") after migrations, then exits
   liquibase-seed:
     build:
       context: .
@@ -107,7 +126,7 @@ services:
       - app-net
     restart: "no"
 
-  # 6) LocalStack for S3 (used by post-service for video storage)
+  # 7) LocalStack for S3 (used by post-service for video storage)
   localstack:
     image: localstack/localstack:3.0
     container_name: localstack
@@ -125,7 +144,7 @@ services:
     networks:
       - app-net
 
-  # 7) Local observability stack: Grafana UI, OTel Collector, Loki, Tempo, and Prometheus
+  # 8) Local observability stack: Grafana UI, OTel Collector, Loki, Tempo, and Prometheus
   otel-lgtm:
     image: grafana/otel-lgtm:latest
     container_name: otel-lgtm

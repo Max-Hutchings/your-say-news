@@ -277,6 +277,23 @@
         }
       ],
       "realmRoles": ["user", "offline_access"]
+    },
+    {
+      "username": "riley.reader",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Riley",
+      "lastName": "Reader",
+      "email": "riley.reader@example.com",
+      "createdTimestamp": 1717632000000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "offline_access"]
     }
   ]
 }

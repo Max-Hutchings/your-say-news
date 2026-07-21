@@ -1,5 +1,6 @@
 package com.yoursay;
 
+import com.yoursay.usercharacteristic.model.Enums.AgeRange;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.Statement;
+import java.time.Year;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -35,6 +37,8 @@ public class UserCharacteristicControllerTest {
     static final String BLANK = "blank.user@example.com";
     // Login-ready local-development account intentionally kept pristine for manual onboarding.
     static final String CASEY = "casey.morgan@example.com";
+    // Login-ready standard reader with a complete seeded profile.
+    static final String RILEY = "riley.reader@example.com";
 
     @Inject
     AgroalDataSource dataSource;
@@ -98,6 +102,58 @@ public class UserCharacteristicControllerTest {
     @TestSecurity(user = CASEY, roles = {"user"})
     public void loginReadyOnboardingFixtureHasNoCharacteristics() {
         given().when().get(BASE + "/me").then().statusCode(204);
+    }
+
+    @Test
+    @TestSecurity(user = RILEY, roles = {"user"})
+    public void standardReaderHasACompleteSeededCharacteristicProfile() {
+        int expectedAge = Year.now().getValue() - 1993;
+
+        given()
+                .when().get(BASE + "/me")
+                .then()
+                .statusCode(200)
+                .body("userId", equalTo(10))
+                .body("country", equalTo("United Kingdom"))
+                .body("city", equalTo("Leeds"))
+                .body("ukCounty", equalTo("WEST_YORKSHIRE"))
+                .body("urbanRural", equalTo("URBAN"))
+                .body("age", equalTo(expectedAge))
+                .body("ageRange", equalTo(AgeRange.fromAge(expectedAge).name()))
+                .body("gender", equalTo("NON_BINARY"))
+                .body("sexAtBirth", equalTo("FEMALE"))
+                .body("sexualOrientation", equalTo("PANSEXUAL"))
+                .body("maritalStatus", equalTo("SINGLE"))
+                .body("race", contains("MIXED_MULTIPLE"))
+                .body("countryOfBirth", equalTo("UNITED_KINGDOM"))
+                .body("citizenship", contains("BRITISH"))
+                .body("religion", equalTo("NO_RELIGION"))
+                .body("religiosity", equalTo("NOT_RELIGIOUS"))
+                .body("politicalPersuasion", equalTo("NOT_POLITICAL"))
+                .body("education", equalTo("BACHELORS"))
+                .body("occupation", equalTo("EMPLOYED_PART_TIME"))
+                .body("employmentSector", equalTo("MEDIA_COMMUNICATIONS"))
+                .body("universitySubject", equalTo("JOURNALISM"))
+                .body("personalIncomeRange", equalTo("BETWEEN_30K_AND_40K"))
+                .body("householdIncomeRange", equalTo("BETWEEN_50K_AND_75K"))
+                .body("height", equalTo("FEET_5_7_TO_5_9"))
+                .body("weightRange", equalTo("KG_70_79"))
+                .body("eyeColor", equalTo("HAZEL"))
+                .body("parent", equalTo("NOT_PARENT_CAREGIVER"))
+                .body("hasPet", equalTo(true))
+                .body("petType", contains("CAT"))
+                .body("chronotype", equalTo("IN_BETWEEN"))
+                .body("outlook", equalTo("OPTIMIST"))
+                .body("neurodivergent", equalTo(false))
+                .body("neurodivergenceType", empty())
+                .body("hasDisability", equalTo(false))
+                .body("disabilityType", empty())
+                .body("housingStatus", equalTo("PRIVATE_RENT"))
+                .body("propertyType", equalTo("FLAT_APARTMENT"))
+                .body("newsFrequency", equalTo(7))
+                .body("balancedNewsViewpoint", equalTo(true))
+                .body("mainstreamNewsPercent", equalTo(45))
+                .body("betterWorldWithData", equalTo(true));
     }
 
     @Test

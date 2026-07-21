@@ -98,6 +98,7 @@ check_compose_services() {
   check_running_service "postgres"
   check_running_service "keycloak-db"
   check_keycloak_service
+  check_completed_service "keycloak-seed-users"
   check_running_service "localstack"
   check_running_service "otel-lgtm"
   check_completed_service "liquibase-migrate"
@@ -143,7 +144,7 @@ if (( ${#missing[@]} > 0 )); then
   {
     echo "Warning: Docker Compose infrastructure is not ready, so this application process was not started."
     echo
-    echo "Expected the long-running Compose services to be running/healthy and Liquibase jobs to have completed."
+    echo "Expected the long-running Compose services to be running/healthy and startup jobs to have completed."
     echo "Current issues:"
     for issue in "${missing[@]}"; do
       echo "  - $issue"
