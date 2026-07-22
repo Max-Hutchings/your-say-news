@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [user-service, post-service]
+        service: [post-service]
     env:
       # Testcontainers/Quarkus Dev Services talk to the runner's own Docker
       # daemon; bind the @QuarkusTest HTTP server to a random free port so it

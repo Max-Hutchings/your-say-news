@@ -20,9 +20,6 @@ procs:
     stop:
       cmd: "docker compose down"
 
-  user-service:
-    shell: "./scripts/free-service-port.sh 8081 user-service && ./scripts/check-compose-services.sh && ./gradlew :user-service:quarkusDev --console=plain"
-
   post-service:
     shell: "./scripts/free-service-port.sh 8082 post-service && ./scripts/check-compose-services.sh && ./gradlew :post-service:quarkusDev --console=plain"
 
