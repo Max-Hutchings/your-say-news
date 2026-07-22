@@ -4,7 +4,7 @@ import java.util.Set;
 
 /**
  * The per-request signals a {@link FeedRanker} ranks <em>for</em>: who is viewing, and which authors
- * they follow (the follow set comes from the user-service {@code social} domain). Kept as a small
+ * they follow (the follow set comes from the local user {@code social} domain). Kept as a small
  * value object so richer ranking signals (votes, recency windows, interests) can be added later
  * without changing the {@link FeedRanker} method shape.
  *

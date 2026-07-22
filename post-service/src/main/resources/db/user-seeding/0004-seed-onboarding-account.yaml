@@ -1,0 +1,27 @@
+databaseChangeLog:
+  # Login-ready account deliberately left without consent or a user_characteristic row.
+  # Keep this identity in sync with keycloak/realm-export.json.
+  - changeSet:
+      id: 0004-seed-onboarding-account
+      author: codex
+      logicalFilePath: db/seeding/0004-seed-onboarding-account.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 9 } }
+              - { column: { name: email, value: "casey.morgan@example.com" } }
+              - { column: { name: first_name, value: "Casey" } }
+              - { column: { name: last_name, value: "Morgan" } }
+              - { column: { name: display_name, value: "Casey Morgan" } }
+              - { column: { name: handle, value: "casey.morgan" } }
+              - { column: { name: date_of_birth, value: "2000-02-20" } }
+              - { column: { name: created_date, value: "2024-06-05" } }
+              - { column: { name: active, valueBoolean: true } }
+        - sql:
+            dbms: postgresql
+            sql: >-
+              SELECT setval(pg_get_serial_sequence('your_say_user', 'id'),
+                            (SELECT MAX(id) FROM your_say_user));

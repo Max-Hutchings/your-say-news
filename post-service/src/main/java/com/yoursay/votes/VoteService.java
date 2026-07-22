@@ -27,8 +27,7 @@ public interface VoteService {
      * @param postId        the post being voted on
      * @param optionId      stable id of an option owned by the post
      * @param callerEmail   the authenticated user's email (from the JWT principal claim)
-     * @param authorization the caller's {@code Authorization} header, forwarded to user-service
-     *                      for the role-gated user-id and characteristic lookups
+     * @param authorization retained for compatibility while user lookups are local
      * @return the persisted vote (no snapshot, no userId in the response)
      * @throws jakarta.ws.rs.ClientErrorException with status 409 if the user has already voted
      */
@@ -39,7 +38,7 @@ public interface VoteService {
      *
      * @param postId        the post to look up
      * @param callerEmail   the authenticated user's email
-     * @param authorization the caller's {@code Authorization} header, forwarded to user-service
+     * @param authorization retained for compatibility while user lookups are local
      * @return the vote, or empty if the user has not yet voted on this post
      */
     Optional<VoteResponseDto> getMyVote(Long postId, String callerEmail, String authorization);
@@ -54,7 +53,7 @@ public interface VoteService {
      *
      * @param postId        the post whose results are being requested
      * @param callerEmail   the authenticated user's email (from the JWT principal)
-     * @param authorization the caller's {@code Authorization} header, forwarded to user-service
+     * @param authorization retained for compatibility while user lookups are local
      * @throws jakarta.ws.rs.ClientErrorException 404 if the post does not exist, 403 if the caller
      *         has not yet voted on it
      */

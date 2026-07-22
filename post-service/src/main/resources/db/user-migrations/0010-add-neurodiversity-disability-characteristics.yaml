@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0010-add-neurodiversity-disability-characteristics
+      author: claude
+      logicalFilePath: db/migrations/0010-add-neurodiversity-disability-characteristics.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        # Neurodiversity & disability axes. Nullable so existing rows and seed data stay valid; the
+        # API layer enforces the yes/no flags as required and each type as required only when its
+        # flag is true.
+        - addColumn:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: neurodivergent
+                  type: BOOLEAN
+              - column:
+                  name: neurodivergence_type
+                  type: VARCHAR(32)
+              - column:
+                  name: has_disability
+                  type: BOOLEAN
+              - column:
+                  name: disability_type
+                  type: VARCHAR(32)

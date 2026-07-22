@@ -1,0 +1,86 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0004-remove-prefer-not-to-say-characteristics
+      author: codex
+      logicalFilePath: db/migrations/0004-remove-prefer-not-to-say-characteristics.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      validCheckSum:
+        - 9:fa98d7158f5ece423d6165a03d244e75
+      changes:
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: age_range
+                  value: "AGE_75_PLUS"
+            where: "age_range = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: gender
+                  value: "NON_BINARY"
+            where: "gender = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: sexual_orientation
+                  value: "OTHER"
+            where: "sexual_orientation = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: marital_status
+                  value: "SINGLE"
+            where: "marital_status = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: religion
+                  value: "NO_RELIGION"
+            where: "religion = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: religiosity
+                  value: "NOT_RELIGIOUS"
+            where: "religiosity = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: political_persuasion
+                  value: "APOLITICAL"
+            where: "political_persuasion = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: education
+                  value: "NO_FORMAL_EDUCATION"
+            where: "education = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: occupation
+                  value: "UNEMPLOYED"
+            where: "occupation = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: employment_sector
+                  value: "NOT_APPLICABLE"
+            where: "employment_sector = 'PREFER_NOT_TO_SAY'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: income_range
+                  value: "BELOW_20K"
+            where: "income_range = 'PREFER_NOT_TO_SAY'"

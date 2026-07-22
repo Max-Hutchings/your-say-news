@@ -1,0 +1,82 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0002-create-user-characteristic
+      author: mhutc
+      logicalFilePath: db/migrations/0002-create-user-characteristic.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: pk_user_characteristic
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uc_user_characteristic_user_id
+              # Location
+              - column: { name: country, type: VARCHAR(255), constraints: { nullable: false } }
+              - column: { name: city, type: VARCHAR(255) }
+              - column: { name: region, type: VARCHAR(255) }
+              - column: { name: uk_county, type: VARCHAR(64) }
+              - column: { name: urban_rural, type: VARCHAR(32) }
+              # Who you are
+              - column: { name: age_range, type: VARCHAR(32), constraints: { nullable: false } }
+              - column: { name: gender, type: VARCHAR(32), constraints: { nullable: false } }
+              - column: { name: gender_self_describe, type: VARCHAR(255) }
+              - column: { name: sex_at_birth, type: VARCHAR(16), constraints: { nullable: false } }
+              - column: { name: sexual_orientation, type: VARCHAR(32) }
+              - column: { name: marital_status, type: VARCHAR(32) }
+              # Background
+              - column: { name: country_of_birth, type: VARCHAR(64) }
+              - column: { name: citizenship, type: VARCHAR(64) }
+              - column: { name: religion, type: VARCHAR(32) }
+              - column: { name: religiosity, type: VARCHAR(32) }
+              - column: { name: political_persuasion, type: VARCHAR(32) }
+              # Education & work
+              - column: { name: education, type: VARCHAR(32) }
+              - column: { name: occupation, type: VARCHAR(32) }
+              - column: { name: employment_sector, type: VARCHAR(32) }
+              - column: { name: university_subject, type: VARCHAR(32) }
+              # Finances & body
+              - column: { name: income_range, type: VARCHAR(32), constraints: { nullable: false } }
+              - column: { name: height, type: VARCHAR(32), constraints: { nullable: false } }
+              - column: { name: weight_range, type: VARCHAR(32), constraints: { nullable: false } }
+              - column: { name: eye_color, type: VARCHAR(16) }
+              - column: { name: parent, type: VARCHAR(16) }
+              - column: { name: news_frequency, type: INT }
+  - changeSet:
+      id: 0002-create-user-characteristic-race
+      author: mhutc
+      logicalFilePath: db/migrations/0002-create-user-characteristic.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            tableName: user_characteristic_race
+            columns:
+              - column:
+                  name: user_characteristic_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: race
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: user_characteristic_race
+            baseColumnNames: user_characteristic_id
+            constraintName: fk_uc_race_user_characteristic
+            referencedTableName: user_characteristic
+            referencedColumnNames: id
+            onDelete: CASCADE

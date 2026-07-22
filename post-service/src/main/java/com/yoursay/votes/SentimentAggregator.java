@@ -6,7 +6,7 @@ package com.yoursay.votes;
  * <p>Implementations return <strong>only</strong> {@link SentimentBreakdownDto} (counts and
  * percentages); they must never expose a path from an aggregate back to an individual vote or
  * identity. Aggregation slices by the voter's {@link CharacteristicSnapshot} captured at vote
- * time, so it never query-time cross-joins into user-service.
+ * time, so it never query-time joins back into the user domain.
  *
  * <p>A {@code k}-anonymity suppression threshold sits behind this interface
  * ({@code votes.aggregation.suppress-below}, default {@code 0} for MVP1). Buckets whose total

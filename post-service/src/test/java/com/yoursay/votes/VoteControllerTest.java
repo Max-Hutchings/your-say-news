@@ -7,7 +7,6 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -27,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Integration tests for the vote endpoints: POST /votes, GET /votes/{postId}/mine,
- * GET /votes/{postId}/count. The UserCharacteristicClient is mocked so the suite runs without a
- * live user-service while still exercising the full controller → service → Postgres path.
+ * GET /votes/{postId}/count. The local UserCharacteristicClient adapter is mocked while the suite
+ * exercises the full controller → service → Postgres path.
  */
 @QuarkusTest
 @TestSecurity(user = "voter@yoursay.com", roles = "user")
@@ -41,7 +40,6 @@ public class VoteControllerTest {
     private static final long POST_ID = 1001L;
 
     @InjectMock
-    @RestClient
     UserCharacteristicClient userClient;
 
     @Inject
@@ -51,7 +49,7 @@ public class VoteControllerTest {
     public void setup() {
         Mockito.reset(userClient);
 
-        // User-service lookup: voter email → numeric id.
+        // User-domain lookup: voter email → numeric id.
         // Use nullable() so the mock fires whether or not an Authorization header was sent.
         // Use typed entity so readEntity(UserRef.class) returns directly without needing a
         // MessageBodyReader in the mocked Response pipeline.
@@ -88,7 +86,7 @@ public class VoteControllerTest {
 
     @Test
     public void castVote_withCharacteristicProfile_snapshotStoredButOmittedFromResponse() {
-        // User has a full characteristic profile (200 from user-service) — snapshot is captured and
+        // User has a full characteristic profile — the snapshot is captured and
         // stored on the vote, but the HTTP response exposes only id/postId/optionId (PII boundary).
         long postId = insertPost();
         UserCharacteristicView profile = new UserCharacteristicView(

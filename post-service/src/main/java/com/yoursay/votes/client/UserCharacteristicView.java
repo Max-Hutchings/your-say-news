@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 /**
- * Minimal user-service characteristic DTO consumed by the votes domain when freezing a vote-time
+ * Minimal user-domain characteristic DTO consumed by the votes domain when freezing a vote-time
  * characteristic snapshot. The user id is intentionally not copied into the snapshot.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)

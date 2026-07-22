@@ -13,7 +13,6 @@ import com.yoursay.posts.error.PostApiException;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,10 +30,10 @@ public class FeedServiceImpl implements FeedService {
     @Inject
     FeedRanker ranker;
 
-    @RestClient
+    @Inject
     FeedUserClient userClient;
 
-    @RestClient
+    @Inject
     SocialClient socialClient;
 
     @Override

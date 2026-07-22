@@ -1,0 +1,235 @@
+databaseChangeLog:
+  # Characteristic profiles for the seeded users (ids 1-4, inserted in order by 0001-seed).
+  # The large self-describing test population lands in Workstream T; these few give the
+  # onboarding/aggregation flows real data to read back. Values follow the reformed enum sets
+  # (see docs/characteristics/): birth_year instead of age band, multi-select join tables for
+  # nationality / pet / neurodivergence / disability, direct parent-carer status, and news fields.
+  - changeSet:
+      id: 0002-seed-user-characteristics
+      author: mhutc
+      logicalFilePath: db/seeding/0002-seed-user-characteristics.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        # 1 — John: UK, centre-left, no religion
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 1 } }
+              - { column: { name: user_id, valueNumeric: 1 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Bristol" } }
+              - { column: { name: uk_county, value: "BRISTOL" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1996 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_LEFT" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: university_subject, value: "COMPUTER_SCIENCE" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: height, value: "FEET_5_10_TO_6_0" } }
+              - { column: { name: weight_range, value: "KG_80_89" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 8 } }
+              - { column: { name: has_pet, valueBoolean: true } }
+              - { column: { name: chronotype, value: "NIGHT_OWL" } }
+              - { column: { name: outlook, value: "OPTIMIST" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "OWN_MORTGAGE" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 70 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 1 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 1 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+        - insert:
+            tableName: user_characteristic_pet_type
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 1 } }
+              - { column: { name: pet_type, value: "DOG" } }
+        # 2 — Jane: UK, left, South Asian
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 2 } }
+              - { column: { name: user_id, valueNumeric: 2 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "London" } }
+              - { column: { name: uk_county, value: "GREATER_LONDON" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1986 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "MARRIED" } }
+              - { column: { name: country_of_birth, value: "INDIA" } }
+              - { column: { name: religion, value: "HINDUISM" } }
+              - { column: { name: religiosity, value: "MODERATELY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "LEFT" } }
+              - { column: { name: education, value: "MASTERS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "HEALTHCARE" } }
+              - { column: { name: university_subject, value: "MEDICINE" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_150K_AND_200K" } }
+              - { column: { name: height, value: "FEET_5_4_TO_5_6" } }
+              - { column: { name: weight_range, value: "KG_60_69" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "PARENT_CAREGIVER_UNDER_18" } }
+              - { column: { name: news_frequency, valueNumeric: 9 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "MORNING_LARK" } }
+              - { column: { name: outlook, value: "OPTIMIST" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: false } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 2 } }
+              - { column: { name: race, value: "SOUTH_ASIAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 2 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+        # 3 — Bob: US, right, Black African
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 3 } }
+              - { column: { name: user_id, valueNumeric: 3 } }
+              - { column: { name: country, value: "United States" } }
+              - { column: { name: city, value: "Dallas" } }
+              - { column: { name: region, value: "Texas" } }
+              - { column: { name: urban_rural, value: "SUBURBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1976 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "DIVORCED_OR_DISSOLVED" } }
+              - { column: { name: country_of_birth, value: "UNITED_STATES" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "VERY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "RIGHT" } }
+              - { column: { name: education, value: "SECONDARY_SCHOOL" } }
+              - { column: { name: occupation, value: "SELF_EMPLOYED" } }
+              - { column: { name: employment_sector, value: "CONSTRUCTION" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: height, value: "FEET_6_1_TO_6_3" } }
+              - { column: { name: weight_range, value: "KG_90_99" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "PARENT_CAREGIVER_ADULT_ONLY" } }
+              - { column: { name: news_frequency, valueNumeric: 5 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "PESSIMIST" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "OWN_OUTRIGHT" } }
+              - { column: { name: property_type, value: "DETACHED" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 80 } }
+              - { column: { name: better_world_with_data, valueBoolean: false } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 3 } }
+              - { column: { name: race, value: "BLACK_AFRICAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 3 } }
+              - { column: { name: citizenship, value: "UNITED_STATES" } }
+        # 4 — Alice: UK, centre, multiple ethnic backgrounds (exercises the collection)
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 4 } }
+              - { column: { name: user_id, valueNumeric: 4 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Manchester" } }
+              - { column: { name: uk_county, value: "GREATER_MANCHESTER" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1997 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "BISEXUAL" } }
+              - { column: { name: marital_status, value: "IN_RELATIONSHIP" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE" } }
+              - { column: { name: education, value: "DOCTORATE" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "EDUCATION" } }
+              - { column: { name: university_subject, value: "PHYSICS" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_150K_AND_200K" } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_60_69" } }
+              - { column: { name: eye_color, value: "GREEN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "NIGHT_OWL" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "TERRACED" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 50 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 4 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 4 } }
+              - { column: { name: race, value: "MIXED_MULTIPLE" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 4 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+  # We inserted explicit ids above, which does not advance the IDENTITY sequence. Bump it past the
+  # seeded rows so the next real onboarding insert does not collide with a seeded id.
+  - changeSet:
+      id: 0002-seed-user-characteristics-resync-sequence
+      author: mhutc
+      logicalFilePath: db/seeding/0002-seed-user-characteristics.yaml
+      context: seed
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: >-
+              SELECT setval(pg_get_serial_sequence('user_characteristic', 'id'),
+                            (SELECT MAX(id) FROM user_characteristic))

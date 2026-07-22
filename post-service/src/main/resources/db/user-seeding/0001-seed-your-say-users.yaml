@@ -1,0 +1,188 @@
+# These seed users MUST stay in sync (by email) with the Keycloak realm users in
+# keycloak/realm-export.json — the realm import has no place for this note (JSON has no
+# comments, and Keycloak rejects unknown fields). The seed 'active' flag mirrors Keycloak 'enabled'.
+databaseChangeLog:
+  - changeSet:
+      id: 1763760109822-3
+      author: mhutc
+      logicalFilePath: db/seeding/0001-seed-your-say-users.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: john.doe@example.com
+              - column:
+                  name: first_name
+                  value: John
+              - column:
+                  name: last_name
+                  value: Doe
+              - column:
+                  name: display_name
+                  value: John Doe
+              - column:
+                  name: handle
+                  value: john.doe
+              - column:
+                  name: date_of_birth
+                  value: "1990-05-15"      # 👈 IMPORTANT: use value + quotes
+              - column:
+                  name: created_date
+                  value: "2024-01-10"      # 👈 same here
+              - column:
+                  name: active
+                  valueBoolean: true
+
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: jane.smith@example.com
+              - column:
+                  name: first_name
+                  value: Jane
+              - column:
+                  name: last_name
+                  value: Smith
+              - column:
+                  name: display_name
+                  value: Jane Smith
+              - column:
+                  name: handle
+                  value: jane.smith
+              - column:
+                  name: date_of_birth
+                  value: "1985-08-22"
+              - column:
+                  name: created_date
+                  value: "2024-02-15"
+              - column:
+                  name: active
+                  valueBoolean: true
+
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: bob.johnson@example.com
+              - column:
+                  name: first_name
+                  value: Bob
+              - column:
+                  name: last_name
+                  value: Johnson
+              - column:
+                  name: display_name
+                  value: Bob Johnson
+              - column:
+                  name: handle
+                  value: bob.johnson
+              - column:
+                  name: date_of_birth
+                  value: "1995-12-03"
+              - column:
+                  name: created_date
+                  value: "2024-03-20"
+              - column:
+                  name: active
+                  valueBoolean: false
+
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: alice.williams@example.com
+              - column:
+                  name: first_name
+                  value: Alice
+              - column:
+                  name: last_name
+                  value: Williams
+              - column:
+                  name: display_name
+                  value: Alice Williams
+              - column:
+                  name: handle
+                  value: alice.williams
+              - column:
+                  name: date_of_birth
+                  value: "1988-03-17"
+              - column:
+                  name: created_date
+                  value: "2024-04-25"
+              - column:
+                  name: active
+                  valueBoolean: true
+
+  # A user who has signed up but NOT yet onboarded (no characteristic profile, no consent).
+  # Lets tests exercise the "not onboarded" read (204) and the create-profile + consent paths.
+  - changeSet:
+      id: 1763760109822-4
+      author: mhutc
+      logicalFilePath: db/seeding/0001-seed-your-say-users.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: nora.new@example.com
+              - column:
+                  name: first_name
+                  value: Nora
+              - column:
+                  name: last_name
+                  value: New
+              - column:
+                  name: display_name
+                  value: Nora New
+              - column:
+                  name: handle
+                  value: nora.new
+              - column:
+                  name: date_of_birth
+                  value: "1999-09-09"
+              - column:
+                  name: created_date
+                  value: "2024-06-01"
+              - column:
+                  name: active
+                  valueBoolean: true
+        # A second pristine, never-written user so the "not onboarded" read stays isolated from
+        # the create-path tests that write to nora.
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: blank.user@example.com
+              - column:
+                  name: first_name
+                  value: Blank
+              - column:
+                  name: last_name
+                  value: User
+              - column:
+                  name: display_name
+                  value: Blank User
+              - column:
+                  name: handle
+                  value: blank.user
+              - column:
+                  name: date_of_birth
+                  value: "1997-07-07"
+              - column:
+                  name: created_date
+                  value: "2024-06-02"
+              - column:
+                  name: active
+                  valueBoolean: true

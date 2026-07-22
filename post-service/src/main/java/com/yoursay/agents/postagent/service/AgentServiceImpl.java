@@ -14,7 +14,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.WebApplicationException;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -25,7 +24,7 @@ public class AgentServiceImpl implements AgentService {
     @Inject
     AgentGenerationJobRepository repository;
 
-    @RestClient
+    @Inject
     AgentUserClient userClient;
 
     @Inject

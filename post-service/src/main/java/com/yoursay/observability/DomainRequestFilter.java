@@ -45,6 +45,18 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
         if (path.startsWith("feed")) {
             return "feed";
         }
+        if (path.startsWith("your-say-user") || path.startsWith("profiles")) {
+            return "user";
+        }
+        if (path.startsWith("user-characteristics")) {
+            return "usercharacteristic";
+        }
+        if (path.startsWith("social")) {
+            return "social";
+        }
+        if (path.startsWith("agent")) {
+            return "postagent";
+        }
         if (path.startsWith("live") || path.startsWith("q/")) {
             return "platform";
         }

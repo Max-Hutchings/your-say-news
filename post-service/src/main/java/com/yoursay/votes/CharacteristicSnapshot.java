@@ -11,11 +11,11 @@ import java.util.Set;
  *
  * <p><strong>PII boundary:</strong> this snapshot carries <em>no</em> identity — no user id,
  * name, email, exact DOB or postcode. It exists purely so {@link SentimentAggregator} can
- * slice sentiment by characteristic. Mirrors the reportable axes of the user-service
+ * slice sentiment by characteristic. Mirrors the reportable axes of the local user domain's
  * {@code UserCharacteristicDto}; identifying fields are deliberately excluded.
  *
- * <p>Categorical values are strings (enum names from user-service, or stringified numbers /
- * booleans) so the votes domain stays decoupled from user-service's internal enums. A
+ * <p>Categorical values are strings (user-domain enum names, or stringified numbers / booleans)
+ * so the votes domain stays decoupled from the user domain's internal enums. A
  * {@code null} field means "not captured".
  */
 @JsonIgnoreProperties(ignoreUnknown = true)

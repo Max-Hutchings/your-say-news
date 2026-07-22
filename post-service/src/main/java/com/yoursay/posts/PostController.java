@@ -43,8 +43,8 @@ public class PostController {
                                    @HeaderParam("Authorization") String authorization) {
         String email = securityIdentity.getPrincipal().getName();
         Log.infof("Endpoint Called: createPost - %s by %s", request.supportQuestion(), email);
-        // Forward the caller's bearer so the role-gated user-service lookup authorises (resolves the
-        // author id behind this email). The token only travels service-to-service, never onto the post.
+        // Keep passing the bearer through the compatibility signature while the local user-domain
+        // adapter resolves the authenticated author. It is never stored on the post.
         return postService.create(email, authorization, request);
     }
 

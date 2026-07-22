@@ -14,8 +14,8 @@ public interface PostService {
 
     /**
      * Create a post authored by the user behind {@code authorEmail}. The author id is resolved
-     * server-side by calling user-service; {@code authorization} is the caller's bearer header,
-     * forwarded on that role-gated call. {@code isUnbiased} is forced false.
+     * server-side through the local user-domain adapter. {@code authorization} remains as a
+     * compatibility parameter during the merge. {@code isUnbiased} is forced false.
      */
     Uni<PostDto> create(String authorEmail, String authorization, CreatePostRequest request);
 

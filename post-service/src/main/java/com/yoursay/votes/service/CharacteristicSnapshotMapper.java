@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Freezes a live user-characteristic response into the anonymised vote-time snapshot used for
- * aggregation. Identity fields from user-service are deliberately discarded.
+ * aggregation. Identity fields from the user domain are deliberately discarded.
  */
 public final class CharacteristicSnapshotMapper {
 

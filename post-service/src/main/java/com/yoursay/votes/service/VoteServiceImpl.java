@@ -16,7 +16,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.Optional;
 
@@ -26,7 +25,7 @@ public class VoteServiceImpl implements VoteService {
     @Inject
     VoteRepository voteRepository;
 
-    @RestClient
+    @Inject
     UserCharacteristicClient userClient;
 
     @Inject
@@ -55,7 +54,7 @@ public class VoteServiceImpl implements VoteService {
     public VoteResponseDto castVote(Long postId, Long optionId, String callerEmail, String authorization) {
         try {
             assertVotableSelection(postId, optionId);
-            // 1. Resolve the numeric user id from user-service (role-gated, so bearer is forwarded).
+            // 1. Resolve the numeric user id through the local user-domain adapter.
             Long userId = resolveUserId(callerEmail, authorization);
 
             // 2. Enforce one-vote-per-user: 409 if already voted.

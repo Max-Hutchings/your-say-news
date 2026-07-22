@@ -12,7 +12,7 @@ import org.hibernate.type.SqlTypes;
  * <p><strong>PII boundary:</strong> {@code userId} is stored so the unique constraint and
  * duplicate-vote check work, but it is never surfaced in any aggregation endpoint. The
  * {@link CharacteristicSnapshot} is a point-in-time, identity-free copy of the voter's
- * characteristics captured at vote time — aggregation reads from it, never from user-service.
+ * characteristics captured at vote time — aggregation reads from it, never from live user data.
  */
 @Entity
 @Table(

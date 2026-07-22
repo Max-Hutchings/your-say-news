@@ -18,7 +18,6 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -47,7 +46,7 @@ public class PostServiceImpl implements PostService {
     @Inject
     DomainMetrics metrics;
 
-    @RestClient
+    @Inject
     UserServiceClient userServiceClient;
 
     @Override

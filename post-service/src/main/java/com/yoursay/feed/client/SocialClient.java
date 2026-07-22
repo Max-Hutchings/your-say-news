@@ -1,23 +1,31 @@
 package com.yoursay.feed.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.yoursay.user.social.SocialService;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
-import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 import java.util.Set;
 
-@RegisterRestClient(configKey = "user-service")
-@Consumes(MediaType.APPLICATION_JSON)
-@Produces(MediaType.APPLICATION_JSON)
-public interface SocialClient {
+@ApplicationScoped
+public class SocialClient {
 
-    @GET
-    @Path("/social/following")
-    Uni<FollowingRef> getFollowing(@HeaderParam("Authorization") String authorization);
+    @Inject
+    SocialService socialService;
+
+    @Inject
+    SecurityIdentity securityIdentity;
+
+    public Uni<FollowingRef> getFollowing(String authorization) {
+        String email = securityIdentity.getPrincipal().getName();
+        return Uni.createFrom().item(() -> new FollowingRef(socialService.getFollowingUserIds(email)))
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record FollowingRef(Set<Long> userIds) {
+    public record FollowingRef(Set<Long> userIds) {
     }
 }

@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0006-remove-some-college-education
+      author: codex
+      logicalFilePath: db/migrations/0006-remove-some-college-education.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: education
+                  value: "HIGH_SCHOOL"
+            where: "education = 'SOME_COLLEGE'"

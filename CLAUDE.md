@@ -29,14 +29,15 @@ personalisation data owned by the `post-service` `topics` domain. Never put them
 ## Tech stack
 
 - **Backend:** Quarkus (latest release), Java 25, Gradle (Kotlin DSL) multi-module. Group id `com.yoursay`.
-  Modules today: `user-service` (port 8081), `post-service` (port 8082). MVP1 keeps a **low
-  service count** with strict DDD *domains* inside each (so a domain can be extracted to its own
-  service later as a near-mechanical package move): `user-service` owns `user`, `usercharacteristic`,
-  `social`; `post-service` owns `posts`, `votes`, `feed`, `topics`, and the `agents` package, whose
-  role-specific subdomains are `postagent` and `unwrappedagent`. The Stage 7 unbiased-post agent
+  Modules today: `user-service` (port 8081), `post-service` (port 8082). During the transition in
+  ADR-025, `post-service` also contains copied `user`, `usercharacteristic` and `social` domains and
+  calls them through local adapters; the standalone `user-service` remains until that combined
+  deployment is proven. MVP1 keeps strict DDD *domains* inside each deployable (so a domain can be
+  extracted later as a near-mechanical package move). `post-service` also owns `posts`, `votes`,
+  `feed`, `topics`, and the `agents` package, whose role-specific subdomains are `postagent` and
+  `unwrappedagent`. The Stage 7 unbiased-post agent
   remains a DDD subdomain inside `post-service` — see
-  `docs/plans/mvp1-roadmap.md`. Wire cross-service
-  `service.*` rest-client URLs in `application.properties` as each call comes online.
+  `docs/plans/mvp1-roadmap.md`.
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
   Routing via `expo-router` (file-based, with route groups like `(protected)`).
   Styling via NativeWind/Tailwind + a shared theme under `constants/theme`.

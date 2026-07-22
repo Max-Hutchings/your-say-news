@@ -1,42 +1,89 @@
 package com.yoursay.votes.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
+import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.user.YourSayUserService;
+import com.yoursay.user.usercharacteristic.UserCharacteristicDto;
+import com.yoursay.user.usercharacteristic.UserCharacteristicService;
+import io.quarkus.security.identity.SecurityIdentity;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
-/**
- * Blocking REST client for user-service: resolves the caller's numeric user id and fetches their
- * characteristic profile. Both calls require the caller's JWT to be forwarded so user-service can
- * authorise the request and identify the correct user.
- *
- * <p>Runs on virtual threads (all methods are synchronous/blocking).
- */
-@RegisterRestClient(configKey = "user-service")
-@Consumes(MediaType.APPLICATION_JSON)
-@Produces(MediaType.APPLICATION_JSON)
-public interface UserCharacteristicClient {
+/** Local adapter retaining the former REST-client contract for the votes domain. */
+@ApplicationScoped
+public class UserCharacteristicClient {
 
-    /**
-     * Resolve an email to the internal user id. Returns 204 if the user does not exist.
-     * The bearer token is forwarded because the endpoint is role-gated on user-service.
-     */
-    @GET
-    @Path("/your-say-user/email/{email}")
-    Response getUserByEmail(@PathParam("email") String email,
-                            @HeaderParam("Authorization") String authorization);
+    @Inject
+    YourSayUserService userService;
 
-    /**
-     * The authenticated user's characteristic profile, or 204 if they have not completed
-     * onboarding. Returns {@link UserCharacteristicView} on 200.
-     */
-    @GET
-    @Path("/user-characteristics/me")
-    Response getMyCharacteristics(@HeaderParam("Authorization") String authorization);
+    @Inject
+    UserCharacteristicService characteristicService;
+
+    @Inject
+    SecurityIdentity securityIdentity;
+
+    public Response getUserByEmail(String email, String authorization) {
+        YourSayUserDto user = userService.getByEmail(email);
+        return user == null
+                ? Response.noContent().build()
+                : Response.ok(new UserRef(user.id())).build();
+    }
+
+    public Response getMyCharacteristics(String authorization) {
+        YourSayUserDto user = userService.getByEmail(securityIdentity.getPrincipal().getName());
+        if (user == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        UserCharacteristicDto characteristic = characteristicService.getByUserId(user.id());
+        return characteristic == null
+                ? Response.noContent().build()
+                : Response.ok(toView(characteristic)).build();
+    }
+
+    private static UserCharacteristicView toView(UserCharacteristicDto dto) {
+        return new UserCharacteristicView(
+                dto.userId(),
+                dto.politicalPersuasion(),
+                dto.ageRange(),
+                dto.gender(),
+                dto.sexAtBirth(),
+                dto.sexualOrientation(),
+                dto.maritalStatus(),
+                dto.race(),
+                dto.country(),
+                dto.region(),
+                dto.urbanRural(),
+                dto.ukCounty(),
+                dto.countryOfBirth(),
+                dto.citizenship(),
+                dto.religion(),
+                dto.religiosity(),
+                dto.education(),
+                dto.occupation(),
+                dto.employmentSector(),
+                dto.universitySubject(),
+                dto.personalIncomeRange(),
+                dto.householdIncomeRange(),
+                dto.height(),
+                dto.weightRange(),
+                dto.eyeColor(),
+                dto.parent(),
+                dto.newsFrequency(),
+                dto.hasPet(),
+                dto.petType(),
+                dto.chronotype(),
+                dto.outlook(),
+                dto.neurodivergent(),
+                dto.neurodivergenceType(),
+                dto.hasDisability(),
+                dto.disabilityType(),
+                dto.housingStatus(),
+                dto.propertyType());
+    }
 
     /** Minimal view of a user — only the id crosses into the votes domain. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record UserRef(Long id) {
+    public record UserRef(Long id) {
     }
 }

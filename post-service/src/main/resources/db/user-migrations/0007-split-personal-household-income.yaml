@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0007-split-personal-household-income
+      author: codex
+      logicalFilePath: db/migrations/0007-split-personal-household-income.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - dropNotNullConstraint:
+            tableName: user_characteristic
+            columnName: income_range
+            columnDataType: VARCHAR(32)
+        - addColumn:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: personal_income_range
+                  type: VARCHAR(32)
+              - column:
+                  name: household_income_range
+                  type: VARCHAR(32)
+        - sql:
+            dbms: postgresql
+            sql: >-
+              UPDATE user_characteristic
+              SET personal_income_range = CASE
+                    WHEN income_range = 'BETWEEN_100K_AND_200K' THEN 'BETWEEN_100K_AND_150K'
+                    ELSE income_range
+                  END,
+                  household_income_range = CASE
+                    WHEN income_range = 'BETWEEN_100K_AND_200K' THEN 'BETWEEN_100K_AND_150K'
+                    ELSE income_range
+                  END
+              WHERE personal_income_range IS NULL
+                 OR household_income_range IS NULL
+        - addNotNullConstraint:
+            tableName: user_characteristic
+            columnName: personal_income_range
+            columnDataType: VARCHAR(32)
+        - addNotNullConstraint:
+            tableName: user_characteristic
+            columnName: household_income_range
+            columnDataType: VARCHAR(32)

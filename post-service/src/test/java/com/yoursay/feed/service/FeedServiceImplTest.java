@@ -77,8 +77,6 @@ class FeedServiceImplTest {
         assertEquals(0, posts.lastPage);
         assertEquals(FeedServiceImpl.MAX_RANKING_WINDOW, posts.lastSize);
         assertEquals("viewer@example.com", userClient.email);
-        assertEquals("Bearer token", userClient.authorization);
-        assertEquals("Bearer token", socialClient.authorization);
     }
 
     @Test
@@ -96,8 +94,6 @@ class FeedServiceImplTest {
         assertEquals(Set.of(10L), ranker.context.followedAuthorIds());
         assertEquals(List.of(1L, 2L), ranker.candidates.stream().map(RankablePost::postId).toList());
         assertEquals("viewer@example.com", fixture.userClient.email);
-        assertEquals("Bearer token", fixture.userClient.authorization);
-        assertEquals("Bearer token", fixture.socialClient.authorization);
     }
 
     @Test
@@ -114,7 +110,6 @@ class FeedServiceImplTest {
         assertEquals(List.of(1L, 2L), negativePage.stream().map(PostDto::id).toList());
         assertEquals(0, fixture.postService.lastPage);
         assertEquals(FeedServiceImpl.MAX_RANKING_WINDOW, fixture.postService.lastSize);
-        assertEquals("Bearer token", fixture.socialClient.authorization);
     }
 
     @Test
@@ -146,7 +141,6 @@ class FeedServiceImplTest {
         fixture.service.getFeed("viewer@example.com", "Bearer token", 0, 2).await().indefinitely();
 
         assertEquals(Set.of(), ranker.context.followedAuthorIds());
-        assertEquals("Bearer token", fixture.socialClient.authorization);
     }
 
     @Test
@@ -161,7 +155,6 @@ class FeedServiceImplTest {
                         .await().indefinitely());
 
         assertEquals("missing@example.com", fixture.userClient.email);
-        assertEquals("Bearer token", fixture.userClient.authorization);
         assertEquals("Cannot create post because author lookup failed: authorEmail=missing@example.com",
                 error.getMessage());
     }
@@ -278,40 +271,36 @@ class FeedServiceImplTest {
         }
     }
 
-    private static final class CapturingUserClient implements FeedUserClient {
+    private static final class CapturingUserClient extends FeedUserClient {
         private Long userId;
         private String email;
-        private String authorization;
 
         private CapturingUserClient(Long userId) {
             this.userId = userId;
         }
 
         @Override
-        public Uni<UserRef> getUserByEmail(String email, String authorization) {
+        public Uni<FeedUserClient.UserRef> getUserByEmail(String email, String authorization) {
             this.email = email;
-            this.authorization = authorization;
             return userId == null
                     ? Uni.createFrom().nullItem()
-                    : Uni.createFrom().item(new UserRef(userId));
+                    : Uni.createFrom().item(new FeedUserClient.UserRef(userId));
         }
     }
 
-    private static final class CapturingSocialClient implements SocialClient {
+    private static final class CapturingSocialClient extends SocialClient {
         private Set<Long> following;
         private boolean returnNullResponse;
-        private String authorization;
 
         private CapturingSocialClient(Set<Long> following) {
             this.following = following;
         }
 
         @Override
-        public Uni<FollowingRef> getFollowing(String authorization) {
-            this.authorization = authorization;
+        public Uni<SocialClient.FollowingRef> getFollowing(String authorization) {
             return returnNullResponse
                     ? Uni.createFrom().nullItem()
-                    : Uni.createFrom().item(new FollowingRef(following));
+                    : Uni.createFrom().item(new SocialClient.FollowingRef(following));
         }
     }
 }

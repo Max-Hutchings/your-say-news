@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0009-add-quirky-characteristics
+      author: claude
+      logicalFilePath: db/migrations/0009-add-quirky-characteristics.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        # Quirky axes. Nullable so existing rows and seed data stay valid; the API layer
+        # enforces both as required during onboarding.
+        - addColumn:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: chronotype
+                  type: VARCHAR(16)
+              - column:
+                  name: outlook
+                  type: VARCHAR(16)

@@ -8,7 +8,6 @@ import io.quarkus.test.security.TestSecurity;
 import io.restassured.path.json.JsonPath;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -41,7 +40,6 @@ public class VoteSentimentControllerTest {
     private static final long VOTER_ID = 55L;
 
     @InjectMock
-    @RestClient
     UserCharacteristicClient userClient;
 
     @Inject
@@ -50,7 +48,7 @@ public class VoteSentimentControllerTest {
     @BeforeEach
     public void setup() {
         Mockito.reset(userClient);
-        // user-service lookup: caller email → numeric id. nullable() so it fires with or without a header.
+        // Local user lookup: caller email → numeric id. nullable() accepts the compatibility header.
         Response userRef = Response.ok(new UserCharacteristicClient.UserRef(VOTER_ID)).build();
         Mockito.when(userClient.getUserByEmail(Mockito.eq(VOTER_EMAIL), Mockito.nullable(String.class)))
                 .thenReturn(userRef);
@@ -195,8 +193,13 @@ public class VoteSentimentControllerTest {
                 .extract().jsonPath();
         List<Map<String, Object>> buckets = json.getList("buckets");
         assertEquals(1, buckets.size());
-        assertBucket(buckets.get(0), "OVERALL", optionId(postId, "AGREE"), 1,
-                optionId(postId, "DISAGREE"), 0, 1, 100.0);
+        long agreeId = optionId(postId, "AGREE");
+        assertEquals(List.of(agreeId), json.getList("options.id", Long.class));
+        assertEquals("OVERALL", buckets.getFirst().get("bucket"));
+        assertEquals(1, ((Number) buckets.getFirst().get("total")).longValue());
+        List<Map<String, Object>> choices = (List<Map<String, Object>>) buckets.getFirst().get("choices");
+        assertEquals(1, choices.size());
+        assertChoice(choices.getFirst(), agreeId, 1, 100.0);
     }
 
     @Test

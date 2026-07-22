@@ -1,0 +1,161 @@
+databaseChangeLog:
+  # Two additional login-ready users. Together with John (1), Jane (2), and Alice (4), these
+  # provide five enabled Keycloak accounts with characteristic profiles for local development.
+  # Nora (5) and Blank (6) remain deliberately unprofiled fixtures for onboarding tests.
+  - changeSet:
+      id: 0003-seed-active-accounts
+      author: codex
+      logicalFilePath: db/seeding/0003-seed-active-accounts.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 7 } }
+              - { column: { name: email, value: "maya.patel@example.com" } }
+              - { column: { name: first_name, value: "Maya" } }
+              - { column: { name: last_name, value: "Patel" } }
+              - { column: { name: display_name, value: "Maya Patel" } }
+              - { column: { name: handle, value: "maya.patel" } }
+              - { column: { name: date_of_birth, value: "1992-04-18" } }
+              - { column: { name: created_date, value: "2024-06-03" } }
+              - { column: { name: active, valueBoolean: true } }
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 8 } }
+              - { column: { name: email, value: "theo.campbell@example.com" } }
+              - { column: { name: first_name, value: "Theo" } }
+              - { column: { name: last_name, value: "Campbell" } }
+              - { column: { name: display_name, value: "Theo Campbell" } }
+              - { column: { name: handle, value: "theo.campbell" } }
+              - { column: { name: date_of_birth, value: "1981-11-02" } }
+              - { column: { name: created_date, value: "2024-06-04" } }
+              - { column: { name: active, valueBoolean: true } }
+
+        # 5 — Maya: Birmingham, centre-left, South Asian
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 5 } }
+              - { column: { name: user_id, valueNumeric: 7 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Birmingham" } }
+              - { column: { name: uk_county, value: "WEST_MIDLANDS" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1992 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "MARRIED" } }
+              - { column: { name: country_of_birth, value: "INDIA" } }
+              - { column: { name: religion, value: "HINDUISM" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_LEFT" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "NONPROFIT" } }
+              - { column: { name: university_subject, value: "SOCIOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: height, value: "FEET_5_4_TO_5_6" } }
+              - { column: { name: weight_range, value: "KG_60_69" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "PARENT_CAREGIVER_UNDER_18" } }
+              - { column: { name: news_frequency, valueNumeric: 8 } }
+              - { column: { name: has_pet, valueBoolean: true } }
+              - { column: { name: chronotype, value: "MORNING_LARK" } }
+              - { column: { name: outlook, value: "OPTIMIST" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "OWN_MORTGAGE" } }
+              - { column: { name: property_type, value: "SEMI_DETACHED" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 55 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 5 } }
+              - { column: { name: race, value: "SOUTH_ASIAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 5 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 5 } }
+              - { column: { name: citizenship, value: "INDIA" } }
+        - insert:
+            tableName: user_characteristic_pet_type
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 5 } }
+              - { column: { name: pet_type, value: "CAT" } }
+
+        # 6 — Theo: Edinburgh, centre-right, energy sector
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 6 } }
+              - { column: { name: user_id, valueNumeric: 8 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Edinburgh" } }
+              - { column: { name: uk_county, value: "MIDLOTHIAN" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1981 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "GAY_LESBIAN" } }
+              - { column: { name: marital_status, value: "CIVIL_PARTNERSHIP" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_RIGHT" } }
+              - { column: { name: education, value: "MASTERS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "ENERGY_UTILITIES" } }
+              - { column: { name: university_subject, value: "ENGINEERING" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: height, value: "FEET_5_10_TO_6_0" } }
+              - { column: { name: weight_range, value: "KG_80_89" } }
+              - { column: { name: eye_color, value: "BLUE" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: true } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "OWN_OUTRIGHT" } }
+              - { column: { name: property_type, value: "TERRACED" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 70 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 6 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 6 } }
+              - { column: { name: citizenship, value: "SCOTTISH" } }
+        - insert:
+            tableName: user_characteristic_pet_type
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 6 } }
+              - { column: { name: pet_type, value: "DOG" } }
+
+        # Explicit ids do not advance PostgreSQL identity sequences.
+        - sql:
+            dbms: postgresql
+            sql: >-
+              SELECT setval(pg_get_serial_sequence('your_say_user', 'id'),
+                            (SELECT MAX(id) FROM your_say_user));
+              SELECT setval(pg_get_serial_sequence('user_characteristic', 'id'),
+                            (SELECT MAX(id) FROM user_characteristic));

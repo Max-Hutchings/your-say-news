@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0008-add-pet-characteristics
+      author: claude
+      logicalFilePath: db/migrations/0008-add-pet-characteristics.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        # Lifestyle axes. Nullable so existing rows and seed data stay valid; the API layer
+        # enforces hasPet as required and petType as required only for pet owners.
+        - addColumn:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: has_pet
+                  type: BOOLEAN
+              - column:
+                  name: pet_type
+                  type: VARCHAR(16)

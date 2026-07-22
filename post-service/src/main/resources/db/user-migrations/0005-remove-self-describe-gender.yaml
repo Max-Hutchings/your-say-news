@@ -1,0 +1,24 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0005-remove-self-describe-gender
+      author: codex
+      logicalFilePath: db/migrations/0005-remove-self-describe-gender.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: gender
+                  value: "NON_BINARY"
+              - column:
+                  name: gender_self_describe
+                  value: null
+            where: "gender = 'SELF_DESCRIBE'"
+        - update:
+            tableName: user_characteristic
+            columns:
+              - column:
+                  name: gender_self_describe
+                  value: null
+            where: "gender_self_describe is not null"

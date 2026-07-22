@@ -1,23 +1,32 @@
 package com.yoursay.agents.postagent.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
-import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import com.yoursay.user.user.UserAccessDto;
+import com.yoursay.user.user.YourSayUserService;
+import io.quarkus.security.identity.SecurityIdentity;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
-@RegisterRestClient(configKey = "user-service")
-@Produces(MediaType.APPLICATION_JSON)
-public interface AgentUserClient {
+@ApplicationScoped
+public class AgentUserClient {
 
-    @GET
-    @Path("/your-say-user/me/access")
-    UserAccess getCurrentUserAccess(@HeaderParam("Authorization") String authorization);
+    @Inject
+    YourSayUserService userService;
+
+    @Inject
+    SecurityIdentity securityIdentity;
+
+    public UserAccess getCurrentUserAccess(String authorization) {
+        UserAccessDto access = userService.getAccessByEmail(securityIdentity.getPrincipal().getName());
+        return access == null ? null : new UserAccess(
+                access.userId(),
+                access.accountType().name(),
+                access.publisherStatus().name(),
+                access.canPublish());
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record UserAccess(Long userId, String accountType, String publisherStatus, boolean canPublish) {
+    public record UserAccess(Long userId, String accountType, String publisherStatus, boolean canPublish) {
 
         public boolean isActiveOfficialPublisher() {
             return "OFFICIAL".equals(accountType)

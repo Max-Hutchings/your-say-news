@@ -12,7 +12,6 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -35,8 +34,8 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
 
 /**
- * Integration tests over the real reactive Postgres (Dev Services). The author rest-client and the
- * S3 presigner are mocked so the suite asserts wiring, persistence and the contract without AWS.
+ * Integration tests over the real reactive Postgres (Dev Services). The local author adapter and
+ * S3 presigner are mocked so the suite isolates post persistence and the publishing contract.
  */
 @QuarkusTest
 @TestSecurity(user = "author@yoursay.com", roles = "user")
@@ -48,7 +47,6 @@ public class PostControllerTest {
     private static final long OTHER_AUTHOR_ID = 7L;
 
     @InjectMock
-    @RestClient
     UserServiceClient userServiceClient;
 
     @InjectMock
@@ -64,7 +62,7 @@ public class PostControllerTest {
     public void setup() throws Exception {
         Mockito.reset(userServiceClient, presigner);
 
-        // The forwarded bearer resolves to an active official publisher and a known user id.
+        // The adapter resolves to an active official publisher and a known user id.
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
                         AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
@@ -383,27 +381,8 @@ public class PostControllerTest {
     }
 
     @Test
-    public void createForwardsTheCallersBearerToUserService() {
-        // Regression for the create-post "network error": user-service's author lookup is role-gated,
-        // so post-service must forward the caller's bearer. Dropping it calls with a null Authorization
-        // and user-service answers 401 (exactly the failure seen in the running app).
-        org.mockito.ArgumentCaptor<String> auth = org.mockito.ArgumentCaptor.forClass(String.class);
-
-        given()
-                .header("Authorization", "Bearer test-jwt-123")
-                .contentType("application/json")
-                .body(createBody("Context for an authenticated post.", "Should this request be published?"))
-                .when().post("/posts")
-                .then()
-                .statusCode(201);
-
-        Mockito.verify(userServiceClient).getCurrentUserAccess(auth.capture());
-        org.junit.jupiter.api.Assertions.assertEquals("Bearer test-jwt-123", auth.getValue());
-    }
-
-    @Test
     public void createRejectsAnUnknownAuthor() throws Exception {
-        // The token email resolves to no user in user-service -> the author can't be established.
+        // The authenticated subject resolves to no local user, so the author cannot be established.
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().nullItem());
         long before = countPosts();

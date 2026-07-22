@@ -1,0 +1,91 @@
+databaseChangeLog:
+  # Enabled standard reader with consent and a complete characteristic profile. Keep this identity
+  # in sync with keycloak/realm-export.json and docs/test-accounts.md.
+  - changeSet:
+      id: 0006-seed-standard-profiled-account
+      author: codex
+      logicalFilePath: db/seeding/0006-seed-standard-profiled-account.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 10 } }
+              - { column: { name: email, value: "riley.reader@example.com" } }
+              - { column: { name: first_name, value: "Riley" } }
+              - { column: { name: last_name, value: "Reader" } }
+              - { column: { name: display_name, value: "Riley Reader" } }
+              - { column: { name: handle, value: "riley.reader" } }
+              - { column: { name: date_of_birth, value: "1993-09-14" } }
+              - { column: { name: created_date, value: "2024-06-06" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "STANDARD" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-07-21T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 7 } }
+              - { column: { name: user_id, valueNumeric: 10 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Leeds" } }
+              - { column: { name: uk_county, value: "WEST_YORKSHIRE" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1993 } }
+              - { column: { name: gender, value: "NON_BINARY" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "PANSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "NOT_POLITICAL" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_PART_TIME" } }
+              - { column: { name: employment_sector, value: "MEDIA_COMMUNICATIONS" } }
+              - { column: { name: university_subject, value: "JOURNALISM" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "HAZEL" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: true } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "OPTIMIST" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 45 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 7 } }
+              - { column: { name: race, value: "MIXED_MULTIPLE" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 7 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+        - insert:
+            tableName: user_characteristic_pet_type
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 7 } }
+              - { column: { name: pet_type, value: "CAT" } }
+
+        # Explicit ids do not advance PostgreSQL identity sequences.
+        - sql:
+            dbms: postgresql
+            sql: >-
+              SELECT setval(pg_get_serial_sequence('your_say_user', 'id'),
+                            (SELECT MAX(id) FROM your_say_user));
+              SELECT setval(pg_get_serial_sequence('user_characteristic', 'id'),
+                            (SELECT MAX(id) FROM user_characteristic));
