@@ -1,5 +1,9 @@
 package com.yoursay.votes;
 
+import com.yoursay.posts.PostVotingConfigurationDto;
+import com.yoursay.posts.PostVotingConfigurationService;
+import com.yoursay.posts.VoteOptionDto;
+import com.yoursay.posts.VotingType;
 import com.yoursay.votes.client.UserCharacteristicClient;
 import com.yoursay.votes.error.VoteApiException;
 import com.yoursay.votes.model.Vote;
@@ -37,6 +41,9 @@ class VoteDuplicateEnforcementTest {
     @Mock
     UserCharacteristicClient userClient;
 
+    @Mock
+    PostVotingConfigurationService votingConfigurationService;
+
     @InjectMocks
     VoteServiceImpl voteService;
 
@@ -44,6 +51,7 @@ class VoteDuplicateEnforcementTest {
     private static final String AUTH = "Bearer test-token";
     private static final long USER_ID = 10L;
     private static final long POST_ID = 5L;
+    private static final long OPTION_ID = 51L;
 
     @BeforeEach
     void stubUserLookup() {
@@ -51,6 +59,8 @@ class VoteDuplicateEnforcementTest {
         // override or don't use this stub, so strict mode would flag it without lenient().
         Response userRefResp = Response.ok(new UserCharacteristicClient.UserRef(USER_ID)).build();
         lenient().when(userClient.getUserByEmail(VOTER_EMAIL, AUTH)).thenReturn(userRefResp);
+        lenient().when(votingConfigurationService.findByPostId(anyLong()))
+                .thenAnswer(invocation -> Optional.of(configuration(invocation.getArgument(0))));
     }
 
     @Test
@@ -59,14 +69,14 @@ class VoteDuplicateEnforcementTest {
         when(userClient.getMyCharacteristics(AUTH)).thenReturn(Response.noContent().build());
         // persist() is void — default mock does nothing, which is correct.
 
-        VoteResponseDto result = voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH);
+        VoteResponseDto result = voteService.castVote(POST_ID, OPTION_ID, VOTER_EMAIL, AUTH);
 
         assertEquals(POST_ID, result.postId());
-        assertEquals(true, result.voteFor());
+        assertEquals(OPTION_ID, result.optionId());
         Vote persisted = capturePersistedVote();
         assertEquals(POST_ID, persisted.getPostId());
         assertEquals(USER_ID, persisted.getUserId());
-        assertEquals(true, persisted.isVoteFor());
+        assertEquals(OPTION_ID, persisted.getOptionId());
         assertEquals(CharacteristicSnapshot.UNKNOWN, persisted.getSnapshot().bucketFor("ageRange"));
     }
 
@@ -77,7 +87,7 @@ class VoteDuplicateEnforcementTest {
 
         VoteApiException ex = assertThrows(
                 VoteApiException.class,
-                () -> voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH)
+                () -> voteService.castVote(POST_ID, OPTION_ID, VOTER_EMAIL, AUTH)
         );
 
         assertEquals(Response.Status.CONFLICT.getStatusCode(), ex.getResponse().getStatus());
@@ -94,7 +104,7 @@ class VoteDuplicateEnforcementTest {
 
         VoteApiException ex = assertThrows(
                 VoteApiException.class,
-                () -> voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH)
+                () -> voteService.castVote(POST_ID, OPTION_ID, VOTER_EMAIL, AUTH)
         );
 
         assertEquals(Response.Status.CONFLICT.getStatusCode(), ex.getResponse().getStatus());
@@ -106,17 +116,18 @@ class VoteDuplicateEnforcementTest {
     void castVote_differentPost_sameUser_accepted() {
         // A user can vote on different posts — uniqueness is per (post_id, user_id), not per user.
         long anotherPost = POST_ID + 1;
+        long anotherOption = anotherPost * 10 + 1;
         when(voteRepository.existsByPostAndUser(anotherPost, USER_ID)).thenReturn(false);
         when(userClient.getMyCharacteristics(AUTH)).thenReturn(Response.noContent().build());
 
-        VoteResponseDto result = voteService.castVote(anotherPost, false, VOTER_EMAIL, AUTH);
+        VoteResponseDto result = voteService.castVote(anotherPost, anotherOption, VOTER_EMAIL, AUTH);
 
         assertEquals(anotherPost, result.postId());
-        assertEquals(false, result.voteFor());
+        assertEquals(anotherOption, result.optionId());
         Vote persisted = capturePersistedVote();
         assertEquals(anotherPost, persisted.getPostId());
         assertEquals(USER_ID, persisted.getUserId());
-        assertEquals(false, persisted.isVoteFor());
+        assertEquals(anotherOption, persisted.getOptionId());
         assertEquals(CharacteristicSnapshot.UNKNOWN, persisted.getSnapshot().bucketFor("ageRange"));
     }
 
@@ -129,7 +140,7 @@ class VoteDuplicateEnforcementTest {
 
         VoteApiException ex = assertThrows(
                 VoteApiException.class,
-                () -> voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH)
+                () -> voteService.castVote(POST_ID, OPTION_ID, VOTER_EMAIL, AUTH)
         );
 
         assertEquals(401, ex.getResponse().getStatus());
@@ -162,7 +173,7 @@ class VoteDuplicateEnforcementTest {
 
     @Test
     void getMyVote_existingVote_mapsResponseWithoutPii() throws Exception {
-        Vote vote = new Vote(POST_ID, USER_ID, true, CharacteristicSnapshot.empty());
+        Vote vote = new Vote(POST_ID, USER_ID, OPTION_ID, CharacteristicSnapshot.empty());
         setId(vote, 44L);
         when(voteRepository.findByPostAndUser(POST_ID, USER_ID)).thenReturn(Optional.of(vote));
 
@@ -171,18 +182,18 @@ class VoteDuplicateEnforcementTest {
         assertTrue(result.isPresent());
         assertEquals(44L, result.get().id());
         assertEquals(POST_ID, result.get().postId());
-        assertEquals(true, result.get().voteFor());
+        assertEquals(OPTION_ID, result.get().optionId());
         verify(voteRepository).findByPostAndUser(POST_ID, USER_ID);
     }
 
-    // ── assertVotablePost (payload guard) ─────────────────────────────────────
+    // ── assertVotableSelection ────────────────────────────────────────────────
 
     @Test
-    void assertVotablePost_nullPostId_throws400() {
+    void assertVotableSelection_nullPostId_throws400() {
         // A missing postId is a bad request — rejected before any lookup or write.
         VoteApiException ex = assertThrows(
                 VoteApiException.class,
-                () -> voteService.assertVotablePost(null)
+                () -> voteService.assertVotableSelection(null, OPTION_ID)
         );
 
         assertEquals(400, ex.getResponse().getStatus());
@@ -191,9 +202,29 @@ class VoteDuplicateEnforcementTest {
     }
 
     @Test
-    void assertVotablePost_presentPostId_passes() {
-        // A present id passes the payload guard; post existence is enforced by the DB FK at write.
-        voteService.assertVotablePost(POST_ID);
+    void assertVotableSelection_optionFromThePost_passes() {
+        voteService.assertVotableSelection(POST_ID, OPTION_ID);
+    }
+
+    @Test
+    void assertVotableSelection_rejectsMissingAndCrossPostOptions() {
+        VoteApiException missing = assertThrows(VoteApiException.class,
+                () -> voteService.assertVotableSelection(POST_ID, null));
+        assertEquals("VOTE_INVALID", missing.errorCode());
+
+        VoteApiException foreign = assertThrows(VoteApiException.class,
+                () -> voteService.assertVotableSelection(POST_ID, OPTION_ID + 1));
+        assertEquals(400, foreign.getResponse().getStatus());
+        assertEquals("VOTE_OPTION_NOT_AVAILABLE", foreign.errorCode());
+    }
+
+    @Test
+    void assertVotableSelection_rejectsUnknownPost() {
+        when(votingConfigurationService.findByPostId(POST_ID)).thenReturn(Optional.empty());
+        VoteApiException error = assertThrows(VoteApiException.class,
+                () -> voteService.assertVotableSelection(POST_ID, OPTION_ID));
+        assertEquals(404, error.getResponse().getStatus());
+        assertEquals("VOTE_POST_MISSING", error.errorCode());
     }
 
     @Test
@@ -208,7 +239,7 @@ class VoteDuplicateEnforcementTest {
 
         VoteApiException ex = assertThrows(
                 VoteApiException.class,
-                () -> voteService.castVote(POST_ID, true, VOTER_EMAIL, AUTH)
+                () -> voteService.castVote(POST_ID, OPTION_ID, VOTER_EMAIL, AUTH)
         );
 
         assertEquals(404, ex.getResponse().getStatus());
@@ -254,7 +285,7 @@ class VoteDuplicateEnforcementTest {
     void assertResultsUnlocked_callerHasVoted_passes() {
         when(voteRepository.postExists(POST_ID)).thenReturn(true);
         when(voteRepository.findByPostAndUser(POST_ID, USER_ID))
-                .thenReturn(Optional.of(new Vote(POST_ID, USER_ID, true, CharacteristicSnapshot.empty())));
+                .thenReturn(Optional.of(new Vote(POST_ID, USER_ID, OPTION_ID, CharacteristicSnapshot.empty())));
 
         // No throw = results unlocked for a caller who has voted on the post.
         voteService.assertResultsUnlocked(POST_ID, VOTER_EMAIL, AUTH);
@@ -270,5 +301,10 @@ class VoteDuplicateEnforcementTest {
         Field field = Vote.class.getDeclaredField("id");
         field.setAccessible(true);
         field.set(vote, id);
+    }
+
+    private static PostVotingConfigurationDto configuration(long postId) {
+        return new PostVotingConfigurationDto(postId, VotingType.MULTIPLE_CHOICE,
+                java.util.List.of(new VoteOptionDto(postId * 10 + 1, "More frequent buses", 0, null)));
     }
 }

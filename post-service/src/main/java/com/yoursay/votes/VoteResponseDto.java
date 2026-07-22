@@ -7,5 +7,5 @@ package com.yoursay.votes;
  * <p><strong>PII boundary:</strong> the response says nothing about who voted, only that a vote
  * exists for this post with this stance.
  */
-public record VoteResponseDto(Long id, Long postId, boolean voteFor) {
+public record VoteResponseDto(Long id, Long postId, Long optionId) {
 }

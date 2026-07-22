@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import com.yoursay.posts.VotingType;
 
 @Entity
 @Table(name = "post")
@@ -32,6 +33,10 @@ public class Post extends PanacheEntityBase {
     @Column(name = "case_against", columnDefinition = "text")
     private String caseAgainst;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "voting_type", nullable = false, length = 32)
+    private VotingType votingType = VotingType.BINARY;
+
     @Column(name = "is_unbiased", nullable = false)
     private boolean isUnbiased;
 
@@ -44,6 +49,10 @@ public class Post extends PanacheEntityBase {
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("ordinal ASC")
     private List<PostMedia> media = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("ordinal ASC")
+    private List<PostVoteOption> voteOptions = new ArrayList<>();
 
     public Post() {
     }
@@ -76,6 +85,13 @@ public class Post extends PanacheEntityBase {
         item.setPost(this);
         item.setOrdinal(media.size());
         media.add(item);
+    }
+
+    public void configureVoting(VotingType votingType, List<VotingOptionRules.Definition> definitions) {
+        this.votingType = votingType == null ? VotingType.BINARY : votingType;
+        voteOptions.clear();
+        definitions.forEach(definition -> voteOptions.add(new PostVoteOption(
+                this, definition.label(), definition.ordinal(), definition.semanticKey())));
     }
 
     public Long getId() {
@@ -141,4 +157,7 @@ public class Post extends PanacheEntityBase {
     public List<PostMedia> getMedia() {
         return media;
     }
+
+    public VotingType getVotingType() { return votingType; }
+    public List<PostVoteOption> getVoteOptions() { return voteOptions; }
 }

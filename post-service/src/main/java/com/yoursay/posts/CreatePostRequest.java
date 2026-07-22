@@ -23,9 +23,15 @@ public record CreatePostRequest(
         String caseFor,
         @Size(max = 512)
         String caseAgainst,
+        VotingType votingType,
+        @Size(max = 5)
+        List<@NotNull @Valid VoteOption> voteOptions,
         @Size(max = 8)
         List<@NotNull @Valid Media> media
 ) {
+    public record VoteOption(@NotBlank @Size(max = 120) String label) {
+    }
+
     /**
      * A media item the client has already uploaded to S3 (via a presigned PUT) and is now
      * attaching by its key.

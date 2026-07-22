@@ -1,11 +1,11 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { View, Text, ScrollView, ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { Eyebrow } from "@/components/ui";
 import { useSentiment } from "../hooks/use-sentiment";
 import { SENTIMENT_AXES } from "../data/axes";
 import { SENTIMENT_VIEWS, type SentimentViewKey } from "../data/views";
-import type { BucketSentiment, SentimentBreakdown, SentimentErrorKind } from "../types";
+import type { BucketSentiment, ResultVoteOption, SentimentBreakdown, SentimentErrorKind } from "../types";
 import { SentimentBar } from "./SentimentBar";
 import { AxisChip } from "./AxisChip";
 import { ViewSelector } from "./ViewSelector";
@@ -37,7 +37,7 @@ export function SentimentResults({ postId, onNextPost }: { postId: number; onNex
   const axisLabel = SENTIMENT_AXES.find((a) => a.field === axis)?.label ?? "";
   const caption = SENTIMENT_VIEWS.find((v) => v.key === view)?.caption ?? "";
 
-  const overallBar = useMemo(() => aggregateOverall(overall), [overall]);
+  const overallBar = overall?.buckets[0] ?? null;
 
   const isAtBottom = () => {
     const { offsetY, viewportHeight, contentHeight } = scrollMetrics.current;
@@ -80,7 +80,7 @@ export function SentimentResults({ postId, onNextPost }: { postId: number; onNex
     >
       <Eyebrow text="How everyone voted" />
       {overallBar ? (
-        <SentimentBar label="Overall" bucket={overallBar} overall />
+        <SentimentBar label="Overall" bucket={overallBar} options={overall?.options ?? []} overall />
       ) : error ? (
         <ErrorRow kind={error} onRetry={retry} e={e} />
       ) : (
@@ -152,7 +152,7 @@ function renderBreakdown({
   return (
     <>
       <ChartHead title={axisLabel} caption={caption} />
-      <BreakdownChart view={view} buckets={breakdown.buckets} />
+      <BreakdownChart view={view} buckets={breakdown.buckets} options={breakdown.options} />
       {breakdown.suppressedBuckets > 0 && (
         <Text style={[styles.empty, { color: e.muted }]}>
           {breakdown.suppressedBuckets} small group
@@ -164,16 +164,16 @@ function renderBreakdown({
 }
 
 /** Render the buckets as whichever chart the "View as" selector has picked. */
-function BreakdownChart({ view, buckets }: { view: SentimentViewKey; buckets: BucketSentiment[] }) {
+function BreakdownChart({ view, buckets, options }: { view: SentimentViewKey; buckets: BucketSentiment[]; options: ResultVoteOption[] }) {
   switch (view) {
     case "counts":
-      return <SentimentCounts buckets={buckets} />;
+      return <SentimentCounts buckets={buckets} options={options} />;
     case "bars":
-      return <SentimentBars buckets={buckets} />;
+      return <SentimentBars buckets={buckets} options={options} />;
     case "table":
-      return <SentimentTable buckets={buckets} />;
+      return <SentimentTable buckets={buckets} options={options} />;
     case "columns":
-      return <SentimentColumns buckets={buckets} />;
+      return <SentimentColumns buckets={buckets} options={options} />;
   }
 }
 
@@ -208,22 +208,6 @@ function messageFor(kind: SentimentErrorKind): string {
  * one bucket, which we pass through so its percentages match the backend exactly; if it ever
  * returns several, we sum the counts and recompute.
  */
-function aggregateOverall(overall: SentimentBreakdown | null): BucketSentiment | null {
-  if (!overall || overall.buckets.length === 0) return null;
-  if (overall.buckets.length === 1) return overall.buckets[0];
-  const yesCount = overall.buckets.reduce((s, b) => s + b.yesCount, 0);
-  const noCount = overall.buckets.reduce((s, b) => s + b.noCount, 0);
-  const total = yesCount + noCount;
-  return {
-    bucket: "OVERALL",
-    yesCount,
-    noCount,
-    total,
-    yesPct: total ? Math.round((yesCount / total) * 1000) / 10 : 0,
-    noPct: total ? Math.round((noCount / total) * 1000) / 10 : 0,
-  };
-}
-
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,

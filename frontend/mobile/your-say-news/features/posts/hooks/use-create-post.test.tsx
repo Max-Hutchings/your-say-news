@@ -76,6 +76,10 @@ describe("useCreatePost submit", () => {
     expect(mockCreate).toHaveBeenCalledWith({
       summary: "A summary",
       supportQuestion: "Do you agree?",
+      caseFor: null,
+      caseAgainst: null,
+      votingType: "BINARY",
+      voteOptions: [],
       media: [],
     });
     expect(created).toBe(post);
@@ -124,11 +128,53 @@ describe("useCreatePost submit", () => {
     expect(mockCreate).toHaveBeenCalledWith({
       summary: "A summary",
       supportQuestion: "Do you agree?",
+      caseFor: null,
+      caseAgainst: null,
+      votingType: "BINARY",
+      voteOptions: [],
       media: [
         { mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/a.png", contentType: "image/png", posterS3Key: null },
         { mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/b.png", contentType: "image/png", posterS3Key: null },
       ],
     });
+  });
+
+  it("submits trimmed ordered multiple-choice options and optional arguments", async () => {
+    mockCreate.mockResolvedValue({ id: 12 });
+    const { result } = renderHook(() => useCreatePost());
+
+    await act(async () => {
+      await result.current.submit({
+        ...validFields,
+        votingType: "MULTIPLE_CHOICE",
+        voteOptions: [" More frequent buses ", "Protected cycle lanes", " Lower parking charges "],
+        caseFor: " Better access ",
+        caseAgainst: " Higher operating cost ",
+      });
+    });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      summary: "A summary",
+      supportQuestion: "Do you agree?",
+      caseFor: "Better access",
+      caseAgainst: "Higher operating cost",
+      votingType: "MULTIPLE_CHOICE",
+      voteOptions: [
+        { label: "More frequent buses" },
+        { label: "Protected cycle lanes" },
+        { label: "Lower parking charges" },
+      ],
+      media: [],
+    });
+  });
+
+  it("rejects blank and case-insensitively duplicate multiple-choice options", async () => {
+    const { result } = renderHook(() => useCreatePost());
+    await act(async () => { await result.current.submit({ ...validFields, votingType: "MULTIPLE_CHOICE", voteOptions: ["Buses", " "] }); });
+    expect(result.current.fieldErrors.voteOptions).toBe("Each choice must contain 1 to 120 characters.");
+    await act(async () => { await result.current.submit({ ...validFields, votingType: "MULTIPLE_CHOICE", voteOptions: ["Buses", " buses "] }); });
+    expect(result.current.fieldErrors.voteOptions).toBe("Each choice must be different.");
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });
 

@@ -19,20 +19,20 @@ public interface VoteService {
      * @param postId the post id from the request body (may be {@code null})
      * @throws jakarta.ws.rs.ClientErrorException 400 if {@code postId} is null, 404 if no such post
      */
-    void assertVotablePost(Long postId);
+    void assertVotableSelection(Long postId, Long optionId);
 
     /**
      * Cast a vote on a post's support question.
      *
      * @param postId        the post being voted on
-     * @param voteFor       {@code true} = support, {@code false} = oppose
+     * @param optionId      stable id of an option owned by the post
      * @param callerEmail   the authenticated user's email (from the JWT principal claim)
      * @param authorization the caller's {@code Authorization} header, forwarded to user-service
      *                      for the role-gated user-id and characteristic lookups
      * @return the persisted vote (no snapshot, no userId in the response)
      * @throws jakarta.ws.rs.ClientErrorException with status 409 if the user has already voted
      */
-    VoteResponseDto castVote(Long postId, boolean voteFor, String callerEmail, String authorization);
+    VoteResponseDto castVote(Long postId, Long optionId, String callerEmail, String authorization);
 
     /**
      * The authenticated user's existing vote on a post, if any.

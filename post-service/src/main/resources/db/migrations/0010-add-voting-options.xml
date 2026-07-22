@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="0010-add-voting-options-1" author="codex">
+        <addColumn tableName="post">
+            <column name="voting_type" type="VARCHAR(32)" defaultValue="BINARY">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <sql>ALTER TABLE post ADD CONSTRAINT ck_post_voting_type CHECK (voting_type IN ('BINARY', 'MULTIPLE_CHOICE'));</sql>
+
+        <createTable tableName="post_vote_option">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_post_vote_option"/>
+            </column>
+            <column name="post_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="label" type="VARCHAR(120)"><constraints nullable="false"/></column>
+            <column name="ordinal" type="SMALLINT"><constraints nullable="false"/></column>
+            <column name="semantic_key" type="VARCHAR(32)"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="post_vote_option" baseColumnNames="post_id"
+                                 constraintName="fk_post_vote_option_post" referencedTableName="post"
+                                 referencedColumnNames="id" onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="post_vote_option" columnNames="post_id, ordinal"
+                             constraintName="uk_post_vote_option_ordinal"/>
+        <addUniqueConstraint tableName="post_vote_option" columnNames="post_id, id"
+                             constraintName="uk_post_vote_option_post_id"/>
+        <addUniqueConstraint tableName="post_vote_option" columnNames="post_id, semantic_key"
+                             constraintName="uk_post_vote_option_semantic"/>
+        <sql>ALTER TABLE post_vote_option ADD CONSTRAINT ck_post_vote_option_semantic CHECK (semantic_key IS NULL OR semantic_key IN ('AGREE', 'DISAGREE'));</sql>
+        <sql>CREATE UNIQUE INDEX uk_post_vote_option_label_ci ON post_vote_option (post_id, lower(label));</sql>
+
+        <sql splitStatements="true"><![CDATA[
+            INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
+            SELECT id, 'Agree', 0, 'AGREE' FROM post;
+            INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
+            SELECT id, 'Disagree', 1, 'DISAGREE' FROM post;
+        ]]></sql>
+
+        <addColumn tableName="votes">
+            <column name="option_id" type="BIGINT"/>
+        </addColumn>
+        <sql splitStatements="false"><![CDATA[
+            UPDATE votes v
+               SET option_id = o.id
+              FROM post_vote_option o
+             WHERE o.post_id = v.post_id
+               AND o.semantic_key = CASE WHEN v.vote_for THEN 'AGREE' ELSE 'DISAGREE' END;
+        ]]></sql>
+        <addNotNullConstraint tableName="votes" columnName="option_id" columnDataType="BIGINT"/>
+        <addForeignKeyConstraint baseTableName="votes" baseColumnNames="post_id, option_id"
+                                 constraintName="fk_votes_option_post" referencedTableName="post_vote_option"
+                                 referencedColumnNames="post_id, id"/>
+        <createIndex tableName="votes" indexName="idx_votes_post_option">
+            <column name="post_id"/><column name="option_id"/>
+        </createIndex>
+        <dropColumn tableName="votes" columnName="vote_for"/>
+    </changeSet>
+</databaseChangeLog>

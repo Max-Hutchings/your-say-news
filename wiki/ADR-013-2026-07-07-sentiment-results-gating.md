@@ -2,6 +2,11 @@
 
 Date: 2026-07-07
 
+> Amended by [ADR-024](ADR-024-2026-07-21-binary-multiple-choice-voting.md): the two endpoints,
+> server-side must-have-voted gate, unknown-axis validation and aggregate-only privacy rule remain.
+> ADR-024 replaces the yes/no-only `SentimentBreakdownDto` shape with option-aware tallies so the
+> same contract supports binary and multiple-choice posts.
+
 ## Situation
 
 Stage 4 exposes the heart of the product — aggregated, anonymised "how different kinds of people

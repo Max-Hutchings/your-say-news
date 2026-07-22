@@ -8,6 +8,9 @@ import com.yoursay.posts.model.PostMedia;
 import com.yoursay.posts.model.PostMediaUpload;
 import com.yoursay.posts.model.PostMediaUploadRepository;
 import com.yoursay.posts.model.PostRepository;
+import com.yoursay.posts.model.PostVoteOption;
+import com.yoursay.posts.model.PostVoteOptionRepository;
+import com.yoursay.posts.model.VotingOptionRules;
 import com.yoursay.observability.DomainMetrics;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -19,6 +22,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -33,6 +37,9 @@ public class PostServiceImpl implements PostService {
 
     @Inject
     PostMediaUploadRepository uploadRepository;
+
+    @Inject
+    PostVoteOptionRepository optionRepository;
 
     @Inject
     MediaStorageService mediaStorage;
@@ -67,6 +74,12 @@ public class PostServiceImpl implements PostService {
     public Uni<PostDto> create(String authorEmail, String authorization, CreatePostRequest request) {
         Log.infof("Creating post for author %s", authorEmail);
         List<CreatePostRequest.Media> media = request.media() == null ? List.of() : request.media();
+        List<String> requestedLabels = request.voteOptions() == null
+                ? List.of()
+                : request.voteOptions().stream().map(CreatePostRequest.VoteOption::label).toList();
+        List<VotingOptionRules.Definition> optionDefinitions =
+                VotingOptionRules.normalize(request.votingType(), requestedLabels);
+        VotingType votingType = request.votingType() == null ? VotingType.BINARY : request.votingType();
         validateMediaKeysAreUnique(media);
         validateMediaCounts(media);
         media.forEach(m -> validateContentType(m.mediaType(), m.contentType()));
@@ -88,11 +101,12 @@ public class PostServiceImpl implements PostService {
                                 request.supportQuestion().trim(), false);
                         post.setCaseFor(emptyToNull(request.caseFor()));
                         post.setCaseAgainst(emptyToNull(request.caseAgainst()));
+                        post.configureVoting(votingType, optionDefinitions);
                         for (CreatePostRequest.Media m : media) {
                             post.addMedia(new PostMedia(post, m.mediaType(), m.orientation(), m.s3Key(),
                                     m.contentType(), emptyToNull(m.posterS3Key()), 0));
                         }
-                        return postRepository.savePost(post).map(this::toDto);
+                        return postRepository.savePost(post).map(saved -> toDto(saved, saved.getVoteOptions()));
                     });
                 })
                 .invoke(() -> recordMetric("create", true))
@@ -102,14 +116,15 @@ public class PostServiceImpl implements PostService {
     @Override
     @WithSession
     public Uni<PostDto> getById(Long id) {
-        return postRepository.getPostById(id).map(this::toDto);
+        return postRepository.getPostById(id).flatMap(post -> post == null
+                ? Uni.createFrom().nullItem()
+                : optionRepository.listByPostId(id).map(options -> toDto(post, options)));
     }
 
     @Override
     @WithSession
     public Uni<List<PostDto>> getByUser(Long userId) {
-        return postRepository.getPostsByUser(userId)
-                .map(posts -> posts.stream().map(this::toDto).toList());
+        return postRepository.getPostsByUser(userId).flatMap(this::mapPostsWithOptions);
     }
 
     @Override
@@ -117,11 +132,22 @@ public class PostServiceImpl implements PostService {
     public Uni<List<PostDto>> getRecent(int page, int size) {
         int safePage = Math.max(page, 0);
         int safeSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
-        return postRepository.getRecent(safePage, safeSize)
-                .map(posts -> posts.stream().map(this::toDto).toList());
+        return postRepository.getRecent(safePage, safeSize).flatMap(this::mapPostsWithOptions);
     }
 
-    private PostDto toDto(Post post) {
+    private Uni<List<PostDto>> mapPostsWithOptions(List<Post> posts) {
+        Uni<List<PostDto>> mapped = Uni.createFrom().item(new ArrayList<>());
+        for (Post post : posts) {
+            mapped = mapped.flatMap(result -> optionRepository.listByPostId(post.getId())
+                    .map(options -> {
+                        result.add(toDto(post, options));
+                        return result;
+                    }));
+        }
+        return mapped.map(List::copyOf);
+    }
+
+    private PostDto toDto(Post post, List<PostVoteOption> options) {
         if (post == null) {
             return null;
         }
@@ -136,6 +162,12 @@ public class PostServiceImpl implements PostService {
                 post.getSupportQuestion(),
                 post.getCaseFor(),
                 post.getCaseAgainst(),
+                post.getVotingType(),
+                options.stream()
+                        .sorted((a, b) -> Integer.compare(a.getOrdinal(), b.getOrdinal()))
+                        .map(option -> new VoteOptionDto(option.getId(), option.getLabel(),
+                                option.getOrdinal(), option.getSemanticKey()))
+                        .toList(),
                 post.isUnbiased(),
                 post.getCreatedAt(),
                 media

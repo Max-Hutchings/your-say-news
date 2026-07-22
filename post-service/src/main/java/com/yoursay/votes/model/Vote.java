@@ -31,8 +31,8 @@ public class Vote extends PanacheEntityBase {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "vote_for", nullable = false)
-    private boolean voteFor;
+    @Column(name = "option_id", nullable = false)
+    private Long optionId;
 
     @Column(name = "characteristic_snapshot", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
@@ -41,10 +41,10 @@ public class Vote extends PanacheEntityBase {
     protected Vote() {
     }
 
-    public Vote(Long postId, Long userId, boolean voteFor, CharacteristicSnapshot snapshot) {
+    public Vote(Long postId, Long userId, Long optionId, CharacteristicSnapshot snapshot) {
         this.postId = postId;
         this.userId = userId;
-        this.voteFor = voteFor;
+        this.optionId = optionId;
         this.snapshot = snapshot;
     }
 
@@ -60,9 +60,7 @@ public class Vote extends PanacheEntityBase {
         return userId;
     }
 
-    public boolean isVoteFor() {
-        return voteFor;
-    }
+    public Long getOptionId() { return optionId; }
 
     public CharacteristicSnapshot getSnapshot() {
         return snapshot;

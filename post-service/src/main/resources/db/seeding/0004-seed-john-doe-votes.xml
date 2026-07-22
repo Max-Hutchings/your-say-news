@@ -202,11 +202,16 @@ scored_profiles AS (
         )) AS support_threshold
     FROM profiles
 )
-INSERT INTO votes (post_id, user_id, vote_for, characteristic_snapshot)
+INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot)
 SELECT
     post_id,
     user_id,
-    ((n * 37 + post_id) % 100) < support_threshold AS vote_for,
+    (SELECT o.id FROM post_vote_option o
+      WHERE o.post_id = scored_profiles.post_id
+        AND o.semantic_key = CASE
+            WHEN ((n * 37 + post_id) % 100) < support_threshold THEN 'AGREE'
+            ELSE 'DISAGREE'
+        END) AS option_id,
     jsonb_strip_nulls(jsonb_build_object(
         'politicalPersuasion', political_persuasion,
         'ageRange', age_range,

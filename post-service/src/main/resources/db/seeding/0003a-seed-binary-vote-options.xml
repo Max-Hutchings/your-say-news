@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="0003a-seed-binary-vote-options" author="codex" context="seed">
+        <sql splitStatements="true"><![CDATA[
+            INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
+            SELECT id, 'Agree', 0, 'AGREE' FROM post WHERE id BETWEEN 1000 AND 1009;
+            INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
+            SELECT id, 'Disagree', 1, 'DISAGREE' FROM post WHERE id BETWEEN 1000 AND 1009;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

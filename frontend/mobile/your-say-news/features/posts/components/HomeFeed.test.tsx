@@ -49,7 +49,12 @@ const posts: Post[] = [1, 2].map((id) => ({
   summary: `Summary ${id}`,
   supportQuestion: `Support story ${id}?`,
   caseFor: null,
-  caseAgainst: null,
+      caseAgainst: null,
+      votingType: "BINARY" as const,
+      voteOptions: [
+        { id: id * 10 + 1, label: "Agree", ordinal: 0, semanticKey: "AGREE" as const },
+        { id: id * 10 + 2, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE" as const },
+      ],
   isUnbiased: false,
   createdAt: "2026-07-13T12:00:00Z",
   media: [],

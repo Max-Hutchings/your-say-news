@@ -3,6 +3,9 @@ package com.yoursay.agents.postagent.generator;
 import com.yoursay.agents.postagent.AgentDraftDto;
 import com.yoursay.agents.postagent.AgentSourceDto;
 import com.yoursay.agents.postagent.SourcedClaimDto;
+import com.yoursay.agents.postagent.AgentVoteOptionDto;
+import com.yoursay.posts.VotingType;
+import com.yoursay.posts.model.VotingOptionRules;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.net.URI;
@@ -19,6 +22,7 @@ public class AgentDraftValidator {
             throw invalid("Provider returned no draft");
         }
         requireText(draft.supportQuestion(), "supportQuestion");
+        validateVoting(draft.votingType(), draft.voteOptions());
         requireText(draft.imageBrief(), "imageBrief");
         requireText(draft.imageSearchQuery(), "imageSearchQuery");
 
@@ -27,6 +31,23 @@ public class AgentDraftValidator {
         validateClaims("summaryClaims", draft.summaryClaims(), declaredSources, citations);
         validateClaims("caseForClaims", draft.caseForClaims(), declaredSources, citations);
         validateClaims("caseAgainstClaims", draft.caseAgainstClaims(), declaredSources, citations);
+    }
+
+    private static void validateVoting(VotingType type, List<AgentVoteOptionDto> options) {
+        if (type == null) throw invalid("votingType is required");
+        List<String> labels = options == null ? List.of() : options.stream()
+                .map(option -> option == null ? null : option.label()).toList();
+        if (type == VotingType.BINARY) {
+            if (!labels.equals(List.of("Agree", "Disagree"))) {
+                throw invalid("Binary drafts must contain fixed Agree and Disagree options");
+            }
+            return;
+        }
+        try {
+            VotingOptionRules.normalize(type, labels);
+        } catch (RuntimeException error) {
+            throw invalid("Invalid multiple-choice options: " + error.getMessage());
+        }
     }
 
     private static Set<String> validateSources(List<AgentSourceDto> sources, Set<String> citations) {

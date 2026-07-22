@@ -52,6 +52,11 @@ const basePost: Post = {
   supportQuestion: "Do you agree the cycle lane should go ahead?",
   caseFor: "Protected lanes cut cycling injuries and get more people out of cars.",
   caseAgainst: "Losing a traffic lane will choke deliveries and push congestion onto side streets.",
+  votingType: "BINARY",
+  voteOptions: [
+    { id: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE" },
+    { id: 72, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE" },
+  ],
   isUnbiased: false,
   createdAt: "2026-06-21T10:00:00Z",
   media: [
@@ -110,7 +115,7 @@ describe("PostCard", () => {
   });
 
   it("keeps the support question and case cards after voting (voting doesn't disrupt the story)", async () => {
-    mockCast.mockResolvedValue({ id: 1, postId: basePost.id, voteFor: true });
+    mockCast.mockResolvedValue({ id: 1, postId: basePost.id, optionId: 71 });
     renderWithTheme(<PostCard post={basePost} />);
 
     // The vote buttons stay disabled until the on-mount "have I voted?" lookup settles; press
@@ -122,7 +127,7 @@ describe("PostCard", () => {
 
     // The vote locks…
     await waitFor(() => expect(screen.getByText("You voted — Agree")).toBeOnTheScreen());
-    expect(mockCast).toHaveBeenCalledWith(basePost.id, true);
+    expect(mockCast).toHaveBeenCalledWith(basePost.id, 71);
     // …and the support question + case cards are still shown alongside it.
     expect(screen.getByText(/Do you agree the cycle lane should go ahead\?/)).toBeOnTheScreen();
     expect(screen.getByText("THE CASE FOR")).toBeOnTheScreen();

@@ -109,7 +109,8 @@ export function PostCard({
   );
 
   // The vote — always visible. The votes domain owns the interaction, locked state and errors.
-  const voteRow = <VoteControls postId={post.id} onNextPost={onNextPost} />;
+  const voteRow = <VoteControls postId={post.id} votingType={post.votingType}
+    options={post.voteOptions} supportQuestion={post.supportQuestion} onNextPost={onNextPost} />;
   const authorLink = (overMedia = false) => (
     <Pressable
       style={[

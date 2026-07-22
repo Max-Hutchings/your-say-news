@@ -1,87 +1,22 @@
 import React, { useMemo } from "react";
-import { View, Text, ScrollView, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { prettifyBucket } from "../data/axes";
-import type { BucketSentiment } from "../types";
-
-/** Tallest a column can draw, in px. Column height encodes a group's TOTAL vote count. */
-const STACK_MAX_HEIGHT = 195;
-
-/**
- * The "Columns" view: one stacked column per group, its height proportional to the group's TOTAL
- * votes (so bigger groups read as taller), split into an agree (teal, bottom) and disagree (coral,
- * top) segment by their share. Total sits above, group name and agree-% below. Scrolls
- * horizontally when groups overflow. Counts + percentages only.
- */
-export function SentimentColumns({ buckets }: { buckets: BucketSentiment[] }) {
-  const { isDark } = useTheme();
-  const e = getEditorial(isDark);
-
-  const maxTotal = useMemo(() => buckets.reduce((m, b) => Math.max(m, b.total), 0), [buckets]);
-  const stackHeight = (total: number) =>
-    maxTotal > 0 ? Math.max(4, Math.round((total / maxTotal) * STACK_MAX_HEIGHT)) : 4;
-
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chart}>
-      {buckets.map((b) => (
-        <View key={b.bucket} style={styles.col}>
-          <Text style={[styles.total, { color: e.ink }]}>{b.total}</Text>
-          {/* column-reverse so the agree segment (first child) anchors to the bottom. */}
-          <View style={[styles.stack, { height: stackHeight(b.total), backgroundColor: e.track }]}>
-            <View style={{ flexGrow: b.yesCount, backgroundColor: e.voteAgreeFill }} />
-            <View style={{ flexGrow: b.noCount, backgroundColor: e.coral }} />
-          </View>
-          <Text style={[styles.label, { color: e.secondary }]} numberOfLines={2}>
-            {prettifyBucket(b.bucket)}
-          </Text>
-          <Text style={[styles.pct, { color: e.teal }]}>{formatPct(b.yesPct)}%</Text>
-        </View>
-      ))}
-    </ScrollView>
-  );
+import type { BucketSentiment, ResultVoteOption } from "../types";
+import { optionColor } from "./result-option-style";
+const MAX_HEIGHT = 195;
+export function SentimentColumns({ buckets, options }: { buckets: BucketSentiment[]; options: ResultVoteOption[] }) {
+  const { isDark } = useTheme(); const e = getEditorial(isDark);
+  const max = useMemo(() => buckets.reduce((m, b) => Math.max(m, b.total), 0), [buckets]);
+  return <ScrollView horizontal contentContainerStyle={styles.chart}>{buckets.map((bucket) =>
+    <View key={bucket.bucket} style={styles.column}><Text style={[styles.total, { color: e.ink }]}>{bucket.total}</Text>
+      <View style={[styles.stack, { height: max ? Math.max(4, bucket.total / max * MAX_HEIGHT) : 4, backgroundColor: e.track }]}>
+        {options.map((option, index) => <View key={option.id} style={{ flexGrow: bucket.choices.find((c) => c.optionId === option.id)?.count ?? 0,
+          backgroundColor: optionColor(option, index, e) }} />)}
+      </View><Text style={[styles.label, { color: e.secondary }]}>{prettifyBucket(bucket.bucket)}</Text></View>)}</ScrollView>;
 }
-
-/** One decimal, but no trailing ".0" — matches SentimentBar's percentage formatting. */
-function formatPct(pct: number): string {
-  return Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
-}
-
 const styles = StyleSheet.create({
-  chart: {
-    alignItems: "flex-end",
-    gap: 12,
-    paddingTop: 4,
-    paddingRight: 8,
-    minHeight: STACK_MAX_HEIGHT + 60,
-  },
-  col: {
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  total: {
-    fontFamily: EditorialFont.mono,
-    fontSize: 13,
-    marginBottom: 7,
-  },
-  stack: {
-    flexDirection: "column-reverse",
-    width: 44,
-    borderRadius: 5,
-    overflow: "hidden",
-    gap: 2,
-  },
-  label: {
-    fontFamily: EditorialFont.mono,
-    fontSize: 10.5,
-    textAlign: "center",
-    marginTop: 9,
-    lineHeight: 13,
-    width: 58,
-  },
-  pct: {
-    fontFamily: EditorialFont.sansSemiBold,
-    fontWeight: "600",
-    fontSize: 11,
-    marginTop: 3,
-  },
+  chart: { alignItems: "flex-end", gap: 12, minHeight: MAX_HEIGHT + 45 }, column: { alignItems: "center", justifyContent: "flex-end" },
+  total: { fontFamily: EditorialFont.mono, fontSize: 13, marginBottom: 7 }, stack: { flexDirection: "column-reverse", width: 44, borderRadius: 5, overflow: "hidden" },
+  label: { fontFamily: EditorialFont.mono, fontSize: 10.5, marginTop: 8, width: 70, textAlign: "center" },
 });

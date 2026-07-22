@@ -79,4 +79,9 @@ public class PostApiException extends ApiException {
         return new PostApiException("POST_MEDIA_INVALID_VIDEO_CONTENT_TYPE", Response.Status.BAD_REQUEST,
                 "Video upload received non-video content type: contentType=" + contentType);
     }
+
+    public static PostApiException invalidVoteOptions(String reason) {
+        return new PostApiException("POST_VOTE_OPTIONS_INVALID", Response.Status.BAD_REQUEST,
+                "Invalid voting configuration: " + reason);
+    }
 }

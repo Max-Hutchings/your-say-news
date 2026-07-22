@@ -7,13 +7,13 @@
  */
 
 /**
- * A vote as returned by post-service (`VoteResponseDto`). `voteFor` is the stance on the
- * support question: `true` = agree, `false` = disagree.
+ * A vote as returned by post-service (`VoteResponseDto`). `optionId` is a stable option owned by
+ * the named post; the response deliberately contains no voter identity or characteristic data.
  */
 export interface Vote {
   id: number;
   postId: number;
-  voteFor: boolean;
+  optionId: number;
 }
 
 /**
@@ -29,15 +29,25 @@ export type VoteErrorKind = "duplicate" | "auth" | "network" | "unknown";
  * One characteristic bucket's vote split, as returned by post-service
  * (`BucketSentimentDto`). `bucket` is a raw enum name (e.g. `LEFT`, `AGE_25_34`) — prettify for
  * display. Counts and percentages ONLY: a bucket never names or reveals an individual voter, and
- * the shape carries no identity. `yesPct`/`noPct` are 0–100 with one decimal.
+ * the shape carries no identity.
  */
 export interface BucketSentiment {
   bucket: string;
-  yesCount: number;
-  noCount: number;
   total: number;
-  yesPct: number;
-  noPct: number;
+  choices: ChoiceSentiment[];
+}
+
+export interface ChoiceSentiment {
+  optionId: number;
+  count: number;
+  percentage: number;
+}
+
+export interface ResultVoteOption {
+  id: number;
+  label: string;
+  ordinal: number;
+  semanticKey: "AGREE" | "DISAGREE" | null;
 }
 
 /**
@@ -48,7 +58,9 @@ export interface BucketSentiment {
  */
 export interface SentimentBreakdown {
   postId: number;
+  votingType: "BINARY" | "MULTIPLE_CHOICE";
   characteristic: string;
+  options: ResultVoteOption[];
   buckets: BucketSentiment[];
   suppressedBuckets: number;
 }

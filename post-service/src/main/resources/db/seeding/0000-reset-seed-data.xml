@@ -10,6 +10,6 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
     <changeSet id="0000-reset-seed-data" author="seed" context="seed">
         <comment>Drop existing post-service seed data before reseeding.</comment>
-        <sql splitStatements="false">TRUNCATE post, post_media, post_media_upload, votes RESTART IDENTITY CASCADE;</sql>
+        <sql splitStatements="false">TRUNCATE votes, post_vote_option, post_media, post_media_upload, post RESTART IDENTITY CASCADE;</sql>
     </changeSet>
 </databaseChangeLog>

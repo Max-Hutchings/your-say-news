@@ -34,11 +34,10 @@ public class VoteController {
     public Response castVote(VoteRequestDto request,
                              @HeaderParam("Authorization") String authorization) {
         Long postId = request == null ? null : request.postId();
-        // 400 for a null/missing postId, 404 for one that names no real post — before any write.
-        voteService.assertVotablePost(postId);
+        Long optionId = request == null ? null : request.optionId();
         String email = securityIdentity.getPrincipal().getName();
-        Log.infof("castVote: postId=%d voteFor=%b caller=%s", postId, request.voteFor(), email);
-        VoteResponseDto dto = voteService.castVote(postId, request.voteFor(), email, authorization);
+        Log.infof("Casting canonical vote for postId=%s", postId);
+        VoteResponseDto dto = voteService.castVote(postId, optionId, email, authorization);
         return Response.status(Response.Status.CREATED).entity(dto).build();
     }
 

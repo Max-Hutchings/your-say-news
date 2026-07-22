@@ -7,5 +7,5 @@ import com.yoursay.votes.CharacteristicSnapshot;
  * choice and the voter's anonymised {@link CharacteristicSnapshot}. Carries no identity. Private to
  * the votes domain ({@code service} package); never crosses the domain boundary.
  */
-public record VoteSnapshot(boolean voteFor, CharacteristicSnapshot snapshot) {
+public record VoteSnapshot(Long optionId, CharacteristicSnapshot snapshot) {
 }

@@ -18,7 +18,7 @@ export interface SentimentView {
 
 export const SENTIMENT_VIEWS: readonly SentimentView[] = [
   { key: "counts", label: "Counts", caption: "Number of votes" },
-  { key: "bars", label: "Bars", caption: "Share that agree" },
+  { key: "bars", label: "Bars", caption: "Share by option" },
   { key: "table", label: "Table", caption: "Sorted by total" },
   { key: "columns", label: "Columns", caption: "Height = total votes" },
 ];

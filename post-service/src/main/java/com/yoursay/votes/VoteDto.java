@@ -11,7 +11,7 @@ package com.yoursay.votes;
 public record VoteDto(
         Long id,
         Long postId,
-        boolean voteFor,
+        Long optionId,
         Long userId,
         CharacteristicSnapshot snapshot
 ) {

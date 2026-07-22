@@ -3,6 +3,8 @@ package com.yoursay.agents.postagent.generator;
 import com.yoursay.agents.postagent.AgentDraftDto;
 import com.yoursay.agents.postagent.AgentSourceDto;
 import com.yoursay.agents.postagent.SourcedClaimDto;
+import com.yoursay.agents.postagent.AgentVoteOptionDto;
+import com.yoursay.posts.VotingType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -83,6 +85,38 @@ class AgentDraftValidatorTest {
                 () -> validator.validate(duplicateSources, List.of(GOVERNMENT_URL, RESEARCH_URL)));
 
         assertEquals("Draft must contain at least two distinct sources", error.getMessage());
+    }
+
+    @Test
+    void validMultipleChoiceDraftKeepsTwoToFiveDistinctOrderedOptions() {
+        AgentDraftDto base = validDraft();
+        AgentDraftDto draft = withVoting(base, VotingType.MULTIPLE_CHOICE, List.of(
+                new AgentVoteOptionDto("Fund more frequent buses"),
+                new AgentVoteOptionDto("Build protected cycle lanes"),
+                new AgentVoteOptionDto("Reduce town-centre parking charges")));
+
+        validator.validate(draft, List.of(GOVERNMENT_URL, RESEARCH_URL));
+        assertEquals(List.of("Fund more frequent buses", "Build protected cycle lanes",
+                        "Reduce town-centre parking charges"),
+                draft.voteOptions().stream().map(AgentVoteOptionDto::label).toList());
+    }
+
+    @Test
+    void duplicateMultipleChoiceOptionsFailClosed() {
+        AgentDraftDto base = validDraft();
+        AgentDraftDto draft = withVoting(base, VotingType.MULTIPLE_CHOICE, List.of(
+                new AgentVoteOptionDto("Protected cycle lanes"),
+                new AgentVoteOptionDto(" protected CYCLE lanes ")));
+
+        GenerationException error = assertThrows(GenerationException.class,
+                () -> validator.validate(draft, List.of(GOVERNMENT_URL, RESEARCH_URL)));
+        assertEquals("AGENT_INVALID_PROVIDER_OUTPUT", error.code());
+    }
+
+    private static AgentDraftDto withVoting(AgentDraftDto base, VotingType type,
+                                            List<AgentVoteOptionDto> options) {
+        return new AgentDraftDto(base.summaryClaims(), base.caseForClaims(), base.caseAgainstClaims(),
+                base.supportQuestion(), type, options, base.sources(), base.imageBrief(), base.imageSearchQuery());
     }
 
     private static AgentDraftDto validDraft() {

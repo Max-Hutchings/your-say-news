@@ -7,6 +7,8 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -17,6 +19,8 @@ import { ComposeHeader } from "./ComposeHeader";
 import { ComposeModeToggle, type ComposeMode } from "./ComposeModeToggle";
 import { ComposeMediaField } from "./ComposeMediaField";
 import { PepperCompose } from "./PepperCompose";
+import type { VotingType } from "../types";
+import { OptionReorderHandle } from "./OptionReorderHandle";
 
 /**
  * The create-post experience in the editorial design language (design handoff).
@@ -39,9 +43,14 @@ export function CreatePostScreen() {
   const [mode, setMode] = useState<ComposeMode>("manual");
   const [summary, setSummary] = useState("");
   const [supportQuestion, setSupportQuestion] = useState("");
+  const [votingType, setVotingType] = useState<VotingType>("BINARY");
+  const [voteOptions, setVoteOptions] = useState(["", ""]);
+  const [showArguments, setShowArguments] = useState(false);
+  const [caseFor, setCaseFor] = useState("");
+  const [caseAgainst, setCaseAgainst] = useState("");
 
   const handlePublish = async () => {
-    const created = await submit({ summary, supportQuestion });
+    const created = await submit({ summary, supportQuestion, votingType, voteOptions, caseFor, caseAgainst });
     if (created) router.back();
   };
 
@@ -85,22 +94,76 @@ export function CreatePostScreen() {
                     style={[styles.supportInput, { color: e.onInkBlock }]}
                   />
                 </View>
-                <View style={styles.voteRow}>
+                {votingType === "BINARY" && <View style={styles.voteRow}>
                   <View style={[styles.votePill, { borderColor: e.agreePreviewBorder }]}>
                     <Text style={[styles.votePillText, { color: e.agreePreview }]}>AGREE</Text>
                   </View>
                   <View style={[styles.votePill, { borderColor: e.disagreePreviewBorder }]}>
                     <Text style={[styles.votePillText, { color: e.disagreePreview }]}>DISAGREE</Text>
                   </View>
-                </View>
+                </View>}
                 <Text style={[styles.supportHelp, { color: e.onInkBlockMuted }]}>
-                  This becomes the post title. Make it clear and answerable with Agree or Disagree.
+                  {votingType === "BINARY"
+                    ? "This becomes the post title. Make it clear and answerable with Agree or Disagree."
+                    : "This becomes the post title. Voters can select one option."}
                 </Text>
               </View>
               {fieldErrors.supportQuestion && (
                 <Text style={[styles.fieldError, { color: e.coral }]}>
                   {fieldErrors.supportQuestion}
                 </Text>
+              )}
+
+              <View style={styles.votingTypeRow}>
+                <View style={styles.votingTypeCopy}>
+                  <Text style={[styles.fieldLabel, { color: e.ink }]}>Multiple choice</Text>
+                  <Text style={[styles.supportHelp, { color: e.muted }]}>Voters can select one option.</Text>
+                </View>
+                <Pressable accessibilityRole="switch" accessibilityLabel="Multiple choice"
+                  accessibilityState={{ checked: votingType === "MULTIPLE_CHOICE" }}
+                  onPress={() => setVotingType((current) => current === "BINARY" ? "MULTIPLE_CHOICE" : "BINARY")}
+                  style={[styles.switchTrack, { backgroundColor: votingType === "MULTIPLE_CHOICE" ? e.teal : e.border }]}>
+                  <View style={[styles.switchThumb, votingType === "MULTIPLE_CHOICE" && styles.switchThumbOn]} />
+                </Pressable>
+              </View>
+
+              {votingType === "MULTIPLE_CHOICE" && (
+                <View style={styles.optionList}>
+                  {voteOptions.map((label, index) => (
+                    <View key={index} style={styles.optionRow}>
+                      <TextInput testID={`vote-option-${index}`} accessibilityLabel={`Choice ${index + 1}`}
+                        value={label} maxLength={120} onChangeText={(value) => setVoteOptions((current) =>
+                          current.map((item, itemIndex) => itemIndex === index ? value : item))}
+                        placeholder={`Choice ${index + 1}`} placeholderTextColor={e.muted}
+                        style={[styles.optionInput, { color: e.ink, borderColor: e.border, backgroundColor: e.surface }]} />
+                      <View style={styles.orderButtons}>
+                        <OptionReorderHandle color={e.muted} canMoveUp={index > 0}
+                          canMoveDown={index < voteOptions.length - 1}
+                          onMoveUp={() => setVoteOptions((current) => move(current, index, index - 1))}
+                          onMoveDown={() => setVoteOptions((current) => move(current, index, index + 1))} />
+                        <Pressable accessibilityRole="button" accessibilityLabel={`Move choice ${index + 1} up`}
+                          disabled={index === 0} onPress={() => setVoteOptions((current) => move(current, index, index - 1))}>
+                          <Text style={{ color: index === 0 ? e.muted : e.ink }}>↑</Text>
+                        </Pressable>
+                        <Pressable accessibilityRole="button" accessibilityLabel={`Move choice ${index + 1} down`}
+                          disabled={index === voteOptions.length - 1}
+                          onPress={() => setVoteOptions((current) => move(current, index, index + 1))}>
+                          <Text style={{ color: index === voteOptions.length - 1 ? e.muted : e.ink }}>↓</Text>
+                        </Pressable>
+                        {voteOptions.length > 2 && <Pressable accessibilityRole="button"
+                          accessibilityLabel={`Remove choice ${index + 1}`}
+                          onPress={() => setVoteOptions((current) => current.filter((_, i) => i !== index))}>
+                          <Text style={{ color: e.coral }}>×</Text>
+                        </Pressable>}
+                      </View>
+                    </View>
+                  ))}
+                  {voteOptions.length < 5 && <Pressable accessibilityRole="button" accessibilityLabel="Add option"
+                    onPress={() => setVoteOptions((current) => [...current, ""])}>
+                    <Text style={[styles.addText, { color: e.teal }]}>+ Add option</Text>
+                  </Pressable>}
+                  {fieldErrors.voteOptions && <Text style={[styles.fieldError, { color: e.coral }]}>{fieldErrors.voteOptions}</Text>}
+                </View>
               )}
 
               {/* SUMMARY */}
@@ -125,6 +188,27 @@ export function CreatePostScreen() {
                 <Text style={[styles.fieldError, { color: e.coral }]}>{fieldErrors.summary}</Text>
               )}
 
+              <Pressable accessibilityRole="checkbox" accessibilityLabel="Add supporting arguments"
+                accessibilityState={{ checked: showArguments }} style={styles.argumentToggle}
+                onPress={() => {
+                  if (showArguments && (caseFor.trim() || caseAgainst.trim())) {
+                    Alert.alert("Remove supporting arguments?", "The text you entered will be cleared.", [
+                      { text: "Keep", style: "cancel" },
+                      { text: "Remove", style: "destructive", onPress: () => { setShowArguments(false); setCaseFor(""); setCaseAgainst(""); } },
+                    ]);
+                  } else setShowArguments((current) => !current);
+                }}>
+                <Text style={[styles.addText, { color: e.teal }]}>{showArguments ? "✓ " : "+ "}Add supporting arguments</Text>
+              </Pressable>
+              {showArguments && <View style={styles.argumentFields}>
+                <TextInput accessibilityLabel="Case for" value={caseFor} onChangeText={setCaseFor}
+                  maxLength={512} placeholder="Optional case for" placeholderTextColor={e.muted}
+                  style={[styles.optionInput, { color: e.ink, borderColor: e.border, backgroundColor: e.surface }]} />
+                <TextInput accessibilityLabel="Case against" value={caseAgainst} onChangeText={setCaseAgainst}
+                  maxLength={512} placeholder="Optional case against" placeholderTextColor={e.muted}
+                  style={[styles.optionInput, { color: e.ink, borderColor: e.border, backgroundColor: e.surface }]} />
+              </View>}
+
               {/* MEDIA */}
               <View style={styles.mediaSpacer}>
                 <ComposeMediaField
@@ -143,6 +227,14 @@ export function CreatePostScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+function move<T>(items: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= items.length) return items;
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
 }
 
 const styles = StyleSheet.create({
@@ -238,4 +330,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
   },
+  votingTypeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
+  votingTypeCopy: { flex: 1 },
+  fieldLabel: { fontFamily: EditorialFont.sansBold, fontWeight: "700", fontSize: 15 },
+  switchTrack: { width: 48, height: 28, borderRadius: 14, padding: 3 },
+  switchThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#FFFFFF" },
+  switchThumbOn: { alignSelf: "flex-end" },
+  optionList: { marginTop: 12, gap: 9 },
+  optionRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  optionInput: { flex: 1, minHeight: 48, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 12, fontFamily: EditorialFont.sans, fontSize: 14 },
+  orderButtons: { flexDirection: "row", alignItems: "center", gap: 10 },
+  addText: { fontFamily: EditorialFont.sansBold, fontWeight: "700", fontSize: 14 },
+  argumentToggle: { marginTop: 16, paddingVertical: 8 },
+  argumentFields: { gap: 10 },
 });

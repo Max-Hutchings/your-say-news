@@ -1,5 +1,7 @@
 package com.yoursay.votes;
 
+import com.yoursay.posts.VoteOptionDto;
+import com.yoursay.posts.VotingType;
 import java.util.List;
 
 /**
@@ -17,7 +19,9 @@ import java.util.List;
  */
 public record SentimentBreakdownDto(
         Long postId,
+        VotingType votingType,
         String characteristic,
+        List<VoteOptionDto> options,
         List<BucketSentiment> buckets,
         long suppressedBuckets
 ) {

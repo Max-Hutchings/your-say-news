@@ -1,145 +1,79 @@
-import { renderHook, act, waitFor } from "@testing-library/react-native";
+import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { useVote } from "./use-vote";
 import { castVote, getMyVote } from "../services/VoteService";
 
 jest.mock("../services/VoteService");
-
 const mockCast = castVote as jest.Mock;
 const mockGetMine = getMyVote as jest.Mock;
+const axiosError = (status?: number) => ({ isAxiosError: true, response: status == null ? undefined : { status } });
 
-/** A rejection shaped like an axios error so the hook's classifier recognises it. */
-function axiosError(status?: number) {
-  return { isAxiosError: true, response: status == null ? undefined : { status } };
-}
-
-beforeEach(() => {
-  jest.clearAllMocks();
-});
+beforeEach(() => jest.clearAllMocks());
 
 describe("useVote", () => {
-  it("locks to the caller's existing vote fetched on mount", async () => {
-    mockGetMine.mockResolvedValue({ id: 1, postId: 7, voteFor: true });
-
+  it("locks to the exact existing option id", async () => {
+    mockGetMine.mockResolvedValue({ id: 1, postId: 7, optionId: 72 });
     const { result } = renderHook(() => useVote(7));
-
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(mockGetMine).toHaveBeenCalledWith(7);
-    expect(result.current.myVote).toBe(true);
+    expect(result.current.myVote).toBe(72);
+    expect(result.current.locked).toBe(true);
   });
 
-  it("stays unvoted when the caller has not voted (204 → null)", async () => {
+  it("casts one selected option and ignores a second selection after locking", async () => {
     mockGetMine.mockResolvedValue(null);
-
-    const { result } = renderHook(() => useVote(7));
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.myVote).toBeNull();
-  });
-
-  it("casts a vote and locks to the chosen stance", async () => {
-    mockGetMine.mockResolvedValue(null);
-    mockCast.mockResolvedValue({ id: 2, postId: 7, voteFor: true });
-
+    mockCast.mockResolvedValue({ id: 2, postId: 7, optionId: 73 });
     const { result } = renderHook(() => useVote(7));
     await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.vote(true);
-    });
-
-    expect(mockCast).toHaveBeenCalledWith(7, true);
-    expect(result.current.myVote).toBe(true);
-    expect(result.current.error).toBeNull();
-  });
-
-  it("ignores a second vote once locked (one vote per post)", async () => {
-    mockGetMine.mockResolvedValue(null);
-    mockCast.mockResolvedValue({ id: 2, postId: 7, voteFor: true });
-
-    const { result } = renderHook(() => useVote(7));
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.vote(true);
-    });
-    await act(async () => {
-      await result.current.vote(false);
-    });
-
+    await act(async () => { await result.current.vote(73); });
+    await act(async () => { await result.current.vote(74); });
     expect(mockCast).toHaveBeenCalledTimes(1);
-    expect(result.current.myVote).toBe(true);
+    expect(mockCast).toHaveBeenCalledWith(7, 73);
+    expect(result.current.myVote).toBe(73);
+    expect(result.current.locked).toBe(true);
   });
 
-  it("blocks a second rapid vote while the first request is still in flight", async () => {
+  it("blocks a rapid second request while the first is pending", async () => {
     mockGetMine.mockResolvedValue(null);
-    let resolveCast: ((value: { id: number; postId: number; voteFor: boolean }) => void) | undefined;
-    mockCast.mockReturnValue(
-      new Promise((resolve) => {
-        resolveCast = resolve;
-      })
-    );
-
+    let resolveCast: ((vote: { id: number; postId: number; optionId: number }) => void) | undefined;
+    mockCast.mockReturnValue(new Promise((resolve) => { resolveCast = resolve; }));
     const { result } = renderHook(() => useVote(7));
     await waitFor(() => expect(result.current.loading).toBe(false));
-
-    act(() => {
-      void result.current.vote(true);
-      void result.current.vote(false);
-    });
-
+    act(() => { void result.current.vote(71); void result.current.vote(72); });
     expect(mockCast).toHaveBeenCalledTimes(1);
-    expect(mockCast).toHaveBeenCalledWith(7, true);
-
-    await act(async () => {
-      resolveCast?.({ id: 2, postId: 7, voteFor: true });
-    });
-    expect(result.current.myVote).toBe(true);
+    await act(async () => resolveCast?.({ id: 2, postId: 7, optionId: 71 }));
+    expect(result.current.myVote).toBe(71);
   });
 
-  it("treats a 409 duplicate as already-voted: reconciles to the stored stance, no error", async () => {
-    mockGetMine
-      .mockResolvedValueOnce(null) // mount: appears unvoted
-      .mockResolvedValueOnce({ id: 5, postId: 7, voteFor: false }); // reconcile after 409
+  it("reconciles a duplicate to the stored option id", async () => {
+    mockGetMine.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 5, postId: 7, optionId: 72 });
     mockCast.mockRejectedValue(axiosError(409));
-
     const { result } = renderHook(() => useVote(7));
     await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.vote(true);
-    });
-
-    expect(result.current.myVote).toBe(false);
+    await act(async () => { await result.current.vote(71); });
+    expect(result.current.myVote).toBe(72);
+    expect(result.current.locked).toBe(true);
     expect(result.current.error).toBeNull();
   });
 
-  it("surfaces an auth error and leaves the post votable to retry", async () => {
-    mockGetMine.mockResolvedValue(null);
-    mockCast.mockRejectedValue(axiosError(401));
-
+  it("uses a neutral locked state when duplicate reconciliation cannot retrieve the stored choice", async () => {
+    mockGetMine.mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("offline"));
+    mockCast.mockRejectedValue(axiosError(409));
     const { result } = renderHook(() => useVote(7));
     await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.vote(true);
-    });
-
-    expect(result.current.error).toBe("auth");
+    await act(async () => { await result.current.vote(71); });
     expect(result.current.myVote).toBeNull();
+    expect(result.current.locked).toBe(true);
   });
 
-  it("surfaces a network error when the request never reached the server", async () => {
+  it("surfaces auth and network failures without locking", async () => {
     mockGetMine.mockResolvedValue(null);
-    mockCast.mockRejectedValue(axiosError()); // no response
-
+    mockCast.mockRejectedValueOnce(axiosError(401)).mockRejectedValueOnce(axiosError());
     const { result } = renderHook(() => useVote(7));
     await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.vote(false);
-    });
-
+    await act(async () => { await result.current.vote(71); });
+    expect(result.current.error).toBe("auth");
+    expect(result.current.locked).toBe(false);
+    await act(async () => { await result.current.vote(71); });
     expect(result.current.error).toBe("network");
-    expect(result.current.myVote).toBeNull();
+    expect(result.current.locked).toBe(false);
   });
 });

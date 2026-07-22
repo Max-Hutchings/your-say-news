@@ -12,8 +12,8 @@ const extra = Constants.expoConfig?.extra ?? {};
 const VOTES_URL = `${extra.POST_SERVICE_HOST}${extra.POST_SERVICE_PORT}/votes`;
 
 /** Cast a vote on a post's support question. Returns the created vote; throws on 409/4xx/5xx. */
-export async function castVote(postId: number, voteFor: boolean): Promise<Vote> {
-  const { data } = await YsnHttpClient.getSecure().post<Vote>(VOTES_URL, { postId, voteFor });
+export async function castVote(postId: number, optionId: number): Promise<Vote> {
+  const { data } = await YsnHttpClient.getSecure().post<Vote>(VOTES_URL, { postId, optionId });
   return data;
 }
 

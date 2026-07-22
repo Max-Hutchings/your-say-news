@@ -8,6 +8,7 @@
 export { VoteControls } from "./components/VoteControls";
 export { SentimentResults } from "./components/SentimentResults";
 export { SentimentResultsSheet } from "./components/SentimentResultsSheet";
+export { MultipleChoiceVoteSheet } from "./components/MultipleChoiceVoteSheet";
 export { useVote } from "./hooks/use-vote";
 export { useSentiment } from "./hooks/use-sentiment";
 export { castVote, getMyVote } from "./services/VoteService";

@@ -12,6 +12,8 @@
 - **Public users still vote.** The request's reference to officials alone being able to “vote” is
   interpreted as “post”, because public voting and characteristic analysis remain the core product
   journey described below.
+- **Posts support two voting types.** Officials choose either the existing binary Agree/Disagree
+  vote or a multiple-choice vote in which each voter selects exactly one publisher-controlled option.
 - **Account identity and publishing control are separate.** `AccountType` identifies `STANDARD`
   versus `OFFICIAL`; `PublisherStatus` independently records `NONE`, `ACTIVE` or `SUSPENDED`.
   Publishing requires an active account with `OFFICIAL` type and `ACTIVE` publisher status.
@@ -29,13 +31,55 @@
 | --- | --- | --- |
 | Publishing | **Only `OFFICIAL` accounts with `ACTIVE` publisher status publish.** There is no public create-post entry point or API permission. | Account type and status are application-owned database fields; see ADR-023. |
 | Account identity | **Persist `STANDARD` and `OFFICIAL` account types separately from publisher status.** | Future site-administration permissions are a separate decision and may coexist with either type. |
-| Voting | **Authenticated users vote once canonically per post.** | The separate Post Unwrapped follow-up vote is captured for research but does not alter results. |
+| Voting | **Authenticated users vote once canonically per post, using either `BINARY` or `MULTIPLE_CHOICE`.** Both types are single-select and lock after submission. | Binary renders Agree/Disagree; multiple choice opens from one “Have your say...” button. The separate Post Unwrapped follow-up vote is captured for research but does not alter results. |
 | Post-vote experience | **Post Unwrapped replaces the raw results landing page.** | Direct aggregate exploration can remain accessible from the story. |
 | Analysis | **Aggregate-only agent analysis, cached by vote milestone.** | User-specific stories are deferred until the audience is large enough to justify them. |
 | Feed discovery | **Categories first; no “For You” page in MVP1.** Keep Following/Latest chronological with an official-follow boost. Category feeds rank posts by popularity within the selected canonical topic, tempered by recency, and strongly suppress posts already shown to that user. | A behavioural/personalised recommender is deferred. Feed code remains behind an interface. |
-| Unbiased Post agent | **Grok + live web search** inside the `post-service` `agent` domain pulls real sources at creation time, then synthesises summary + both sides + support question. | Official-operated only. Sources always linked; latency handled with durable async jobs. |
+| Unbiased Post agent | **Grok + live web search** inside the `post-service` `agent` domain pulls real sources at creation time, then synthesises summary, supporting arguments, a support question, voting type and valid ordered options. | Official-operated only. Sources always linked; latency handled with durable async jobs. |
 | Post media | **Images + video** via the existing S3/LocalStack setup. | Video needs an upload plus basic transcode/poster path. |
 | Privacy guard | **Aggregate-only, no minimum bucket threshold** for MVP1. | Re-identification risk remains on tiny buckets. Build `suppressBelow=k` as a configuration flip and revisit before release. The analysis agent must not narrate suppressed or statistically unsafe cohorts. |
+
+## MVP1 addition — binary and multiple-choice voting
+
+MVP1 ships two post-level voting types. Both permit one canonical selection per authenticated user,
+capture the same vote-time characteristic snapshot and unlock the same aggregate-results and Post
+Unwrapped journey.
+
+### Binary
+
+- This is the existing yes/no-style vote for questions such as “Should this policy go ahead?”.
+- The feed keeps the two direct **Agree** and **Disagree** buttons.
+- Binary posts use two fixed system options; publishers cannot rename, remove or reorder them.
+
+### Multiple choice, single select
+
+- This is for questions with more than two credible answers. Despite the number of options, a voter
+  chooses **one** option only; multi-select and ranked-choice voting are outside MVP1.
+- The feed replaces Agree/Disagree with one full-width **“Have your say...”** button. Pressing it slides
+  an accessible modal sheet up from the bottom to roughly 86% of the screen. The sheet shows the
+  question and ordered options, retains the selected row locally, and requires an explicit submit
+  before the canonical vote is locked.
+- On the official create-post page, a **Multiple choice** toggle replaces the fixed Agree/Disagree
+  preview with ordered text-option inputs. Publishers provide 2–5 non-blank, case-insensitively
+  distinct options. Input order is the default, and publishers can drag and drop options into their
+  final order. The helper text makes clear that voters select one.
+- Supporting arguments remain optional for either voting type. An **Add supporting arguments**
+  control reveals the argument input boxes rather than showing them by default.
+- The voting type and options become immutable when the post is created/published. This prevents a
+  later edit from changing the meaning of votes or cached analyses.
+
+Both types use stable option IDs internally. Binary Agree/Disagree options are created by the server,
+so vote storage, aggregation, characteristic breakdowns, Post Unwrapped and follow-up responses all
+consume one option-based contract rather than separate boolean and multiple-choice implementations.
+Result visualisations omit a published option until it has at least one canonical vote overall. Once
+an option has a vote, results show its count and percentage, including a zero within an individual
+characteristic bucket when needed for honest comparison. Percentages within each surfaced bucket sum
+to 100%, subject only to display rounding.
+
+The implementation details and migration order are in
+[`multiple-choice-single-select-voting.md`](multiple-choice-single-select-voting.md). The product and
+architecture decision is recorded in
+[`ADR-024`](../../wiki/ADR-024-2026-07-21-binary-multiple-choice-voting.md).
 
 ## What already exists (baseline)
 
@@ -61,9 +105,10 @@ Lock the cross-cutting pieces every later stage depends on.
 - **Publisher-authorisation ADR (decided).** ADR-023 stores `AccountType` and `PublisherStatus` on
   the application user record. The derived rule is
   `accountActive && accountType == OFFICIAL && publisherStatus == ACTIVE`; Keycloak remains the authenticator.
-- **Privacy aggregation contract.** Define “sentiment by characteristic” DTOs: vote tallies and
-  percentages per characteristic bucket, never per-user rows. Build the aggregation layer behind
-  an interface with `suppressBelow=k` configuration (default `k=0` for MVP1).
+- **Privacy aggregation contract.** Define option-aware “sentiment by characteristic” DTOs: a
+  count and percentage per vote option within each characteristic bucket, never per-user rows.
+  Build the aggregation layer behind an interface with `suppressBelow=k` configuration (default
+  `k=0` for MVP1). The same contract represents binary and multiple-choice posts.
 - **Analysis input contract.** The analysis agent receives only aggregate results, post context,
   sample sizes and safe statistical metadata. It never receives voter identifiers or individual
   characteristic snapshots.
@@ -120,10 +165,14 @@ profile, but sees no create-post capability.
 Retain the complete post-creation backbone, but make it available only to authorised Your Say News
 officials.
 
-- **Post model:** headline, summary/body, support question (“do you agree with X?”), official
-  author/publication profile, timestamps, media refs and `isUnbiased` flag (`false` here).
-- **Official create-post flow** — headline + summary + support question, image + video upload to
-  S3/LocalStack, validation, video poster/thumbnail, upload progress and failure recovery.
+- **Post model:** summary/body, support question (the primary heading), voting type, ordered voting
+  options, official author/publication profile, timestamps, media refs and `isUnbiased` flag
+  (`false` here). Binary posts own fixed Agree/Disagree options; multiple-choice posts own 2–5
+  publisher-controlled options entered manually or proposed by the post agent.
+- **Official create-post flow** — summary + support question, Binary/Multiple choice control,
+  conditional option editor with drag-and-drop ordering, optional supporting-argument inputs behind
+  an explicit control, image + video upload to S3/LocalStack, validation, video poster/thumbnail,
+  upload progress and failure recovery.
 - **Backend endpoints** for create/get/list by official author. Every create/update/publish endpoint
   enforces the Stage 0 publisher capability server-side; hiding the mobile control is not security.
 - **No public authoring surface.** Ordinary users have no create route, draft store, media-upload
@@ -142,10 +191,14 @@ user can read it but cannot create or modify one.
 
 Build the interaction that generates sentiment data.
 
-- **Canonical vote model** in the `post-service` `votes` domain: one yes/no vote per user per post,
-  stored with the user's characteristic snapshot and never exposed alongside public identity.
-- **Vote UI** — clear yes/no choice on the support question. Lock the canonical vote after first
-  submission for MVP1.
+- **Canonical vote model** in the `post-service` `votes` domain: one selected option per user per
+  post, stored with the user's characteristic snapshot and never exposed alongside public identity.
+  The selected option must belong to that post.
+- **Binary vote UI** — direct Agree and Disagree buttons on the support question.
+- **Multiple-choice vote UI** — one “Have your say...” button opens the large bottom sheet, where one
+  option is selected and explicitly submitted. Loading, retry, dismissal and accessibility states
+  must be complete.
+- Lock either voting type after the first canonical submission for MVP1.
 - Capture characteristics at vote time so later profile edits do not rewrite history.
 - The vote row may retain a private subject reference for “have I voted?” and uniqueness, but the
   aggregation and analysis contracts never expose that linkage.
@@ -153,8 +206,8 @@ Build the interaction that generates sentiment data.
   yet, show an honest “story is building” state plus safe current totals rather than inventing an
   explanation.
 
-**Demoable:** users vote yes/no once; votes persist, duplicate canonical votes are rejected, and the
-post-vote route opens.
+**Demoable:** users cast either a binary or one-of-many vote once; votes persist, invalid/cross-post
+options and duplicate canonical votes are rejected, and the post-vote route opens.
 
 ---
 
@@ -162,9 +215,11 @@ post-vote route opens.
 
 Build the factual data layer that powers both direct exploration and Post Unwrapped.
 
-- **Overall result:** yes/no counts, percentages and total sample size.
+- **Overall result:** per-option counts, percentages and total sample size. Binary results retain
+  the editorial Agree/Disagree presentation; every existing result mode is adapted to ordered,
+  labelled N-option data for multiple-choice posts while following the same design language.
 - **Breakdown by characteristic:** country, race, gender, age band, income and every other captured
-  axis. Each bucket returns counts, percentages and sample size.
+  axis. Each bucket returns each option's count and percentage plus the bucket sample size.
 - Lives in `post-service` `votes`; counts and percentages only, never individual rows. The
   `suppressBelow=k` hook applies consistently to APIs and agent input.
 - Add statistical metadata needed for safe narration: sample size, absolute/percentage-point
@@ -222,7 +277,7 @@ Turn the results into a clear, data-backed visual story after every vote.
 
 - Build **Post Unwrapped** as a full-screen, swipe/tap-through sequence inspired by the pace and
   clarity of Spotify Wrapped without copying its branding or assets.
-- Slides can include: the user's submitted choice, overall split, strongest well-supported cohort
+- Slides can include: the user's submitted option, overall result, strongest well-supported cohort
   difference, researched context, another useful comparison, methodology/caveat and a link to the
   direct results explorer.
 - Slides render structured data; do not store or execute agent-generated UI code. Use the editorial
@@ -232,9 +287,10 @@ Turn the results into a clear, data-backed visual story after every vote.
 
 ### Final follow-up vote
 
-- The final slide asks whether the user would vote differently after seeing the story.
+- The final slide asks the user to choose again from the post's same option set so the system can
+  determine whether they would vote differently after seeing the story.
 - Store this as a separate **follow-up response**, including post ID, private user subject reference,
-  original canonical choice, follow-up choice, analysis version/milestone viewed and timestamp.
+  original canonical option ID, follow-up option ID, analysis version/milestone viewed and timestamp.
 - Enforce one follow-up response per user/post/analysis version for MVP1. A later analysis version may
   collect another response, giving a clean longitudinal research record.
 - Follow-up responses never update the canonical vote table, characteristic snapshot, aggregate
@@ -305,6 +361,9 @@ Retain the differentiating creation agent, but make the entire flow official-ope
   web search.
 - **Official conversational creation flow** — an authorised publisher speaks/types the subject; the
   agent produces a neutral summary, what each side believes, linked sources and a support question.
+- Every agent draft includes a proposed voting type and complete ordered option set. Binary drafts
+  use the fixed Agree/Disagree options; multiple-choice drafts contain 2–5 neutral, distinct options.
+  The official reviews, edits and reorders generated multiple-choice options before publishing.
 - **Fact grounding and sourcing** — claims backed by validated citations; prefer primary and strong
   independent reporting, represent uncertainty and avoid false balance.
 - **Durable async jobs** with progress UI; the official reviews and approves a draft before publish.
@@ -322,8 +381,9 @@ publishes it with the badge, and users vote and receive Post Unwrapped.
 ## Stage 9 — Hardening for MVP1 release
 
 - **Tests:** Quarkus + Testcontainers for every domain and React Testing Library for onboarding,
-  official publishing authorisation, voting, breakdowns, Post Unwrapped, follow-up vote isolation,
-  feeds, topics and both agent flows. Run `test-audit` after each changed suite.
+  official publishing authorisation, both voting types, option validation, breakdowns, Post
+  Unwrapped, follow-up vote isolation, feeds, topics and both agent flows. Run `test-audit` after
+  each changed suite.
 - **Authorisation audit:** prove an ordinary authenticated user cannot create, upload, generate,
   approve, update or publish a post; prove an authorised official can; prove public signup cannot
   grant publisher status.
@@ -378,7 +438,7 @@ Every characteristic must land together in the backend enum, frontend
 - **Coverage by construction:** cover country × age × gender × political leaning × income with
   enough voters per bucket to test aggregation, agent insight ranking and future `k` suppression.
 - **Central fixtures service:** fetch seeded users/characteristics and create parameterised vote
-  distributions across posts rather than hand-writing votes per test.
+  distributions across binary and multiple-choice posts rather than hand-writing votes per test.
 - **Deterministic and skewable:** seeded RNG with scenarios such as “working-age men differ by 18
   percentage points” so tests assert exact aggregates and which insight should or should not be
   selected.
@@ -429,11 +489,15 @@ Stage 4 aggregate source and Workstream T fixtures are proven.
    re-onboarding and fixture changes.
 8. **Topic feedback loops** — correctable labels, recency-aware ranking, repeat suppression and
    observability remain essential.
+9. **Option integrity** — changing, deleting or reordering options after voting would corrupt the
+   meaning of historical results. Keep voting type/options immutable after creation and validate
+   every selected option against its post inside the vote transaction.
 
 ## Explicitly deferred beyond MVP1
 
 - Public/user-authored posts and the associated moderation pipeline.
 - Personalised Post Unwrapped analysis based on the individual voter's characteristics.
 - Publishing follow-up-vote results or using them to change canonical sentiment.
+- Multi-select, ranked-choice, write-in and user-authored voting options.
 - A cross-category behavioural “For You” recommender.
 - Self-service staff/publisher administration UI; future admin permissions require a separate ADR.

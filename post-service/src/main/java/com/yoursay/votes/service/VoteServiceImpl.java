@@ -9,6 +9,8 @@ import com.yoursay.votes.error.VoteApiException;
 import com.yoursay.votes.model.Vote;
 import com.yoursay.votes.model.VoteRepository;
 import com.yoursay.observability.DomainMetrics;
+import com.yoursay.posts.PostVotingConfigurationDto;
+import com.yoursay.posts.PostVotingConfigurationService;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -30,19 +32,29 @@ public class VoteServiceImpl implements VoteService {
     @Inject
     DomainMetrics metrics;
 
+    @Inject
+    PostVotingConfigurationService votingConfigurationService;
+
     @Override
-    public void assertVotablePost(Long postId) {
-        // Existence of the post is enforced at the DB by the fk_votes_post foreign key and surfaced
-        // as a 404 from the persist below; here we only reject an absent id up front (400).
+    public void assertVotableSelection(Long postId, Long optionId) {
         if (postId == null) {
             throw VoteApiException.invalidVote("postId is required");
+        }
+        if (optionId == null) {
+            throw VoteApiException.invalidVote("optionId is required");
+        }
+        PostVotingConfigurationDto configuration = votingConfigurationService.findByPostId(postId)
+                .orElseThrow(() -> VoteApiException.postMissing(postId));
+        if (!configuration.containsOption(optionId)) {
+            throw VoteApiException.optionNotAvailable(postId, optionId);
         }
     }
 
     @Override
     @Transactional
-    public VoteResponseDto castVote(Long postId, boolean voteFor, String callerEmail, String authorization) {
+    public VoteResponseDto castVote(Long postId, Long optionId, String callerEmail, String authorization) {
         try {
+            assertVotableSelection(postId, optionId);
             // 1. Resolve the numeric user id from user-service (role-gated, so bearer is forwarded).
             Long userId = resolveUserId(callerEmail, authorization);
 
@@ -56,7 +68,7 @@ public class VoteServiceImpl implements VoteService {
             CharacteristicSnapshot snapshot = fetchSnapshot(authorization);
 
             // 4. Persist and return the PII-safe response.
-            Vote vote = new Vote(postId, userId, voteFor, snapshot);
+            Vote vote = new Vote(postId, userId, optionId, snapshot);
             try {
                 voteRepository.persist(vote);
                 // Flush now so a foreign-key (unknown post) or unique (duplicate) violation is
@@ -64,6 +76,9 @@ public class VoteServiceImpl implements VoteService {
                 // escape as a generic 500 instead of the precise 404/409 below.
                 voteRepository.flush();
             } catch (RuntimeException e) {
+                if (isInvalidOptionPersistenceFailure(e)) {
+                    throw VoteApiException.optionNotAvailable(postId, optionId);
+                }
                 if (isMissingPostPersistenceFailure(e)) {
                     throw VoteApiException.postMissing(postId);
                 }
@@ -72,7 +87,7 @@ public class VoteServiceImpl implements VoteService {
                 }
                 throw e;
             }
-            Log.infof("Vote persisted: id=%s postId=%d voteFor=%b", vote.getId(), postId, voteFor);
+            Log.infof("Canonical vote persisted: id=%s postId=%d", vote.getId(), postId);
             recordMetric("castVote", true);
             return toResponse(vote);
         } catch (RuntimeException e) {
@@ -145,7 +160,7 @@ public class VoteServiceImpl implements VoteService {
     }
 
     private static VoteResponseDto toResponse(Vote vote) {
-        return new VoteResponseDto(vote.getId(), vote.getPostId(), vote.isVoteFor());
+        return new VoteResponseDto(vote.getId(), vote.getPostId(), vote.getOptionId());
     }
 
     private void recordMetric(String operation, boolean success) {
@@ -180,6 +195,17 @@ public class VoteServiceImpl implements VoteService {
                     || (combined.contains("unique") && combined.contains("vote"))) {
                 return true;
             }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static boolean isInvalidOptionPersistenceFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String combined = ((current.getMessage() == null ? "" : current.getMessage()) + " "
+                    + current.getClass().getName()).toLowerCase();
+            if (combined.contains("fk_votes_option_post")) return true;
             current = current.getCause();
         }
         return false;

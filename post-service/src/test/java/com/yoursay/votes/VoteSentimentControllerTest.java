@@ -73,8 +73,9 @@ public class VoteSentimentControllerTest {
 
         List<Map<String, Object>> buckets = json.getList("buckets");
         assertEquals(1, buckets.size());
-        // 7 yes / 7 no across all 14 seeded votes.
-        assertBucket(buckets.get(0), "OVERALL", 7, 7, 14, 50.0);
+        assertEquals("BINARY", json.getString("votingType"));
+        assertBucket(buckets.get(0), "OVERALL", optionId(postId, "AGREE"), 7,
+                optionId(postId, "DISAGREE"), 7, 14, 50.0);
     }
 
     @Test
@@ -92,12 +93,14 @@ public class VoteSentimentControllerTest {
         List<Map<String, Object>> buckets = json.getList("buckets");
         assertEquals(4, buckets.size());
         // Largest bucket first: RIGHT(5) > LEFT(4) > CENTRE(3) > UNKNOWN(2).
-        assertBucket(buckets.get(0), "RIGHT", 1, 4, 5, 20.0);
-        assertBucket(buckets.get(1), "LEFT", 3, 1, 4, 75.0);
-        assertBucket(buckets.get(2), "CENTRE", 2, 1, 3, 66.667);
+        long agreeId = optionId(postId, "AGREE");
+        long disagreeId = optionId(postId, "DISAGREE");
+        assertBucket(buckets.get(0), "RIGHT", agreeId, 1, disagreeId, 4, 5, 20.0);
+        assertBucket(buckets.get(1), "LEFT", agreeId, 3, disagreeId, 1, 4, 75.0);
+        assertBucket(buckets.get(2), "CENTRE", agreeId, 2, disagreeId, 1, 3, 66.667);
         // Votes lacking a political value land in exactly one UNKNOWN bucket, so buckets reconcile
         // to the 14-vote overall total above (5 + 4 + 3 + 2 = 14).
-        assertBucket(buckets.get(3), "UNKNOWN", 1, 1, 2, 50.0);
+        assertBucket(buckets.get(3), "UNKNOWN", agreeId, 1, disagreeId, 1, 2, 50.0);
     }
 
     @Test
@@ -111,12 +114,15 @@ public class VoteSentimentControllerTest {
                 .then().statusCode(200)
                 .extract().jsonPath();
 
-        assertEquals(Set.of("postId", "characteristic", "buckets", "suppressedBuckets"),
+        assertEquals(Set.of("postId", "votingType", "characteristic", "options", "buckets", "suppressedBuckets"),
                 json.getMap("$").keySet());
         List<Map<String, Object>> buckets = json.getList("buckets");
         for (Map<String, Object> bucket : buckets) {
-            assertEquals(Set.of("bucket", "yesCount", "noCount", "total", "yesPct", "noPct"),
+            assertEquals(Set.of("bucket", "total", "choices"),
                     bucket.keySet());
+            for (Map<String, Object> choice : (List<Map<String, Object>>) bucket.get("choices")) {
+                assertEquals(Set.of("optionId", "count", "percentage"), choice.keySet());
+            }
         }
     }
 
@@ -189,7 +195,8 @@ public class VoteSentimentControllerTest {
                 .extract().jsonPath();
         List<Map<String, Object>> buckets = json.getList("buckets");
         assertEquals(1, buckets.size());
-        assertBucket(buckets.get(0), "OVERALL", 1, 0, 1, 100.0);
+        assertBucket(buckets.get(0), "OVERALL", optionId(postId, "AGREE"), 1,
+                optionId(postId, "DISAGREE"), 0, 1, 100.0);
     }
 
     @Test
@@ -249,13 +256,20 @@ public class VoteSentimentControllerTest {
     }
 
     private static void assertBucket(Map<String, Object> bucket, String label,
-                                     long yes, long no, long total, double yesPct) {
+                                     long agreeId, long agree, long disagreeId, long disagree,
+                                     long total, double agreePct) {
         assertEquals(label, bucket.get("bucket"));
-        assertEquals(yes, ((Number) bucket.get("yesCount")).longValue());
-        assertEquals(no, ((Number) bucket.get("noCount")).longValue());
         assertEquals(total, ((Number) bucket.get("total")).longValue());
-        assertEquals(yesPct, ((Number) bucket.get("yesPct")).doubleValue(), 0.01);
-        assertEquals(100.0 - yesPct, ((Number) bucket.get("noPct")).doubleValue(), 0.01);
+        List<Map<String, Object>> choices = (List<Map<String, Object>>) bucket.get("choices");
+        assertEquals(2, choices.size());
+        assertChoice(choices.get(0), agreeId, agree, agreePct);
+        assertChoice(choices.get(1), disagreeId, disagree, 100.0 - agreePct);
+    }
+
+    private static void assertChoice(Map<String, Object> choice, long optionId, long count, double pct) {
+        assertEquals(optionId, ((Number) choice.get("optionId")).longValue());
+        assertEquals(count, ((Number) choice.get("count")).longValue());
+        assertEquals(pct, ((Number) choice.get("percentage")).doubleValue(), 0.01);
     }
 
     /** Insert a bare post and return its id (only the three NOT-NULL columns without a default). */
@@ -269,7 +283,9 @@ public class VoteSentimentControllerTest {
             ps.setString(3, "Do you agree?");
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
-                return rs.getLong(1);
+                long postId = rs.getLong(1);
+                insertBinaryOptions(conn, postId);
+                return postId;
             }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to insert test post", e);
@@ -284,17 +300,42 @@ public class VoteSentimentControllerTest {
         String snapshot = politicalPersuasion == null
                 ? "{}"
                 : "{\"politicalPersuasion\":\"" + politicalPersuasion + "\"}";
-        String sql = "INSERT INTO votes (post_id, user_id, vote_for, characteristic_snapshot) "
+        String sql = "INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot) "
                 + "VALUES (?, ?, ?, ?::jsonb)";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, postId);
             ps.setLong(2, userId);
-            ps.setBoolean(3, voteFor);
+            ps.setLong(3, optionId(postId, voteFor ? "AGREE" : "DISAGREE"));
             ps.setString(4, snapshot);
             ps.executeUpdate();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to insert test vote", e);
+        }
+    }
+
+    private static void insertBinaryOptions(Connection connection, long postId) throws Exception {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "INSERT INTO post_vote_option (post_id,label,ordinal,semantic_key) VALUES "
+                        + "(?,'Agree',0,'AGREE'),(?,'Disagree',1,'DISAGREE')")) {
+            ps.setLong(1, postId);
+            ps.setLong(2, postId);
+            ps.executeUpdate();
+        }
+    }
+
+    private long optionId(long postId, String semanticKey) {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT id FROM post_vote_option WHERE post_id=? AND semantic_key=?")) {
+            ps.setLong(1, postId);
+            ps.setString(2, semanticKey);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to find test option", e);
         }
     }
 }

@@ -7,6 +7,14 @@
 /** The kinds of media a post can carry. */
 export type MediaType = "IMAGE" | "VIDEO";
 export type FeedPostType = "VIDEO" | "ARTICLE";
+export type VotingType = "BINARY" | "MULTIPLE_CHOICE";
+
+export interface VoteOption {
+  id: number;
+  label: string;
+  ordinal: number;
+  semanticKey: "AGREE" | "DISAGREE" | null;
+}
 
 /**
  * How a media item is shaped, so the feed sizes it deterministically: LANDSCAPE renders in a fixed
@@ -38,6 +46,8 @@ export interface Post {
   /** Optional one-line arguments shown as the "case for" / "case against" cards. */
   caseFor: string | null;
   caseAgainst: string | null;
+  votingType: VotingType;
+  voteOptions: VoteOption[];
   /** Only the Stage 7 agent sets this true; it drives the unbiased badge. */
   isUnbiased: boolean;
   createdAt: string;
@@ -60,6 +70,10 @@ export interface CreatePostMedia {
 export interface CreatePostInput {
   summary: string;
   supportQuestion: string;
+  caseFor: string | null;
+  caseAgainst: string | null;
+  votingType: VotingType;
+  voteOptions: { label: string }[];
   media: CreatePostMedia[];
 }
 

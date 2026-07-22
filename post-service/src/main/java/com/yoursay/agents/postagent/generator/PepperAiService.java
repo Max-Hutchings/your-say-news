@@ -15,7 +15,13 @@ import io.quarkiverse.langchain4j.RegisterAiService;
         Research the user's requested current-affairs subject using live web search.
 
         Produce a neutral factual overview, the strongest material case for the motion, the
-        strongest material case against it, and one concise support question. Do not manufacture
+        strongest material case against it, and one concise support question. Choose BINARY when
+        the question is genuinely an Agree/Disagree motion and return exactly the fixed options
+        Agree and Disagree. Choose MULTIPLE_CHOICE when several credible answers are useful and
+        return two to five concise, neutral, non-overlapping, case-insensitively distinct options
+        in a sensible display order. Every voter will select exactly one option.
+
+        Do not manufacture
         symmetry: if evidence is lopsided, say so while still representing the strongest genuine
         objection. Clearly distinguish verified facts, forecasts, allegations and opinion.
         Prefer primary sources, official data and strong independent reporting. Use multiple

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { createPost } from "../services/PostService";
 import { uploadMedia, type LocalMedia } from "../services/MediaUploadService";
-import type { CreatePostMedia, MediaType, Post } from "../types";
+import type { CreatePostMedia, MediaType, Post, VotingType } from "../types";
 
 /**
  * Orchestrates the create-post flow: pick media → presign + upload (with
@@ -20,6 +20,10 @@ export const MAX_IMAGES = 5;
 export interface CreatePostFields {
   summary: string;
   supportQuestion: string;
+  caseFor?: string;
+  caseAgainst?: string;
+  votingType?: VotingType;
+  voteOptions?: string[];
 }
 
 /** Trimmed-empty checks for the two required fields; keys with errors map to a message. */
@@ -29,6 +33,16 @@ function validate(fields: CreatePostFields): CreatePostErrors {
   const errors: CreatePostErrors = {};
   if (!fields.summary.trim()) errors.summary = "Add a summary.";
   if (!fields.supportQuestion.trim()) errors.supportQuestion = "Add a support question.";
+  if (fields.votingType === "MULTIPLE_CHOICE") {
+    const labels = fields.voteOptions ?? [];
+    if (labels.length < 2 || labels.length > 5) {
+      errors.voteOptions = "Add between 2 and 5 choices.";
+    } else if (labels.some((label) => !label.trim() || label.trim().length > 120)) {
+      errors.voteOptions = "Each choice must contain 1 to 120 characters.";
+    } else if (new Set(labels.map((label) => label.trim().toLocaleLowerCase())).size !== labels.length) {
+      errors.voteOptions = "Each choice must be different.";
+    }
+  }
   return errors;
 }
 
@@ -134,6 +148,12 @@ export function useCreatePost() {
         return await createPost({
           summary: fields.summary.trim(),
           supportQuestion: fields.supportQuestion.trim(),
+          caseFor: fields.caseFor?.trim() || null,
+          caseAgainst: fields.caseAgainst?.trim() || null,
+          votingType: fields.votingType ?? "BINARY",
+          voteOptions: fields.votingType === "MULTIPLE_CHOICE"
+            ? (fields.voteOptions ?? []).map((label) => ({ label: label.trim() }))
+            : [],
           media,
         });
       } catch (err) {

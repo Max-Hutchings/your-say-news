@@ -1,191 +1,138 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
+import type { VoteOption, VotingType } from "@/features/posts";
 import { useVote } from "../hooks/use-vote";
 import type { VoteErrorKind } from "../types";
+import { MultipleChoiceVoteSheet } from "./MultipleChoiceVoteSheet";
 import { SentimentResultsSheet } from "./SentimentResultsSheet";
 
-/**
- * The Agree / Disagree control for a post's support question, wired to the votes domain.
- *
- * One vote per post: the first cast LOCKS the pair — the chosen side stays filled with a tick,
- * the other dims, and both stop responding — mirroring the backend's 409 duplicate-vote rule.
- * On mount it asks whether the caller has already voted, so a post they voted on earlier comes
- * up already locked. Auth/network/other failures show an inline message and leave the buttons
- * live to retry; a duplicate is not an error — it just locks.
- *
- * Colours come from `constants/theme` so it matches the feed's unvoted vote row exactly.
- */
-export function VoteControls({ postId, onNextPost }: { postId: number; onNextPost?: () => void }) {
+export function VoteControls({ postId, votingType, options, supportQuestion, onNextPost }: {
+  postId: number;
+  votingType: VotingType;
+  options: VoteOption[];
+  supportQuestion: string;
+  onNextPost?: () => void;
+}) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
-  const { loading, myVote, submitting, error, vote } = useVote(postId);
+  const { loading, myVote, locked, submitting, error, vote } = useVote(postId);
+  const [choiceOpen, setChoiceOpen] = useState(false);
   const [resultsOpen, setResultsOpen] = useState(false);
+  const selected = options.find((option) => option.id === myVote);
 
-  const locked = myVote !== null;
-  const disabled = loading || submitting || locked;
-  const caption = captionFor({ locked, myVote, submitting, error });
-
-  const agree = buttonStyle("agree", myVote, e);
-  const disagree = buttonStyle("disagree", myVote, e);
-
-  const handleVote = async (voteFor: boolean) => {
-    if (await vote(voteFor)) {
+  const record = async (optionId: number) => {
+    if (await vote(optionId)) {
+      setChoiceOpen(false);
       setResultsOpen(true);
     }
   };
 
   return (
     <View>
-      <View style={styles.voteRow}>
+      {votingType === "MULTIPLE_CHOICE" ? (
         <Pressable
-          testID="vote-agree"
+          testID="vote-multiple-choice"
           accessibilityRole="button"
-          accessibilityLabel="Agree"
-          accessibilityState={{ disabled, selected: myVote === true }}
-          disabled={disabled}
-          onPress={() => void handleVote(true)}
-          style={[styles.voteBtn, { backgroundColor: agree.bg, borderColor: agree.border, opacity: agree.opacity }]}
+          accessibilityLabel={locked ? selected ? `You chose ${selected.label}` : "Vote already recorded" : "Have your say"}
+          accessibilityState={{ disabled: loading || submitting || locked }}
+          disabled={loading || submitting || locked}
+          onPress={() => setChoiceOpen(true)}
+          style={[styles.multipleButton, { backgroundColor: e.voteAgreeFill, opacity: locked ? 0.72 : 1 }]}
         >
-          <Ionicons name={myVote === true ? "checkmark-circle" : "thumbs-up"} size={19} color={agree.fg} />
-          <Text style={[styles.voteBtnText, { color: agree.fg }]}>Agree</Text>
+          {submitting && <ActivityIndicator size="small" color={e.voteAgreeOnFill} />}
+          <Text style={[styles.multipleText, { color: e.voteAgreeOnFill }]}>
+            {locked ? selected ? `You chose — ${selected.label}` : "Vote already recorded" : "Have your say..."}
+          </Text>
         </Pressable>
+      ) : (
+        <BinaryControls
+          options={options}
+          myVote={myVote}
+          disabled={loading || submitting || locked}
+          submitting={submitting}
+          onVote={(optionId) => void record(optionId)}
+          e={e}
+        />
+      )}
 
-        <Pressable
-          testID="vote-disagree"
-          accessibilityRole="button"
-          accessibilityLabel="Disagree"
-          accessibilityState={{ disabled, selected: myVote === false }}
-          disabled={disabled}
-          onPress={() => void handleVote(false)}
-          style={[styles.voteBtn, { backgroundColor: disagree.bg, borderColor: disagree.border, opacity: disagree.opacity }]}
-        >
-          {submitting ? (
-            <ActivityIndicator testID="vote-submitting" size="small" color={disagree.fg} />
-          ) : (
-            <Ionicons name={myVote === false ? "checkmark-circle" : "thumbs-down"} size={19} color={disagree.fg} />
-          )}
-          <Text style={[styles.voteBtnText, { color: disagree.fg }]}>Disagree</Text>
-        </Pressable>
-      </View>
-
-      {/* Keep idle controls flush with the card bottom so that space belongs to the story. */}
-      {caption ? (
-        <Text
-          testID="vote-status"
-          style={[styles.status, { color: error ? e.coral : e.muted }]}
-          numberOfLines={1}
-        >
-          {caption}
+      {captionFor({ locked, selectedLabel: selected?.label, submitting, error, votingType }) ? (
+        <Text testID="vote-status" style={[styles.status, { color: error ? e.coral : e.muted }]} numberOfLines={2}>
+          {captionFor({ locked, selectedLabel: selected?.label, submitting, error, votingType })}
         </Text>
       ) : null}
 
-      {/* Results are gated behind voting: the affordance only appears once the vote is locked. */}
       {locked && (
-        <Pressable
-          testID="see-results"
-          accessibilityRole="button"
-          onPress={() => setResultsOpen(true)}
-          style={[styles.resultsBtn, { borderColor: e.border, backgroundColor: e.surface }]}
-        >
+        <Pressable testID="see-results" accessibilityRole="button" onPress={() => setResultsOpen(true)}
+          style={[styles.resultsBtn, { borderColor: e.border, backgroundColor: e.surface }]}>
           <Ionicons name="stats-chart" size={16} color={e.teal} />
           <Text style={[styles.resultsText, { color: e.ink }]}>See how others voted</Text>
         </Pressable>
       )}
 
-      <SentimentResultsSheet
-        postId={postId}
-        visible={resultsOpen}
-        onClose={() => setResultsOpen(false)}
-        onNextPost={onNextPost}
-      />
+      <MultipleChoiceVoteSheet visible={choiceOpen} supportQuestion={supportQuestion}
+        options={options} submitting={submitting} error={error}
+        onSubmit={(optionId) => void record(optionId)} onClose={() => setChoiceOpen(false)} />
+      <SentimentResultsSheet postId={postId} visible={resultsOpen} onClose={() => setResultsOpen(false)}
+        onNextPost={onNextPost} />
     </View>
   );
 }
 
-/** The resolved colours + opacity for one side, given the caller's stance so far. */
-function buttonStyle(
-  side: "agree" | "disagree",
-  myVote: boolean | null,
-  e: ReturnType<typeof getEditorial>
-) {
-  const isChosen = (side === "agree" && myVote === true) || (side === "disagree" && myVote === false);
-  const locked = myVote !== null;
-
-  if (locked && !isChosen) {
-    // The rejected side: muted and recessed.
-    return { bg: e.surface, border: e.border, fg: e.muted, opacity: 0.55 };
-  }
-  if (side === "agree") {
-    // Agree is a solid fill both before and after it is chosen.
-    return { bg: e.voteAgreeFill, border: e.voteAgreeFill, fg: e.voteAgreeOnFill, opacity: 1 };
-  }
-  // Disagree is outlined until chosen, then fills coral to read as selected.
-  return isChosen
-    ? { bg: e.coral, border: e.coral, fg: "#FFFFFF", opacity: 1 }
-    : { bg: e.voteDisagreeFill, border: e.coral, fg: e.coral, opacity: 1 };
+function BinaryControls({ options, myVote, disabled, submitting, onVote, e }: {
+  options: VoteOption[];
+  myVote: number | null;
+  disabled: boolean;
+  submitting: boolean;
+  onVote: (optionId: number) => void;
+  e: ReturnType<typeof getEditorial>;
+}) {
+  const agree = options.find((option) => option.semanticKey === "AGREE");
+  const disagree = options.find((option) => option.semanticKey === "DISAGREE");
+  const agreeChosen = myVote === agree?.id;
+  const disagreeChosen = myVote === disagree?.id;
+  return (
+    <View style={styles.voteRow}>
+      <Pressable testID="vote-agree" accessibilityRole="button" accessibilityLabel="Agree"
+        accessibilityState={{ disabled: disabled || !agree, selected: agreeChosen }} disabled={disabled || !agree}
+        onPress={() => agree && onVote(agree.id)}
+        style={[styles.voteBtn, { backgroundColor: e.voteAgreeFill, borderColor: e.voteAgreeFill, opacity: myVote && !agreeChosen ? 0.55 : 1 }]}>
+        <Ionicons name={agreeChosen ? "checkmark-circle" : "thumbs-up"} size={19} color={e.voteAgreeOnFill} />
+        <Text style={[styles.voteBtnText, { color: e.voteAgreeOnFill }]}>Agree</Text>
+      </Pressable>
+      <Pressable testID="vote-disagree" accessibilityRole="button" accessibilityLabel="Disagree"
+        accessibilityState={{ disabled: disabled || !disagree, selected: disagreeChosen }} disabled={disabled || !disagree}
+        onPress={() => disagree && onVote(disagree.id)}
+        style={[styles.voteBtn, { backgroundColor: disagreeChosen ? e.coral : e.voteDisagreeFill,
+          borderColor: e.coral, opacity: myVote && !disagreeChosen ? 0.55 : 1 }]}>
+        {submitting ? <ActivityIndicator testID="vote-submitting" size="small" color={e.coral} />
+          : <Ionicons name={disagreeChosen ? "checkmark-circle" : "thumbs-down"} size={19}
+              color={disagreeChosen ? "#FFFFFF" : e.coral} />}
+        <Text style={[styles.voteBtnText, { color: disagreeChosen ? "#FFFFFF" : e.coral }]}>Disagree</Text>
+      </Pressable>
+    </View>
+  );
 }
 
-function captionFor({
-  locked,
-  myVote,
-  submitting,
-  error,
-}: {
-  locked: boolean;
-  myVote: boolean | null;
-  submitting: boolean;
-  error: VoteErrorKind | null;
-}): string {
+function captionFor({ locked, selectedLabel, submitting, error, votingType }: {
+  locked: boolean; selectedLabel?: string; submitting: boolean; error: VoteErrorKind | null; votingType: VotingType;
+}) {
   if (submitting) return "Recording your vote…";
   if (error === "auth") return "Please sign in again to vote.";
   if (error === "network") return "No connection. Tap to try again.";
   if (error === "unknown") return "Couldn't record your vote. Tap again.";
-  if (locked) return `You voted — ${myVote ? "Agree" : "Disagree"}`;
+  if (locked && votingType === "BINARY") return selectedLabel ? `You voted — ${selectedLabel}` : "Vote already recorded";
   return "";
 }
 
 const styles = StyleSheet.create({
-  voteRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  voteBtn: {
-    flex: 1,
-    height: 62,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  voteBtnText: {
-    fontFamily: EditorialFont.sansBold,
-    fontWeight: "700",
-    fontSize: 17,
-  },
-  status: {
-    fontFamily: EditorialFont.mono,
-    fontSize: 11,
-    textAlign: "center",
-    marginTop: 8,
-    minHeight: 15,
-  },
-  resultsBtn: {
-    marginTop: 4,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1.5,
-  },
-  resultsText: {
-    fontFamily: EditorialFont.sansBold,
-    fontWeight: "700",
-    fontSize: 14,
-  },
+  voteRow: { flexDirection: "row", gap: 12 },
+  voteBtn: { flex: 1, height: 62, borderRadius: 16, borderWidth: 1.5, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  voteBtnText: { fontFamily: EditorialFont.sansBold, fontWeight: "700", fontSize: 17 },
+  multipleButton: { minHeight: 58, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, paddingHorizontal: 16 },
+  multipleText: { fontFamily: EditorialFont.sansBold, fontWeight: "700", fontSize: 16, textAlign: "center" },
+  status: { fontFamily: EditorialFont.mono, fontSize: 11, textAlign: "center", marginTop: 8, minHeight: 15 },
+  resultsBtn: { marginTop: 4, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 44, borderRadius: 12, borderWidth: 1.5 },
+  resultsText: { fontFamily: EditorialFont.sansBold, fontWeight: "700", fontSize: 14 },
 });

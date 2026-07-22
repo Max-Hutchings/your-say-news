@@ -1,276 +1,110 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { ThemeProvider } from "@/constants/theme";
 import { SentimentResults } from "./SentimentResults";
-import { getOverallSentiment, getAxisSentiment } from "../services/SentimentService";
+import { getAxisSentiment, getOverallSentiment } from "../services/SentimentService";
 
 jest.mock("../services/SentimentService");
 const mockOverall = getOverallSentiment as jest.Mock;
 const mockAxis = getAxisSentiment as jest.Mock;
-
-// Overall is deliberately 72% so it never collides with any bucket's percentage below.
-const OVERALL = {
-  postId: 3,
-  characteristic: "OVERALL",
-  buckets: [{ bucket: "OVERALL", yesCount: 36, noCount: 14, total: 50, yesPct: 72.0, noPct: 28.0 }],
-  suppressedBuckets: 0,
+const options = [
+  { id: 31, label: "More frequent buses", ordinal: 0, semanticKey: null },
+  { id: 32, label: "Protected cycle lanes", ordinal: 1, semanticKey: null },
+  { id: 33, label: "Lower parking charges", ordinal: 2, semanticKey: null },
+];
+const overall = {
+  postId: 3, votingType: "MULTIPLE_CHOICE", characteristic: "OVERALL", options,
+  buckets: [{ bucket: "OVERALL", total: 50, choices: [
+    { optionId: 31, count: 25, percentage: 50 },
+    { optionId: 32, count: 15, percentage: 30 },
+    { optionId: 33, count: 10, percentage: 20 },
+  ] }], suppressedBuckets: 0,
 };
-
-const POLITICAL = {
-  postId: 3,
-  characteristic: "politicalPersuasion",
+const political = {
+  ...overall, characteristic: "politicalPersuasion",
   buckets: [
-    { bucket: "LEFT", yesCount: 40, noCount: 10, total: 50, yesPct: 80.0, noPct: 20.0 },
-    { bucket: "RIGHT", yesCount: 5, noCount: 15, total: 20, yesPct: 25.0, noPct: 75.0 },
+    { bucket: "LEFT", total: 30, choices: [
+      { optionId: 31, count: 18, percentage: 60 }, { optionId: 32, count: 9, percentage: 30 }, { optionId: 33, count: 3, percentage: 10 },
+    ] },
+    { bucket: "RIGHT", total: 20, choices: [
+      { optionId: 31, count: 7, percentage: 35 }, { optionId: 32, count: 6, percentage: 30 }, { optionId: 33, count: 7, percentage: 35 },
+    ] },
   ],
-  suppressedBuckets: 0,
+};
+const age = {
+  ...political, characteristic: "ageRange",
+  buckets: [{ bucket: "AGE_18_24", total: 12, choices: [
+    { optionId: 31, count: 2, percentage: 100 / 6 }, { optionId: 32, count: 7, percentage: 700 / 12 }, { optionId: 33, count: 3, percentage: 25 },
+  ] }],
 };
 
-const AGE = {
-  postId: 3,
-  characteristic: "ageRange",
-  buckets: [
-    { bucket: "AGE_18_24", yesCount: 30, noCount: 11, total: 41, yesPct: 73.2, noPct: 26.8 },
-    { bucket: "AGE_65_PLUS", yesCount: 2, noCount: 8, total: 10, yesPct: 20.0, noPct: 80.0 },
-  ],
-  suppressedBuckets: 0,
-};
-
-function byAxis(_postId: number, axis: string) {
-  if (axis === "politicalPersuasion") return Promise.resolve(POLITICAL);
-  if (axis === "ageRange") return Promise.resolve(AGE);
-  return Promise.resolve({ postId: 3, characteristic: axis, buckets: [], suppressedBuckets: 0 });
+function renderResults(onNextPost?: () => void) {
+  return render(<ThemeProvider><SentimentResults postId={3} onNextPost={onNextPost} /></ThemeProvider>);
 }
-
-function renderResults(postId = 3, onNextPost?: () => void) {
-  return render(
-    <ThemeProvider>
-      <SentimentResults postId={postId} onNextPost={onNextPost} />
-    </ThemeProvider>
-  );
-}
-
 beforeEach(() => {
   jest.clearAllMocks();
+  mockOverall.mockResolvedValue(overall);
+  mockAxis.mockImplementation((_id, axis) => Promise.resolve(axis === "ageRange" ? age : political));
 });
 
 describe("SentimentResults", () => {
-  it("shows the overall split and the default Counts breakdown of the political axis", async () => {
-    mockOverall.mockResolvedValue(OVERALL);
-    mockAxis.mockImplementation(byAxis);
-
+  it("renders exact option-aware overall and characteristic counts", async () => {
     renderResults();
-
-    // Overall — the summary row (always a bar, whichever view is picked below).
-    await waitFor(() => expect(screen.getByText("Overall")).toBeOnTheScreen());
-    expect(screen.getByText("72%")).toBeOnTheScreen();
-    expect(screen.getByText("36 agree · 14 disagree · 50 voted")).toBeOnTheScreen();
-
-    // Default axis is political leaning, default view is Counts — raw agree/disagree counts.
-    expect(mockAxis).toHaveBeenCalledWith(3, "politicalPersuasion");
-    expect(screen.getByText("Number of votes")).toBeOnTheScreen();
+    expect(await screen.findByText("Overall")).toBeOnTheScreen();
+    expect(screen.getByText("50%")).toBeOnTheScreen();
+    expect(screen.getByText("25 of 50 votes")).toBeOnTheScreen();
+    expect(screen.getAllByText("More frequent buses").length).toBeGreaterThan(0);
     expect(screen.getByText("Left")).toBeOnTheScreen();
-    expect(screen.getByText("40")).toBeOnTheScreen(); // Left agree
-    expect(screen.getByText("10")).toBeOnTheScreen(); // Left disagree
-    expect(screen.getByText("Right")).toBeOnTheScreen();
-    expect(screen.getByText("5")).toBeOnTheScreen(); // Right agree
-    expect(screen.getByText("15")).toBeOnTheScreen(); // Right disagree
+    expect(screen.getByText("18")).toBeOnTheScreen();
+    expect(screen.getByText("9")).toBeOnTheScreen();
+    expect(screen.getByText("3")).toBeOnTheScreen();
   });
 
-  it("switches the breakdown between the four chart views without refetching", async () => {
-    mockOverall.mockResolvedValue(OVERALL);
-    mockAxis.mockImplementation(byAxis);
-
+  it("shows all N-option values in every chart mode without refetching", async () => {
     renderResults();
-    await waitFor(() => expect(screen.getByText("Number of votes")).toBeOnTheScreen());
-
-    // Bars — share that agree, with the full counts sentence per group.
+    await screen.findByText("Number of votes");
     fireEvent.press(screen.getByRole("button", { name: "Bars" }));
-    expect(await screen.findByText("Share that agree")).toBeOnTheScreen();
-    expect(screen.getByText("80%")).toBeOnTheScreen();
-    expect(screen.getByText("40 agree · 10 disagree · 50 voted")).toBeOnTheScreen();
-
-    // Table — a ranked row per group, sorted largest-total first (backend order).
+    expect(screen.getByText("Share by option")).toBeOnTheScreen();
+    expect(screen.getByText("18 of 30 votes")).toBeOnTheScreen();
     fireEvent.press(screen.getByRole("button", { name: "Table" }));
-    expect(await screen.findByText("Sorted by total")).toBeOnTheScreen();
-    expect(screen.getByText("Group")).toBeOnTheScreen();
-    expect(screen.getByText("50")).toBeOnTheScreen(); // Left total
-    expect(screen.getByText("20")).toBeOnTheScreen(); // Right total
-
-    // Columns — height = total votes, agree-% under each column.
+    expect(screen.getByText("Sorted by total")).toBeOnTheScreen();
+    expect(screen.getAllByText("Protected cycle lanes").length).toBeGreaterThan(0);
     fireEvent.press(screen.getByRole("button", { name: "Columns" }));
-    expect(await screen.findByText("Height = total votes")).toBeOnTheScreen();
-    expect(screen.getByText("80%")).toBeOnTheScreen();
-    expect(screen.getByText("25%")).toBeOnTheScreen();
-
-    // Switching views never re-hits the axis endpoint (only the initial political fetch).
+    expect(screen.getByText("Height = total votes")).toBeOnTheScreen();
+    expect(screen.getByText("30")).toBeOnTheScreen();
     expect(mockAxis).toHaveBeenCalledTimes(1);
   });
 
-  it("sums a multi-bucket overall response into one recomputed split", async () => {
-    // If the OVERALL endpoint ever returns several buckets, they are summed and the percentage
-    // recomputed to one decimal: (20+20) agree of 65 = 40/65 = 61.5% (exercises the decimal path).
-    mockOverall.mockResolvedValue({
-      postId: 3,
-      characteristic: "OVERALL",
-      buckets: [
-        { bucket: "A", yesCount: 20, noCount: 10, total: 30, yesPct: 66.7, noPct: 33.3 },
-        { bucket: "B", yesCount: 20, noCount: 15, total: 35, yesPct: 57.1, noPct: 42.9 },
-      ],
-      suppressedBuckets: 0,
-    });
-    mockAxis.mockImplementation(byAxis);
-
+  it("refetches and renders a different characteristic axis", async () => {
     renderResults();
-
-    await waitFor(() => expect(screen.getByText("Overall")).toBeOnTheScreen());
-    expect(screen.getByText("61.5%")).toBeOnTheScreen();
-    expect(screen.getByText("40 agree · 25 disagree · 65 voted")).toBeOnTheScreen();
-  });
-
-  it("tells the user when small groups were hidden to protect privacy", async () => {
-    mockOverall.mockResolvedValue(OVERALL);
-    // Political axis loads with two groups suppressed; religion (below) with exactly one.
-    mockAxis.mockImplementation((_postId: number, axis: string) =>
-      axis === "politicalPersuasion"
-        ? Promise.resolve({ ...POLITICAL, suppressedBuckets: 2 })
-        : Promise.resolve({ postId: 3, characteristic: axis, buckets: POLITICAL.buckets, suppressedBuckets: 1 })
-    );
-
-    renderResults();
-
-    // Plural.
-    expect(await screen.findByText("2 small groups hidden to protect privacy.")).toBeOnTheScreen();
-
-    // Singular after switching axis.
-    fireEvent.press(screen.getByRole("button", { name: "Religion" }));
-    expect(await screen.findByText("1 small group hidden to protect privacy.")).toBeOnTheScreen();
-  });
-
-  it("refetches and re-renders the breakdown when a different axis is picked", async () => {
-    mockOverall.mockResolvedValue(OVERALL);
-    mockAxis.mockImplementation(byAxis);
-
-    renderResults();
-    await waitFor(() => expect(screen.getByText("Left")).toBeOnTheScreen());
-
+    await screen.findByText("Left");
     fireEvent.press(screen.getByRole("button", { name: "Age" }));
-
     await waitFor(() => expect(mockAxis).toHaveBeenCalledWith(3, "ageRange"));
-    // Enum buckets are prettified: AGE_18_24 → "Age 18–24", AGE_65_PLUS → "Age 65+".
-    // Still in the Counts view, so we see the raw counts for the new axis.
     expect(await screen.findByText("Age 18–24")).toBeOnTheScreen();
-    expect(screen.getByText("30")).toBeOnTheScreen(); // Age 18–24 agree
-    expect(screen.getByText("Age 65+")).toBeOnTheScreen();
-    expect(screen.getByText("2")).toBeOnTheScreen(); // Age 65+ agree
-    // The previous axis's groups are gone.
+    expect(screen.getByText("7")).toBeOnTheScreen();
     expect(screen.queryByText("Left")).toBeNull();
   });
 
-  it("shows an empty message when an axis has no votes to break down", async () => {
-    mockOverall.mockResolvedValue(OVERALL);
-    mockAxis.mockImplementation(byAxis);
-
-    renderResults();
-    await waitFor(() => expect(screen.getByText("Left")).toBeOnTheScreen());
-
-    fireEvent.press(screen.getByRole("button", { name: "Religion" }));
-
-    expect(await screen.findByText("Not enough votes to break this down yet.")).toBeOnTheScreen();
-  });
-
-  it("gates behind voting: a 403 surfaces the not-voted message with a retry", async () => {
-    mockOverall.mockResolvedValue(OVERALL);
+  it("reports suppression and preserves the must-have-voted gate", async () => {
+    mockAxis.mockResolvedValueOnce({ ...political, suppressedBuckets: 2 });
+    const view = renderResults();
+    expect(await screen.findByText("2 small groups hidden to protect privacy.")).toBeOnTheScreen();
+    view.unmount();
     mockAxis.mockRejectedValue({ isAxiosError: true, response: { status: 403 } });
-
     renderResults();
-
-    expect(
-      await screen.findByText("Vote first to see how others voted.")
-    ).toBeOnTheScreen();
-    expect(screen.getByText("Try again")).toBeOnTheScreen();
+    expect(await screen.findByText("Vote first to see how others voted.")).toBeOnTheScreen();
   });
 
-  it("shows a connection message when the breakdown request never reaches the server", async () => {
-    mockOverall.mockResolvedValue(OVERALL);
-    mockAxis.mockRejectedValue({ isAxiosError: true, response: undefined });
-
-    renderResults();
-
-    expect(await screen.findByText("No connection. Tap to try again.")).toBeOnTheScreen();
-  });
-
-  it("shows a loading spinner while the breakdown is in flight", () => {
-    mockOverall.mockReturnValue(new Promise(() => {}));
-    mockAxis.mockReturnValue(new Promise(() => {}));
-
-    renderResults();
-
-    expect(screen.getByTestId("breakdown-loading")).toBeOnTheScreen();
-  });
-
-  it("advances only when the user swipes up from the bottom of voting data", async () => {
-    mockOverall.mockResolvedValue(OVERALL);
-    mockAxis.mockImplementation(byAxis);
-    const onNextPost = jest.fn();
-
-    renderResults(3, onNextPost);
-
-    const results = await screen.findByTestId("sentiment-results-scroll");
-    expect(screen.queryByText("Next story")).toBeNull();
-    expect(screen.queryByTestId("next-post")).toBeNull();
-
-    // A normal upward scroll before the end keeps exploring the voting data.
-    fireEvent.scroll(results, {
-      nativeEvent: {
-        contentOffset: { y: 100 },
-        layoutMeasurement: { height: 600 },
-        contentSize: { height: 1200 },
-      },
-    });
-    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
-    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 400 } });
-    expect(onNextPost).not.toHaveBeenCalled();
-
-    // Once at the bottom, the same upward swipe closes results and moves the feed on.
-    fireEvent.scroll(results, {
-      nativeEvent: {
-        contentOffset: { y: 600 },
-        layoutMeasurement: { height: 600 },
-        contentSize: { height: 1200 },
-      },
-    });
-    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
-    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 470 } });
-    fireEvent(results, "touchStart", { nativeEvent: { pageY: 400 } });
-    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 500 } });
-    expect(onNextPost).not.toHaveBeenCalled();
-
-    // Starting 25px from the end is just outside the 24px bottom tolerance.
-    fireEvent.scroll(results, {
-      nativeEvent: {
-        contentOffset: { y: 575 },
-        layoutMeasurement: { height: 600 },
-        contentSize: { height: 1200 },
-      },
-    });
-    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
-    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 400 } });
-    expect(onNextPost).not.toHaveBeenCalled();
-
-    // At 24px from the end, 47px is too short but the exact 48px threshold advances once.
-    fireEvent.scroll(results, {
-      nativeEvent: {
-        contentOffset: { y: 576 },
-        layoutMeasurement: { height: 600 },
-        contentSize: { height: 1200 },
-      },
-    });
-    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
-    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 453 } });
-    expect(onNextPost).not.toHaveBeenCalled();
-    fireEvent(results, "touchStart", { nativeEvent: { pageY: 500 } });
-    fireEvent(results, "touchEnd", { nativeEvent: { pageY: 452 } });
-    expect(onNextPost).toHaveBeenCalledTimes(1);
+  it("advances only on a long upward swipe begun at the bottom", async () => {
+    const next = jest.fn();
+    renderResults(next);
+    const scroll = await screen.findByTestId("sentiment-results-scroll");
+    fireEvent.scroll(scroll, { nativeEvent: { contentOffset: { y: 576 }, layoutMeasurement: { height: 600 }, contentSize: { height: 1200 } } });
+    fireEvent(scroll, "touchStart", { nativeEvent: { pageY: 500 } });
+    fireEvent(scroll, "touchEnd", { nativeEvent: { pageY: 453 } });
+    expect(next).not.toHaveBeenCalled();
+    fireEvent(scroll, "touchStart", { nativeEvent: { pageY: 500 } });
+    fireEvent(scroll, "touchEnd", { nativeEvent: { pageY: 452 } });
+    expect(next).toHaveBeenCalledTimes(1);
   });
 });

@@ -24,6 +24,11 @@ public class VoteApiException extends ApiException {
                 "Invalid vote request: " + reason);
     }
 
+    public static VoteApiException optionNotAvailable(Long postId, Long optionId) {
+        return new VoteApiException("VOTE_OPTION_NOT_AVAILABLE", Response.Status.BAD_REQUEST,
+                "Selected option is not available on the post: postId=" + postId + ", optionId=" + optionId);
+    }
+
     public static VoteApiException resultsLocked(Long postId) {
         return new VoteApiException("VOTE_RESULTS_LOCKED", Response.Status.FORBIDDEN,
                 "Sentiment results are locked until the caller has voted on post " + postId);

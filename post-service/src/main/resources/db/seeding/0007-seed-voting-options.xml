@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="0007-seed-voting-options" author="codex" context="seed">
+        <sql splitStatements="true"><![CDATA[
+            INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
+            SELECT p.id, 'Agree', 0, 'AGREE'
+              FROM post p
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM post_vote_option o
+                  WHERE o.post_id = p.id AND o.semantic_key = 'AGREE'
+             );
+            INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
+            SELECT p.id, 'Disagree', 1, 'DISAGREE'
+              FROM post p
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM post_vote_option o
+                  WHERE o.post_id = p.id AND o.semantic_key = 'DISAGREE'
+             );
+
+            DELETE FROM post_vote_option WHERE post_id IN (1010, 1020);
+            UPDATE post SET voting_type = 'MULTIPLE_CHOICE' WHERE id IN (1010, 1020);
+
+            INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key) VALUES
+                (1010, 'Keep the flat £2 cap', 0, NULL),
+                (1010, 'Target discounts by income', 1, NULL),
+                (1010, 'Fund more frequent routes first', 2, NULL),
+                (1020, 'Charge the same fee', 0, NULL),
+                (1020, 'Reduce fees by 25%', 1, NULL),
+                (1020, 'Reduce fees by 50%', 2, NULL),
+                (1020, 'Price each course by delivery cost', 3, NULL),
+                (1020, 'Make core online courses free', 4, NULL);
+
+            INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot)
+            SELECT 1010, 200000 + n,
+                   (SELECT id FROM post_vote_option WHERE post_id = 1010 AND ordinal = n % 3),
+                   jsonb_build_object('politicalPersuasion', CASE WHEN n % 2 = 0 THEN 'LEFT' ELSE 'RIGHT' END)
+            FROM generate_series(0, 11) n;
+
+            INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot)
+            SELECT 1020, 201000 + n,
+                   (SELECT id FROM post_vote_option WHERE post_id = 1020 AND ordinal = n % 5),
+                   jsonb_build_object('ageRange', CASE WHEN n % 2 = 0 THEN 'AGE_18_24' ELSE 'AGE_25_34' END)
+            FROM generate_series(0, 14) n;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

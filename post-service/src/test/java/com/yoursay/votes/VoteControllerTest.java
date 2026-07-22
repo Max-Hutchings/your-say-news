@@ -17,11 +17,13 @@ import com.yoursay.votes.client.UserCharacteristicView;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Integration tests for the vote endpoints: POST /votes, GET /votes/{postId}/mine,
@@ -75,19 +77,19 @@ public class VoteControllerTest {
 
         given()
                 .contentType("application/json")
-                .body("{\"postId\": " + postId + ", \"voteFor\": true}")
+                .body(voteBody(postId, optionId(postId, "AGREE")))
                 .when().post("/votes")
                 .then()
                 .statusCode(201)
                 .body("id", greaterThan(0))
                 .body("postId", is((int) postId))
-                .body("voteFor", is(true));
+                .body("optionId", is((int) optionId(postId, "AGREE")));
     }
 
     @Test
     public void castVote_withCharacteristicProfile_snapshotStoredButOmittedFromResponse() {
         // User has a full characteristic profile (200 from user-service) — snapshot is captured and
-        // stored on the vote, but the HTTP response exposes only id/postId/voteFor (PII boundary).
+        // stored on the vote, but the HTTP response exposes only id/postId/optionId (PII boundary).
         long postId = insertPost();
         UserCharacteristicView profile = new UserCharacteristicView(
                 VOTER_ID, "LEFT", "25_34", "FEMALE", "FEMALE", "HETEROSEXUAL", "SINGLE",
@@ -101,13 +103,13 @@ public class VoteControllerTest {
 
         given()
                 .contentType("application/json")
-                .body("{\"postId\": " + postId + ", \"voteFor\": false}")
+                .body(voteBody(postId, optionId(postId, "DISAGREE")))
                 .when().post("/votes")
                 .then()
                 .statusCode(201)
                 .body("id", greaterThan(0))
                 .body("postId", is((int) postId))
-                .body("voteFor", is(false))
+                .body("optionId", is((int) optionId(postId, "DISAGREE")))
                 .body("snapshot", org.hamcrest.Matchers.nullValue())
                 .body("userId", org.hamcrest.Matchers.nullValue());
     }
@@ -115,7 +117,7 @@ public class VoteControllerTest {
     @Test
     public void castVote_duplicateVote_returns409() {
         long postId = insertPost();
-        String body = "{\"postId\": " + postId + ", \"voteFor\": true}";
+        String body = voteBody(postId, optionId(postId, "AGREE"));
 
         // First vote succeeds.
         given()
@@ -139,7 +141,7 @@ public class VoteControllerTest {
     public void castVote_wrongRole_returns403() {
         given()
                 .contentType("application/json")
-                .body("{\"postId\": 999, \"voteFor\": true}")
+                .body("{\"postId\":999,\"optionId\":9991}")
                 .when().post("/votes")
                 .then()
                 .statusCode(403);
@@ -154,7 +156,7 @@ public class VoteControllerTest {
         // Cast first.
         int voteId = given()
                 .contentType("application/json")
-                .body("{\"postId\": " + postId + ", \"voteFor\": true}")
+                .body(voteBody(postId, optionId(postId, "AGREE")))
                 .when().post("/votes")
                 .then().statusCode(201)
                 .extract().path("id");
@@ -166,7 +168,7 @@ public class VoteControllerTest {
                 .statusCode(200)
                 .body("id", is(voteId))
                 .body("postId", is((int) postId))
-                .body("voteFor", is(true));
+                .body("optionId", is((int) optionId(postId, "AGREE")));
     }
 
     @Test
@@ -190,7 +192,7 @@ public class VoteControllerTest {
         // VOTER casts (class-level @TestSecurity applies here).
         given()
                 .contentType("application/json")
-                .body("{\"postId\": " + postId + ", \"voteFor\": true}")
+                .body(voteBody(postId, optionId(postId, "AGREE")))
                 .when().post("/votes")
                 .then()
                 .statusCode(201);
@@ -207,7 +209,7 @@ public class VoteControllerTest {
                 // Still 200 because we are authenticated as VOTER in this class — this confirms
                 // the round-trip: VOTER can retrieve its own vote.
                 .statusCode(200)
-                .body("voteFor", is(true));
+                .body("optionId", is((int) optionId(postId, "AGREE")));
     }
 
     // ── countForPost ──────────────────────────────────────────────────────────
@@ -224,7 +226,7 @@ public class VoteControllerTest {
 
         given()
                 .contentType("application/json")
-                .body("{\"postId\": " + postId + ", \"voteFor\": true}")
+                .body(voteBody(postId, optionId(postId, "AGREE")))
                 .when().post("/votes")
                 .then().statusCode(201);
 
@@ -243,7 +245,7 @@ public class VoteControllerTest {
         // is written. This exercises the real cross-domain PostService.existsById reactive lookup.
         given()
                 .contentType("application/json")
-                .body("{\"postId\": 9999999999, \"voteFor\": true}")
+                .body("{\"postId\":9999999999,\"optionId\":9999999998}")
                 .when().post("/votes")
                 .then()
                 .statusCode(404)
@@ -255,11 +257,47 @@ public class VoteControllerTest {
         // Body omits postId entirely — rejected as a bad request, never a 500 or a vote on null.
         given()
                 .contentType("application/json")
-                .body("{\"voteFor\": true}")
+                .body("{\"optionId\": 51}")
                 .when().post("/votes")
                 .then()
                 .statusCode(400)
                 .body("code", is("VOTE_INVALID"));
+    }
+
+    @Test
+    public void castVote_missingOrCrossPostOption_returns400WithoutWritingAVote() {
+        long firstPost = insertPost();
+        long secondPost = insertPost();
+
+        given().contentType("application/json")
+                .body("{\"postId\":" + firstPost + "}")
+                .when().post("/votes").then().statusCode(400)
+                .body("code", is("VOTE_INVALID"));
+
+        given().contentType("application/json")
+                .body(voteBody(firstPost, optionId(secondPost, "AGREE")))
+                .when().post("/votes").then().statusCode(400)
+                .body("code", is("VOTE_OPTION_NOT_AVAILABLE"));
+
+        given().when().get("/votes/" + firstPost + "/count")
+                .then().statusCode(200).body(is("0"));
+    }
+
+    @Test
+    public void databaseCompositeForeignKeyRejectsAnOptionOwnedByAnotherPost() throws Exception {
+        long firstPost = insertPost();
+        long secondPost = insertPost();
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "INSERT INTO votes (post_id,user_id,option_id,characteristic_snapshot) "
+                             + "VALUES (?,?,?,'{}'::jsonb)")) {
+            statement.setLong(1, firstPost);
+            statement.setLong(2, 987654321L);
+            statement.setLong(3, optionId(secondPost, "AGREE"));
+
+            assertThrows(SQLException.class, statement::executeUpdate);
+        }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -280,10 +318,41 @@ public class VoteControllerTest {
             ps.setString(3, "Do you agree?");
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
-                return rs.getLong(1);
+                long postId = rs.getLong(1);
+                insertBinaryOptions(conn, postId);
+                return postId;
             }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to insert test post", e);
         }
+    }
+
+    private static void insertBinaryOptions(Connection connection, long postId) throws Exception {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "INSERT INTO post_vote_option (post_id,label,ordinal,semantic_key) VALUES "
+                        + "(?,'Agree',0,'AGREE'),(?,'Disagree',1,'DISAGREE')")) {
+            ps.setLong(1, postId);
+            ps.setLong(2, postId);
+            ps.executeUpdate();
+        }
+    }
+
+    private long optionId(long postId, String semanticKey) {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT id FROM post_vote_option WHERE post_id=? AND semantic_key=?")) {
+            ps.setLong(1, postId);
+            ps.setString(2, semanticKey);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to find test option", e);
+        }
+    }
+
+    private static String voteBody(long postId, long optionId) {
+        return "{\"postId\":" + postId + ",\"optionId\":" + optionId + "}";
     }
 }

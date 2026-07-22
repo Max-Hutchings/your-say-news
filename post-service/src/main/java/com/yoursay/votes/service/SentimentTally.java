@@ -1,92 +1,75 @@
 package com.yoursay.votes.service;
 
+import com.yoursay.posts.VoteOptionDto;
+import com.yoursay.posts.VotingType;
 import com.yoursay.votes.BucketSentiment;
-import com.yoursay.votes.CharacteristicSnapshot;
+import com.yoursay.votes.ChoiceSentiment;
 import com.yoursay.votes.SentimentBreakdownDto;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * The pure aggregation engine — the single place the "sentiment by characteristic" maths lives, so
- * it can be got right once and tested in isolation. No database, no identity: it takes
- * {@link VoteSnapshot}s in and returns a {@link SentimentBreakdownDto} out.
- *
- * <p>Responsibilities:
- * <ul>
- *   <li>group votes into buckets by a chosen {@link CharacteristicSnapshot} axis (or one OVERALL
- *       bucket),</li>
- *   <li>tally yes/no counts and percentages per bucket,</li>
- *   <li>apply the {@code k}-anonymity threshold: withhold any bucket whose total is below {@code k}
- *       and report how many were withheld.</li>
- * </ul>
- */
+/** Pure, identity-free option tally used for both binary and multiple-choice posts. */
 @ApplicationScoped
 public class SentimentTally {
 
-    /** Two running counters for one bucket while we fold over the votes. */
-    private static final class Counter {
-        long yes;
-        long no;
-
-        void add(boolean voteFor) {
-            if (voteFor) {
-                yes++;
-            } else {
-                no++;
-            }
+    public SentimentBreakdownDto overall(Long postId, VotingType votingType,
+                                         List<VoteOptionDto> options, List<VoteSnapshot> votes) {
+        List<VoteOptionDto> active = activeOptions(options, votes);
+        if (votes.isEmpty()) {
+            return new SentimentBreakdownDto(postId, votingType, SentimentBreakdownDto.OVERALL,
+                    List.of(), List.of(), 0);
         }
+        return new SentimentBreakdownDto(postId, votingType, SentimentBreakdownDto.OVERALL, active,
+                List.of(bucket(SentimentBreakdownDto.OVERALL, active, votes)), 0);
     }
 
-    /**
-     * Overall yes/no split as a single {@link SentimentBreakdownDto#OVERALL} bucket. The OVERALL
-     * tally itself is never suppressed (it identifies no one); {@code suppressBelow} is irrelevant
-     * here and the result simply reflects all votes.
-     */
-    public SentimentBreakdownDto overall(Long postId, List<VoteSnapshot> votes) {
-        Counter counter = new Counter();
+    public SentimentBreakdownDto byCharacteristic(Long postId, VotingType votingType,
+                                                  List<VoteOptionDto> options, String axis,
+                                                  List<VoteSnapshot> votes, int suppressBelow) {
+        List<VoteOptionDto> active = activeOptions(options, votes);
+        Map<String, List<VoteSnapshot>> grouped = new LinkedHashMap<>();
         for (VoteSnapshot vote : votes) {
-            counter.add(vote.voteFor());
+            grouped.computeIfAbsent(vote.snapshot().bucketFor(axis), ignored -> new ArrayList<>()).add(vote);
         }
-        List<BucketSentiment> buckets = counter.yes + counter.no == 0
-                ? List.of()
-                : List.of(BucketSentiment.of(SentimentBreakdownDto.OVERALL, counter.yes, counter.no));
-        return new SentimentBreakdownDto(postId, SentimentBreakdownDto.OVERALL, buckets, 0);
-    }
-
-    /**
-     * Yes/no split grouped by one characteristic axis, with {@code k}-suppression applied.
-     *
-     * @param axis         a {@link CharacteristicSnapshot} field name (e.g. {@code "politicalPersuasion"})
-     * @param suppressBelow the {@code k} threshold; buckets with {@code total < k} are withheld.
-     *                      {@code 0} (the MVP1 default) suppresses nothing.
-     */
-    public SentimentBreakdownDto byCharacteristic(Long postId, String axis, List<VoteSnapshot> votes, int suppressBelow) {
-        // LinkedHashMap: first-seen ordering is stable, so a fixed vote set yields a stable result.
-        Map<String, Counter> byBucket = new LinkedHashMap<>();
-        for (VoteSnapshot vote : votes) {
-            String bucket = vote.snapshot().bucketFor(axis);
-            byBucket.computeIfAbsent(bucket, b -> new Counter()).add(vote.voteFor());
-        }
-
         List<BucketSentiment> surfaced = new ArrayList<>();
         long suppressed = 0;
-        for (Map.Entry<String, Counter> entry : byBucket.entrySet()) {
-            Counter c = entry.getValue();
-            long total = c.yes + c.no;
-            if (total < suppressBelow) {
+        for (Map.Entry<String, List<VoteSnapshot>> entry : grouped.entrySet()) {
+            if (entry.getValue().size() < suppressBelow) {
                 suppressed++;
-                continue;
+            } else {
+                surfaced.add(bucket(entry.getKey(), active, entry.getValue()));
             }
-            surfaced.add(BucketSentiment.of(entry.getKey(), c.yes, c.no));
         }
-
-        // Largest buckets first — the most-populated slices read first in the results UI.
         surfaced.sort(Comparator.comparingLong(BucketSentiment::total).reversed());
-        return new SentimentBreakdownDto(postId, axis, surfaced, suppressed);
+        return new SentimentBreakdownDto(postId, votingType, axis, active, surfaced, suppressed);
+    }
+
+    private static List<VoteOptionDto> activeOptions(List<VoteOptionDto> options, List<VoteSnapshot> votes) {
+        Set<Long> used = new LinkedHashSet<>();
+        votes.forEach(vote -> used.add(vote.optionId()));
+        return options.stream()
+                .filter(option -> used.contains(option.id()))
+                .sorted(Comparator.comparingInt(VoteOptionDto::ordinal))
+                .toList();
+    }
+
+    private static BucketSentiment bucket(String label, List<VoteOptionDto> active,
+                                           List<VoteSnapshot> votes) {
+        long total = votes.size();
+        Map<Long, Long> counts = new LinkedHashMap<>();
+        votes.forEach(vote -> counts.merge(vote.optionId(), 1L, Long::sum));
+        List<ChoiceSentiment> choices = active.stream().map(option -> {
+            long count = counts.getOrDefault(option.id(), 0L);
+            double percentage = total == 0 ? 0.0 : 100.0 * count / total;
+            return new ChoiceSentiment(option.id(), count, percentage);
+        }).toList();
+        return new BucketSentiment(label, total, choices);
     }
 }

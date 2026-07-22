@@ -266,6 +266,65 @@ public class PostControllerTest {
     }
 
     @Test
+    public void createThenGetRoundTripsOrderedMultipleChoiceOptions() {
+        String body = """
+                { "summary": "Transport budget context.",
+                  "supportQuestion": "Which transport change should happen first?",
+                  "votingType": "MULTIPLE_CHOICE",
+                  "voteOptions": [
+                    {"label":"  More frequent buses  "},
+                    {"label":"Protected cycle lanes"},
+                    {"label":"Lower parking charges"}
+                  ],
+                  "media": [] }
+                """;
+
+        int postId = given().contentType("application/json").body(body)
+                .when().post("/posts").then().statusCode(201)
+                .body("votingType", is("MULTIPLE_CHOICE"))
+                .body("voteOptions.label", contains(
+                        "More frequent buses", "Protected cycle lanes", "Lower parking charges"))
+                .body("voteOptions.ordinal", contains(0, 1, 2))
+                .body("voteOptions.semanticKey", everyItem(nullValue()))
+                .extract().path("id");
+
+        given().when().get("/posts/" + postId).then().statusCode(200)
+                .body("votingType", is("MULTIPLE_CHOICE"))
+                .body("voteOptions.label", contains(
+                        "More frequent buses", "Protected cycle lanes", "Lower parking charges"))
+                .body("voteOptions.id", everyItem(greaterThan(0)));
+    }
+
+    @Test
+    public void createDefaultsToServerOwnedBinaryOptionsAndRejectsAuthoredBinaryOptions() {
+        given().contentType("application/json")
+                .body(createBody("Binary context.", "Should the proposal proceed?"))
+                .when().post("/posts").then().statusCode(201)
+                .body("votingType", is("BINARY"))
+                .body("voteOptions.label", contains("Agree", "Disagree"))
+                .body("voteOptions.semanticKey", contains("AGREE", "DISAGREE"));
+
+        given().contentType("application/json").body("""
+                {"summary":"Invalid binary options.","supportQuestion":"Should this fail?",
+                 "votingType":"BINARY","voteOptions":[{"label":"Yes"},{"label":"No"}],"media":[]}
+                """).when().post("/posts").then().statusCode(400)
+                .body("code", is("POST_VOTE_OPTIONS_INVALID"));
+    }
+
+    @Test
+    public void createRejectsCaseInsensitiveDuplicateMultipleChoiceOptionsWithoutWritingAPost() throws Exception {
+        long before = countPosts();
+        given().contentType("application/json").body("""
+                {"summary":"Duplicate choices.","supportQuestion":"Which route?",
+                 "votingType":"MULTIPLE_CHOICE",
+                 "voteOptions":[{"label":"Protected cycle lanes"},{"label":" protected CYCLE lanes "}],
+                 "media":[]}
+                """).when().post("/posts").then().statusCode(400)
+                .body("code", is("POST_VOTE_OPTIONS_INVALID"));
+        org.junit.jupiter.api.Assertions.assertEquals(before, countPosts());
+    }
+
+    @Test
     public void createIgnoresUserIdAndIsUnbiasedInBody() {
         // Body tries to spoof a different author and force the unbiased badge — both must be ignored.
         String json = """

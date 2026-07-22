@@ -21,7 +21,7 @@ public class VoteControllerAuthTest {
     public void castVote_unauthenticated_returns401() {
         given()
                 .contentType("application/json")
-                .body("{\"postId\": 999, \"voteFor\": true}")
+                .body("{\"postId\":999,\"optionId\":9991}")
                 .when().post("/votes")
                 .then()
                 .statusCode(401);
@@ -66,7 +66,7 @@ public class VoteControllerAuthTest {
     public void castVote_wrongRole_returns403() {
         given()
                 .contentType("application/json")
-                .body("{\"postId\": 999, \"voteFor\": true}")
+                .body("{\"postId\":999,\"optionId\":9991}")
                 .when().post("/votes")
                 .then()
                 .statusCode(403);
