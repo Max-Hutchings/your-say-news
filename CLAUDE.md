@@ -32,8 +32,9 @@ personalisation data owned by the `post-service` `topics` domain. Never put them
   Modules today: `user-service` (port 8081), `post-service` (port 8082). MVP1 keeps a **low
   service count** with strict DDD *domains* inside each (so a domain can be extracted to its own
   service later as a near-mechanical package move): `user-service` owns `user`, `usercharacteristic`,
-  `social`; `post-service` owns `posts`, `votes`, `feed`, `topics`, `agent`. The Stage 7
-  unbiased-post agent remains a DDD domain inside `post-service` — see
+  `social`; `post-service` owns `posts`, `votes`, `feed`, `topics`, and the `agents` package, whose
+  role-specific subdomains are `postagent` and `unwrappedagent`. The Stage 7 unbiased-post agent
+  remains a DDD subdomain inside `post-service` — see
   `docs/plans/mvp1-roadmap.md`. Wire cross-service
   `service.*` rest-client URLs in `application.properties` as each call comes online.
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
@@ -134,6 +135,10 @@ Rules:
    reaching into another domain's `model` or `service`.
 4. Below the top level, organise sub-packages by **technical concern** (`model`, `service`, etc.)
    — tech-driven design inside the domain, domain-driven design at the top.
+
+The deliberate exception is `com.yoursay.agents`: it is a namespace for role-specific agent
+subdomains. `postagent` and `unwrappedagent` are separate domain boundaries beneath it, and each
+follows the public-face/internal-subpackage rules above independently.
 
 > Current code is mid-migration toward this. When you touch a domain, move it toward the structure
 > above — controllers, public interfaces and DTOs flattened to the domain's top level, everything

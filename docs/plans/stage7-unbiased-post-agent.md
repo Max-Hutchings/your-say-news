@@ -20,12 +20,13 @@ At the end of this stage:
 
 ## Architecture
 
-Add `com.yoursay.agent` as a sibling of `posts`, `votes`, `feed` and `topics`.
+Add the post-creation agent at `com.yoursay.agents.postagent`, alongside the separate
+`com.yoursay.agents.unwrappedagent` subdomain reserved for Post Unwrapped analysis.
 
-- The public face is `AgentController`, `AgentService` and DTOs at the package top level.
+- The public face is `AgentController`, `AgentService` and DTOs at the `postagent` package top level.
 - Persistence, LangChain4j AI-service configuration, prompts and worker logic remain in internal
   subpackages.
-- `agent` calls the public `PostService` contract to publish an approved draft. It never reaches
+- `postagent` calls the public `PostService` contract to publish an approved draft. It never reaches
   into `posts.model` or `posts.service`.
 - `post-service` remains the only deployable changed by Stage 7.
 

@@ -16,7 +16,9 @@ that Your Say News may lawfully republish the image.
 
 1. Keep a separately deployed Claude agent-service.
 2. Put a Grok-specific implementation directly into the existing `posts` domain.
-3. Add an `agent` DDD domain inside `post-service`, with Grok behind a provider-neutral interface.
+3. Add a single `agent` DDD domain inside `post-service`, with Grok behind a provider-neutral
+   interface.
+4. Add a top-level `agents` package with separate `postagent` and `unwrappedagent` subdomains.
 
 For images:
 
@@ -26,8 +28,11 @@ For images:
 
 ## Decision
 
-Create an `agent` domain inside `post-service`. It owns durable asynchronous generation jobs,
-provider orchestration, sourced draft validation and the review/publish workflow. It crosses into
+Create a top-level `agents` package inside `post-service`, with role-specific subdomains beneath it.
+`postagent` owns durable asynchronous post-generation jobs, provider orchestration, sourced draft
+validation and the review/publish workflow. `unwrappedagent` separately owns the future cached
+Post Unwrapped analysis produced after voting. The two subdomains must not share domain contracts
+or implementations merely because they may use the same model provider. `postagent` crosses into
 post creation only through the public `PostService` contract.
 
 Use Quarkus LangChain4j's declarative AI service and OpenAI-compatible model integration to call the
@@ -47,9 +52,10 @@ not documentary photographs.
 
 ## Reason
 
-A domain boundary preserves extraction options without paying for a third deployment now. Durable
-jobs handle latency and retries inside the service that already owns the resulting post, making
-approval and publication easier to keep idempotent.
+Role-specific subdomain boundaries preserve extraction options without paying for another
+deployment now. They also prevent post drafting and post-vote analysis from becoming one agent with
+two unrelated responsibilities. Durable jobs handle latency and retries inside the service that
+already owns the resulting post, making approval and publication easier to keep idempotent.
 
 Grok's web search and structured output fit the research workflow, while configuration avoids
 binding the domain contract to one model version. Validating claim URLs against provider citations
@@ -63,7 +69,10 @@ actually occurred.
 ## Consequences and follow-up work
 
 - The MVP1 service map remains two deployables: `user-service` and `post-service`.
-- `post-service` gains a top-level `agent` domain and durable job/source tables.
+- `post-service` gains a top-level `agents` package with `postagent` and `unwrappedagent`
+  subdomains. The existing durable generation job belongs only to `postagent`.
+- `unwrappedagent` receives its own public contract, persistence model and orchestration when Post
+  Unwrapped analysis is implemented; it does not reuse post-generation jobs or DTOs.
 - xAI credentials stay server-side and are never exposed to the mobile client or persisted.
 - Generation cost, latency, retries, source count and failure reason need aggregate telemetry.
 - Model/prompt versions must be recorded so quality regressions can be evaluated.
