@@ -48,9 +48,34 @@ const request = {
   url: "https://identity.example/auth?client_id=your-say-mobile",
 };
 
+function createMemoryStorage(): Storage {
+  const entries = new Map<string, string>();
+
+  return {
+    get length() {
+      return entries.size;
+    },
+    clear: () => entries.clear(),
+    getItem: (key) => entries.get(key) ?? null,
+    key: (index) => Array.from(entries.keys())[index] ?? null,
+    removeItem: (key) => {
+      entries.delete(key);
+    },
+    setItem: (key, value) => {
+      entries.set(key, String(value));
+    },
+  };
+}
+
+const testSessionStorage = createMemoryStorage();
+Object.defineProperty(window, "sessionStorage", {
+  configurable: true,
+  value: testSessionStorage,
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
-  sessionStorage.clear();
+  testSessionStorage.clear();
   (AuthSession.fetchDiscoveryAsync as jest.Mock).mockResolvedValue(discovery);
 });
 
@@ -162,7 +187,7 @@ test("web redirect stores the verifier and sends the browser to Keycloak", () =>
   });
 
   expect(startKeycloakWebRedirect(request as never, "https://app.example/callback")).toBe(true);
-  expect(JSON.parse(sessionStorage.getItem("ysn-keycloak-auth-session")!)).toEqual({
+  expect(JSON.parse(testSessionStorage.getItem("ysn-keycloak-auth-session")!)).toEqual({
     codeVerifier: "pkce-verifier",
     redirectUri: "https://app.example/callback",
     state: "expected-state",
@@ -174,11 +199,11 @@ test("web redirect refuses an incomplete authorization request", () => {
   expect(
     startKeycloakWebRedirect({ ...request, codeVerifier: undefined } as never, "https://app.example"),
   ).toBe(false);
-  expect(sessionStorage.getItem("ysn-keycloak-auth-session")).toBeNull();
+  expect(testSessionStorage.getItem("ysn-keycloak-auth-session")).toBeNull();
 });
 
 test("web callback rejects missing or mismatched state and clears a bad session", async () => {
-  sessionStorage.setItem(
+  testSessionStorage.setItem(
     "ysn-keycloak-auth-session",
     JSON.stringify({
       codeVerifier: "pkce-verifier",
@@ -195,12 +220,12 @@ test("web callback rejects missing or mismatched state and clears a bad session"
       "https://app.example/callback?code=auth-code&state=attacker-state",
     ),
   ).resolves.toBeNull();
-  expect(sessionStorage.getItem("ysn-keycloak-auth-session")).toBeNull();
+  expect(testSessionStorage.getItem("ysn-keycloak-auth-session")).toBeNull();
   expect(AuthSession.exchangeCodeAsync).not.toHaveBeenCalled();
 });
 
 test("web callback exchanges a valid stored session and consumes it", async () => {
-  sessionStorage.setItem(
+  testSessionStorage.setItem(
     "ysn-keycloak-auth-session",
     JSON.stringify({
       codeVerifier: "stored-verifier",
@@ -234,7 +259,7 @@ test("web callback exchanges a valid stored session and consumes it", async () =
     },
     discovery,
   );
-  expect(sessionStorage.getItem("ysn-keycloak-auth-session")).toBeNull();
+  expect(testSessionStorage.getItem("ysn-keycloak-auth-session")).toBeNull();
 });
 
 test("native login builds a PKCE request and exchanges the returned code", async () => {

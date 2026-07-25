@@ -28,6 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Set up GraalVM 25
         uses: graalvm/setup-graalvm@v1
         with:
