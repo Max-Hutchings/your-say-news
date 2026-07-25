@@ -1,0 +1,27 @@
+services:
+  postgres:
+    container_name: !reset null
+    ports: !override
+      - "${SMOKE_DB_PORT:-55432}:5432"
+
+  keycloak-db:
+    container_name: !reset null
+
+  keycloak:
+    container_name: !reset null
+    ports: !override
+      - "${SMOKE_AUTH_PORT:-58080}:8080"
+
+  keycloak-seed-users:
+    container_name: !reset null
+
+  liquibase-migrate:
+    container_name: !reset null
+
+  liquibase-seed:
+    container_name: !reset null
+
+  localstack:
+    container_name: !reset null
+    ports: !override
+      - "${SMOKE_STORAGE_PORT:-54566}:4566"

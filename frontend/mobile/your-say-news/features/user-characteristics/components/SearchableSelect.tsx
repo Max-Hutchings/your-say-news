@@ -47,6 +47,8 @@ export function SearchableSelect({
         <View>
             <Eyebrow text={label} style={{ marginBottom: 8 }} />
             <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={selectedLabel ?? placeholder}
                 onPress={() => setOpen(true)}
                 style={[styles.trigger, { backgroundColor: e.surface, borderColor: e.border }]}
             >
@@ -87,6 +89,7 @@ export function SearchableSelect({
                                 return (
                                     <Pressable
                                         key={opt.value}
+                                        accessibilityRole="button"
                                         onPress={() => {
                                             onSelect(opt.value);
                                             setOpen(false);

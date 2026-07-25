@@ -49,4 +49,15 @@ describe("PrivacyConsentScreen", () => {
         expect(mockReplace).not.toHaveBeenCalled();
         expect(useAuthStore.getState().consentedAt).toBeNull();
     });
+
+    it("does not advance when the server omits the persisted consent timestamp", async () => {
+        (recordConsent as jest.Mock).mockResolvedValue(null);
+
+        renderWithTheme(<PrivacyConsentScreen />);
+        fireEvent.press(screen.getByText("I agree — continue"));
+
+        await waitFor(() => expect(recordConsent).toHaveBeenCalledTimes(1));
+        expect(mockReplace).not.toHaveBeenCalled();
+        expect(useAuthStore.getState().consentedAt).toBeNull();
+    });
 });

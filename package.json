@@ -6,6 +6,7 @@
   "scripts": {
     "prepare": "husky",
     "dev": "./scripts/start-dev.sh",
+    "smoke": "./scripts/smoke-test.sh",
     "test": "./scripts/test-all.sh",
     "tests": "./scripts/test-all.sh"
   },

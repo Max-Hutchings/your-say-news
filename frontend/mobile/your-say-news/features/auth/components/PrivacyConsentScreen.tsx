@@ -32,7 +32,10 @@ export function PrivacyConsentScreen() {
         setSubmitting(true);
         try {
             const consentedAt = await recordConsent();
-            setConsentedAt(consentedAt ?? new Date().toISOString());
+            if (!consentedAt) {
+                throw new Error("Consent response did not include a server timestamp");
+            }
+            setConsentedAt(consentedAt);
             // Back to the index authority, which routes to the wizard or straight to the feed
             // depending on whether a characteristic profile already exists.
             router.replace("/(protected)");
@@ -88,6 +91,7 @@ export function PrivacyConsentScreen() {
 
             <View style={styles.footer}>
                 <Pressable
+                    accessibilityRole="button"
                     onPress={onAgree}
                     disabled={submitting}
                     style={[styles.cta, { backgroundColor: e.lime, opacity: submitting ? 0.7 : 1 }]}

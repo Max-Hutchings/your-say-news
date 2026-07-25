@@ -4,7 +4,7 @@ const postServicePort = requiredEnv("EXPO_PUBLIC_POST_SERVICE_PORT");
 
 export default {
     extra: {
-        KEYCLOAK_BASE_URL: "http://localhost:8080",
+        KEYCLOAK_BASE_URL: process.env.EXPO_PUBLIC_AUTH_BASE_URL ?? "http://localhost:8080",
         KEYCLOAK_REALM: "your-say-news",
         KEYCLOAK_CLIENT_ID: "frontend-client",
 

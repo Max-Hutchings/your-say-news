@@ -104,6 +104,7 @@ export default function SignInScreen() {
             <View style={[styles.sheet, { backgroundColor: e.surfaceAlt, borderTopColor: e.border }]}>
                 <Text style={[styles.sheetEyebrow, { color: e.lime }]}>SECURE SINGLE SIGN-ON</Text>
                 <Pressable
+                    accessibilityRole="button"
                     onPress={onContinue}
                     disabled={busy || !ready}
                     style={[styles.primary, { backgroundColor: e.lime, opacity: busy || !ready ? 0.7 : 1 }]}
@@ -114,6 +115,7 @@ export default function SignInScreen() {
                     </Text>
                 </Pressable>
                 <Pressable
+                    accessibilityRole="button"
                     onPress={onContinue}
                     disabled={busy || !ready}
                     style={[styles.secondary, { borderColor: "#3A352D" }]}

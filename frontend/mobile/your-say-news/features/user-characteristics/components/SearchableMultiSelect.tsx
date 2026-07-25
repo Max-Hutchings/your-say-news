@@ -50,6 +50,8 @@ export function SearchableMultiSelect({
         <View>
             <Eyebrow text={label} style={{ marginBottom: 8 }} />
             <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={selectedLabels || placeholder}
                 onPress={() => setOpen(true)}
                 style={[styles.trigger, { backgroundColor: e.surface, borderColor: e.border }]}
             >
@@ -90,6 +92,7 @@ export function SearchableMultiSelect({
                                 return (
                                     <Pressable
                                         key={opt.value}
+                                        accessibilityRole="button"
                                         onPress={() => onToggle(opt.value)}
                                         style={[
                                             styles.row,
@@ -117,7 +120,7 @@ export function SearchableMultiSelect({
                             <Text style={[styles.matches, { color: e.muted }]}>
                                 {selected.length} SELECTED · {filtered.length} OF {options.length}
                             </Text>
-                            <Pressable onPress={() => setOpen(false)}>
+                            <Pressable accessibilityRole="button" onPress={() => setOpen(false)}>
                                 <Text style={[styles.done, { color: e.teal }]}>DONE</Text>
                             </Pressable>
                         </View>

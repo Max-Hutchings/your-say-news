@@ -86,6 +86,9 @@ reports/
 # Playwright MCP run artifacts (captured snapshots/screenshots from browser testing)
 .playwright-mcp/
 
+# Local Playwright smoke-test output
+smoke-tests/artifacts/
+
 # Java artifacts
 *.class
 *.jar

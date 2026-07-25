@@ -34,6 +34,7 @@ export function FeedTypeFilters({
             accessibilityRole="button"
             accessibilityLabel={`${option.label} posts`}
             accessibilityState={{ selected }}
+            aria-pressed={selected}
             onPress={() => onChange(selected ? null : option.value)}
             style={[
               styles.button,
