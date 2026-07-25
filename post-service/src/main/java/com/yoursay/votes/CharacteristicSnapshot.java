@@ -3,6 +3,7 @@ package com.yoursay.votes;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.Set;
+import java.util.List;
 
 /**
  * An anonymised, point-in-time copy of the categorical characteristics a voter held
@@ -55,7 +56,12 @@ public record CharacteristicSnapshot(
         String hasDisability,
         String disabilityType,
         String housingStatus,
-        String propertyType
+        String propertyType,
+        List<String> raceMemberships,
+        List<String> citizenshipMemberships,
+        List<String> petTypeMemberships,
+        List<String> neurodivergenceTypeMemberships,
+        List<String> disabilityTypeMemberships
 ) {
 
     /** Sentinel bucket label for votes whose value on the requested axis is unknown. */
@@ -75,6 +81,31 @@ public record CharacteristicSnapshot(
             "eyeColor", "parent", "newsFrequency", "hasPet", "petType", "chronotype", "outlook",
             "neurodivergent", "neurodivergenceType", "hasDisability", "disabilityType", "housingStatus",
             "propertyType");
+
+    private static final Set<String> MULTI_SELECT_AXES = Set.of(
+            "race", "citizenship", "petType", "neurodivergenceType", "disabilityType");
+
+    /** Compatibility constructor for snapshots created before membership-preserving fields. */
+    public CharacteristicSnapshot(
+            String politicalPersuasion, String ageRange, String gender, String sexAtBirth,
+            String sexualOrientation, String maritalStatus, String race, String country,
+            String region, String urbanRural, String ukCounty, String countryOfBirth,
+            String citizenship, String religion, String religiosity, String education,
+            String occupation, String employmentSector, String universitySubject,
+            String personalIncomeRange, String householdIncomeRange, String height,
+            String weightRange, String eyeColor, String parent, String newsFrequency,
+            String hasPet, String petType, String chronotype, String outlook,
+            String neurodivergent, String neurodivergenceType, String hasDisability,
+            String disabilityType, String housingStatus, String propertyType) {
+        this(politicalPersuasion, ageRange, gender, sexAtBirth, sexualOrientation, maritalStatus,
+                race, country, region, urbanRural, ukCounty, countryOfBirth, citizenship, religion,
+                religiosity, education, occupation, employmentSector, universitySubject,
+                personalIncomeRange, householdIncomeRange, height, weightRange, eyeColor, parent,
+                newsFrequency, hasPet, petType, chronotype, outlook, neurodivergent,
+                neurodivergenceType, hasDisability, disabilityType, housingStatus, propertyType,
+                splitLegacy(race), splitLegacy(citizenship), splitLegacy(petType),
+                splitLegacy(neurodivergenceType), splitLegacy(disabilityType));
+    }
 
     /** True if {@code axis} is a real breakdown axis (a field name aggregation can slice by). */
     public static boolean isAxis(String axis) {
@@ -130,12 +161,44 @@ public record CharacteristicSnapshot(
         return value == null ? UNKNOWN : value;
     }
 
+    /**
+     * Returns every bucket a voter belongs to on an axis. Exclusive axes return exactly one value;
+     * multi-select axes return each membership independently so no synthetic combined cohort is
+     * created.
+     */
+    public Set<String> bucketsFor(String axis) {
+        if (!MULTI_SELECT_AXES.contains(axis)) {
+            return Set.of(bucketFor(axis));
+        }
+        List<String> values = switch (axis) {
+            case "race" -> raceMemberships;
+            case "citizenship" -> citizenshipMemberships;
+            case "petType" -> petTypeMemberships;
+            case "neurodivergenceType" -> neurodivergenceTypeMemberships;
+            case "disabilityType" -> disabilityTypeMemberships;
+            default -> List.of();
+        };
+        if (values == null || values.isEmpty()) {
+            return Set.of(UNKNOWN);
+        }
+        return Set.copyOf(values);
+    }
+
+    public static boolean isMultiSelectAxis(String axis) {
+        return MULTI_SELECT_AXES.contains(axis);
+    }
+
     /** An empty snapshot (all 36 axes unknown). */
     public static CharacteristicSnapshot empty() {
         return new CharacteristicSnapshot(
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, List.of(), List.of(), List.of(),
+                List.of(), List.of());
+    }
+
+    private static List<String> splitLegacy(String value) {
+        return value == null || value.isBlank() ? List.of() : List.of(value.split("\\+"));
     }
 }
