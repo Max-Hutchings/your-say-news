@@ -81,5 +81,7 @@ jobs:
         run: bun run lint
 
       # Invoke the jest binary directly so it runs under Node, not Bun.
+      # Run serially because coverage-instrumented React Native suites can exhaust the shared
+      # runner's CPU when Jest forks workers, causing otherwise-fast async tests to hit 5s.
       - name: Test
-        run: node_modules/.bin/jest --ci
+        run: node_modules/.bin/jest --ci --runInBand
