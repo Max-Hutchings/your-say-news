@@ -1,0 +1,33 @@
+:root {
+  color-scheme: light dark;
+
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-sans: "Schibsted Grotesk", Arial, sans-serif;
+  --font-mono: "Spline Sans Mono", ui-monospace, monospace;
+
+  --editorial-bg: #f6f1e7;
+  --editorial-surface: #fffdf8;
+  --editorial-border: #dcd4c4;
+  --editorial-ink: #1b1815;
+  --editorial-secondary: #5a564e;
+  --editorial-muted: #9a9183;
+  --editorial-lime: #c6ff4a;
+  --editorial-on-lime: #1b1815;
+  --editorial-teal: #157a63;
+  --editorial-focus: #157a63;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --editorial-bg: #14110d;
+    --editorial-surface: #1b1712;
+    --editorial-border: #2e2920;
+    --editorial-ink: #f2ecdf;
+    --editorial-secondary: #a39a8a;
+    --editorial-muted: #8e8576;
+    --editorial-lime: #c6ff4a;
+    --editorial-on-lime: #1b1815;
+    --editorial-teal: #3fb592;
+    --editorial-focus: #3fb592;
+  }
+}

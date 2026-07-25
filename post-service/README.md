@@ -12,7 +12,11 @@ You can run your application in dev mode that enables live coding using:
 ./gradlew :post-service:quarkusDev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+Quinoa starts the React admin UI alongside Quarkus. Open it at
+<http://localhost:8082/admin/>. The managed Vite server listens on port 8083 and is proxied through
+the post service, so there is no separate frontend command to run.
+
+The Quarkus Dev UI is available in dev mode only at <http://localhost:8082/q/dev/>.
 
 ## Packaging and running the application
 

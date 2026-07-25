@@ -31,10 +31,10 @@ personalisation data owned by the `post-service` `topics` domain. Never put them
 - **Backend:** Quarkus (latest release), Java 25, Gradle (Kotlin DSL). Group id `com.yoursay`.
   The sole backend deployable is `post-service` (port 8082). It keeps strict DDD domains so each can
   be extracted later as a near-mechanical package move: `user` (containing the `user`,
-  `usercharacteristic` and `social` subdomains), `posts`, `votes`, `feed`, `topics`, and the
-  `agents` namespace, whose role-specific subdomains are `postagent`, `unwrappedagent` and the
-  planned `ysnagent`. The official agents remain DDD subdomains inside `post-service` — see
-  `docs/plans/mvp1-v2-roadmap.md`.
+  `usercharacteristic` and `social` subdomains), `posts`, `votes`, `feed`, `topics`, `unwrapped`,
+  and the `agents` namespace, whose role-specific official-publishing subdomains are `postagent`
+  and the planned `ysnagent`. Unwrapped owns its LangChain4j implementation internally under
+  `com.yoursay.unwrapped.agent` — see `docs/plans/mvp1-v2-roadmap.md`.
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
   Routing via `expo-router` (file-based, with route groups like `(protected)`).
   Styling via NativeWind/Tailwind + a shared theme under `constants/theme`.
@@ -133,9 +133,11 @@ Rules:
 4. Below the top level, organise sub-packages by **technical concern** (`model`, `service`, etc.)
    — tech-driven design inside the domain, domain-driven design at the top.
 
-The deliberate exception is `com.yoursay.agents`: it is a namespace for role-specific agent
-subdomains. `postagent`, `unwrappedagent` and the planned `ysnagent` are separate domain boundaries
+The deliberate exception is `com.yoursay.agents`: it is a namespace for role-specific official
+publishing agent subdomains. `postagent` and the planned `ysnagent` are separate domain boundaries
 beneath it, and each follows the public-face/internal-subpackage rules above independently.
+`com.yoursay.unwrapped` is instead a normal top-level domain; its `agent` child is an internal
+technical package, not another domain.
 
 > Current code is mid-migration toward this. When you touch a domain, move it toward the structure
 > above — controllers, public interfaces and DTOs flattened to the domain's top level, everything
@@ -317,6 +319,8 @@ the repo-root one (which is tuned for the Quarkus jar build).
 - `test-audit` — audits whether tests give real signal.
 - `commit-message` — commit message conventions.
 
+Side note: Don't do work on a new branch unless instructed by a user or a designated skill
+
 ---
 
 **After writing tests for a feature, run the `test-audit` skill** to confirm the tests actually
@@ -325,4 +329,4 @@ genuinely fail if the code broke).
 
 
 ## Programming style 
-Since virtual threads, reactive programming is no longer necessary for our crud applications. Default to imperitive programming with virtual threads on.
+Since virtual threads, reactive programming is no longer necessary for our crud applications. Default to imperative programming with virtual threads on.

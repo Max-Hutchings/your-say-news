@@ -1,10 +1,18 @@
+import java.util.Locale
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
+
 plugins {
     id("io.quarkus")
+    jacoco
 }
 
 val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
+val minimumLineCoverage = "0.80".toBigDecimal()
+val jacocoDataFile = layout.buildDirectory.file("jacoco-quarkus.exec")
+val jacocoReportDirectory = layout.buildDirectory.dir("reports/jacoco/test")
 
 sourceSets {
     main {
@@ -36,6 +44,7 @@ dependencies {
     implementation("io.quarkus:quarkus-oidc")
     implementation("io.quarkus:quarkus-hibernate-validator")
     implementation("io.quarkus:quarkus-scheduler")
+    implementation("io.quarkiverse.quinoa:quarkus-quinoa:2.8.3")
     implementation("io.quarkiverse.langchain4j:quarkus-langchain4j-openai")
     implementation("io.quarkiverse.amazonservices:quarkus-amazon-s3")
     implementation("org.jetbrains:annotations")
@@ -43,6 +52,70 @@ dependencies {
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.quarkus:quarkus-junit5-mockito")
     testImplementation("io.quarkus:quarkus-test-security")
+    testImplementation("io.quarkus:quarkus-jacoco")
     testImplementation("io.rest-assured:rest-assured")
     testImplementation("org.testcontainers:localstack:1.21.4")
+}
+
+tasks.test {
+    systemProperty("quarkus.jacoco.data-file", jacocoDataFile.get().asFile.absolutePath)
+    systemProperty("quarkus.jacoco.report-location", jacocoReportDirectory.get().asFile.absolutePath)
+
+    extensions.configure<JacocoTaskExtension> {
+        excludeClassLoaders = listOf("*QuarkusClassLoader")
+        destinationFile = jacocoDataFile.get().asFile
+    }
+
+    finalizedBy(tasks.jacocoTestCoverageVerification)
+}
+
+// quarkus-jacoco creates the combined unit and @QuarkusTest report.
+tasks.jacocoTestReport {
+    enabled = false
+}
+
+tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+    executionData.setFrom(jacocoDataFile)
+
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = minimumLineCoverage
+            }
+        }
+    }
+
+    doFirst {
+        val reportFile = jacocoReportDirectory.get().file("jacoco.xml").asFile
+        check(reportFile.exists()) {
+            "JaCoCo XML report was not generated at ${reportFile.absolutePath}"
+        }
+
+        val report = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            .apply {
+                setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+            }
+            .newDocumentBuilder()
+            .parse(reportFile)
+            .documentElement
+        val counters = report.childNodes
+        val lineCounter = (0 until counters.length)
+            .map { counters.item(it) }
+            .filterIsInstance<org.w3c.dom.Element>()
+            .first { it.tagName == "counter" && it.getAttribute("type") == "LINE" }
+        val missed = lineCounter.getAttribute("missed").toInt()
+        val covered = lineCounter.getAttribute("covered").toInt()
+        val percentage = if (missed + covered == 0) 100.0 else covered * 100.0 / (missed + covered)
+
+        logger.lifecycle(
+            "Backend line coverage: %.2f%% (minimum: %.0f%%)".format(
+                Locale.ROOT,
+                percentage,
+                minimumLineCoverage.toDouble() * 100
+            )
+        )
+        logger.lifecycle("Backend coverage report: ${jacocoReportDirectory.get().file("index.html").asFile.absolutePath}")
+    }
 }

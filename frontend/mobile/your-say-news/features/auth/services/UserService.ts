@@ -16,11 +16,11 @@ export async function getUser(): Promise<User | null> {
             return response.data; // already typed as User
         }
 
-        console.error("Failed to authenticate user:", response.statusText);
+        console.info("Failed to authenticate user:", response.statusText);
         return null;
 
     } catch (err: any) {
-        console.error("Network/request error:", err.message);
+        console.info("Network/request error:", err.message);
         return null;
     }
 }
@@ -35,10 +35,10 @@ export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
         if (response.status === 200) {
             return response.data;
         }
-        console.error("Failed to fetch onboarding status:", response.statusText);
+        console.info("Failed to fetch onboarding status:", response.statusText);
         return null;
     } catch (err: any) {
-        console.error("Network/request error:", err.message);
+        console.info("Network/request error:", err.message);
         return null;
     }
 }

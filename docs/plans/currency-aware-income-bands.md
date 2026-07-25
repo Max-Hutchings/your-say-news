@@ -157,9 +157,16 @@ Move new domain code away from a single numeric `IncomeRange` enum toward an inc
 object and a profile catalogue service. New writes persist profile/band provenance and the
 server-derived tier; they do not write a nominal legacy enum as if it were globally meaningful.
 
-Vote snapshots should contain only the canonical personal/household tiers needed for aggregation,
-plus an answer-version marker. Do not add currency, exact boundaries, market, or profile provenance
-to the public characteristic axes. Historical vote snapshots remain point-in-time records.
+Vote snapshots should contain both:
+
+- canonical personal/household tiers plus an answer-version marker for reviewed cross-market
+  analysis; and
+- immutable profile/band IDs plus ISO currency for currency-qualified direct-result labels.
+
+Do not snapshot exact income. Direct post results resolve the retained band through the immutable
+profile catalogue and display its local range and currency. Canonical tiers remain an internal
+analysis representation and are not shown as salary-range labels. Historical vote snapshots remain
+point-in-time records.
 
 ## Frontend behaviour
 
@@ -202,7 +209,8 @@ map old nominal bands into local tiers.
 - Continue asking only for ranges; never collect exact income.
 - Treat market/profile and income tier as sensitive quasi-identifiers. They stay in the private
   characteristic record and must not be joined to identity in published output.
-- Snapshot and aggregate the canonical tier, not raw local currency/band provenance.
+- Use canonical tiers for internal cross-market aggregation. Use immutable currency-qualified band
+  IDs for direct post results so users see the original local range.
 - Apply the existing minimum-bucket suppression to every income result. Consider coarsening adjacent
   upper tiers before release where a profile has too few users; never reveal a rare top band merely
   because the global tier is common.
@@ -228,8 +236,9 @@ map old nominal bands into local tiers.
 - Saving and reading version-2 answers persists profile provenance and derived tiers.
 - Old request shapes remain legacy during the compatibility phase; malformed mixed v1/v2 requests
   fail with `400`.
-- Vote creation snapshots canonical tiers only; aggregate results never merge legacy nominal values
-  with version-2 tiers and still enforce suppression.
+- Vote creation snapshots canonical tiers plus immutable currency-qualified band identities. Direct
+  results resolve exact GBP/INR range labels, cross-market analysis uses tiers, legacy nominal
+  values remain excluded, and both paths enforce suppression.
 - Liquibase upgrade from representative legacy rows preserves original strings and leaves unknown
   semantics explicit.
 
@@ -259,9 +268,9 @@ backend unit/integration suites with Java from
    evidence review. Do not claim support merely because an ISO currency code exists.
 5. Prompt legacy users to refresh finance answers, monitor adoption/error rates, then require
    version 2 for current clients.
-6. Enable tier-based aggregate reporting, with dashboards separating answer version, profile
-   version and suppression. Roll back by disabling new profile selection/reporting; immutable
-   version-2 answers remain readable.
+6. Enable currency-qualified direct results and tier-based internal analysis, with dashboards
+   separating answer version, profile version and suppression. Roll back by disabling new profile
+   selection/reporting; immutable version-2 answers remain readable.
 
 ## Acceptance criteria
 
@@ -270,8 +279,9 @@ backend unit/integration suites with Java from
 - Changing profile invalidates previous selections and the server rejects cross-profile band IDs.
 - Every new answer is reproducible from immutable profile/version metadata.
 - Existing unknown-currency answers are preserved but never misrepresented as comparable tiers.
-- Vote snapshots and public results expose only suppressed canonical tiers, never currency amounts
-  or profile provenance.
+- Vote snapshots retain canonical tiers and immutable currency-qualified band identities, never
+  exact income. Public direct results expose only suppressed aggregate range labels per currency;
+  internal cross-market analysis exposes canonical tiers rather than nominal ranges.
 - No runtime dependency on live FX, PPP or third-party income APIs exists.
 
 ## Implementation status — 2026-07-25

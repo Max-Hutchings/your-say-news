@@ -57,8 +57,18 @@ rounding and confidence are recorded. Threshold changes create a new profile ver
 never depends on live FX or a live third-party data service.
 
 New characteristic answers persist the currency, market, profile/version, selected band IDs and
-server-derived tiers. Vote snapshots carry only the canonical tiers and answer version required for
-aggregation, not local amounts, currency or profile provenance.
+server-derived tiers.
+
+Vote snapshots carry two distinct aggregate-safe representations:
+
+- the canonical tiers and answer version used for reviewed cross-market analysis; and
+- the immutable profile/band IDs plus ISO currency needed to reproduce the selected local range in
+  direct post results.
+
+Direct user-facing results display local ranges grouped and labelled by currency. They do not
+present canonical tiers such as `TIER_3`, and they do not imply that nominal ranges in different
+currencies are directly comparable. Profile/band identifiers resolve through retained immutable
+catalogue versions; exact user income is never collected or snapshotted.
 
 Existing nominal range values are retained as `LEGACY_NOMINAL_V1`. Because their currency was never
 stored, they are not inferred from residence, converted, or combined with the new cross-market
@@ -76,6 +86,11 @@ income in vote snapshots. Separating personal and household definitions preserve
 pretending that one distribution describes both measures. Refusing to guess the semantics of legacy
 rows is more accurate than a convenient but irreversible backfill.
 
+Retaining the selected currency-qualified band alongside the tier supports understandable direct
+results without reversing the privacy decision: the snapshot still contains a governed range, not
+an amount. Keeping the direct local-band axis distinct from the internal tier axis prevents the UI
+from presenting unlike nominal ranges as one ordered scale.
+
 ## Consequences and follow-up work
 
 - Replace the single `IncomeRange` choice model for new answers with a profile catalogue and
@@ -90,6 +105,8 @@ rows is more accurate than a convenient but irreversible backfill.
   and must clear selected bands whenever the profile changes.
 - Historical vote snapshots remain unchanged. Reporting must isolate or exclude legacy nominal
   income and apply minimum-bucket suppression to the new tiers.
+- Direct results use immutable currency-qualified personal/household band buckets and labels.
+  Internal cross-market analysis continues to use the separate canonical tier fields.
 - Profile definitions remain available indefinitely for historical reads and are reviewed at least
   annually; updates publish new versions rather than mutating old thresholds.
 - The implementation and rollout details are in

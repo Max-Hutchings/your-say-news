@@ -12,16 +12,17 @@ single-select multiple-choice voting; vote-time characteristic snapshots; aggreg
 official-profile/follow scaffolding; a chronological follow-boost feed; and the backend post-agent
 job/generation pipeline.
 
-The largest missing product slice is **Post Unwrapped**. The `unwrappedagent` package is only a
-boundary marker today. **Topics are also not implemented**, and the existing official post-agent
-screen is still an unwired template. The new server-side `ysnagent` official publisher is planned
-but has no package, persistence or endpoint yet.
+The largest missing product slice is **Post Unwrapped**. The top-level `unwrapped` package is only a
+boundary marker today, with model integration reserved under its internal `unwrapped.agent`
+package. **Topics are also not implemented**, and the existing official post-agent screen is still
+an unwired template. The new server-side `ysnagent` official publisher is planned but has no
+package, persistence or endpoint yet.
 
 ## Completion checklist
 
 ### 1. Finish the service consolidation
 
-- [ ] Prove the copied `user`, `usercharacteristic` and `social` domains running inside
+- [X] Prove the copied `user`, `usercharacteristic` and `social` domains running inside
   `post-service` with the full integration suite and a clean local startup.
 - [ ] Remove the standalone `user-service`, its Gradle module, duplicate migrations/seeds, stale
   test-runner pane, compatibility REST-client configuration and unused bearer/client parameters.
@@ -53,7 +54,7 @@ but has no package, persistence or endpoint yet.
 
 ### 4. Build Post Unwrapped end to end
 
-- [ ] Add the `unwrappedagent` public contracts, persistence and migrations for versioned analyses,
+- [ ] Add the top-level `unwrapped` public contracts, persistence and migrations for versioned analyses,
   durable generation jobs and citations.
 - [ ] Queue one idempotent job per `(post, milestone, analysisVersion)`, with configurable milestones,
   retry/backoff and safe concurrent-vote handling.

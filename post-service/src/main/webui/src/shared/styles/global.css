@@ -1,0 +1,112 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 20rem;
+  min-height: 100%;
+  background: var(--editorial-bg);
+}
+
+body {
+  min-width: 20rem;
+  min-height: 100%;
+  margin: 0;
+  background: var(--editorial-bg);
+  color: var(--editorial-ink);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--editorial-focus);
+  outline-offset: 3px;
+}
+
+.masthead {
+  padding-inline: clamp(0rem, 1.5vw, 1.5rem);
+}
+
+.masthead p {
+  margin: 0;
+}
+
+.masthead__meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--editorial-muted);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.masthead__rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-top: 0.4rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 2px solid var(--editorial-ink);
+}
+
+.masthead__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-serif);
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.masthead__brand em {
+  position: relative;
+  isolation: isolate;
+  margin-left: -0.25rem;
+  font-weight: 400;
+}
+
+.masthead__brand em::after {
+  position: absolute;
+  z-index: -1;
+  right: -0.1rem;
+  bottom: -0.2rem;
+  left: -0.1rem;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: var(--editorial-lime);
+  content: "";
+}
+
+.masthead__mark {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border-radius: 0.38rem;
+  background: var(--editorial-lime);
+  color: var(--editorial-on-lime);
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.masthead__edition {
+  padding: 0.4rem 0.65rem 0.34rem;
+  border: 1px solid var(--editorial-border);
+  border-radius: 999px;
+  color: var(--editorial-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
