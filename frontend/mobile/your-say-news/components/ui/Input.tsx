@@ -162,12 +162,12 @@ export function Input({
       )}
       
       <TextInput
+        {...rest}
         editable={!disabled}
         placeholderTextColor={colors.input.placeholder}
         style={[inputStyles, inputStyle]}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        {...rest}
       />
       
       {(error || helperText) && (

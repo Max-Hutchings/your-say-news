@@ -41,6 +41,8 @@ export function PepperCompose() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Research and write"
+            accessibilityState={{ disabled: true }}
+            disabled
             style={[styles.cta, { backgroundColor: e.lime }]}
           >
             <Text style={[styles.ctaText, { color: e.onLime }]}>Research &amp; write  →</Text>

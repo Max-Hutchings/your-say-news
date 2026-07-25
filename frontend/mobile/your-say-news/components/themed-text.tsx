@@ -13,6 +13,7 @@
 import { Text, type TextProps, StyleSheet } from 'react-native';
 import { 
   useThemeColors, 
+  useThemeColorScheme,
   Typography, 
   type ThemeColors,
   type TypographyVariant,
@@ -93,6 +94,7 @@ export function ThemedText({
   ...rest
 }: ThemedTextProps) {
   const colors = useThemeColors();
+  const colorScheme = useThemeColorScheme();
   
   // Determine the typography variant
   const typographyVariant: TypographyVariant = variant ?? (type ? legacyTypeToVariant[type] : 'bodyMedium');
@@ -101,9 +103,12 @@ export function ThemedText({
   const typographyStyle = Typography[typographyVariant];
   
   // Get text color (handle legacy link type specially)
-  const textColor = type === 'link' 
+  const themedTextColor = type === 'link'
     ? colors.text.link 
     : getTextColor(colors, color);
+  const textColor = colorScheme === 'dark'
+    ? darkColor ?? themedTextColor
+    : lightColor ?? themedTextColor;
 
   return (
     <Text

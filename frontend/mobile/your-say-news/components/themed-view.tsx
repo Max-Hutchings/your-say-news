@@ -10,7 +10,7 @@
  */
 
 import { View, type ViewProps } from 'react-native';
-import { useThemeColors, type ThemeColors } from '@/constants/theme';
+import { useThemeColorScheme, useThemeColors, type ThemeColors } from '@/constants/theme';
 
 export type ThemedViewVariant = 
   | 'primary'      // Main background
@@ -31,15 +31,8 @@ export type ThemedViewProps = ViewProps & {
 
 const getBackgroundColor = (
   colors: ThemeColors,
-  variant: ThemedViewVariant,
-  lightColor?: string,
-  darkColor?: string
+  variant: ThemedViewVariant
 ): string | undefined => {
-  // Legacy override support
-  if (lightColor || darkColor) {
-    return colors.background.primary; // Will be overridden by style
-  }
-  
   switch (variant) {
     case 'primary':
       return colors.background.primary;
@@ -66,7 +59,11 @@ export function ThemedView({
   ...otherProps 
 }: ThemedViewProps) {
   const colors = useThemeColors();
-  const backgroundColor = getBackgroundColor(colors, variant, lightColor, darkColor);
+  const colorScheme = useThemeColorScheme();
+  const themedBackground = getBackgroundColor(colors, variant);
+  const backgroundColor = colorScheme === 'dark'
+    ? darkColor ?? themedBackground
+    : lightColor ?? themedBackground;
 
   return <View style={[{ backgroundColor }, style]} {...otherProps} />;
 }

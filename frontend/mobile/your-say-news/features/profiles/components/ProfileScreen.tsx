@@ -29,8 +29,9 @@ export function ProfileScreen({ userId }: { userId?: number }) {
     setError(null);
     try {
       const nextProfile = userId ? await getProfile(userId) : await getMyProfile();
+      const nextPosts = nextProfile ? await listByUser(nextProfile.id) : [];
       setProfile(nextProfile);
-      setPosts(nextProfile ? await listByUser(nextProfile.id) : []);
+      setPosts(nextPosts);
     } catch {
       setError("Profile unavailable.");
     } finally {
@@ -72,7 +73,12 @@ export function ProfileScreen({ userId }: { userId?: number }) {
   const header = (
     <View style={[styles.header, { backgroundColor: e.bg, borderBottomColor: e.border }]}>
       <View style={styles.topRow}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" style={styles.iconButton}>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={styles.iconButton}
+        >
           <Ionicons name="chevron-back" size={24} color={e.ink} />
         </Pressable>
         <Text style={[styles.screenTitle, { color: e.ink }]}>Profile</Text>
@@ -142,7 +148,9 @@ export function ProfileScreen({ userId }: { userId?: number }) {
       renderItem={({ item }) => <PostCard post={item} height={620} />}
       ListHeaderComponent={header}
       ListEmptyComponent={
-        <Text style={[styles.message, { color: e.muted }]}>No posts yet.</Text>
+        profile ? (
+          <Text style={[styles.message, { color: e.muted }]}>No posts yet.</Text>
+        ) : null
       }
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={e.muted} />}
     />
