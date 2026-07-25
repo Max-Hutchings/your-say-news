@@ -6,6 +6,15 @@ val quarkusPlatformGroupId: String by project
 val quarkusPlatformArtifactId: String by project
 val quarkusPlatformVersion: String by project
 
+sourceSets {
+    main {
+        resources.srcDir(rootProject.file("liquibase/changelog"))
+    }
+    test {
+        resources.srcDir(rootProject.file("liquibase/test"))
+    }
+}
+
 dependencies {
     implementation(enforcedPlatform("$quarkusPlatformGroupId:$quarkusPlatformArtifactId:$quarkusPlatformVersion"))
     implementation(enforcedPlatform("$quarkusPlatformGroupId:quarkus-amazon-services-bom:$quarkusPlatformVersion"))

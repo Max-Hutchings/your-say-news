@@ -13,5 +13,4 @@ pluginManagement {
 
 rootProject.name = "yoursay"
 
-include("user-service")
 include("post-service")

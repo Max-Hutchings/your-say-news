@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="0008-seed-more-multiple-choice-posts" author="codex" context="seed">
+        <comment>
+            Convert three existing, previously unvoted fixtures into four-option questions and add
+            deterministic identity-free votes so every result visualisation has meaningful data.
+        </comment>
+        <sql splitStatements="true"><![CDATA[
+            UPDATE post
+               SET voting_type = 'MULTIPLE_CHOICE',
+                   support_question = CASE id
+                       WHEN 1003 THEN 'How should schools make AI tutoring available to pupils?'
+                       WHEN 1012 THEN 'When should routine hospital outpatient appointments be available?'
+                       WHEN 1039 THEN 'How should rural public transport be supported?'
+                   END
+             WHERE id IN (1003, 1012, 1039);
+
+            DELETE FROM post_vote_option WHERE post_id IN (1003, 1012, 1039);
+
+            INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key) VALUES
+                (1003, 'Give every pupil access', 0, NULL),
+                (1003, 'Target pupils who need extra support', 1, NULL),
+                (1003, 'Let teachers approve use case by case', 2, NULL),
+                (1003, 'Do not provide AI tutors', 3, NULL),
+                (1012, 'Weekdays during working hours', 0, NULL),
+                (1012, 'Add weekday evening appointments', 1, NULL),
+                (1012, 'Open on weekdays and Saturdays', 2, NULL),
+                (1012, 'Run appointments seven days a week', 3, NULL),
+                (1039, 'Permanently subsidise fixed bus routes', 0, NULL),
+                (1039, 'Use demand-responsive minibuses', 1, NULL),
+                (1039, 'Fund community-run transport', 2, NULL),
+                (1039, 'Leave provision to commercial operators', 3, NULL);
+
+            INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot)
+            SELECT 1003, 202000 + n,
+                   (SELECT id
+                      FROM post_vote_option
+                     WHERE post_id = 1003
+                       AND ordinal = CASE
+                           WHEN n < 7 THEN 0
+                           WHEN n < 12 THEN 1
+                           WHEN n < 15 THEN 2
+                           ELSE 3
+                       END),
+                   jsonb_build_object(
+                       'education', CASE WHEN n % 2 = 0 THEN 'HIGH_SCHOOL' ELSE 'BACHELORS' END)
+              FROM generate_series(0, 15) n;
+
+            INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot)
+            SELECT 1012, 203000 + n,
+                   (SELECT id
+                      FROM post_vote_option
+                     WHERE post_id = 1012
+                       AND ordinal = CASE
+                           WHEN n < 4 THEN 0
+                           WHEN n < 9 THEN 1
+                           WHEN n < 12 THEN 2
+                           ELSE 3
+                       END),
+                   jsonb_build_object(
+                       'ageRange', CASE WHEN n % 2 = 0 THEN 'AGE_25_34' ELSE 'AGE_65_PLUS' END)
+              FROM generate_series(0, 13) n;
+
+            INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot)
+            SELECT 1039, 204000 + n,
+                   (SELECT id
+                      FROM post_vote_option
+                     WHERE post_id = 1039
+                       AND ordinal = CASE
+                           WHEN n < 6 THEN 0
+                           WHEN n < 11 THEN 1
+                           WHEN n < 14 THEN 2
+                           ELSE 3
+                       END),
+                   jsonb_build_object(
+                       'urbanRural', CASE WHEN n % 2 = 0 THEN 'RURAL' ELSE 'TOWN' END)
+              FROM generate_series(0, 14) n;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

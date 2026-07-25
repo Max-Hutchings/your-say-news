@@ -1,6 +1,6 @@
 # compose.yaml
 services:
-  # 1) App Postgres - Database for user-service and post-service
+  # 1) App Postgres - Database for post-service
   postgres:
     image: postgres:16
     container_name: app-postgres
@@ -92,7 +92,7 @@ services:
       - app-net
     restart: "no"
 
-  # 5) Liquibase migrations - applies schema (migrations/) for every service, then exits
+  # 5) Liquibase migrations - applies post-service schema, then exits
   liquibase-migrate:
     build:
       context: .

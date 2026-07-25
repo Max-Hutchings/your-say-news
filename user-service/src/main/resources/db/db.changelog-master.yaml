@@ -1,6 +1,0 @@
-# Schema migrations ONLY. No seed/test data here.
-# Run by the application (migrate-at-start) and by the dedicated migration container.
-databaseChangeLog:
-  - includeAll:
-      path: migrations
-      relativeToChangelogFile: true

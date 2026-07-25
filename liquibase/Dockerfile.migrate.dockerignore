@@ -3,5 +3,3 @@
 # Ignore everything, then re-include only the changelogs and the runner script.
 *
 !liquibase
-!user-service/src/main/resources/db
-!post-service/src/main/resources/db

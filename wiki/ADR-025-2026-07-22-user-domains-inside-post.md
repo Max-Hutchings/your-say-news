@@ -26,9 +26,11 @@ client names and method contracts remain as compatibility adapters, but they inj
 copied public domain services instead of making HTTP requests. The unused bearer arguments remain
 temporarily so callers do not need a wider signature change in this step.
 
-The post Liquibase master and seed changelogs include copies of the user migrations and fixtures.
-Those copies retain the original Liquibase logical file paths, so databases already migrated by
-`user-service` recognise the same changeSets rather than attempting to recreate tables.
+One service-independent Liquibase tree under `liquibase/changelog/db` contains the post and user
+domain migrations and fixtures. The user files retain their original Liquibase logical file paths,
+so databases already migrated by `user-service` recognise the same changeSets rather than
+attempting to recreate tables. Gradle exposes that external tree to `post-service` at build and dev
+time, while the dedicated migration and seed images copy it directly.
 
 ## Reason
 
@@ -41,8 +43,8 @@ and the existing shared database during the transition.
 
 - `post-service` requires both JDBC Hibernate ORM for the copied user domains and Hibernate
   Reactive for its existing post domains; both continue to use the shared datasource.
-- User migrations and seed files must remain synchronised in both modules until `user-service` is
-  removed.
+- Database changes have one source of truth outside the deployable service; new domain migrations
+  and fixtures must be added to the central Liquibase tree.
 - The standalone `user-service` module, configuration and source remain unchanged for now.
 - Once the combined service has been proven in development and deployment, remove the old service,
   its Compose/Liquibase pass and the now-unused compatibility parameters and REST-client

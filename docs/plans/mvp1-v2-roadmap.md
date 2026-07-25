@@ -3,6 +3,9 @@
 > This is the active MVP1 planning document. It supersedes `mvp1-roadmap.md` without
 > modifying or deleting that original plan. Stages, not dates: each stage is a buildable
 > increment that leaves the app in a demoable state.
+>
+> Current implementation gaps are tracked in
+> [`mvp1-v2-remaining-work.md`](mvp1-v2-remaining-work.md).
 
 ## What changed from MVP1 v1
 
@@ -24,6 +27,9 @@
   milestones, stored in Postgres and reused until a later milestone produces a newer analysis.
 - **The final slide offers a second vote.** This follow-up response is captured separately and never
   changes the original vote or any canonical aggregate. Personalised analysis is deferred.
+- **The `ysn` official account can publish autonomously.** An admin-only server endpoint triggers a
+  new `ysnagent` to research current top stories, choose a topic, obtain a complete post from
+  `postagent`, validate it and publish directly as `ysn`; no client interface is required.
 
 ## Product decisions locked for MVP1 v2
 
@@ -35,7 +41,8 @@
 | Post-vote experience | **Post Unwrapped replaces the raw results landing page.** | Direct aggregate exploration can remain accessible from the story. |
 | Analysis | **Aggregate-only agent analysis, cached by vote milestone.** | User-specific stories are deferred until the audience is large enough to justify them. |
 | Feed discovery | **Categories first; no “For You” page in MVP1.** Keep Following/Latest chronological with an official-follow boost. Category feeds rank posts by popularity within the selected canonical topic, tempered by recency, and strongly suppress posts already shown to that user. | A behavioural/personalised recommender is deferred. Feed code remains behind an interface. |
-| Unbiased Post agent | **Grok + live web search** inside the `post-service` `agent` domain pulls real sources at creation time, then synthesises summary, supporting arguments, a support question, voting type and valid ordered options. | Official-operated only. Sources always linked; latency handled with durable async jobs. |
+| Unbiased Post agent | **Grok + live web search** inside the `post-service` `agents.postagent` domain pulls real sources at creation time, then synthesises summary, supporting arguments, a support question, voting type and valid ordered options. | Official-operated only. Sources always linked; latency handled with durable async jobs. |
+| YSN official agent | **Admin-triggered, server-side autonomous publication** in `agents.ysnagent`. It researches current stories, selects a non-duplicate topic, delegates full post writing to `postagent`, validates the result and publishes as the fixed `ysn` official account. | One `202` trigger endpoint for MVP1 v2; no UI or recurring schedule. |
 | Post media | **Images + video** via the existing S3/LocalStack setup. | Video needs an upload plus basic transcode/poster path. |
 | Privacy guard | **Aggregate-only, no minimum bucket threshold** for MVP1. | Re-identification risk remains on tiny buckets. Build `suppressBelow=k` as a configuration flip and revisit before release. The analysis agent must not narrate suppressed or statistically unsafe cohorts. |
 
@@ -85,8 +92,8 @@ architecture decision is recorded in
 
 - `user-service` (:8081) — domains `user`, `usercharacteristic`.
 - `post-service` (:8082) — domains `posts`, `votes` (vote scaffolding present:
-  `model`/`service`/`client`). Votes stay here; `feed`, `topics`, post-creation `agent`, and the new
-  vote `analysis` domain are siblings.
+  `model`/`service`/`client`). Votes stay here; `feed`, `topics`, the role-specific
+  `agents.postagent`, `agents.unwrappedagent` and planned `agents.ysnagent` subdomains are siblings.
 - Keycloak auth with realm + test users auto-imported; mobile auth (`features/auth`) wired with a
   bearer-injecting HTTP client.
 - Onboarding characteristic option sets exist on the frontend
@@ -122,7 +129,7 @@ Lock the cross-cutting pieces every later stage depends on.
   | Service | Port | Domains it owns |
   | --- | --- | --- |
   | `user-service` | 8081 | `user` (identity/PII, private voter account, official publication profile, account type and publisher status), `usercharacteristic`, `social` (users following official accounts) |
-  | `post-service` | 8082 | `posts`, `votes` (canonical/follow-up votes + aggregation), `feed`, `topics`, `agent` (official post creation), `analysis` (cached post-vote stories) |
+  | `post-service` | 8082 | `posts`, `votes` (canonical/follow-up votes + aggregation), `feed`, `topics`, `agents.postagent` (official post creation), `agents.unwrappedagent` (cached post-vote stories), `agents.ysnagent` (admin-triggered official publication) |
 
   `votes` remains beside the content and stores vote-time characteristic snapshots. `analysis`
   consumes only the public aggregate contract from `votes`; keeping it separate prevents agent
@@ -357,8 +364,8 @@ immediate repetition, and a new user can select private topic interests.
 
 Retain the differentiating creation agent, but make the entire flow official-operated.
 
-- **`post-service` `agent` domain** — configurable Grok models, balanced-reporting prompt and live
-  web search.
+- **`post-service` `agents.postagent` domain** — configurable Grok models, balanced-reporting prompt
+  and live web search.
 - **Official conversational creation flow** — an authorised publisher speaks/types the subject; the
   agent produces a neutral summary, what each side believes, linked sources and a support question.
 - Every agent draft includes a proposed voting type and complete ordered option set. Binary drafts
@@ -378,11 +385,44 @@ publishes it with the badge, and users vote and receive Post Unwrapped.
 
 ---
 
-## Stage 9 — Hardening for MVP1 release
+## Stage 9 — The YSN official publishing agent
+
+Add a distinct server-side orchestrator at `com.yoursay.agents.ysnagent`.
+
+- **Admin-only trigger** — `POST /admin/ysn-agent/posts` requires the existing Keycloak `admin`
+  realm role, persists a durable job and returns `202 Accepted`. The request cannot choose the topic
+  or author.
+- **Current-story research and selection** — discover fresh, credible and corroborated top stories,
+  store an auditable candidate/source set, reject recent semantic duplicates and select one topic
+  suitable for a meaningful support question.
+- **Delegate writing** — pass the selected topic brief to `postagent` through its public Java
+  contract and receive the complete sourced post directly. Do not call its HTTP API, repositories
+  or generator internals.
+- **Fail-closed validation** — require every post field, valid binary or ordered multiple-choice
+  voting options, complete source metadata and verified claim citations before publication.
+- **Direct official publication** — publish idempotently through the public `posts` contract as the
+  fixed application account with handle `ysn`, which must still be active,
+  `OFFICIAL` and an `ACTIVE` publisher. The triggering admin is audit data, never the author.
+- **Server only** — no mobile/web route, review screen or progress interface. Jobs, failures and
+  published post IDs are observable through persistence, logs, traces and metrics.
+- **Rights-safe media boundary** — text-only publication is valid; do not automatically republish
+  arbitrary web-search images.
+
+The detailed contract, states, persistence and tests are in
+[`ysnagent-official-publishing.md`](ysnagent-official-publishing.md). The architecture decision is
+recorded in
+[`ADR-027`](../../wiki/ADR-027-2026-07-24-server-ysn-agent-publishing.md).
+
+**Demoable:** an admin calls one endpoint; the server selects a current sourced story, obtains and
+validates a full post, and exactly one new post appears under the `ysn` official profile.
+
+---
+
+## Stage 10 — Hardening for MVP1 release
 
 - **Tests:** Quarkus + Testcontainers for every domain and React Testing Library for onboarding,
   official publishing authorisation, both voting types, option validation, breakdowns, Post
-  Unwrapped, follow-up vote isolation, feeds, topics and both agent flows. Run `test-audit` after
+  Unwrapped, follow-up vote isolation, feeds, topics and all three agent flows. Run `test-audit` after
   each changed suite.
 - **Authorisation audit:** prove an ordinary authenticated user cannot create, upload, generate,
   approve, update or publish a post; prove an authorised official can; prove public signup cannot
@@ -461,9 +501,10 @@ Stage 0 (contracts + publisher decision)
   → 5 (Post Unwrapped + cached analysis + follow-up vote)
 
 Stage 2 → 6 (official profiles/follows/feed) → 7 (topics)
-Stage 2 → 8 (official post agent); its published posts rejoin Stages 3–5
+Stage 2 → 8 (official post agent) → 9 (YSN autonomous publisher)
+Stages 8–9 published posts rejoin Stages 3–5
 Workstream T spans Stages 1–5 and gates meaningful Stage 4/5 verification
-Stage 9 hardening is continuous and gates release
+Stage 10 hardening is continuous and gates release
 ```
 
 Stages 4 and 6 can proceed in parallel after the required post/vote foundations land. The analysis
@@ -480,16 +521,19 @@ Stage 4 aggregate source and Workstream T fixtures are proven.
    observation, context and hypothesis.
 3. **Agent quality, sources, latency and cost** — both creation and analysis agents need durable
    async work, citation checks, monitoring and versioned caching.
-4. **Publisher-authorisation drift** — all posting write endpoints must use the ADR-023 database
+4. **Autonomous editorial mistakes or duplicate coverage** — `ysnagent` can publish without human
+   review, so current-story selection, citation validation, recent-topic deduplication, fixed-author
+   checks and fail-closed publication must all be auditable and idempotent.
+5. **Publisher-authorisation drift** — all posting write endpoints must use the ADR-023 database
    rule; do not introduce a competing Keycloak role or client-only check.
-5. **Follow-up contamination** — the Post Unwrapped second vote must be physically and logically
+6. **Follow-up contamination** — the Post Unwrapped second vote must be physically and logically
    separate from canonical aggregates and analysis milestone counts.
-6. **Characteristic snapshot correctness** — later profile changes must not rewrite history.
-7. **Characteristic coverage frozen too early** — adding high-signal axes later requires
+7. **Characteristic snapshot correctness** — later profile changes must not rewrite history.
+8. **Characteristic coverage frozen too early** — adding high-signal axes later requires
    re-onboarding and fixture changes.
-8. **Topic feedback loops** — correctable labels, recency-aware ranking, repeat suppression and
+9. **Topic feedback loops** — correctable labels, recency-aware ranking, repeat suppression and
    observability remain essential.
-9. **Option integrity** — changing, deleting or reordering options after voting would corrupt the
+10. **Option integrity** — changing, deleting or reordering options after voting would corrupt the
    meaning of historical results. Keep voting type/options immutable after creation and validate
    every selected option against its post inside the vote transaction.
 
@@ -501,3 +545,5 @@ Stage 4 aggregate source and Workstream T fixtures are proven.
 - Multi-select, ranked-choice, write-in and user-authored voting options.
 - A cross-category behavioural “For You” recommender.
 - Self-service staff/publisher administration UI; future admin permissions require a separate ADR.
+- A `ysnagent` client interface, recurring schedule, caller-supplied topic or automated use of
+  arbitrary web-search images.

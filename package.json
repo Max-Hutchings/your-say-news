@@ -2,7 +2,7 @@
   "name": "your-say-news-dev",
   "version": "1.0.0",
   "private": true,
-  "description": "Local dev tooling for Your Say News. Runs Docker Compose, both Quarkus services, and Expo in one mprocs TUI.",
+  "description": "Local dev tooling for Your Say News. Runs Docker Compose, post-service, and Expo in one mprocs TUI.",
   "scripts": {
     "prepare": "husky",
     "dev": "./scripts/start-dev.sh",

@@ -28,23 +28,20 @@ personalisation data owned by the `post-service` `topics` domain. Never put them
 
 ## Tech stack
 
-- **Backend:** Quarkus (latest release), Java 25, Gradle (Kotlin DSL) multi-module. Group id `com.yoursay`.
-  Modules today: `user-service` (port 8081), `post-service` (port 8082). During the transition in
-  ADR-025, `post-service` also contains copied `user`, `usercharacteristic` and `social` domains and
-  calls them through local adapters; the standalone `user-service` remains until that combined
-  deployment is proven. MVP1 keeps strict DDD *domains* inside each deployable (so a domain can be
-  extracted later as a near-mechanical package move). `post-service` also owns `posts`, `votes`,
-  `feed`, `topics`, and the `agents` package, whose role-specific subdomains are `postagent` and
-  `unwrappedagent`. The Stage 7 unbiased-post agent
-  remains a DDD subdomain inside `post-service` — see
-  `docs/plans/mvp1-roadmap.md`.
+- **Backend:** Quarkus (latest release), Java 25, Gradle (Kotlin DSL). Group id `com.yoursay`.
+  The sole backend deployable is `post-service` (port 8082). It keeps strict DDD domains so each can
+  be extracted later as a near-mechanical package move: `user` (containing the `user`,
+  `usercharacteristic` and `social` subdomains), `posts`, `votes`, `feed`, `topics`, and the
+  `agents` namespace, whose role-specific subdomains are `postagent`, `unwrappedagent` and the
+  planned `ysnagent`. The official agents remain DDD subdomains inside `post-service` — see
+  `docs/plans/mvp1-v2-roadmap.md`.
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
   Routing via `expo-router` (file-based, with route groups like `(protected)`).
   Styling via NativeWind/Tailwind + a shared theme under `constants/theme`.
 - **Auth:** Keycloak. A realm with **real test data** is imported on first startup
   (`keycloak/realm-export.json`); the `keycloak-seed-users` Compose job reconciles its users into
   an already-persisted realm on later startups.
-- **Storage:** Postgres (one DB for the app services, a separate DB for Keycloak).
+- **Storage:** Postgres (one DB for the app, a separate DB for Keycloak).
   S3 via LocalStack for post video/image assets.
 - **DB migrations:** Liquibase.
 - **Telemetry:** Quarkus exports OpenTelemetry traces/logs and Micrometer metrics via
@@ -61,28 +58,27 @@ Use **Bun** for JavaScript package installs and scripts in this repo. Prefer `bu
 
 ```shell
 bun install                           # one-time: installs the pinned mprocs dev runner at the repo root
-bun run dev                           # Compose infra + both Quarkus services + Expo, in one mprocs TUI
-bun run test                          # three test panes; backend Testcontainers + frontend Jest, no Compose startup
-./gradlew :user-service:quarkusDev    # OR a single service in dev mode (swap the module path)
+bun run dev                           # Compose infra + post-service + Expo, in one mprocs TUI
+bun run test                          # backend Testcontainers + frontend Jest, no Compose startup
+./gradlew :post-service:quarkusDev    # run the backend service directly
 ```
 
 `bun run dev` runs [mprocs](https://github.com/pvolok/mprocs) (config in `mprocs.yaml`), which launches
-Compose with `--build`, `user-service` (:8081), `post-service` (:8082) and the Expo frontend (:5173)
-— each in its own pane. Rebuilding on startup ensures the Liquibase migration and seed images always
-contain the current changelog files. Its startup script first verifies that Docker Desktop's daemon
-and Docker Compose are available. The application panes wait for Compose to become ready. When the
-Compose process is selected, `r` runs `docker compose down` and brings the stack back up with a
-rebuild; on other selected processes, `r` retains mprocs' normal focused-process restart behavior.
-`q` quits all processes and brings the Compose stack down. Docker volumes are preserved by both
-operations. Before
-each application pane starts, mprocs terminates any existing listener on its assigned port (`8081`,
-`8082` or `5173`) so stale local dev processes do not block startup.
+Compose with `--build`, `post-service` (:8082) and the Expo frontend (:5173), each in its own pane.
+Rebuilding on startup ensures the Liquibase migration and seed images always contain the current
+changelog files. Its startup script first verifies that Docker Desktop's daemon and Docker Compose
+are available. The application panes wait for Compose to become ready. When the Compose process is
+selected, `r` runs `docker compose down` and brings the stack back up with a rebuild; on other
+selected processes, `r` retains mprocs' normal focused-process restart behavior. `q` quits all
+processes and brings the Compose stack down. Docker volumes are preserved by both operations.
+Before each application pane starts, mprocs terminates any existing listener on its assigned port
+(`8082` or `5173`) so stale local dev processes do not block startup.
 
-`bun run test` uses the separate `mprocs.test.yaml` config to run `user-service`, `post-service` and
-frontend tests in three independent panes. Backend tests use Testcontainers and random Quarkus HTTP
-ports; the test runner does not invoke Docker Compose. Select a pane and press `r` to rerun only that
-suite. Completed panes remain open with an explicit PASS/FAIL result; `bun run tests` is supported as
-an alias.
+`bun run test` uses the separate `mprocs.test.yaml` config to run `post-service` and frontend tests
+in independent panes. Backend tests use Testcontainers and random Quarkus HTTP ports; the test
+runner does not invoke Docker Compose. Select a pane and press `r` to rerun only that suite.
+Completed panes remain open with an explicit PASS/FAIL result; `bun run tests` is supported as an
+alias.
 
 Seed data is injected automatically on Compose startup (see DB section). Keycloak comes up with
 its realm and test users imported or reconciled from the realm export.
@@ -138,8 +134,8 @@ Rules:
    — tech-driven design inside the domain, domain-driven design at the top.
 
 The deliberate exception is `com.yoursay.agents`: it is a namespace for role-specific agent
-subdomains. `postagent` and `unwrappedagent` are separate domain boundaries beneath it, and each
-follows the public-face/internal-subpackage rules above independently.
+subdomains. `postagent`, `unwrappedagent` and the planned `ysnagent` are separate domain boundaries
+beneath it, and each follows the public-face/internal-subpackage rules above independently.
 
 > Current code is mid-migration toward this. When you touch a domain, move it toward the structure
 > above — controllers, public interfaces and DTOs flattened to the domain's top level, everything
@@ -264,45 +260,51 @@ directly. When you add a domain, follow the same shape and keep `app/` thin (rou
   navigation). Both concise, both pinning expected output, both covering the meaningful edges
   (empty/error/loading states) — not coverage-chasing.
 
-## Database: Liquibase migrations + seeding
+## Database: central Liquibase migrations + seeding
 
 Migrations and seed data are **separate concerns with separate delivery**:
 
-- Under each service's `src/main/resources/db/`, keep two folders:
+- Keep the changelog outside application services under `liquibase/changelog/db/`:
   - **`migrations/`** — schema changes (DDL). The real, production-bound migrations.
   - **`seeding/`** — test/seed data inserts only.
+- User-domain migrations and fixtures live in the sibling `user-migrations/` and
+  `user-seeding/` folders in the same central tree.
 - **Migrations run via their own dedicated container** (separate Dockerfile) — schema changes are
-  deployed independently of the running services.
+  deployed independently of the running service.
 - **Seeding runs via its own dedicated container** (separate Dockerfile) and executes
   **automatically on `docker compose up`** so local/test environments come up with data.
 - Never mix seed-data inserts into a schema changeSet.
 
-Layout now in place (per service):
+Layout now in place:
 
 ```
-src/main/resources/db/
+liquibase/changelog/db/
   db.changelog-master.yaml|.xml   <- includes migrations/ ONLY (used by the app at start)
   db.changelog-seed.yaml|.xml     <- includes seeding/ ONLY (used by the seeding container)
+  user-migrations/                <- schema changeSets for the user domains
   migrations/                     <- schema changeSets
+  user-seeding/                   <- seed-data changeSets for the user domains
   seeding/                        <- seed-data changeSets (tagged with context "seed")
 ```
 
-The app's `quarkus.liquibase.change-log` points at the master (migrations only), so running a
-service no longer inserts seed data itself. Seed data is applied separately via the seed
+Gradle adds `liquibase/changelog` as an external `post-service` resource directory, so the app and
+the dedicated containers consume the same files without making the changelog part of a service's
+source tree. The app's `quarkus.liquibase.change-log` points at the master (migrations only), so
+running `post-service` never inserts seed data itself. Seed data is applied separately via the seed
 changelog.
 
 The dedicated containers are wired in `compose.yaml` and run on `docker compose up`:
 
-- **`liquibase-migrate`** (`liquibase/Dockerfile.migrate`) — applies every service's master
+- **`liquibase-migrate`** (`liquibase/Dockerfile.migrate`) — applies `post-service`'s master
   changelog (migrations only) once Postgres is healthy, then exits.
-- **`liquibase-seed`** (`liquibase/Dockerfile.seed`) — applies every service's seed changelog
+- **`liquibase-seed`** (`liquibase/Dockerfile.seed`) — applies `post-service`'s seed changelog
   (context `seed`) after the migration container completes successfully, then exits.
 
 Both build from the official `liquibase/liquibase` image and share `liquibase/update.sh`, which
-runs `liquibase update` per service with a per-service `--search-path` so includeAll records the
-same `db/migrations/...` / `db/seeding/...` filenames the app records at `migrate-at-start` — the
+runs `liquibase update` with the central changelog search path so includeAll records the same
+`db/migrations/...` / `db/seeding/...` filenames the app records at `migrate-at-start` — the
 container and the app never double-run a changeSet. A per-Dockerfile `.dockerignore` overrides
-the repo-root one (which is tuned for the Quarkus jar builds).
+the repo-root one (which is tuned for the Quarkus jar build).
 
 ## Docs
 

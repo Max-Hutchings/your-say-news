@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <!-- One thousand deterministic, anonymous votes for post 1046:
+         "Should landlords insulate homes before they can raise the rent?" -->
+    <changeSet id="0009-seed-landlord-insulation-votes" author="codex" context="seed">
+        <sql splitStatements="false"><![CDATA[
+WITH profiles AS (
+    SELECT
+        n,
+        (310000 + n)::BIGINT AS user_id,
+        CASE n % 7
+            WHEN 0 THEN 'LEFT'
+            WHEN 1 THEN 'CENTRE_LEFT'
+            WHEN 2 THEN 'CENTRE'
+            WHEN 3 THEN 'CENTRE_RIGHT'
+            WHEN 4 THEN 'RIGHT'
+            WHEN 5 THEN 'NOT_POLITICAL'
+            ELSE 'NOT_SURE'
+        END AS political_persuasion,
+        CASE n % 8
+            WHEN 0 THEN 'AGE_18_19'
+            WHEN 1 THEN 'AGE_20_24'
+            WHEN 2 THEN 'AGE_25_34'
+            WHEN 3 THEN 'AGE_35_44'
+            WHEN 4 THEN 'AGE_45_54'
+            WHEN 5 THEN 'AGE_55_64'
+            WHEN 6 THEN 'AGE_65_74'
+            ELSE 'AGE_75_84'
+        END AS age_range,
+        CASE n % 5
+            WHEN 0 THEN 'WOMAN'
+            WHEN 1 THEN 'MAN'
+            WHEN 2 THEN 'NON_BINARY'
+            WHEN 3 THEN 'WOMAN'
+            ELSE 'MAN'
+        END AS gender,
+        CASE n % 10
+            WHEN 0 THEN 'SOUTH_ASIAN'
+            WHEN 1 THEN 'BLACK_AFRICAN'
+            WHEN 2 THEN 'EAST_ASIAN'
+            WHEN 3 THEN 'MIXED_MULTIPLE'
+            WHEN 4 THEN 'MIDDLE_EASTERN_NORTH_AFRICAN'
+            ELSE 'WHITE_EUROPEAN'
+        END AS race,
+        CASE n % 8
+            WHEN 0 THEN 'London'
+            WHEN 1 THEN 'Birmingham'
+            WHEN 2 THEN 'Manchester'
+            WHEN 3 THEN 'Leeds'
+            WHEN 4 THEN 'Bristol'
+            WHEN 5 THEN 'Glasgow'
+            WHEN 6 THEN 'Cardiff'
+            ELSE 'Newcastle'
+        END AS region,
+        CASE n % 4
+            WHEN 0 THEN 'URBAN'
+            WHEN 1 THEN 'URBAN'
+            WHEN 2 THEN 'SUBURBAN'
+            ELSE 'RURAL'
+        END AS urban_rural,
+        CASE n % 8
+            WHEN 0 THEN 'NO_FORMAL_QUALIFICATIONS'
+            WHEN 1 THEN 'SECONDARY_SCHOOL'
+            WHEN 2 THEN 'VOCATIONAL_TECHNICAL'
+            WHEN 3 THEN 'HIGHER_EDUCATION_BELOW_DEGREE'
+            WHEN 4 THEN 'BACHELORS'
+            WHEN 5 THEN 'MASTERS'
+            WHEN 6 THEN 'DOCTORATE'
+            ELSE 'OTHER'
+        END AS education,
+        CASE n % 8
+            WHEN 0 THEN 'STUDENT'
+            WHEN 1 THEN 'EMPLOYED_FULL_TIME'
+            WHEN 2 THEN 'EMPLOYED_PART_TIME'
+            WHEN 3 THEN 'SELF_EMPLOYED'
+            WHEN 4 THEN 'CASUAL_GIG_TEMP'
+            WHEN 5 THEN 'UNEMPLOYED_LOOKING'
+            WHEN 6 THEN 'CARER_HOMEMAKER'
+            ELSE 'RETIRED'
+        END AS occupation,
+        CASE n % 8
+            WHEN 0 THEN 'BELOW_20K'
+            WHEN 1 THEN 'BETWEEN_20K_AND_30K'
+            WHEN 2 THEN 'BETWEEN_30K_AND_40K'
+            WHEN 3 THEN 'BETWEEN_40K_AND_50K'
+            WHEN 4 THEN 'BETWEEN_50K_AND_75K'
+            WHEN 5 THEN 'BETWEEN_75K_AND_100K'
+            WHEN 6 THEN 'BETWEEN_100K_AND_150K'
+            ELSE 'BETWEEN_150K_AND_200K'
+        END AS personal_income_range,
+        CASE n % 10
+            WHEN 0 THEN 'PRIVATE_RENT'
+            WHEN 1 THEN 'PRIVATE_RENT'
+            WHEN 2 THEN 'PRIVATE_RENT'
+            WHEN 3 THEN 'PRIVATE_RENT'
+            WHEN 4 THEN 'SOCIAL_RENT'
+            WHEN 5 THEN 'OWN_MORTGAGE'
+            WHEN 6 THEN 'OWN_MORTGAGE'
+            WHEN 7 THEN 'OWN_OUTRIGHT'
+            WHEN 8 THEN 'OWN_OUTRIGHT'
+            ELSE 'LIVE_WITH_FAMILY'
+        END AS housing_status,
+        CASE n % 6
+            WHEN 0 THEN 'DETACHED'
+            WHEN 1 THEN 'SEMI_DETACHED'
+            WHEN 2 THEN 'TERRACED'
+            WHEN 3 THEN 'FLAT_APARTMENT'
+            WHEN 4 THEN 'ROOM_SHARED_HOUSE'
+            ELSE 'OTHER_UNKNOWN'
+        END AS property_type
+    FROM generate_series(0, 999) AS n
+),
+scored_profiles AS (
+    SELECT
+        *,
+        LEAST(92, GREATEST(20,
+            62
+            + CASE housing_status
+                WHEN 'PRIVATE_RENT' THEN 14
+                WHEN 'SOCIAL_RENT' THEN 12
+                WHEN 'LIVE_WITH_FAMILY' THEN 8
+                WHEN 'OWN_MORTGAGE' THEN -3
+                WHEN 'OWN_OUTRIGHT' THEN -12
+                ELSE 0
+            END
+            + CASE political_persuasion
+                WHEN 'LEFT' THEN 8
+                WHEN 'CENTRE_LEFT' THEN 5
+                WHEN 'CENTRE_RIGHT' THEN -4
+                WHEN 'RIGHT' THEN -9
+                ELSE 0
+            END
+            + CASE personal_income_range
+                WHEN 'BELOW_20K' THEN 6
+                WHEN 'BETWEEN_20K_AND_30K' THEN 5
+                WHEN 'BETWEEN_100K_AND_150K' THEN -4
+                WHEN 'BETWEEN_150K_AND_200K' THEN -7
+                ELSE 0
+            END
+            + CASE age_range
+                WHEN 'AGE_18_19' THEN 5
+                WHEN 'AGE_20_24' THEN 5
+                WHEN 'AGE_25_34' THEN 3
+                WHEN 'AGE_65_74' THEN -3
+                WHEN 'AGE_75_84' THEN -5
+                ELSE 0
+            END
+        )) AS support_threshold
+    FROM profiles
+)
+INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot)
+SELECT
+    1046,
+    user_id,
+    (SELECT id
+       FROM post_vote_option
+      WHERE post_id = 1046
+        AND semantic_key = CASE
+            WHEN ((n * 73 + 19) % 100) < support_threshold THEN 'AGREE'
+            ELSE 'DISAGREE'
+        END),
+    jsonb_build_object(
+        'politicalPersuasion', political_persuasion,
+        'ageRange', age_range,
+        'gender', gender,
+        'race', race,
+        'country', 'United Kingdom',
+        'region', region,
+        'urbanRural', urban_rural,
+        'education', education,
+        'occupation', occupation,
+        'personalIncomeRange', personal_income_range,
+        'housingStatus', housing_status,
+        'propertyType', property_type
+    )
+FROM scored_profiles
+ORDER BY user_id;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

@@ -59,7 +59,7 @@ Affected mobile features:
 
 ## Data model and migration
 
-Add `post-service/src/main/resources/db/migrations/0010-add-voting-options.xml`. Keep schema migration
+Add `liquibase/changelog/db/migrations/0010-add-voting-options.xml`. Keep schema migration
 and seed changes separate, following the existing changelog convention.
 
 ### Post voting type

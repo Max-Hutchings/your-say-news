@@ -3,11 +3,10 @@
 # under context "seed") to the shared app database, then exits. Runs on `docker compose up`
 # after the migration container so the schema already exists.
 #
-# Build context is the repo root so both services' db/ resources can be copied.
+# Build context is the repo root so the central changelog can be copied.
 FROM liquibase/liquibase:4.29
 
-COPY user-service/src/main/resources/db /liquibase/changelog/user-service/db
-COPY post-service/src/main/resources/db /liquibase/changelog/post-service/db
+COPY liquibase/changelog /liquibase/changelog
 COPY liquibase/update.sh /liquibase/update.sh
 
 # The image runs as the non-root 'liquibase' user, but COPY preserves host directory modes —
@@ -18,8 +17,7 @@ RUN chmod -R a+rX /liquibase/changelog
 USER liquibase
 
 # Seeding: seed changelogs (seeding/ only), restricted to the "seed" context.
-ENV CHANGELOG_USER=db/db.changelog-seed.yaml \
-    CHANGELOG_POST=db/db.changelog-seed.xml \
+ENV CHANGELOG_FILE=db/db.changelog-seed.xml \
     CHANGELOG_CONTEXTS=seed
 
 ENTRYPOINT ["sh", "/liquibase/update.sh"]

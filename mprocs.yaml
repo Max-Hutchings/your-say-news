@@ -4,7 +4,6 @@
 #
 # Panes (focus with arrows / mouse):
 #   - compose      : Postgres, Keycloak, LocalStack, Liquibase, and telemetry
-#   - user-service : Quarkus dev mode on :8081 (hot reload)
 #   - post-service : Quarkus dev mode on :8082 (hot reload)
 #   - expo         : Expo / React Native dev server on :5173
 #

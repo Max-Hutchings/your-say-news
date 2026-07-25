@@ -1,23 +1,22 @@
 #!/usr/bin/env sh
 # Shared Liquibase runner used by the migration and seeding containers.
 #
-# Runs `liquibase update` against the shared app database once per service.
-# Each service is given its own --search-path so the includeAll changeSets are
-# recorded under the same "db/migrations/..." / "db/seeding/..." filenames the
-# Quarkus app uses at migrate-at-start. That keeps the DATABASECHANGELOG history
-# consistent between this container and the running services (no double-runs).
+# Runs `liquibase update` against the app database from the central changelog.
+# The search path ensures includeAll changeSets are recorded under the
+# same "db/migrations/..." / "db/seeding/..." logical filenames the Quarkus app
+# uses at migrate-at-start. That keeps DATABASECHANGELOG consistent between this
+# container and the running service (no double-runs).
 #
 # Behaviour is selected by env vars (set in the respective Dockerfile):
-#   CHANGELOG_USER / CHANGELOG_POST  - changelog path per service (master vs seed)
-#   CHANGELOG_CONTEXTS               - when set (e.g. "seed"), limits which changeSets run
+#   CHANGELOG_FILE      - changelog path (master vs seed)
+#   CHANGELOG_CONTEXTS  - when set (e.g. "seed"), limits which changeSets run
 set -eu
 
 : "${DB_URL:?DB_URL is required}"
 : "${DB_USERNAME:?DB_USERNAME is required}"
 : "${DB_PASSWORD:?DB_PASSWORD is required}"
 
-CHANGELOG_USER="${CHANGELOG_USER:-db/db.changelog-master.yaml}"
-CHANGELOG_POST="${CHANGELOG_POST:-db/db.changelog-master.xml}"
+CHANGELOG_FILE="${CHANGELOG_FILE:-db/db.changelog-master.xml}"
 
 # Seed mode only: forget prior seeding changeSets so every one re-runs on the next update. Combined
 # with the 0000-reset-seed-data changeSets (which TRUNCATE first), this makes each seed run a clean
@@ -51,10 +50,7 @@ if [ -n "${CHANGELOG_CONTEXTS:-}" ]; then
   reset_seed_history
 fi
 
-echo "==> user-service: $CHANGELOG_USER"
-run /liquibase/changelog/user-service "$CHANGELOG_USER"
-
-echo "==> post-service: $CHANGELOG_POST"
-run /liquibase/changelog/post-service "$CHANGELOG_POST"
+echo "==> central changelog: $CHANGELOG_FILE"
+run /liquibase/changelog "$CHANGELOG_FILE"
 
 echo "==> Liquibase run complete."

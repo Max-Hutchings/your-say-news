@@ -6,8 +6,8 @@ sync by email**:
 - **Keycloak** — `keycloak/realm-export.json`, realm `your-say-news`. A new realm is imported on
   first startup; on later startups, `keycloak-seed-users` reconciles the export's users into the
   persisted realm without replacing separately registered users.
-- **Database** — the user-service seed changelogs under
-  `user-service/src/main/resources/db/seeding/` (applied by the seeding step). Base users are in
+- **Database** — the user-domain seed changelogs under
+  `liquibase/changelog/db/user-seeding/` (applied by the seeding step). Base users are in
   `0001`, additional active accounts in `0003`, the clean onboarding account in `0004`, and
   official publisher classifications in `0005`. The profiled standard reader is in `0006`.
 
