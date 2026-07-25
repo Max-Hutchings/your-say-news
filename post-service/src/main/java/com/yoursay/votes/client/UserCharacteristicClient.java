@@ -80,6 +80,8 @@ public class UserCharacteristicClient {
                 dto.disabilityType(),
                 dto.housingStatus(),
                 dto.propertyType(),
+                dto.balancedNewsViewpoint(),
+                dto.mainstreamNewsPercent(),
                 dto.personalIncomeTier(),
                 dto.householdIncomeTier());
     }

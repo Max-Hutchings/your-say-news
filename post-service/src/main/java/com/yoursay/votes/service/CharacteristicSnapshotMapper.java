@@ -44,7 +44,7 @@ public final class CharacteristicSnapshotMapper {
                 view.weightRange(),
                 view.eyeColor(),
                 view.parent(),
-                view.newsFrequency() == null ? null : String.valueOf(view.newsFrequency()),
+                newsFrequencyBand(view.newsFrequency()),
                 view.hasPet() == null ? null : String.valueOf(view.hasPet()),
                 joined(view.petType()),
                 view.chronotype(),
@@ -54,7 +54,14 @@ public final class CharacteristicSnapshotMapper {
                 view.hasDisability() == null ? null : String.valueOf(view.hasDisability()),
                 joined(view.disabilityType()),
                 view.housingStatus(),
-                view.propertyType()
+                view.propertyType(),
+                copied(view.race()),
+                copied(view.citizenship()),
+                copied(view.petType()),
+                copied(view.neurodivergenceType()),
+                copied(view.disabilityType()),
+                view.balancedNewsViewpoint() == null ? null : String.valueOf(view.balancedNewsViewpoint()),
+                mainstreamBand(view.mainstreamNewsPercent())
         );
     }
 
@@ -78,5 +85,26 @@ public final class CharacteristicSnapshotMapper {
                 .sorted()
                 .reduce((left, right) -> left + "+" + right)
                 .orElse(null);
+    }
+
+    private static List<String> copied(List<String> values) {
+        return values == null ? List.of() : values.stream().distinct().sorted().toList();
+    }
+
+    static String newsFrequencyBand(Integer value) {
+        if (value == null) return null;
+        if (value <= 2) return "0_2";
+        if (value <= 5) return "3_5";
+        if (value <= 8) return "6_8";
+        return "9_10";
+    }
+
+    static String mainstreamBand(Integer value) {
+        if (value == null) return null;
+        if (value <= 24) return "0_24";
+        if (value <= 49) return "25_49";
+        if (value == 50) return "50";
+        if (value <= 75) return "51_75";
+        return "76_100";
     }
 }

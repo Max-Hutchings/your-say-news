@@ -33,6 +33,9 @@ public class Post extends PanacheEntityBase {
     @Column(name = "case_against", columnDefinition = "text")
     private String caseAgainst;
 
+    @Column(name = "jurisdiction", nullable = false, length = 32)
+    private String jurisdiction = "GLOBAL";
+
     @Enumerated(EnumType.STRING)
     @Column(name = "voting_type", nullable = false, length = 32)
     private VotingType votingType = VotingType.BINARY;
@@ -136,6 +139,14 @@ public class Post extends PanacheEntityBase {
 
     public void setCaseAgainst(String caseAgainst) {
         this.caseAgainst = caseAgainst;
+    }
+
+    public String getJurisdiction() {
+        return jurisdiction;
+    }
+
+    public void setJurisdiction(String jurisdiction) {
+        this.jurisdiction = jurisdiction;
     }
 
     public boolean isUnbiased() {

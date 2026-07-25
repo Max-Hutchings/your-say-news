@@ -36,7 +36,9 @@ public class SentimentTally {
         List<VoteOptionDto> active = activeOptions(options, votes);
         Map<String, List<VoteSnapshot>> grouped = new LinkedHashMap<>();
         for (VoteSnapshot vote : votes) {
-            grouped.computeIfAbsent(vote.snapshot().bucketFor(axis), ignored -> new ArrayList<>()).add(vote);
+            for (String bucket : vote.snapshot().bucketsFor(axis)) {
+                grouped.computeIfAbsent(bucket, ignored -> new ArrayList<>()).add(vote);
+            }
         }
         List<BucketSentiment> surfaced = new ArrayList<>();
         long suppressed = 0;

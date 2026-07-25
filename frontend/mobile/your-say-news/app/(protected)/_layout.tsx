@@ -30,6 +30,7 @@ export default function ProtectedLayout() {
             <Stack.Screen name="profiles/[userId]/index" />
             <Stack.Screen name="profiles/[userId]/connections" />
             <Stack.Screen name="profiles/me" />
+            <Stack.Screen name="posts/[postId]/unwrapped" />
             <Stack.Screen name="account" options={{ presentation: "modal" }} />
             <Stack.Screen name="settings" />
             <Stack.Screen

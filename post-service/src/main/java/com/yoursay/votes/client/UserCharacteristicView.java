@@ -47,6 +47,8 @@ public record UserCharacteristicView(
         List<String> disabilityType,
         String housingStatus,
         String propertyType,
+        Boolean balancedNewsViewpoint,
+        Integer mainstreamNewsPercent,
         String personalIncomeTier,
         String householdIncomeTier
 ) {
@@ -68,6 +70,6 @@ public record UserCharacteristicView(
                 universitySubject, personalIncomeRange, householdIncomeRange, height, weightRange,
                 eyeColor, parent, newsFrequency, hasPet, petType, chronotype, outlook,
                 neurodivergent, neurodivergenceType, hasDisability, disabilityType, housingStatus,
-                propertyType, null, null);
+                propertyType, null, null, null, null);
     }
 }

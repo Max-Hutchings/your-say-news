@@ -97,6 +97,9 @@ The Unwrapped domain may not import vote repositories or vote entities.
 
 The complete snapshot is produced from one consistent database view and persisted before external
 research begins. A hash of its canonical JSON is the aggregate version used for audit and caching.
+Capture runs in a repeatable-read transaction. The canonical hash excludes delivery metadata such
+as `capturedAt` and the hash field itself, so unchanged post/vote data always produces the same
+aggregate version while the returned snapshot still records when it was captured.
 
 ### Direct-result suppression and agent narration
 

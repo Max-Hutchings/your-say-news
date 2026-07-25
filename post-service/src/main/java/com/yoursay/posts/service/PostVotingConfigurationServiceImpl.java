@@ -25,7 +25,8 @@ public class PostVotingConfigurationServiceImpl implements PostVotingConfigurati
     public Optional<PostVotingConfigurationDto> findByPostId(Long postId) {
         if (postId == null) return Optional.empty();
         String sql = """
-                select p.voting_type, o.id, o.label, o.ordinal, o.semantic_key
+                select p.summary, p.support_question, p.jurisdiction, p.voting_type,
+                       o.id, o.label, o.ordinal, o.semantic_key
                 from post p
                 left join post_vote_option o on o.post_id = p.id
                 where p.id = ?
@@ -36,9 +37,17 @@ public class PostVotingConfigurationServiceImpl implements PostVotingConfigurati
             statement.setLong(1, postId);
             try (ResultSet rows = statement.executeQuery()) {
                 VotingType type = null;
+                String summary = null;
+                String question = null;
+                String jurisdiction = null;
                 List<VoteOptionDto> options = new ArrayList<>();
                 while (rows.next()) {
-                    if (type == null) type = VotingType.valueOf(rows.getString("voting_type"));
+                    if (type == null) {
+                        type = VotingType.valueOf(rows.getString("voting_type"));
+                        summary = rows.getString("summary");
+                        question = rows.getString("support_question");
+                        jurisdiction = rows.getString("jurisdiction");
+                    }
                     Long optionId = rows.getObject("id", Long.class);
                     if (optionId != null) {
                         options.add(new VoteOptionDto(optionId, rows.getString("label"),
@@ -47,7 +56,8 @@ public class PostVotingConfigurationServiceImpl implements PostVotingConfigurati
                 }
                 return type == null
                         ? Optional.empty()
-                        : Optional.of(new PostVotingConfigurationDto(postId, type, List.copyOf(options)));
+                        : Optional.of(new PostVotingConfigurationDto(
+                                postId, summary, question, jurisdiction, type, List.copyOf(options)));
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Could not read post voting configuration", e);

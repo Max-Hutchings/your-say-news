@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import type { VoteOption, VotingType } from "@/features/posts";
 import { useVote } from "../hooks/use-vote";
 import type { VoteErrorKind } from "../types";
 import { MultipleChoiceVoteSheet } from "./MultipleChoiceVoteSheet";
-import { SentimentResultsSheet } from "./SentimentResultsSheet";
 
-export function VoteControls({ postId, votingType, options, supportQuestion, onNextPost }: {
+export function VoteControls({ postId, votingType, options, supportQuestion }: {
   postId: number;
   votingType: VotingType;
   options: VoteOption[];
@@ -17,15 +17,15 @@ export function VoteControls({ postId, votingType, options, supportQuestion, onN
 }) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
+  const router = useRouter();
   const { loading, myVote, locked, submitting, error, vote } = useVote(postId);
   const [choiceOpen, setChoiceOpen] = useState(false);
-  const [resultsOpen, setResultsOpen] = useState(false);
   const selected = options.find((option) => option.id === myVote);
 
   const record = async (optionId: number) => {
     if (await vote(optionId)) {
       setChoiceOpen(false);
-      setResultsOpen(true);
+      router.push(`/posts/${postId}/unwrapped` as Href);
     }
   };
 
@@ -64,7 +64,8 @@ export function VoteControls({ postId, votingType, options, supportQuestion, onN
       ) : null}
 
       {locked && (
-        <Pressable testID="see-results" accessibilityRole="button" onPress={() => setResultsOpen(true)}
+        <Pressable testID="see-results" accessibilityRole="button"
+          onPress={() => router.push(`/posts/${postId}/unwrapped` as Href)}
           style={[styles.resultsBtn, { borderColor: e.border, backgroundColor: e.surface }]}>
           <Ionicons name="stats-chart" size={16} color={e.teal} />
           <Text style={[styles.resultsText, { color: e.ink }]}>See how others voted</Text>
@@ -74,8 +75,6 @@ export function VoteControls({ postId, votingType, options, supportQuestion, onN
       <MultipleChoiceVoteSheet visible={choiceOpen} supportQuestion={supportQuestion}
         options={options} submitting={submitting} error={error}
         onSubmit={(optionId) => void record(optionId)} onClose={() => setChoiceOpen(false)} />
-      <SentimentResultsSheet postId={postId} visible={resultsOpen} onClose={() => setResultsOpen(false)}
-        onNextPost={onNextPost} />
     </View>
   );
 }

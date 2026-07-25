@@ -1,5 +1,9 @@
 # ADR-022 — Grok agent in post-service
 
+Partially superseded by
+[ADR-032](ADR-032-2026-07-25-top-level-unwrapped-domain.md), which moves Post Unwrapped to the
+top-level `com.yoursay.unwrapped` domain. The `postagent` decision here remains active.
+
 ## Situation
 
 MVP1 Stage 7 creates sourced, balanced post drafts through live web research. The roadmap originally

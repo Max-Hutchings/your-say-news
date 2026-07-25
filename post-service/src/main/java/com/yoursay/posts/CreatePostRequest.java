@@ -23,6 +23,9 @@ public record CreatePostRequest(
         String caseFor,
         @Size(max = 512)
         String caseAgainst,
+        /** ISO 3166 country code, governed region code, or GLOBAL. Defaults to GLOBAL. */
+        @Size(max = 32)
+        String jurisdiction,
         VotingType votingType,
         @Size(max = 5)
         List<@NotNull @Valid VoteOption> voteOptions,

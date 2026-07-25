@@ -46,6 +46,7 @@ export interface Post {
   /** Optional one-line arguments shown as the "case for" / "case against" cards. */
   caseFor: string | null;
   caseAgainst: string | null;
+  jurisdiction?: string;
   votingType: VotingType;
   voteOptions: VoteOption[];
   /** Only the Stage 7 agent sets this true; it drives the unbiased badge. */
@@ -72,6 +73,7 @@ export interface CreatePostInput {
   supportQuestion: string;
   caseFor: string | null;
   caseAgainst: string | null;
+  jurisdiction?: string;
   votingType: VotingType;
   voteOptions: { label: string }[];
   media: CreatePostMedia[];

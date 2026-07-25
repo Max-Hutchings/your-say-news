@@ -145,33 +145,40 @@ class LocalUserDomainIntegrationTest {
                           "sexualOrientation": "STRAIGHT_HETEROSEXUAL",
                           "maritalStatus": "SINGLE",
                           "race": "WHITE_EUROPEAN",
+                          "raceMemberships": ["WHITE_EUROPEAN"],
                           "country": "United Kingdom",
                           "region": null,
                           "urbanRural": "URBAN",
                           "ukCounty": "BRISTOL",
                           "countryOfBirth": "UNITED_KINGDOM",
                           "citizenship": "BRITISH",
+                          "citizenshipMemberships": ["BRITISH"],
                           "religion": "NO_RELIGION",
                           "religiosity": "NOT_RELIGIOUS",
                           "education": "BACHELORS",
                           "occupation": "EMPLOYED_FULL_TIME",
                           "employmentSector": "IT_TECHNOLOGY",
                           "universitySubject": "COMPUTER_SCIENCE",
-                          "personalIncomeRange": "BETWEEN_50K_AND_75K",
-                          "householdIncomeRange": "BETWEEN_100K_AND_150K",
+                          "personalIncomeRange": "LEGACY_BETWEEN_50K_AND_75K",
+                          "householdIncomeRange": "LEGACY_BETWEEN_100K_AND_150K",
                           "height": "FEET_5_10_TO_6_0",
                           "weightRange": "KG_80_89",
                           "eyeColor": "BROWN",
                           "parent": "NOT_PARENT_CAREGIVER",
-                          "newsFrequency": "8",
+                          "newsFrequency": "6_8",
+                          "balancedNewsViewpoint": "true",
+                          "mainstreamNewsPercent": "51_75",
                           "hasPet": "true",
                           "petType": "DOG",
+                          "petTypeMemberships": ["DOG"],
                           "chronotype": "NIGHT_OWL",
                           "outlook": "OPTIMIST",
                           "neurodivergent": "false",
                           "neurodivergenceType": null,
+                          "neurodivergenceTypeMemberships": [],
                           "hasDisability": "false",
                           "disabilityType": null,
+                          "disabilityTypeMemberships": [],
                           "housingStatus": "OWN_MORTGAGE",
                           "propertyType": "FLAT_APARTMENT"
                         }
@@ -179,7 +186,12 @@ class LocalUserDomainIntegrationTest {
                 assertEquals(expected, snapshot);
                 Set<String> keys = new HashSet<>();
                 snapshot.fieldNames().forEachRemaining(keys::add);
-                assertEquals(CharacteristicSnapshot.AXES, keys);
+                Set<String> expectedSnapshotFields = new HashSet<>(CharacteristicSnapshot.AXES);
+                expectedSnapshotFields.addAll(Set.of(
+                        "raceMemberships", "citizenshipMemberships", "petTypeMemberships",
+                        "neurodivergenceTypeMemberships", "disabilityTypeMemberships",
+                        "balancedNewsViewpoint", "mainstreamNewsPercent"));
+                assertEquals(expectedSnapshotFields, keys);
                 assertFalse(snapshot.has("userId"));
                 assertFalse(snapshot.has("email"));
                 assertFalse(snapshot.has("city"));

@@ -1,5 +1,9 @@
 # ADR-027 — Server-side YSN agent publishing
 
+The namespace list in this ADR is partially superseded by
+[ADR-032](ADR-032-2026-07-25-top-level-unwrapped-domain.md): Post Unwrapped is now a top-level
+domain. The `ysnagent` decision remains active.
+
 ## Situation
 
 Your Say News needs an official server-side publisher that can be triggered by an administrator,

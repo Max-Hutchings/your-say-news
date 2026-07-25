@@ -14,6 +14,7 @@ public record PostDto(
         String supportQuestion,
         String caseFor,
         String caseAgainst,
+        String jurisdiction,
         VotingType votingType,
         List<VoteOptionDto> voteOptions,
         boolean isUnbiased,
@@ -22,7 +23,7 @@ public record PostDto(
 ) {
     public PostDto(Long id, Long userId, String summary, String supportQuestion, String caseFor,
                    String caseAgainst, boolean isUnbiased, Instant createdAt, List<PostMediaDto> media) {
-        this(id, userId, summary, supportQuestion, caseFor, caseAgainst, VotingType.BINARY,
+        this(id, userId, summary, supportQuestion, caseFor, caseAgainst, "GLOBAL", VotingType.BINARY,
                 List.of(), isUnbiased, createdAt, media);
     }
 }

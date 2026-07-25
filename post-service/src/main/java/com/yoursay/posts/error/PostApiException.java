@@ -84,4 +84,9 @@ public class PostApiException extends ApiException {
         return new PostApiException("POST_VOTE_OPTIONS_INVALID", Response.Status.BAD_REQUEST,
                 "Invalid voting configuration: " + reason);
     }
+
+    public static PostApiException invalidJurisdiction(String jurisdiction) {
+        return new PostApiException("POST_JURISDICTION_INVALID", Response.Status.BAD_REQUEST,
+                "Jurisdiction must be GLOBAL or a governed 2-32 character code: jurisdiction=" + jurisdiction);
+    }
 }

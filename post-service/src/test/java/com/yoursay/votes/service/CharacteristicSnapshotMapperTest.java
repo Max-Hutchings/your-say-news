@@ -69,8 +69,8 @@ class CharacteristicSnapshotMapperTest {
         assertEquals("SURREY", s.bucketFor("ukCounty"));
         assertEquals("LEGACY_BETWEEN_50K_AND_100K", s.bucketFor("personalIncomeRange"));
         assertEquals("PARENT_CAREGIVER_UNDER_18", s.bucketFor("parent"));
-        // Numeric/boolean axes are stringified.
-        assertEquals("7", s.bucketFor("newsFrequency"));
+        // Numeric news frequency is coarsened; booleans are stringified.
+        assertEquals("6_8", s.bucketFor("newsFrequency"));
         assertEquals("true", s.bucketFor("hasPet"));
         // Multi-select axes join their sorted values with '+'.
         assertEquals("CAT+DOG", s.bucketFor("petType"));
@@ -107,7 +107,7 @@ class CharacteristicSnapshotMapperTest {
                 legacy.eyeColor(), legacy.parent(), legacy.newsFrequency(), legacy.hasPet(),
                 legacy.petType(), legacy.chronotype(), legacy.outlook(), legacy.neurodivergent(),
                 legacy.neurodivergenceType(), legacy.hasDisability(), legacy.disabilityType(),
-                legacy.housingStatus(), legacy.propertyType(), "TIER_3", "TIER_5");
+                legacy.housingStatus(), legacy.propertyType(), null, null, "TIER_3", "TIER_5");
 
         CharacteristicSnapshot snapshot = CharacteristicSnapshotMapper.from(versioned);
 

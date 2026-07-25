@@ -1,0 +1,7 @@
+package com.yoursay.unwrapped.validation;
+
+import com.yoursay.unwrapped.UnwrappedSourceDraftV1;
+
+public interface SourceEvidenceChecker {
+    void verify(UnwrappedSourceDraftV1 source);
+}

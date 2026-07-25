@@ -27,9 +27,12 @@ final class PostAnalysisStatistics {
         long c = restSuccesses;
         long d = restTotal - restSuccesses;
         if (cohortTotal == 0 || restTotal == 0) return new TestResult(1.0, "NONE");
+        double total = a + b + c + d;
         double expectedMinimum = Math.min(
-                (double) (a + c) * (a + b) / (a + b + c + d),
-                (double) (b + d) * (a + b) / (a + b + c + d));
+                Math.min((double) (a + c) * (a + b) / total,
+                        (double) (b + d) * (a + b) / total),
+                Math.min((double) (a + c) * (c + d) / total,
+                        (double) (b + d) * (c + d) / total));
         if (expectedMinimum < 5.0) {
             return new TestResult(fisherTwoSided(a, b, c, d), "FISHER_EXACT");
         }

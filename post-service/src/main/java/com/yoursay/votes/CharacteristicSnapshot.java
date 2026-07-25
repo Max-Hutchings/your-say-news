@@ -61,7 +61,9 @@ public record CharacteristicSnapshot(
         List<String> citizenshipMemberships,
         List<String> petTypeMemberships,
         List<String> neurodivergenceTypeMemberships,
-        List<String> disabilityTypeMemberships
+        List<String> disabilityTypeMemberships,
+        String balancedNewsViewpoint,
+        String mainstreamNewsPercent
 ) {
 
     /** Sentinel bucket label for votes whose value on the requested axis is unknown. */
@@ -104,7 +106,7 @@ public record CharacteristicSnapshot(
                 newsFrequency, hasPet, petType, chronotype, outlook, neurodivergent,
                 neurodivergenceType, hasDisability, disabilityType, housingStatus, propertyType,
                 splitLegacy(race), splitLegacy(citizenship), splitLegacy(petType),
-                splitLegacy(neurodivergenceType), splitLegacy(disabilityType));
+                splitLegacy(neurodivergenceType), splitLegacy(disabilityType), null, null);
     }
 
     /** True if {@code axis} is a real breakdown axis (a field name aggregation can slice by). */
@@ -156,6 +158,8 @@ public record CharacteristicSnapshot(
             case "disabilityType" -> disabilityType;
             case "housingStatus" -> housingStatus;
             case "propertyType" -> propertyType;
+            case "balancedNewsViewpoint" -> balancedNewsViewpoint;
+            case "mainstreamNewsPercent" -> mainstreamNewsPercent;
             default -> null;
         };
         return value == null ? UNKNOWN : value;
@@ -195,7 +199,7 @@ public record CharacteristicSnapshot(
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, List.of(), List.of(), List.of(),
-                List.of(), List.of());
+                List.of(), List.of(), null, null);
     }
 
     private static List<String> splitLegacy(String value) {

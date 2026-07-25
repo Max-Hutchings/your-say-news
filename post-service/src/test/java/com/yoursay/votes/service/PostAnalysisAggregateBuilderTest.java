@@ -38,6 +38,7 @@ class PostAnalysisAggregateBuilderTest {
         assertEquals(PostAnalysisAggregateBuilder.SCHEMA_VERSION, aggregate.schemaVersion());
         assertEquals(42L, aggregate.postId());
         assertEquals(VotingType.MULTIPLE_CHOICE, aggregate.votingType());
+        assertEquals("Tax and spending summary", aggregate.summary());
         assertEquals("Should public spending be reduced to lower income tax?", aggregate.question());
         assertEquals("GLOBAL", aggregate.jurisdiction());
         assertEquals(List.of(101L, 102L),
@@ -133,8 +134,16 @@ class PostAnalysisAggregateBuilderTest {
         assertEquals("TWO_PROPORTION_Z", support.statisticalTest());
         assertTrue(support.adjustedQValue() > support.rawPValue(),
                 "multiple-comparison correction must not return the raw p-value unchanged");
-        assertTrue(support.adjustedQValue() < 0.000001,
-                "a 90% versus 40% split must remain significant after the complete family correction");
+        assertEquals(5.3006728149642054E-8, support.adjustedQValue(), 1E-18);
+        OptionStatisticV1 oppose = option(youngMen, 102L);
+        assertEquals(4, oppose.count());
+        assertEquals(10.0, oppose.percentage(), 0.000001);
+        assertEquals(4.0, oppose.compositionPercentage(), 0.000001);
+        assertEquals(-40.0, oppose.differenceFromOverallPercentagePoints(), 0.000001);
+        assertEquals(-50.0, oppose.differenceFromRestPercentagePoints(), 0.000001);
+        assertEquals(3.96, oppose.wilson95Low(), 0.01);
+        assertEquals(23.05, oppose.wilson95High(), 0.01);
+        assertEquals(5.3006728149642054E-8, oppose.adjustedQValue(), 1E-18);
         List<CohortAggregateV1> intersections = aggregate.cohorts().stream()
                 .filter(cohort -> cohort.dimensions().size() == 2)
                 .toList();
@@ -151,6 +160,13 @@ class PostAnalysisAggregateBuilderTest {
                                 .collect(Collectors.toSet()))
                         .collect(Collectors.toSet()));
         assertEquals(48, aggregate.metadata().testedComparisons());
+        assertEquals("cohort-rules-v1", aggregate.metadata().ruleSetVersion());
+        assertEquals(100, aggregate.metadata().minimumOverallSample());
+        assertEquals(30, aggregate.metadata().minimumCohortSample());
+        assertEquals(40, aggregate.metadata().minimumIntersectionSample());
+        assertEquals(5.0, aggregate.metadata().minimumCohortSharePercentage());
+        assertEquals(10.0, aggregate.metadata().minimumEffectPercentagePoints());
+        assertEquals(0.05, aggregate.metadata().falseDiscoveryRate());
     }
 
     @Test
@@ -182,6 +198,16 @@ class PostAnalysisAggregateBuilderTest {
         assertTrue(aggregate.cohorts().stream()
                 .noneMatch(value -> value.cohortId().startsWith("ageRange=")));
         assertEquals(16, aggregate.metadata().suppressedCohorts());
+    }
+
+    @Test
+    void unknownSnapshotValuesNeverBecomeAgentCandidateCohorts() {
+        PostAnalysisAggregateV1 aggregate = builder.build(post(),
+                List.of(new VoteSnapshot(101L, CharacteristicSnapshot.empty())), 0, CAPTURED);
+
+        assertEquals(List.of(), aggregate.cohorts());
+        assertEquals(1, aggregate.overall().getFirst().count());
+        assertEquals(0, aggregate.overall().get(1).count());
     }
 
     @Test
@@ -246,7 +272,7 @@ class PostAnalysisAggregateBuilderTest {
                 "6_8", empty.hasPet(), empty.petType(), empty.chronotype(), empty.outlook(),
                 empty.neurodivergent(), empty.neurodivergenceType(), empty.hasDisability(),
                 empty.disabilityType(), empty.housingStatus(), empty.propertyType(),
-                races, List.of(), List.of(), List.of(), List.of());
+                races, List.of(), List.of(), List.of(), List.of(), "true", "51_75");
     }
 
     private static CharacteristicSnapshot fullNonNewsSnapshot() {
@@ -259,6 +285,6 @@ class PostAnalysisAggregateBuilderTest {
                 "PARENT_CAREGIVER_UNDER_18", "6_8", "true", "DOG", "NIGHT_OWL",
                 "OPTIMIST", "true", "ADHD", "true", "HEARING", "OWN_MORTGAGE",
                 "FLAT_APARTMENT", List.of("EAST_ASIAN"), List.of("BRITISH"),
-                List.of("DOG"), List.of("ADHD"), List.of("HEARING"));
+                List.of("DOG"), List.of("ADHD"), List.of("HEARING"), "true", "51_75");
     }
 }

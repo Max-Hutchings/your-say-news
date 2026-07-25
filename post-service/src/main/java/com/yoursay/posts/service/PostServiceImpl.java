@@ -100,6 +100,7 @@ public class PostServiceImpl implements PostService {
                                 request.supportQuestion().trim(), false);
                         post.setCaseFor(emptyToNull(request.caseFor()));
                         post.setCaseAgainst(emptyToNull(request.caseAgainst()));
+                        post.setJurisdiction(normalizeJurisdiction(request.jurisdiction()));
                         post.configureVoting(votingType, optionDefinitions);
                         for (CreatePostRequest.Media m : media) {
                             post.addMedia(new PostMedia(post, m.mediaType(), m.orientation(), m.s3Key(),
@@ -161,6 +162,7 @@ public class PostServiceImpl implements PostService {
                 post.getSupportQuestion(),
                 post.getCaseFor(),
                 post.getCaseAgainst(),
+                post.getJurisdiction(),
                 post.getVotingType(),
                 options.stream()
                         .sorted((a, b) -> Integer.compare(a.getOrdinal(), b.getOrdinal()))
@@ -265,6 +267,17 @@ public class PostServiceImpl implements PostService {
 
     private static String emptyToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private static String normalizeJurisdiction(String value) {
+        if (value == null || value.isBlank()) {
+            return "GLOBAL";
+        }
+        String normalized = value.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!normalized.matches("[A-Z0-9_-]{2,32}")) {
+            throw PostApiException.invalidJurisdiction(value);
+        }
+        return normalized;
     }
 
     private void recordMetric(String operation, boolean success) {

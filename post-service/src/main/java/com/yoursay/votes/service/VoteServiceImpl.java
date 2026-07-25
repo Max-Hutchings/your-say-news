@@ -11,6 +11,7 @@ import com.yoursay.votes.model.VoteRepository;
 import com.yoursay.observability.DomainMetrics;
 import com.yoursay.posts.PostVotingConfigurationDto;
 import com.yoursay.posts.PostVotingConfigurationService;
+import com.yoursay.unwrapped.UnwrappedMilestoneService;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -33,6 +34,9 @@ public class VoteServiceImpl implements VoteService {
 
     @Inject
     PostVotingConfigurationService votingConfigurationService;
+
+    @Inject
+    UnwrappedMilestoneService unwrappedMilestoneService;
 
     @Override
     public void assertVotableSelection(Long postId, Long optionId) {
@@ -74,6 +78,9 @@ public class VoteServiceImpl implements VoteService {
                 // thrown here — inside this try — rather than later at commit, where it would
                 // escape as a generic 500 instead of the precise 404/409 below.
                 voteRepository.flush();
+                if (unwrappedMilestoneService != null) {
+                    unwrappedMilestoneService.markForReconciliation(postId);
+                }
             } catch (RuntimeException e) {
                 if (isInvalidOptionPersistenceFailure(e)) {
                     throw VoteApiException.optionNotAvailable(postId, optionId);

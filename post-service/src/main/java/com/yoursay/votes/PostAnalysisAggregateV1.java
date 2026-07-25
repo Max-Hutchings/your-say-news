@@ -13,6 +13,7 @@ public record PostAnalysisAggregateV1(
         String schemaVersion,
         Long postId,
         VotingType votingType,
+        String summary,
         String question,
         String jurisdiction,
         List<VoteOptionDto> options,

@@ -92,8 +92,8 @@ architecture decision is recorded in
 
 - `user-service` (:8081) — domains `user`, `usercharacteristic`.
 - `post-service` (:8082) — domains `posts`, `votes` (vote scaffolding present:
-  `model`/`service`/`client`). Votes stay here; `feed`, `topics`, the role-specific
-  `agents.postagent`, `agents.unwrappedagent` and planned `agents.ysnagent` subdomains are siblings.
+  `model`/`service`/`client`). Votes stay here; `feed`, `topics`, top-level `unwrapped`, and the
+  role-specific `agents.postagent` and planned `agents.ysnagent` subdomains are siblings.
 - Keycloak auth with realm + test users auto-imported; mobile auth (`features/auth`) wired with a
   bearer-injecting HTTP client.
 - Onboarding characteristic option sets exist on the frontend
@@ -129,9 +129,9 @@ Lock the cross-cutting pieces every later stage depends on.
   | Service | Port | Domains it owns |
   | --- | --- | --- |
   | `user-service` | 8081 | `user` (identity/PII, private voter account, official publication profile, account type and publisher status), `usercharacteristic`, `social` (users following official accounts) |
-  | `post-service` | 8082 | `posts`, `votes` (canonical/follow-up votes + aggregation), `feed`, `topics`, `agents.postagent` (official post creation), `agents.unwrappedagent` (cached post-vote stories), `agents.ysnagent` (admin-triggered official publication) |
+  | `post-service` | 8082 | `posts`, `votes` (canonical votes + aggregation), `feed`, `topics`, `unwrapped` (cached post-vote stories + separate follow-up), `agents.postagent` (official post creation), `agents.ysnagent` (admin-triggered official publication) |
 
-  `votes` remains beside the content and stores vote-time characteristic snapshots. `analysis`
+  `votes` remains beside the content and stores vote-time characteristic snapshots. `unwrapped`
   consumes only the public aggregate contract from `votes`; keeping it separate prevents agent
   concerns, research citations and cache lifecycle from leaking into core vote correctness.
 
@@ -246,8 +246,9 @@ Turn the results into a clear, data-backed visual story after every vote.
 
 ### Analysis generation and caching
 
-- Add a strict `post-service` **`analysis` domain**. It reads Stage 4 aggregate DTOs, optionally
-  performs live research, and writes a structured story; it never queries individual vote rows.
+- Add a strict top-level `post-service` **`unwrapped` domain**. It reads Stage 4 aggregate DTOs,
+  optionally performs live research through its internal `unwrapped.agent` package, and writes a
+  structured story; it never queries individual vote rows.
 - Generate asynchronously at **configurable cumulative vote milestones**, for example 10, 25, 50,
   100, 250, 500 and 1,000 votes, then a configurable growth rule. Values are configuration, not
   hard-coded product logic.

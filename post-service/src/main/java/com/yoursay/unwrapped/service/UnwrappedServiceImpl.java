@@ -1,0 +1,201 @@
+package com.yoursay.unwrapped.service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yoursay.posts.PostVotingConfigurationDto;
+import com.yoursay.posts.PostVotingConfigurationService;
+import com.yoursay.unwrapped.FollowUpResponseDto;
+import com.yoursay.unwrapped.ReviewStoryDto;
+import com.yoursay.unwrapped.UnwrappedAvailabilityState;
+import com.yoursay.unwrapped.UnwrappedMode;
+import com.yoursay.unwrapped.UnwrappedResearchDraftV1;
+import com.yoursay.unwrapped.UnwrappedResponseDto;
+import com.yoursay.unwrapped.UnwrappedService;
+import com.yoursay.unwrapped.UnwrappedStoryDto;
+import com.yoursay.unwrapped.error.UnwrappedApiException;
+import com.yoursay.unwrapped.model.UnwrappedAnalysisJob;
+import com.yoursay.unwrapped.model.UnwrappedAnalysisJobRepository;
+import com.yoursay.unwrapped.model.UnwrappedFollowUp;
+import com.yoursay.unwrapped.model.UnwrappedFollowUpRepository;
+import com.yoursay.unwrapped.model.UnwrappedReviewStatus;
+import com.yoursay.unwrapped.model.UnwrappedStory;
+import com.yoursay.unwrapped.model.UnwrappedStoryRepository;
+import com.yoursay.user.user.UserAccessDto;
+import com.yoursay.user.user.YourSayUserService;
+import com.yoursay.votes.VoteResponseDto;
+import com.yoursay.votes.VoteService;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@ApplicationScoped
+public class UnwrappedServiceImpl implements UnwrappedService {
+    @Inject
+    VoteService voteService;
+    @Inject
+    PostVotingConfigurationService postService;
+    @Inject
+    YourSayUserService userService;
+    @Inject
+    UnwrappedAnalysisJobRepository jobRepository;
+    @Inject
+    UnwrappedStoryRepository storyRepository;
+    @Inject
+    UnwrappedFollowUpRepository followUpRepository;
+    @Inject
+    ObjectMapper objectMapper;
+
+    @Override
+    public UnwrappedResponseDto get(Long postId, String callerEmail, String authorization) {
+        voteService.assertResultsUnlocked(postId, callerEmail, authorization);
+        VoteResponseDto original = voteService.getMyVote(postId, callerEmail, authorization)
+                .orElseThrow();
+        long count = voteService.countForPost(postId);
+        Optional<UnwrappedStory> approved = storyRepository.newestApproved(postId, count);
+        Long existingFollowUp = followUpRepository.findByUserAndPost(userId(callerEmail), postId)
+                .map(UnwrappedFollowUp::getFollowUpOptionId).orElse(null);
+        if (approved.isEmpty()) {
+            boolean failed = jobRepository.count("postId = ?1 and status = 'FAILED'", postId) > 0
+                    && jobRepository.count("postId = ?1 and status in ('PENDING','GENERATING','DRAFT_READY')",
+                    postId) == 0;
+            return new UnwrappedResponseDto(
+                    failed ? UnwrappedAvailabilityState.FAILED : UnwrappedAvailabilityState.BUILDING,
+                    failed ? "Pepper could not build this story yet."
+                            : "Pepper is building the context for every option.",
+                    original.optionId(), existingFollowUp, null);
+        }
+        UnwrappedStory story = approved.get();
+        boolean refreshing = jobRepository.count(
+                "postId = ?1 and status in ('PENDING','GENERATING','DRAFT_READY') and createdAt > ?2",
+                postId, story.getGeneratedAt()) > 0;
+        String notice = notice(story.getMode(), count);
+        return new UnwrappedResponseDto(
+                refreshing ? UnwrappedAvailabilityState.REFRESHING : UnwrappedAvailabilityState.READY,
+                notice, original.optionId(), existingFollowUp, toStory(story));
+    }
+
+    @Override
+    @Transactional
+    public FollowUpResponseDto followUp(Long postId, UUID storyId, Long optionId,
+                                        String callerEmail, String authorization) {
+        voteService.assertResultsUnlocked(postId, callerEmail, authorization);
+        Long userId = userId(callerEmail);
+        Optional<UnwrappedFollowUp> existing = followUpRepository.findByUserAndPost(userId, postId);
+        if (existing.isPresent()) return toFollowUp(existing.get());
+        UnwrappedStory story = storyRepository.findByIdOptional(storyId)
+                .orElseThrow(() -> UnwrappedApiException.storyMissing(storyId));
+        if (!postId.equals(story.getPostId())
+                || story.getReviewStatus() != UnwrappedReviewStatus.APPROVED) {
+            throw UnwrappedApiException.storyNotAvailable(storyId);
+        }
+        PostVotingConfigurationDto post = postService.findByPostId(postId)
+                .orElseThrow(() -> UnwrappedApiException.optionNotAvailable(optionId));
+        if (!post.containsOption(optionId)) throw UnwrappedApiException.optionNotAvailable(optionId);
+        Long originalOption = voteService.getMyVote(postId, callerEmail, authorization)
+                .map(VoteResponseDto::optionId).orElseThrow();
+        UnwrappedFollowUp followUp =
+                new UnwrappedFollowUp(userId, postId, storyId, originalOption, optionId);
+        followUpRepository.persistAndFlush(followUp);
+        return toFollowUp(followUp);
+    }
+
+    @Override
+    @Transactional
+    public UUID enqueuePrediction(Long postId) {
+        postService.findByPostId(postId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown post: " + postId));
+        Optional<UnwrappedAnalysisJob> existing = jobRepository.find(
+                "postId = ?1 and mode = ?2 and predictionVersion = ?3",
+                postId, UnwrappedMode.PREDICTION, "prediction-v1").firstResultOptional();
+        if (existing.isPresent()) return existing.get().getId();
+        UnwrappedAnalysisJob job = new UnwrappedAnalysisJob(
+                UnwrappedMode.PREDICTION, postId, null, "unwrapped-analysis-v1", "prediction-v1");
+        jobRepository.persistAndFlush(job);
+        return job.getId();
+    }
+
+    @Override
+    public List<ReviewStoryDto> reviewQueue() {
+        return storyRepository.drafts().stream().map(this::toReview).toList();
+    }
+
+    @Override
+    public ReviewStoryDto reviewStory(UUID storyId) {
+        return toReview(storyRepository.findByIdOptional(storyId)
+                .orElseThrow(() -> UnwrappedApiException.storyMissing(storyId)));
+    }
+
+    @Override
+    @Transactional
+    public ReviewStoryDto approve(UUID storyId, String reviewerEmail) {
+        UnwrappedStory story = draft(storyId);
+        story.approve(userId(reviewerEmail));
+        return toReview(story);
+    }
+
+    @Override
+    @Transactional
+    public ReviewStoryDto reject(UUID storyId, String reviewerEmail, String reason) {
+        UnwrappedStory story = draft(storyId);
+        story.reject(userId(reviewerEmail), reason.trim());
+        return toReview(story);
+    }
+
+    private UnwrappedStory draft(UUID storyId) {
+        UnwrappedStory story = storyRepository.findByIdOptional(storyId)
+                .orElseThrow(() -> UnwrappedApiException.storyMissing(storyId));
+        if (story.getReviewStatus() != UnwrappedReviewStatus.DRAFT) {
+            throw UnwrappedApiException.invalidReviewState(storyId);
+        }
+        return story;
+    }
+
+    private Long userId(String email) {
+        UserAccessDto access = userService.getAccessByEmail(email);
+        if (access == null || access.userId() == null) throw UnwrappedApiException.userMissing();
+        return access.userId();
+    }
+
+    private UnwrappedStoryDto toStory(UnwrappedStory story) {
+        UnwrappedResearchDraftV1 draft = draftJson(story);
+        PostVotingConfigurationDto post = postService.findByPostId(story.getPostId()).orElseThrow();
+        return new UnwrappedStoryDto("unwrapped-story-v1", story.getId(), story.getPostId(),
+                story.getMode(), story.getMilestone(), story.getCanonicalVoteCount(),
+                story.getAggregateVersion(), story.getGeneratedAt(), story.getModel(),
+                draft.pages(), draft.sources(),
+                "Has seeing the context for every option changed your view?", post.options());
+    }
+
+    private ReviewStoryDto toReview(UnwrappedStory story) {
+        return new ReviewStoryDto(story.getId(), story.getPostId(), story.getMode(),
+                story.getMilestone(), story.getCanonicalVoteCount(), story.getReviewStatus(),
+                story.getGeneratedAt(), draftJson(story));
+    }
+
+    private UnwrappedResearchDraftV1 draftJson(UnwrappedStory story) {
+        try {
+            return objectMapper.treeToValue(story.getStoryJson(), UnwrappedResearchDraftV1.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Stored Unwrapped story is invalid: " + story.getId(), e);
+        }
+    }
+
+    private static FollowUpResponseDto toFollowUp(UnwrappedFollowUp value) {
+        return new FollowUpResponseDto(value.getId(), value.getPostId(), value.getStoryId(),
+                value.getOriginalOptionId(), value.getFollowUpOptionId(),
+                !value.getOriginalOptionId().equals(value.getFollowUpOptionId()), value.getCreatedAt());
+    }
+
+    private static String notice(UnwrappedMode mode, long count) {
+        if (mode == UnwrappedMode.OBSERVED) {
+            return "This analysis describes people who voted on this post; it is not a population survey.";
+        }
+        return count <= 100
+                ? "You are one of the first 100 voters. This is Pepper AI's prediction, not an analysis of the audience so far."
+                : "Pepper's prediction is shown while the first audience analysis is reviewed.";
+    }
+}

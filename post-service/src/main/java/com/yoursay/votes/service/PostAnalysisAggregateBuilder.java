@@ -118,7 +118,7 @@ public class PostAnalysisAggregateBuilder {
                 RULE_SET_VERSION, suppressBelow, 100, 30, 40, 5.0, 10.0, 0.05,
                 suppressed, comparisons.size());
         return new PostAnalysisAggregateV1(SCHEMA_VERSION, post.postId(), post.votingType(),
-                post.question(), post.jurisdiction(), options, total, null, capturedAt, overall,
+                post.summary(), post.question(), post.jurisdiction(), options, total, null, capturedAt, overall,
                 cohorts, metadata);
     }
 
