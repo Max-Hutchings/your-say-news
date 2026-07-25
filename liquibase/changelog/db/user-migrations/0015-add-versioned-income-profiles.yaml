@@ -1,0 +1,75 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0015-add-versioned-income-profiles
+      author: codex
+      logicalFilePath: db/migrations/0015-add-versioned-income-profiles.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - dropNotNullConstraint:
+            tableName: user_characteristic
+            columnName: personal_income_range
+            columnDataType: VARCHAR(32)
+        - dropNotNullConstraint:
+            tableName: user_characteristic
+            columnName: household_income_range
+            columnDataType: VARCHAR(32)
+        - addColumn:
+            tableName: user_characteristic
+            columns:
+              - column: { name: country_code, type: VARCHAR(64) }
+              - column: { name: income_answer_version, type: INT }
+              - column: { name: income_catalog_version, type: VARCHAR(32) }
+              - column: { name: income_profile_id, type: VARCHAR(96) }
+              - column: { name: income_profile_version, type: INT }
+              - column: { name: income_currency_code, type: VARCHAR(3) }
+              - column: { name: income_market_code, type: VARCHAR(8) }
+              - column: { name: personal_income_band_id, type: VARCHAR(48) }
+              - column: { name: household_income_band_id, type: VARCHAR(48) }
+              - column: { name: personal_income_tier, type: VARCHAR(16) }
+              - column: { name: household_income_tier, type: VARCHAR(16) }
+        - sql:
+            dbms: postgresql
+            sql: |
+              UPDATE user_characteristic
+              SET income_answer_version = 1
+              WHERE personal_income_range IS NOT NULL
+                 OR household_income_range IS NOT NULL;
+        - sql:
+            dbms: postgresql
+            sql: |
+              ALTER TABLE user_characteristic
+                ADD CONSTRAINT chk_uc_income_currency_code
+                CHECK (income_currency_code IS NULL OR income_currency_code ~ '^[A-Z]{3}$');
+              ALTER TABLE user_characteristic
+                ADD CONSTRAINT chk_uc_income_answer_consistency
+                CHECK (
+                  income_answer_version IS NOT NULL
+                  AND (
+                    (income_answer_version = 1
+                      AND personal_income_range IS NOT NULL
+                      AND household_income_range IS NOT NULL
+                      AND income_catalog_version IS NULL
+                      AND income_profile_id IS NULL
+                      AND income_profile_version IS NULL
+                      AND income_currency_code IS NULL
+                      AND income_market_code IS NULL
+                      AND personal_income_band_id IS NULL
+                      AND household_income_band_id IS NULL
+                      AND personal_income_tier IS NULL
+                      AND household_income_tier IS NULL)
+                    OR
+                    (income_answer_version = 2
+                      AND personal_income_range IS NULL
+                      AND household_income_range IS NULL
+                      AND country_code IS NOT NULL
+                      AND income_catalog_version IS NOT NULL
+                      AND income_profile_id IS NOT NULL
+                      AND income_profile_version IS NOT NULL
+                      AND income_currency_code IS NOT NULL
+                      AND income_market_code IS NOT NULL
+                      AND personal_income_band_id IS NOT NULL
+                      AND household_income_band_id IS NOT NULL
+                      AND personal_income_tier IS NOT NULL
+                      AND household_income_tier IS NOT NULL)
+                  )
+                );

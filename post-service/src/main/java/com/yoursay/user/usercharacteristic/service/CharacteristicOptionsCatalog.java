@@ -15,6 +15,12 @@ public class CharacteristicOptionsCatalog {
 
     public static final int SCHEMA_VERSION = 1;
 
+    private final IncomeProfileCatalog incomeProfiles;
+
+    public CharacteristicOptionsCatalog(IncomeProfileCatalog incomeProfiles) {
+        this.incomeProfiles = incomeProfiles;
+    }
+
     public CharacteristicOptionsDto getOptions() {
         Map<String, List<CharacteristicOptionDto>> fields = new LinkedHashMap<>();
 
@@ -65,18 +71,18 @@ public class CharacteristicOptionsCatalog {
         fields.put("religion", options(Religion.values(), labels(
                 "OTHER_RELIGION", "Other religion",
                 "NO_RELIGION", "No religion")));
-        fields.put("religiosity", options(Religiosity.values(), labels(
+        fields.put("religiosity", orderedOptions(Religiosity.values(), labels(
                 "NOT_RELIGIOUS", "Not at all important",
                 "SLIGHTLY_RELIGIOUS", "Not very important",
                 "MODERATELY_RELIGIOUS", "Somewhat important",
                 "VERY_RELIGIOUS", "Very important")));
-        fields.put("politicalPersuasion", options(PoliticalPersuasion.values(), labels(
+        fields.put("politicalPersuasion", orderedOptions(PoliticalPersuasion.values(), labels(
                 "CENTRE_LEFT", "Centre-left",
                 "CENTRE_RIGHT", "Centre-right",
                 "NOT_POLITICAL", "Not political",
                 "NOT_SURE", "Not sure")));
 
-        fields.put("education", options(EducationLevel.values(), labels(
+        fields.put("education", orderedOptions(EducationLevel.values(), labels(
                 "NO_FORMAL_QUALIFICATIONS", "No formal qualifications",
                 "PRIMARY_SCHOOLING", "Primary / basic schooling",
                 "SECONDARY_SCHOOL", "Secondary school",
@@ -111,10 +117,23 @@ public class CharacteristicOptionsCatalog {
                 "MILITARY_DEFENCE", "Military & defence",
                 "NOT_APPLICABLE", "Not applicable")));
         fields.put("universitySubject", options(UniversitySubject.values(), labels(
+                "ACCOUNTING_FINANCE", "Accounting & finance",
+                "ALLIED_HEALTH", "Allied health",
+                "DATA_SCIENCE", "Data science",
+                "EARTH_SCIENCE_GEOLOGY", "Earth science / geology",
+                "HOSPITALITY_TOURISM", "Hospitality & tourism",
+                "INTERDISCIPLINARY_STUDIES", "Interdisciplinary studies",
+                "INTERNATIONAL_RELATIONS", "International relations",
+                "MEDIA_COMMUNICATIONS", "Media & communications",
+                "PUBLIC_HEALTH", "Public health",
+                "SOCIAL_WORK", "Social work",
+                "SPORTS_SCIENCE", "Sports science",
                 "SCIENCE", "Science (general)",
-                "THEATER", "Theatre / drama")));
+                "THEATER", "Theatre / drama",
+                "THEOLOGY_RELIGIOUS_STUDIES", "Theology / religious studies",
+                "VETERINARY_SCIENCE", "Veterinary science")));
 
-        fields.put("height", options(Height.values(), labels(
+        fields.put("height", orderedOptions(Height.values(), labels(
                 "FEET_4_0_TO_4_4", "4'0\" – 4'4\" (122–132 cm)",
                 "FEET_4_5_TO_4_9", "4'5\" – 4'9\" (135–145 cm)",
                 "FEET_4_10_TO_5_0", "4'10\" – 5'0\" (147–152 cm)",
@@ -127,8 +146,8 @@ public class CharacteristicOptionsCatalog {
                 "FEET_6_7_TO_6_9", "6'7\" – 6'9\" (201–206 cm)",
                 "FEET_6_10_TO_7_0", "6'10\" – 7'0\" (208–213 cm)",
                 "FEET_7_1_PLUS", "7'1\"+ (216+ cm)")));
-        fields.put("weightRange", options(WeightRange.values(), weightLabels()));
-        fields.put("incomeRange", options(IncomeRange.values(), incomeLabels()));
+        fields.put("weightRange", orderedOptions(WeightRange.values(), weightLabels()));
+        fields.put("incomeRange", orderedOptions(IncomeRange.values(), incomeLabels()));
         fields.put("eyeColor", options(EyeColor.values(), labels(
                 "GRAY", "Grey",
                 "BLACK_DARK_BROWN", "Black / very dark brown",
@@ -177,7 +196,8 @@ public class CharacteristicOptionsCatalog {
         return new CharacteristicOptionsDto(
                 SCHEMA_VERSION,
                 UserCharacteristicRules.MINIMUM_AGE,
-                fields);
+                fields,
+                incomeProfiles.getCatalog());
     }
 
     private static List<CharacteristicOptionDto> nationalityOptions(Map<String, String> countryLabels) {
@@ -234,6 +254,15 @@ public class CharacteristicOptionsCatalog {
     }
 
     private static <E extends Enum<E>> List<CharacteristicOptionDto> options(
+            E[] values, Map<String, String> labels) {
+        return orderedOptions(values, labels).stream()
+                .sorted(Comparator.comparing(
+                        CharacteristicOptionDto::label,
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    private static <E extends Enum<E>> List<CharacteristicOptionDto> orderedOptions(
             E[] values, Map<String, String> labels) {
         return Arrays.stream(values)
                 .filter(EnumOptionPolicy::isOffered)

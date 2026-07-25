@@ -27,10 +27,13 @@ import {
     isHigherEducation,
     type OnboardingForm,
 } from "../answers";
-import { CURRENCY_OPTIONS, YES_NO_OPTIONS } from "../data/options";
-import type { CharacteristicOptions } from "../types";
+import { YES_NO_OPTIONS } from "../data/options";
+import type { CharacteristicOptions, IncomeProfile } from "../types";
 import { submitCharacteristics } from "../services/CharacteristicService";
-import { fetchCharacteristicOptions } from "../services/CharacteristicOptionsService";
+import {
+    fetchCharacteristicOptions,
+    fetchIncomeProfile,
+} from "../services/CharacteristicOptionsService";
 import {
     clearOnboardingDraft,
     loadOnboardingDraft,
@@ -86,6 +89,10 @@ export function OnboardingScreen() {
     const [characteristicOptions, setCharacteristicOptions] = useState<CharacteristicOptions | null>(null);
     const [loadingOptions, setLoadingOptions] = useState(true);
     const [optionsError, setOptionsError] = useState(false);
+    const [incomeProfile, setIncomeProfile] = useState<IncomeProfile | null>(null);
+    const [loadingIncomeProfile, setLoadingIncomeProfile] = useState(false);
+    const [incomeProfileError, setIncomeProfileError] = useState(false);
+    const [incomeProfileRetry, setIncomeProfileRetry] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [persisting, setPersisting] = useState(false);
 
@@ -124,6 +131,82 @@ export function OnboardingScreen() {
     }, []);
 
     useEffect(() => {
+        const profiles = characteristicOptions?.incomeCatalog.profiles ?? [];
+        if (!draftLoaded || form.countryCode === null || profiles.length === 0) {
+            return;
+        }
+        const localProfiles = profiles.filter((profile) =>
+            profile.residenceCountryCodes.includes(form.countryCode as string)
+        );
+        const candidates = localProfiles.length > 0 ? localProfiles : profiles;
+        const selected = candidates.find((profile) => profile.profileId === form.incomeProfileId)
+            ?? candidates.find((profile) => profile.currencyCode === form.currency)
+            ?? candidates[0];
+
+        if (form.incomeProfileId !== selected.profileId
+            || form.incomeProfileVersion !== selected.profileVersion
+            || form.incomeMarketCode !== selected.marketCode
+            || form.incomeCatalogVersion !== characteristicOptions?.incomeCatalog.catalogVersion
+            || form.currency !== selected.currencyCode) {
+            setIncomeProfile(null);
+            setForm((current) => ({
+                ...current,
+                currency: selected.currencyCode,
+                incomeCatalogVersion: characteristicOptions?.incomeCatalog.catalogVersion ?? null,
+                incomeProfileId: selected.profileId,
+                incomeProfileVersion: selected.profileVersion,
+                incomeMarketCode: selected.marketCode,
+                personalIncomeBandId: null,
+                householdIncomeBandId: null,
+            }));
+            return;
+        }
+
+        let active = true;
+        setLoadingIncomeProfile(true);
+        setIncomeProfileError(false);
+        fetchIncomeProfile(selected.marketCode, selected.currencyCode)
+            .then((profile) => {
+                const catalogVersion = characteristicOptions.incomeCatalog.catalogVersion;
+                const matchesSummary = profile.catalogVersion === catalogVersion
+                    && profile.profileId === selected.profileId
+                    && profile.profileVersion === selected.profileVersion
+                    && profile.marketCode === selected.marketCode
+                    && profile.currencyCode === selected.currencyCode
+                    && profile.residenceCountryCodes.length === selected.residenceCountryCodes.length
+                    && profile.residenceCountryCodes.every(
+                        (country) => selected.residenceCountryCodes.includes(country)
+                    );
+                if (!matchesSummary) {
+                    throw new Error("Income profile no longer matches the selected catalogue");
+                }
+                if (active) setIncomeProfile(profile);
+            })
+            .catch(() => {
+                if (active) {
+                    setIncomeProfile(null);
+                    setIncomeProfileError(true);
+                }
+            })
+            .finally(() => {
+                if (active) setLoadingIncomeProfile(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, [
+        characteristicOptions,
+        draftLoaded,
+        form.countryCode,
+        form.currency,
+        form.incomeCatalogVersion,
+        form.incomeMarketCode,
+        form.incomeProfileId,
+        form.incomeProfileVersion,
+        incomeProfileRetry,
+    ]);
+
+    useEffect(() => {
         let active = true;
         fetchCharacteristicOptions()
             .then((options) => {
@@ -158,7 +241,6 @@ export function OnboardingScreen() {
     const UNIVERSITY_SUBJECT_OPTIONS = fields?.universitySubject ?? [];
     const HEIGHT_OPTIONS = fields?.height ?? [];
     const WEIGHT_OPTIONS = fields?.weightRange ?? [];
-    const INCOME_OPTIONS = fields?.incomeRange ?? [];
     const EYE_COLOR_OPTIONS = fields?.eyeColor ?? [];
     const PARENT_OPTIONS = fields?.parent ?? [];
     const PET_TYPE_OPTIONS = fields?.petType ?? [];
@@ -169,10 +251,26 @@ export function OnboardingScreen() {
     const HOUSING_STATUS_OPTIONS = fields?.housingStatus ?? [];
     const PROPERTY_TYPE_OPTIONS = fields?.propertyType ?? [];
 
-    const currencyCode = CURRENCY_OPTIONS.find((c) => c.value === form.currency)?.symbol ?? "USD";
-    const incomeOptions = INCOME_OPTIONS.map((o) => ({
-        ...o,
-        label: o.label.replace(/(\d+(?:k|M)?)/g, `${currencyCode} $1`),
+    const profileSummaries = characteristicOptions?.incomeCatalog.profiles ?? [];
+    const localProfileSummaries = form.countryCode === null
+        ? []
+        : profileSummaries.filter((profile) =>
+            profile.residenceCountryCodes.includes(form.countryCode as string)
+        );
+    const selectableProfiles = localProfileSummaries.length > 0
+        ? localProfileSummaries
+        : profileSummaries;
+    const currencyOptions = selectableProfiles.map((profile) => ({
+        label: profile.currencyCode,
+        value: profile.currencyCode,
+    }));
+    const personalIncomeOptions = (incomeProfile?.personalBands ?? []).map((band) => ({
+        label: band.label,
+        value: band.id,
+    }));
+    const householdIncomeOptions = (incomeProfile?.householdBands ?? []).map((band) => ({
+        label: band.label,
+        value: band.id,
     }));
 
     // Toggle a value in one of the multi-select array fields (ethnicity, nationality, pet, neuro, disability).
@@ -318,6 +416,8 @@ export function OnboardingScreen() {
             {/* Body */}
             <Animated.View style={[styles.bodyWrap, { opacity: fade }]}>
                 <ScrollView
+                    key={step}
+                    contentOffset={{ x: 0, y: 0 }}
                     contentContainerStyle={styles.bodyContent}
                     showsVerticalScrollIndicator={false}
                 >
@@ -328,9 +428,21 @@ export function OnboardingScreen() {
                                 placeholder="Search 195 countries"
                                 options={COUNTRY_OF_BIRTH_OPTIONS}
                                 selected={countryValue}
-                                onSelect={(v) =>
-                                    setField("country", COUNTRY_OF_BIRTH_OPTIONS.find((o) => o.value === v)?.label ?? "")
-                                }
+                                onSelect={(v) => {
+                                    const selectedCountry = COUNTRY_OF_BIRTH_OPTIONS.find((o) => o.value === v);
+                                    setIncomeProfile(null);
+                                    setForm((current) => ({
+                                        ...current,
+                                        country: selectedCountry?.label ?? "",
+                                        countryCode: v,
+                                        incomeCatalogVersion: null,
+                                        incomeProfileId: null,
+                                        incomeProfileVersion: null,
+                                        incomeMarketCode: null,
+                                        personalIncomeBandId: null,
+                                        householdIncomeBandId: null,
+                                    }));
+                                }}
                             />
                             <WizardInput
                                 label="City / nearest city"
@@ -466,8 +578,8 @@ export function OnboardingScreen() {
                             </Field>
                             {isHigherEducation(form.education) && (
                                 <SearchableSelect
-                                    label="University subject"
-                                    placeholder="Select your subject"
+                                    label="Degree / higher-education subject"
+                                    placeholder="Search degree subjects"
                                     options={UNIVERSITY_SUBJECT_OPTIONS}
                                     selected={form.universitySubject}
                                     onSelect={(value) => setField("universitySubject", value)}
@@ -533,22 +645,68 @@ export function OnboardingScreen() {
                     {step === 9 && (
                         <View style={styles.fields}>
                             <Field label="Currency">
-                                <WizardChipRow options={CURRENCY_OPTIONS} selected={form.currency} onSelect={(value) => setField("currency", value)} />
-                            </Field>
-                            <Field label="Your annual personal income before tax *">
                                 <WizardChipRow
-                                    options={incomeOptions}
-                                    selected={form.personalIncomeRange}
-                                    onSelect={(value) => setField("personalIncomeRange", value)}
+                                    options={currencyOptions}
+                                    selected={form.currency}
+                                    onSelect={(value) => {
+                                        const selectedProfile = selectableProfiles.find(
+                                            (profile) => profile.currencyCode === value
+                                        );
+                                        if (!selectedProfile) return;
+                                        setIncomeProfile(null);
+                                        setForm((current) => ({
+                                            ...current,
+                                            currency: value,
+                                            incomeCatalogVersion:
+                                                characteristicOptions.incomeCatalog.catalogVersion,
+                                            incomeProfileId: selectedProfile.profileId,
+                                            incomeProfileVersion: selectedProfile.profileVersion,
+                                            incomeMarketCode: selectedProfile.marketCode,
+                                            personalIncomeBandId: null,
+                                            householdIncomeBandId: null,
+                                        }));
+                                    }}
                                 />
                             </Field>
-                            <Field label="Total annual household income before tax *">
-                                <WizardChipRow
-                                    options={incomeOptions}
-                                    selected={form.householdIncomeRange}
-                                    onSelect={(value) => setField("householdIncomeRange", value)}
-                                />
-                            </Field>
+                            {incomeProfile && (
+                                <Text style={[styles.financeContext, { color: e.secondary }]}>
+                                    Bands are calibrated for {incomeProfile.marketLabel} and used only
+                                    in aggregate.
+                                </Text>
+                            )}
+                            {loadingIncomeProfile && <ActivityIndicator color={e.lime} />}
+                            {incomeProfileError && (
+                                <View style={styles.incomeError}>
+                                    <Text style={[styles.financeContext, { color: e.secondary }]}>
+                                        We couldn’t load income bands for this currency.
+                                    </Text>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        onPress={() => setIncomeProfileRetry((current) => current + 1)}
+                                        style={[styles.retryButton, { backgroundColor: e.ink }]}
+                                    >
+                                        <Text style={[styles.retryLabel, { color: e.bg }]}>Try again</Text>
+                                    </Pressable>
+                                </View>
+                            )}
+                            {incomeProfile && (
+                                <>
+                                    <Field label="Your annual personal income before tax *">
+                                        <WizardChipRow
+                                            options={personalIncomeOptions}
+                                            selected={form.personalIncomeBandId}
+                                            onSelect={(value) => setField("personalIncomeBandId", value)}
+                                        />
+                                    </Field>
+                                    <Field label="Total annual household income before tax *">
+                                        <WizardChipRow
+                                            options={householdIncomeOptions}
+                                            selected={form.householdIncomeBandId}
+                                            onSelect={(value) => setField("householdIncomeBandId", value)}
+                                        />
+                                    </Field>
+                                </>
+                            )}
                         </View>
                     )}
 
@@ -732,6 +890,8 @@ const styles = StyleSheet.create({
     },
     retryButton: { paddingHorizontal: 24, paddingVertical: 13, borderRadius: 4 },
     retryLabel: { fontFamily: EditorialFont.sansBold, fontSize: 14 },
+    financeContext: { fontFamily: EditorialFont.sans, fontSize: 13, lineHeight: 19 },
+    incomeError: { gap: 12, alignItems: "flex-start" },
     header: { paddingHorizontal: 26, paddingTop: 6 },
     headerTop: {
         flexDirection: "row",

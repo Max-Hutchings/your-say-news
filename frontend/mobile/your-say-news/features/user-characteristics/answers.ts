@@ -19,6 +19,7 @@ const HIGHER_EDUCATION_VALUES = [
 export type OnboardingForm = {
     // Location
     country: string;
+    countryCode: string | null;
     city: string;
     region: string;
     ukCounty: string | null;
@@ -44,8 +45,12 @@ export type OnboardingForm = {
     universitySubject: string | null;
     // Finances & body
     currency: string;
-    personalIncomeRange: string | null;
-    householdIncomeRange: string | null;
+    incomeCatalogVersion: string | null;
+    incomeProfileId: string | null;
+    incomeProfileVersion: number | null;
+    incomeMarketCode: string | null;
+    personalIncomeBandId: string | null;
+    householdIncomeBandId: string | null;
     height: string | null;
     weightRange: string | null;
     eyeColor: string | null;
@@ -76,6 +81,7 @@ export type OnboardingForm = {
 export function createEmptyOnboardingForm(): OnboardingForm {
     return {
         country: "",
+        countryCode: null,
         city: "",
         region: "",
         ukCounty: null,
@@ -97,8 +103,12 @@ export function createEmptyOnboardingForm(): OnboardingForm {
         employmentSector: null,
         universitySubject: null,
         currency: "USD",
-        personalIncomeRange: null,
-        householdIncomeRange: null,
+        incomeCatalogVersion: null,
+        incomeProfileId: null,
+        incomeProfileVersion: null,
+        incomeMarketCode: null,
+        personalIncomeBandId: null,
+        householdIncomeBandId: null,
         height: null,
         weightRange: null,
         eyeColor: null,
@@ -147,6 +157,7 @@ export function findFirstIncompleteStep(
     const incomplete = (step: number, fieldLabel: string): IncompleteOnboardingStep => ({ step, fieldLabel });
 
     if (form.country.trim().length === 0) return incomplete(0, "Country of residence");
+    if (!hasValue(form.countryCode)) return incomplete(0, "Country of residence");
     if (!hasValue(form.urbanRural)) return incomplete(0, "Settlement type");
 
     if (form.age === null || !Number.isFinite(form.age) || form.age < minimumAge) {
@@ -184,8 +195,18 @@ export function findFirstIncompleteStep(
     if (!hasValue(form.chronotype)) return incomplete(8, "Morning or evening person");
     if (!hasValue(form.outlook)) return incomplete(8, "Feelings about the future");
 
-    if (!hasValue(form.personalIncomeRange)) return incomplete(9, "Personal income");
-    if (!hasValue(form.householdIncomeRange)) return incomplete(9, "Household income");
+    if (!hasValue(form.incomeProfileId)
+        || form.incomeProfileVersion === null
+        || !Number.isInteger(form.incomeProfileVersion)
+        || form.incomeProfileVersion < 1
+        || !hasValue(form.incomeCatalogVersion)
+        || !hasValue(form.incomeMarketCode)
+        || !/^[A-Z]{3}$/.test(form.currency)
+        || !form.incomeProfileId.startsWith(`${form.incomeMarketCode}-${form.currency}-`)) {
+        return incomplete(9, "Income currency and market");
+    }
+    if (!hasValue(form.personalIncomeBandId)) return incomplete(9, "Personal income");
+    if (!hasValue(form.householdIncomeBandId)) return incomplete(9, "Household income");
 
     if (!hasValue(form.balancedNewsViewpoint)) return incomplete(10, "Seeing more than one news viewpoint");
     if (!inRange(form.mainstreamNewsPercent, 0, 100)) return incomplete(10, "Mainstream news percentage");
@@ -229,6 +250,7 @@ function inRange(value: number | null, minimum: number, maximum: number): value 
 export function buildCharacteristicAnswers(form: OnboardingForm): CharacteristicAnswers {
     return {
         country: form.country.trim(),
+        countryCode: form.countryCode,
         city: emptyToNull(form.city),
         region: emptyToNull(form.region),
         ukCounty: form.ukCounty,
@@ -251,8 +273,23 @@ export function buildCharacteristicAnswers(form: OnboardingForm): Characteristic
         employmentSector: form.employmentSector,
         // University subject only applies to higher-education answers.
         universitySubject: isHigherEducation(form.education) ? form.universitySubject : null,
-        personalIncomeRange: form.personalIncomeRange,
-        householdIncomeRange: form.householdIncomeRange,
+        income: form.incomeCatalogVersion !== null
+            && form.incomeProfileId !== null
+            && form.incomeProfileVersion !== null
+            && form.incomeMarketCode !== null
+            && form.personalIncomeBandId !== null
+            && form.householdIncomeBandId !== null
+            ? {
+                answerVersion: 2,
+                catalogVersion: form.incomeCatalogVersion,
+                profileId: form.incomeProfileId,
+                profileVersion: form.incomeProfileVersion,
+                marketCode: form.incomeMarketCode,
+                currencyCode: form.currency,
+                personalBandId: form.personalIncomeBandId,
+                householdBandId: form.householdIncomeBandId,
+            }
+            : null,
         height: form.height,
         weightRange: form.weightRange,
         eyeColor: form.eyeColor,

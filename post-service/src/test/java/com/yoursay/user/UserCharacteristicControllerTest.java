@@ -9,11 +9,13 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Year;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Integration tests for the characteristic onboarding flow against a real Postgres
@@ -90,6 +92,26 @@ public class UserCharacteristicControllerTest {
               "betterWorldWithData": true
             }
             """;
+    }
+
+    static String versionedIndiaBody() {
+        return validBody()
+                .replace("\"country\": \"United Kingdom\"", "\"country\": \"India\"")
+                .replace(
+                        "\"personalIncomeRange\": \"BELOW_20K\",",
+                        """
+                        "countryCode": "INDIA",
+                        "income": {
+                          "answerVersion": 2,
+                          "catalogVersion": "2026.1",
+                          "profileId": "IN-INR-GROSS-2023-24-v1",
+                          "profileVersion": 1,
+                          "marketCode": "IN",
+                          "currencyCode": "INR",
+                          "personalBandId": "PERSONAL_TIER_3",
+                          "householdBandId": "HOUSEHOLD_TIER_5"
+                        },""")
+                .replace("\"householdIncomeRange\": \"BETWEEN_100K_AND_150K\",", "");
     }
 
     @Test
@@ -223,6 +245,77 @@ public class UserCharacteristicControllerTest {
                 .body("$", not(hasKey("name")))
                 .body("$", not(hasKey("email")))
                 .body("$", not(hasKey("dateOfBirth")));
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void versionedIncomeStoresProfileProvenanceAndServerDerivedTiers() {
+        given()
+                .contentType(ContentType.JSON)
+                .body(versionedIndiaBody())
+                .when().post(BASE)
+                .then()
+                .statusCode(201)
+                .body("country", equalTo("India"))
+                .body("countryCode", equalTo("INDIA"))
+                .body("personalIncomeRange", nullValue())
+                .body("householdIncomeRange", nullValue())
+                .body("income.answerVersion", equalTo(2))
+                .body("income.catalogVersion", equalTo("2026.1"))
+                .body("income.profileId", equalTo("IN-INR-GROSS-2023-24-v1"))
+                .body("income.profileVersion", equalTo(1))
+                .body("income.marketCode", equalTo("IN"))
+                .body("income.currencyCode", equalTo("INR"))
+                .body("income.personalBandId", equalTo("PERSONAL_TIER_3"))
+                .body("income.householdBandId", equalTo("HOUSEHOLD_TIER_5"))
+                .body("personalIncomeTier", equalTo("TIER_3"))
+                .body("householdIncomeTier", equalTo("TIER_5"));
+
+        given()
+                .when().get(BASE + "/me")
+                .then()
+                .statusCode(200)
+                .body("countryCode", equalTo("INDIA"))
+                .body("income.answerVersion", equalTo(2))
+                .body("income.catalogVersion", equalTo("2026.1"))
+                .body("income.profileId", equalTo("IN-INR-GROSS-2023-24-v1"))
+                .body("income.profileVersion", equalTo(1))
+                .body("income.marketCode", equalTo("IN"))
+                .body("income.currencyCode", equalTo("INR"))
+                .body("income.personalBandId", equalTo("PERSONAL_TIER_3"))
+                .body("income.householdBandId", equalTo("HOUSEHOLD_TIER_5"))
+                .body("personalIncomeTier", equalTo("TIER_3"))
+                .body("householdIncomeTier", equalTo("TIER_5"));
+
+        assertIncomeDatabaseUpdateRejected("personal_income_range = 'BELOW_20K'");
+        assertIncomeDatabaseUpdateRejected("income_answer_version = NULL");
+        assertIncomeDatabaseUpdateRejected("income_currency_code = NULL");
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void versionedIncomeRejectsWrongResidenceProfileAndUnknownBands() {
+        String wrongResidenceProfile = versionedIndiaBody()
+                .replace("\"profileId\": \"IN-INR-GROSS-2023-24-v1\"", "\"profileId\": \"GB-GBP-GROSS-2025-v1\"")
+                .replace("\"marketCode\": \"IN\"", "\"marketCode\": \"GB\"")
+                .replace("\"currencyCode\": \"INR\"", "\"currencyCode\": \"GBP\"");
+        String unknownBand = versionedIndiaBody()
+                .replace("\"personalBandId\": \"PERSONAL_TIER_3\"", "\"personalBandId\": \"PERSONAL_TIER_99\"");
+        String mixedVersion = versionedIndiaBody()
+                .replace(
+                        "\"countryCode\": \"INDIA\",",
+                        "\"countryCode\": \"INDIA\",\n"
+                                + "              \"personalIncomeRange\": \"BELOW_20K\",");
+
+        for (String invalid : new String[]{wrongResidenceProfile, unknownBand, mixedVersion}) {
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(invalid)
+                    .when().post(BASE)
+                    .then()
+                    .statusCode(400)
+                    .body("code", equalTo("USER_CHARACTERISTIC_INVALID_FIELD"));
+        }
     }
 
     @Test
@@ -746,29 +839,133 @@ public class UserCharacteristicControllerTest {
                         "universitySubject", "height", "weightRange", "incomeRange", "eyeColor", "parent",
                         "petType", "chronotype", "outlook", "neurodivergenceType", "disabilityType",
                         "housingStatus", "propertyType"))
-                .body("fields.gender.value", contains("WOMAN", "MAN", "NON_BINARY", "SELF_DESCRIBE"))
-                .body("fields.gender.label", contains("Woman", "Man", "Non-binary", "Another gender identity"))
+                .body("fields.gender.value", contains("SELF_DESCRIBE", "MAN", "NON_BINARY", "WOMAN"))
+                .body("fields.gender.label", contains("Another gender identity", "Man", "Non-binary", "Woman"))
                 .body("fields.petType.value", contains(
-                        "DOG", "CAT", "FISH", "BIRD", "REPTILE", "RABBIT",
-                        "SMALL_MAMMAL", "HORSE_PONY", "AMPHIBIAN", "INVERTEBRATE", "OTHER"))
-                .body("fields.education.value", not(hasItems("NO_FORMAL_EDUCATION", "HIGH_SCHOOL")))
-                .body("fields.sexualOrientation.value", not(hasItems("HETEROSEXUAL", "HOMOSEXUAL")))
+                        "AMPHIBIAN", "BIRD", "CAT", "DOG", "FISH", "HORSE_PONY",
+                        "INVERTEBRATE", "OTHER", "RABBIT", "REPTILE", "SMALL_MAMMAL"))
+                .body("fields.education.value", contains(
+                        "NO_FORMAL_QUALIFICATIONS", "PRIMARY_SCHOOLING", "SECONDARY_SCHOOL",
+                        "VOCATIONAL_TECHNICAL", "HIGHER_EDUCATION_BELOW_DEGREE", "BACHELORS",
+                        "MASTERS", "DOCTORATE", "OTHER", "NOT_SURE"))
+                .body("fields.education.label", contains(
+                        "No formal qualifications", "Primary / basic schooling", "Secondary school",
+                        "Vocational / technical qualification", "Higher education below degree",
+                        "Bachelor's degree", "Master's degree", "Doctorate", "Other", "Not sure"))
+                .body("fields.sexualOrientation.value", contains(
+                        "SELF_DESCRIBE", "ASEXUAL", "BISEXUAL", "GAY_LESBIAN", "PANSEXUAL", "QUEER",
+                        "QUESTIONING", "STRAIGHT_HETEROSEXUAL"))
+                .body("fields.sexualOrientation.label", contains(
+                        "Another orientation", "Asexual", "Bisexual", "Gay or lesbian", "Pansexual",
+                        "Queer", "Questioning / unsure", "Straight / heterosexual"))
+                .body("fields.universitySubject.value", hasItems(
+                        "ACCOUNTING_FINANCE", "ALLIED_HEALTH", "CRIMINOLOGY", "DATA_SCIENCE",
+                        "DENTISTRY", "DESIGN", "PHARMACY", "PUBLIC_HEALTH", "SOCIAL_WORK",
+                        "VETERINARY_SCIENCE"))
+                .body("fields.universitySubject.label", hasItems(
+                        "Accounting & finance", "Allied health", "Data science", "Public health",
+                        "Social work", "Veterinary science"))
                 .body("fields.incomeRange.value", contains(
                         "BELOW_20K", "BETWEEN_20K_AND_30K", "BETWEEN_30K_AND_40K", "BETWEEN_40K_AND_50K",
                         "BETWEEN_50K_AND_75K", "BETWEEN_75K_AND_100K", "BETWEEN_100K_AND_150K",
                         "BETWEEN_150K_AND_200K", "BETWEEN_200K_AND_500K", "BETWEEN_500K_AND_1000K",
                         "ABOVE_1000000"))
                 .body("fields.housingStatus.value", contains(
-                        "OWN_OUTRIGHT", "OWN_MORTGAGE", "SHARED_OWNERSHIP", "PRIVATE_RENT", "SOCIAL_RENT",
-                        "LIVE_WITH_FAMILY", "RENT_FREE", "STUDENT_ACCOMMODATION", "TEMPORARY_NO_FIXED", "OTHER"))
+                        "RENT_FREE", "LIVE_WITH_FAMILY", "OTHER", "OWN_OUTRIGHT", "OWN_MORTGAGE",
+                        "PRIVATE_RENT", "SHARED_OWNERSHIP", "SOCIAL_RENT", "STUDENT_ACCOMMODATION",
+                        "TEMPORARY_NO_FIXED"))
                 .body("fields.race.value", contains(
-                        "WHITE_EUROPEAN", "BLACK_AFRICAN", "EAST_ASIAN", "SOUTH_ASIAN", "SOUTHEAST_ASIAN",
-                        "MIDDLE_EASTERN_NORTH_AFRICAN", "HISPANIC_LATINO", "INDIGENOUS", "PACIFIC_ISLANDER",
-                        "MIXED_MULTIPLE", "OTHER_ETHNIC_GROUP", "SELF_DESCRIBE"))
+                        "BLACK_AFRICAN", "EAST_ASIAN", "HISPANIC_LATINO", "INDIGENOUS",
+                        "MIDDLE_EASTERN_NORTH_AFRICAN", "MIXED_MULTIPLE", "OTHER_ETHNIC_GROUP",
+                        "PACIFIC_ISLANDER", "SELF_DESCRIBE", "SOUTH_ASIAN", "SOUTHEAST_ASIAN",
+                        "WHITE_EUROPEAN"))
                 .body("fields.disabilityType.value", contains(
-                        "PHYSICAL_MOBILITY", "VISUAL", "HEARING", "COGNITIVE_LEARNING", "CHRONIC_ILLNESS",
-                        "MENTAL_HEALTH", "OTHER"))
+                        "CHRONIC_ILLNESS", "COGNITIVE_LEARNING", "HEARING", "MENTAL_HEALTH", "OTHER",
+                        "PHYSICAL_MOBILITY", "VISUAL"))
                 .body("fields.citizenship.value", hasItems("BRITISH", "NORTHERN_IRISH", "IRELAND"));
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void incomeOptionsExposeMarketSpecificGbpAndInrBands() {
+        given()
+                .queryParam("marketCode", "GB")
+                .queryParam("currencyCode", "GBP")
+                .when().get(BASE + "/income-options")
+                .then()
+                .statusCode(200)
+                .body("catalogVersion", equalTo("2026.1"))
+                .body("profileId", equalTo("GB-GBP-GROSS-2025-v1"))
+                .body("profileVersion", equalTo(1))
+                .body("marketCode", equalTo("GB"))
+                .body("marketLabel", equalTo("United Kingdom"))
+                .body("currencyCode", equalTo("GBP"))
+                .body("residenceCountryCodes", contains("UNITED_KINGDOM"))
+                .body("sourceYear", equalTo("2025"))
+                .body("sourceUrl", containsString("ons.gov.uk"))
+                .body("derivation", containsString("ONS earnings distribution"))
+                .body("confidence", equalTo("HIGH"))
+                .body("personalBands.id", contains(
+                        "PERSONAL_TIER_1", "PERSONAL_TIER_2", "PERSONAL_TIER_3",
+                        "PERSONAL_TIER_4", "PERSONAL_TIER_5", "PERSONAL_TIER_6",
+                        "PERSONAL_TIER_7"))
+                .body("personalBands.tier", contains(
+                        "TIER_1", "TIER_2", "TIER_3", "TIER_4", "TIER_5", "TIER_6", "TIER_7"))
+                .body("personalBands[0].lowerInclusive", nullValue())
+                .body("personalBands[0].upperExclusive", equalTo(15000))
+                .body("personalBands[6].lowerInclusive", equalTo(140000))
+                .body("personalBands[6].upperExclusive", nullValue())
+                .body("personalBands.label", contains(
+                        "Under GBP 15k", "GBP 15k to GBP 25k", "GBP 25k to GBP 40k",
+                        "GBP 40k to GBP 60k", "GBP 60k to GBP 90k",
+                        "GBP 90k to GBP 140k", "GBP 140k or more"))
+                .body("householdBands.label", contains(
+                        "Under GBP 20k", "GBP 20k to GBP 35k", "GBP 35k to GBP 55k",
+                        "GBP 55k to GBP 85k", "GBP 85k to GBP 130k",
+                        "GBP 130k to GBP 200k", "GBP 200k or more"));
+
+        given()
+                .queryParam("marketCode", "IN")
+                .queryParam("currencyCode", "INR")
+                .when().get(BASE + "/income-options")
+                .then()
+                .statusCode(200)
+                .body("catalogVersion", equalTo("2026.1"))
+                .body("profileId", equalTo("IN-INR-GROSS-2023-24-v1"))
+                .body("profileVersion", equalTo(1))
+                .body("marketCode", equalTo("IN"))
+                .body("marketLabel", equalTo("India"))
+                .body("currencyCode", equalTo("INR"))
+                .body("residenceCountryCodes", contains("INDIA"))
+                .body("sourceYear", equalTo("2023-24"))
+                .body("sourceUrl", containsString("mospi.gov.in"))
+                .body("derivation", containsString("PLFS earnings evidence"))
+                .body("confidence", equalTo("MEDIUM"))
+                .body("personalBands[0].upperExclusive", equalTo(200000))
+                .body("personalBands[6].lowerInclusive", equalTo(3500000))
+                .body("householdBands[0].upperExclusive", equalTo(300000))
+                .body("householdBands[6].lowerInclusive", equalTo(5000000))
+                .body("personalBands.label", contains(
+                        "Under INR 2 lakh", "INR 2 lakh to INR 4 lakh",
+                        "INR 4 lakh to INR 7 lakh", "INR 7 lakh to INR 12 lakh",
+                        "INR 12 lakh to INR 20 lakh", "INR 20 lakh to INR 35 lakh",
+                        "INR 35 lakh or more"))
+                .body("householdBands.label", contains(
+                        "Under INR 3 lakh", "INR 3 lakh to INR 6 lakh",
+                        "INR 6 lakh to INR 10 lakh", "INR 10 lakh to INR 18 lakh",
+                        "INR 18 lakh to INR 30 lakh", "INR 30 lakh to INR 50 lakh",
+                        "INR 50 lakh or more"));
+    }
+
+    @Test
+    @TestSecurity(user = NORA, roles = {"user"})
+    public void unsupportedIncomeMarketCurrencyPairReturns404() {
+        given()
+                .queryParam("marketCode", "GB")
+                .queryParam("currencyCode", "INR")
+                .when().get(BASE + "/income-options")
+                .then()
+                .statusCode(404);
     }
 
     @Test
@@ -782,6 +979,11 @@ public class UserCharacteristicControllerTest {
     public void wrongRoleCannotUseCharacteristicEndpoints() {
         given().when().get(BASE + "/me").then().statusCode(403);
         given().when().get(BASE + "/options").then().statusCode(403);
+        given()
+                .queryParam("marketCode", "GB")
+                .queryParam("currencyCode", "GBP")
+                .when().get(BASE + "/income-options")
+                .then().statusCode(403);
         given().contentType(ContentType.JSON).body(validBody()).when().post(BASE).then().statusCode(403);
     }
 
@@ -789,6 +991,21 @@ public class UserCharacteristicControllerTest {
     public void requiresAuthentication() {
         given().when().get(BASE + "/me").then().statusCode(401);
         given().when().get(BASE + "/options").then().statusCode(401);
+        given()
+                .queryParam("marketCode", "GB")
+                .queryParam("currencyCode", "GBP")
+                .when().get(BASE + "/income-options")
+                .then().statusCode(401);
         given().contentType(ContentType.JSON).body(validBody()).when().post(BASE).then().statusCode(401);
+    }
+
+    private void assertIncomeDatabaseUpdateRejected(String assignment) {
+        assertThrows(SQLException.class, () -> {
+            try (Connection connection = dataSource.getConnection();
+                 Statement statement = connection.createStatement()) {
+                statement.executeUpdate(
+                        "UPDATE user_characteristic SET " + assignment + " WHERE user_id = 5");
+            }
+        });
     }
 }

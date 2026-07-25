@@ -79,7 +79,9 @@ public class UserCharacteristicClient {
                 dto.hasDisability(),
                 dto.disabilityType(),
                 dto.housingStatus(),
-                dto.propertyType());
+                dto.propertyType(),
+                dto.personalIncomeTier(),
+                dto.householdIncomeTier());
     }
 
     /** Minimal view of a user — only the id crosses into the votes domain. */

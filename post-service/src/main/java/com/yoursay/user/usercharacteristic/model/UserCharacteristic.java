@@ -31,6 +31,10 @@ public class UserCharacteristic extends PanacheEntityBase {
     @Column(name = "country", nullable = false)
     private String country;
 
+    /** Stable residence country value used to resolve market-aware profile choices. */
+    @Column(name = "country_code", length = 64)
+    private String countryCode;
+
     @Column(name = "city")
     private String city;
 
@@ -124,12 +128,42 @@ public class UserCharacteristic extends PanacheEntityBase {
 
     // --- Finances & body ---
     @Enumerated(EnumType.STRING)
-    @Column(name = "personal_income_range", nullable = false)
+    @Column(name = "personal_income_range")
     private IncomeRange personalIncomeRange;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "household_income_range", nullable = false)
+    @Column(name = "household_income_range")
     private IncomeRange householdIncomeRange;
+
+    @Column(name = "income_answer_version")
+    private Integer incomeAnswerVersion;
+
+    @Column(name = "income_catalog_version", length = 32)
+    private String incomeCatalogVersion;
+
+    @Column(name = "income_profile_id", length = 96)
+    private String incomeProfileId;
+
+    @Column(name = "income_profile_version")
+    private Integer incomeProfileVersion;
+
+    @Column(name = "income_currency_code", length = 3)
+    private String incomeCurrencyCode;
+
+    @Column(name = "income_market_code", length = 8)
+    private String incomeMarketCode;
+
+    @Column(name = "personal_income_band_id", length = 48)
+    private String personalIncomeBandId;
+
+    @Column(name = "household_income_band_id", length = 48)
+    private String householdIncomeBandId;
+
+    @Column(name = "personal_income_tier", length = 16)
+    private String personalIncomeTier;
+
+    @Column(name = "household_income_tier", length = 16)
+    private String householdIncomeTier;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "height", nullable = false)
@@ -247,6 +281,14 @@ public class UserCharacteristic extends PanacheEntityBase {
 
     public void setCountry(String country) {
         this.country = country;
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public void setCountryCode(String countryCode) {
+        this.countryCode = countryCode;
     }
 
     public String getCity() {
@@ -423,6 +465,86 @@ public class UserCharacteristic extends PanacheEntityBase {
 
     public void setHouseholdIncomeRange(IncomeRange householdIncomeRange) {
         this.householdIncomeRange = householdIncomeRange;
+    }
+
+    public Integer getIncomeAnswerVersion() {
+        return incomeAnswerVersion;
+    }
+
+    public void setIncomeAnswerVersion(Integer incomeAnswerVersion) {
+        this.incomeAnswerVersion = incomeAnswerVersion;
+    }
+
+    public String getIncomeCatalogVersion() {
+        return incomeCatalogVersion;
+    }
+
+    public void setIncomeCatalogVersion(String incomeCatalogVersion) {
+        this.incomeCatalogVersion = incomeCatalogVersion;
+    }
+
+    public String getIncomeProfileId() {
+        return incomeProfileId;
+    }
+
+    public void setIncomeProfileId(String incomeProfileId) {
+        this.incomeProfileId = incomeProfileId;
+    }
+
+    public Integer getIncomeProfileVersion() {
+        return incomeProfileVersion;
+    }
+
+    public void setIncomeProfileVersion(Integer incomeProfileVersion) {
+        this.incomeProfileVersion = incomeProfileVersion;
+    }
+
+    public String getIncomeCurrencyCode() {
+        return incomeCurrencyCode;
+    }
+
+    public void setIncomeCurrencyCode(String incomeCurrencyCode) {
+        this.incomeCurrencyCode = incomeCurrencyCode;
+    }
+
+    public String getIncomeMarketCode() {
+        return incomeMarketCode;
+    }
+
+    public void setIncomeMarketCode(String incomeMarketCode) {
+        this.incomeMarketCode = incomeMarketCode;
+    }
+
+    public String getPersonalIncomeBandId() {
+        return personalIncomeBandId;
+    }
+
+    public void setPersonalIncomeBandId(String personalIncomeBandId) {
+        this.personalIncomeBandId = personalIncomeBandId;
+    }
+
+    public String getHouseholdIncomeBandId() {
+        return householdIncomeBandId;
+    }
+
+    public void setHouseholdIncomeBandId(String householdIncomeBandId) {
+        this.householdIncomeBandId = householdIncomeBandId;
+    }
+
+    public String getPersonalIncomeTier() {
+        return personalIncomeTier;
+    }
+
+    public void setPersonalIncomeTier(String personalIncomeTier) {
+        this.personalIncomeTier = personalIncomeTier;
+    }
+
+    public String getHouseholdIncomeTier() {
+        return householdIncomeTier;
+    }
+
+    public void setHouseholdIncomeTier(String householdIncomeTier) {
+        this.householdIncomeTier = householdIncomeTier;
     }
 
     public Height getHeight() {

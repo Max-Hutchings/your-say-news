@@ -46,6 +46,50 @@ export type CharacteristicOptions = {
     schemaVersion: number;
     minimumAge: number;
     fields: Record<CharacteristicOptionField, Option[]>;
+    incomeCatalog: IncomeCatalog;
+};
+
+export type IncomeProfileSummary = {
+    profileId: string;
+    profileVersion: number;
+    marketCode: string;
+    marketLabel: string;
+    currencyCode: string;
+    residenceCountryCodes: string[];
+};
+
+export type IncomeCatalog = {
+    catalogVersion: string;
+    profiles: IncomeProfileSummary[];
+};
+
+export type IncomeBand = {
+    id: string;
+    label: string;
+    lowerInclusive: number | null;
+    upperExclusive: number | null;
+    tier: string;
+};
+
+export type IncomeProfile = IncomeProfileSummary & {
+    catalogVersion: string;
+    sourceYear: string;
+    sourceUrl: string;
+    derivation: string;
+    confidence: string;
+    personalBands: IncomeBand[];
+    householdBands: IncomeBand[];
+};
+
+export type IncomeAnswer = {
+    answerVersion: 2;
+    catalogVersion: string;
+    profileId: string;
+    profileVersion: number;
+    marketCode: string;
+    currencyCode: string;
+    personalBandId: string;
+    householdBandId: string;
 };
 
 /**
@@ -58,6 +102,7 @@ export type CharacteristicOptions = {
 export type CharacteristicAnswers = {
     // Location
     country: string;
+    countryCode: string | null;
     city: string | null;
     region: string | null;
     ukCounty: string | null;
@@ -82,8 +127,7 @@ export type CharacteristicAnswers = {
     employmentSector: string | null;
     universitySubject: string | null;
     // Finances & body
-    personalIncomeRange: string | null;
-    householdIncomeRange: string | null;
+    income: IncomeAnswer | null;
     height: string | null;
     weightRange: string | null;
     eyeColor: string | null;

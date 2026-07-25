@@ -70,6 +70,11 @@ public record UserCharacteristicDto(
         Integer newsFrequency,
         Boolean balancedNewsViewpoint,
         Integer mainstreamNewsPercent,
-        Boolean betterWorldWithData
+        Boolean betterWorldWithData,
+        // Versioned income v2. Legacy rows retain only the flat range fields above.
+        String countryCode,
+        IncomeAnswerDto income,
+        String personalIncomeTier,
+        String householdIncomeTier
 ) {
 }

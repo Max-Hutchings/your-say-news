@@ -1,9 +1,17 @@
 import React from "react";
-import { Alert } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import { CHARACTERISTIC_OPTION_FIELDS, type CharacteristicOptions } from "../types";
+import {
+    CHARACTERISTIC_OPTION_FIELDS,
+    type CharacteristicOptions,
+    type IncomeBand,
+    type IncomeProfile,
+} from "../types";
 import type { OnboardingForm } from "../answers";
-import { fetchCharacteristicOptions } from "../services/CharacteristicOptionsService";
+import {
+    fetchCharacteristicOptions,
+    fetchIncomeProfile,
+} from "../services/CharacteristicOptionsService";
 import { submitCharacteristics } from "../services/CharacteristicService";
 import {
     clearOnboardingDraft,
@@ -59,6 +67,7 @@ jest.mock("@/components/ui", () => ({
 
 jest.mock("../services/CharacteristicOptionsService", () => ({
     fetchCharacteristicOptions: jest.fn(),
+    fetchIncomeProfile: jest.fn(),
 }));
 
 jest.mock("../services/CharacteristicService", () => ({
@@ -72,6 +81,7 @@ jest.mock("../services/OnboardingDraftService", () => ({
 }));
 
 const fetchOptions = fetchCharacteristicOptions as jest.MockedFunction<typeof fetchCharacteristicOptions>;
+const fetchProfile = fetchIncomeProfile as jest.MockedFunction<typeof fetchIncomeProfile>;
 const submit = submitCharacteristics as jest.MockedFunction<typeof submitCharacteristics>;
 const clearDraft = clearOnboardingDraft as jest.MockedFunction<typeof clearOnboardingDraft>;
 const loadDraft = loadOnboardingDraft as jest.MockedFunction<typeof loadOnboardingDraft>;
@@ -84,19 +94,90 @@ function validOptions(): CharacteristicOptions {
         fields: Object.fromEntries(
             CHARACTERISTIC_OPTION_FIELDS.map((field) => [field, [{ label: field, value: field.toUpperCase() }]])
         ) as CharacteristicOptions["fields"],
+        incomeCatalog: {
+            catalogVersion: "2026.1",
+            profiles: [
+                {
+                    profileId: "GB-GBP-GROSS-2025-v1",
+                    profileVersion: 1,
+                    marketCode: "GB",
+                    marketLabel: "United Kingdom",
+                    currencyCode: "GBP",
+                    residenceCountryCodes: ["UNITED_KINGDOM"],
+                },
+                {
+                    profileId: "IN-INR-GROSS-2023-24-v1",
+                    profileVersion: 1,
+                    marketCode: "IN",
+                    marketLabel: "India",
+                    currencyCode: "INR",
+                    residenceCountryCodes: ["INDIA"],
+                },
+            ],
+        },
     };
+}
+
+function incomeProfile(marketCode: "GB" | "IN"): IncomeProfile {
+    const india = marketCode === "IN";
+    const personalBoundaries = india
+        ? [200_000, 400_000, 700_000, 1_200_000, 2_000_000, 3_500_000]
+        : [15_000, 25_000, 40_000, 60_000, 90_000, 140_000];
+    const householdBoundaries = india
+        ? [300_000, 600_000, 1_000_000, 1_800_000, 3_000_000, 5_000_000]
+        : [20_000, 35_000, 55_000, 85_000, 130_000, 200_000];
+    return {
+        profileId: india ? "IN-INR-GROSS-2023-24-v1" : "GB-GBP-GROSS-2025-v1",
+        profileVersion: 1,
+        marketCode,
+        marketLabel: india ? "India" : "United Kingdom",
+        currencyCode: india ? "INR" : "GBP",
+        residenceCountryCodes: [india ? "INDIA" : "UNITED_KINGDOM"],
+        catalogVersion: "2026.1",
+        sourceYear: india ? "2023-24" : "2025",
+        sourceUrl: "https://example.test/evidence",
+        derivation: "Reviewed local evidence",
+        confidence: india ? "MEDIUM" : "HIGH",
+        personalBands: screenIncomeBands(
+            "PERSONAL",
+            personalBoundaries,
+            india ? "Under INR 2 lakh" : "Under GBP 15k"
+        ),
+        householdBands: screenIncomeBands(
+            "HOUSEHOLD",
+            householdBoundaries,
+            india ? "Under INR 3 lakh" : "Under GBP 20k"
+        ),
+    };
+}
+
+function screenIncomeBands(
+    measure: "PERSONAL" | "HOUSEHOLD",
+    boundaries: number[],
+    firstLabel: string
+): IncomeBand[] {
+    return Array.from({ length: 7 }, (_, index) => ({
+        id: `${measure}_TIER_${index + 1}`,
+        label: index === 0 ? firstLabel : `${measure.toLowerCase()} tier ${index + 1}`,
+        lowerInclusive: index === 0 ? null : boundaries[index - 1],
+        upperExclusive: index === 6 ? null : boundaries[index],
+        tier: `TIER_${index + 1}`,
+    }));
 }
 
 function completeForm(): OnboardingForm {
     return {
-        country: "United Kingdom", city: "Bristol", region: "", ukCounty: "BRISTOL", urbanRural: "URBAN",
+        country: "United Kingdom", countryCode: "UNITED_KINGDOM",
+        city: "Bristol", region: "", ukCounty: "BRISTOL", urbanRural: "URBAN",
         age: 30, gender: "WOMAN", genderSelfDescribe: "", sexAtBirth: "FEMALE",
         sexualOrientation: "STRAIGHT_HETEROSEXUAL", maritalStatus: "SINGLE",
         raceSelections: ["WHITE_EUROPEAN"], countryOfBirth: "UNITED_KINGDOM", citizenship: ["BRITISH"],
         religion: "NO_RELIGION", religiosity: "NOT_RELIGIOUS", politicalPersuasion: "CENTRE_LEFT",
         education: "BACHELORS", occupation: "EMPLOYED_FULL_TIME", employmentSector: "IT_TECHNOLOGY",
-        universitySubject: "COMPUTER_SCIENCE", currency: "USD",
-        personalIncomeRange: "BETWEEN_50K_AND_75K", householdIncomeRange: "BETWEEN_100K_AND_150K",
+        universitySubject: "COMPUTER_SCIENCE", currency: "GBP",
+        incomeCatalogVersion: "2026.1", incomeProfileId: "GB-GBP-GROSS-2025-v1",
+        incomeProfileVersion: 1, incomeMarketCode: "GB",
+        personalIncomeBandId: "PERSONAL_TIER_1", householdIncomeBandId: "HOUSEHOLD_TIER_1",
         height: "FEET_5_4_TO_5_6", weightRange: "KG_60_69", eyeColor: "GREEN",
         parent: "NOT_PARENT_CAREGIVER", hasPet: "YES", petType: ["DOG"],
         chronotype: "NIGHT_OWL", outlook: "OPTIMIST", neurodivergent: "YES",
@@ -114,6 +195,7 @@ describe("OnboardingScreen option loading", () => {
         saveDraft.mockResolvedValue();
         clearDraft.mockResolvedValue();
         submit.mockResolvedValue();
+        fetchProfile.mockImplementation(async (marketCode) => incomeProfile(marketCode as "GB" | "IN"));
     });
 
     it("loads options immediately and lets the user retry a failed startup load", async () => {
@@ -199,6 +281,98 @@ describe("OnboardingScreen option loading", () => {
         await waitFor(() => expect(saveDraft).toHaveBeenCalledWith(5, expect.any(Object), 1));
         expect(await screen.findByText("STEP 2 OF 13")).toBeTruthy();
         expect(mockAlert).not.toHaveBeenCalled();
+    });
+
+    it("starts Body basics with a fresh scroll view at the top", async () => {
+        fetchOptions.mockResolvedValue(validOptions());
+
+        const screen = render(<OnboardingScreen />);
+        for (let nextStep = 2; nextStep <= 6; nextStep += 1) {
+            fireEvent.press(await screen.findByText("Continue"));
+            await screen.findByText(`STEP ${nextStep} OF 13`);
+        }
+        const educationAndWorkScrollView = screen.UNSAFE_getByType(ScrollView);
+
+        fireEvent.press(screen.getByText("Continue"));
+
+        expect(await screen.findByText("Body basics")).toBeTruthy();
+        const bodyBasicsScrollView = screen.UNSAFE_getByType(ScrollView);
+        expect(bodyBasicsScrollView).not.toBe(educationAndWorkScrollView);
+        expect(bodyBasicsScrollView.props.contentOffset).toEqual({ x: 0, y: 0 });
+    });
+
+    it("loads locally meaningful Indian personal and household income bands", async () => {
+        mockUserId = 5;
+        loadDraft.mockResolvedValue({
+            form: {
+                ...completeForm(),
+                country: "India",
+                countryCode: "INDIA",
+                currency: "INR",
+                incomeProfileId: "IN-INR-GROSS-2023-24-v1",
+                incomeMarketCode: "IN",
+                personalIncomeBandId: null,
+                householdIncomeBandId: null,
+            },
+            nextStep: 9,
+        });
+        fetchOptions.mockResolvedValue(validOptions());
+
+        const screen = render(<OnboardingScreen />);
+
+        expect(await screen.findByText("Bands are calibrated for India and used only in aggregate.")).toBeTruthy();
+        expect(screen.getByText("Under INR 2 lakh")).toBeTruthy();
+        expect(screen.getByText("Under INR 3 lakh")).toBeTruthy();
+        expect(fetchProfile).toHaveBeenCalledWith("IN", "INR");
+    });
+
+    it("refetches and clears both prior bands when the market currency changes", async () => {
+        mockUserId = 5;
+        loadDraft.mockResolvedValue({
+            form: {
+                ...completeForm(),
+                country: "Nepal",
+                countryCode: "NEPAL",
+            },
+            nextStep: 9,
+        });
+        fetchOptions.mockResolvedValue(validOptions());
+
+        const screen = render(<OnboardingScreen />);
+        expect(await screen.findByText("Under GBP 15k")).toBeTruthy();
+
+        fireEvent.press(screen.getByText("INR"));
+
+        expect(await screen.findByText("Under INR 2 lakh")).toBeTruthy();
+        expect(screen.queryByText("Under GBP 15k")).toBeNull();
+        fireEvent.press(screen.getByText("Continue"));
+
+        await waitFor(() => expect(saveDraft).toHaveBeenCalledWith(
+            5,
+            expect.objectContaining({
+                currency: "INR",
+                incomeProfileId: "IN-INR-GROSS-2023-24-v1",
+                personalIncomeBandId: null,
+                householdIncomeBandId: null,
+            }),
+            10
+        ));
+        expect(fetchProfile).toHaveBeenCalledWith("IN", "INR");
+    });
+
+    it("does not render bands from a stale profile version", async () => {
+        mockUserId = 5;
+        loadDraft.mockResolvedValue({ form: completeForm(), nextStep: 9 });
+        fetchOptions.mockResolvedValue(validOptions());
+        fetchProfile.mockResolvedValue({
+            ...incomeProfile("GB"),
+            catalogVersion: "2025.9",
+        });
+
+        const screen = render(<OnboardingScreen />);
+
+        expect(await screen.findByText("We couldn’t load income bands for this currency.")).toBeTruthy();
+        expect(screen.queryByText("Under GBP 15k")).toBeNull();
     });
 
     it("keeps the draft and auth state unchanged when submission fails", async () => {

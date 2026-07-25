@@ -36,6 +36,7 @@ databaseChangeLog:
               - { column: { name: university_subject, value: "COMPUTER_SCIENCE" } }
               - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_75K" } }
               - { column: { name: household_income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
               - { column: { name: height, value: "FEET_5_10_TO_6_0" } }
               - { column: { name: weight_range, value: "KG_80_89" } }
               - { column: { name: eye_color, value: "BROWN" } }
@@ -91,6 +92,7 @@ databaseChangeLog:
               - { column: { name: university_subject, value: "MEDICINE" } }
               - { column: { name: personal_income_range, value: "BETWEEN_100K_AND_150K" } }
               - { column: { name: household_income_range, value: "BETWEEN_150K_AND_200K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
               - { column: { name: height, value: "FEET_5_4_TO_5_6" } }
               - { column: { name: weight_range, value: "KG_60_69" } }
               - { column: { name: eye_color, value: "BROWN" } }
@@ -140,6 +142,7 @@ databaseChangeLog:
               - { column: { name: employment_sector, value: "CONSTRUCTION" } }
               - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_75K" } }
               - { column: { name: household_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
               - { column: { name: height, value: "FEET_6_1_TO_6_3" } }
               - { column: { name: weight_range, value: "KG_90_99" } }
               - { column: { name: eye_color, value: "BROWN" } }
@@ -190,6 +193,7 @@ databaseChangeLog:
               - { column: { name: university_subject, value: "PHYSICS" } }
               - { column: { name: personal_income_range, value: "BETWEEN_100K_AND_150K" } }
               - { column: { name: household_income_range, value: "BETWEEN_150K_AND_200K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
               - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
               - { column: { name: weight_range, value: "KG_60_69" } }
               - { column: { name: eye_color, value: "GREEN" } }

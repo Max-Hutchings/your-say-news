@@ -38,8 +38,8 @@ public final class CharacteristicSnapshotMapper {
                 view.occupation(),
                 view.employmentSector(),
                 view.universitySubject(),
-                view.personalIncomeRange(),
-                view.householdIncomeRange(),
+                incomeBucket(view.personalIncomeTier(), view.personalIncomeRange()),
+                incomeBucket(view.householdIncomeTier(), view.householdIncomeRange()),
                 view.height(),
                 view.weightRange(),
                 view.eyeColor(),
@@ -56,6 +56,13 @@ public final class CharacteristicSnapshotMapper {
                 view.housingStatus(),
                 view.propertyType()
         );
+    }
+
+    private static String incomeBucket(String tier, String legacyRange) {
+        if (tier != null) {
+            return "V2_" + tier;
+        }
+        return legacyRange == null ? null : "LEGACY_" + legacyRange;
     }
 
     /**

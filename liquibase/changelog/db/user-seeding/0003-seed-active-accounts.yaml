@@ -59,6 +59,7 @@ databaseChangeLog:
               - { column: { name: university_subject, value: "SOCIOLOGY" } }
               - { column: { name: personal_income_range, value: "BETWEEN_40K_AND_50K" } }
               - { column: { name: household_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
               - { column: { name: height, value: "FEET_5_4_TO_5_6" } }
               - { column: { name: weight_range, value: "KG_60_69" } }
               - { column: { name: eye_color, value: "BROWN" } }
@@ -120,6 +121,7 @@ databaseChangeLog:
               - { column: { name: university_subject, value: "ENGINEERING" } }
               - { column: { name: personal_income_range, value: "BETWEEN_75K_AND_100K" } }
               - { column: { name: household_income_range, value: "BETWEEN_100K_AND_150K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
               - { column: { name: height, value: "FEET_5_10_TO_6_0" } }
               - { column: { name: weight_range, value: "KG_80_89" } }
               - { column: { name: eye_color, value: "BLUE" } }

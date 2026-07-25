@@ -4,6 +4,7 @@ import com.yoursay.user.user.YourSayUserDto;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.user.usercharacteristic.error.UserCharacteristicApiException;
 import com.yoursay.user.usercharacteristic.service.CharacteristicOptionsCatalog;
+import com.yoursay.user.usercharacteristic.service.IncomeProfileCatalog;
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -35,6 +36,9 @@ public class UserCharacteristicController {
     CharacteristicOptionsCatalog optionsCatalog;
 
     @Inject
+    IncomeProfileCatalog incomeProfileCatalog;
+
+    @Inject
     YourSayUserService userService;
 
     @Inject
@@ -54,6 +58,19 @@ public class UserCharacteristicController {
     @Path("/options")
     public CharacteristicOptionsDto getOptions() {
         return optionsCatalog.getOptions();
+    }
+
+    /** Current immutable income profile for a supported market/currency pair. */
+    @GET
+    @Path("/income-options")
+    public IncomeProfileDto getIncomeOptions(
+            @QueryParam("marketCode") String marketCode,
+            @QueryParam("currencyCode") String currencyCode) {
+        IncomeProfileDto profile = incomeProfileCatalog.find(marketCode, currencyCode);
+        if (profile == null) {
+            throw new NotFoundException("Income profile is not supported");
+        }
+        return profile;
     }
 
     /** The authenticated user's characteristic profile, or 204 if they have not onboarded. */

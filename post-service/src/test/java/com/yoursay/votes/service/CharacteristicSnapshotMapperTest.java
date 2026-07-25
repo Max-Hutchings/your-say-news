@@ -67,7 +67,7 @@ class CharacteristicSnapshotMapperTest {
         assertEquals("AGE_25_34", s.bucketFor("ageRange"));
         assertEquals("WOMAN", s.bucketFor("gender"));
         assertEquals("SURREY", s.bucketFor("ukCounty"));
-        assertEquals("BETWEEN_50K_AND_100K", s.bucketFor("personalIncomeRange"));
+        assertEquals("LEGACY_BETWEEN_50K_AND_100K", s.bucketFor("personalIncomeRange"));
         assertEquals("PARENT_CAREGIVER_UNDER_18", s.bucketFor("parent"));
         // Numeric/boolean axes are stringified.
         assertEquals("7", s.bucketFor("newsFrequency"));
@@ -92,6 +92,27 @@ class CharacteristicSnapshotMapperTest {
         // Order in must not affect the bucket label, so aggregates of the same combo reconcile.
         CharacteristicSnapshot s = CharacteristicSnapshotMapper.from(fullView());
         assertEquals("BRITISH+IRELAND", s.bucketFor("citizenship"));
+    }
+
+    @Test
+    void versionedIncomeSnapshotsOnlyTheServerDerivedComparableTiers() {
+        UserCharacteristicView legacy = fullView();
+        UserCharacteristicView versioned = new UserCharacteristicView(
+                legacy.userId(), legacy.politicalPersuasion(), legacy.ageRange(), legacy.gender(),
+                legacy.sexAtBirth(), legacy.sexualOrientation(), legacy.maritalStatus(), legacy.race(),
+                legacy.country(), legacy.region(), legacy.urbanRural(), legacy.ukCounty(),
+                legacy.countryOfBirth(), legacy.citizenship(), legacy.religion(), legacy.religiosity(),
+                legacy.education(), legacy.occupation(), legacy.employmentSector(),
+                legacy.universitySubject(), null, null, legacy.height(), legacy.weightRange(),
+                legacy.eyeColor(), legacy.parent(), legacy.newsFrequency(), legacy.hasPet(),
+                legacy.petType(), legacy.chronotype(), legacy.outlook(), legacy.neurodivergent(),
+                legacy.neurodivergenceType(), legacy.hasDisability(), legacy.disabilityType(),
+                legacy.housingStatus(), legacy.propertyType(), "TIER_3", "TIER_5");
+
+        CharacteristicSnapshot snapshot = CharacteristicSnapshotMapper.from(versioned);
+
+        assertEquals("V2_TIER_3", snapshot.personalIncomeRange());
+        assertEquals("V2_TIER_5", snapshot.householdIncomeRange());
     }
 
     @Test

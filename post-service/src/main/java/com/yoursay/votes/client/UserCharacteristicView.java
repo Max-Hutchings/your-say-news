@@ -46,6 +46,28 @@ public record UserCharacteristicView(
         Boolean hasDisability,
         List<String> disabilityType,
         String housingStatus,
-        String propertyType
+        String propertyType,
+        String personalIncomeTier,
+        String householdIncomeTier
 ) {
+    /** Compatibility constructor for older local adapters and fixtures. */
+    public UserCharacteristicView(
+            Long userId, String politicalPersuasion, String ageRange, String gender,
+            String sexAtBirth, String sexualOrientation, String maritalStatus, List<String> race,
+            String country, String region, String urbanRural, String ukCounty, String countryOfBirth,
+            List<String> citizenship, String religion, String religiosity, String education,
+            String occupation, String employmentSector, String universitySubject,
+            String personalIncomeRange, String householdIncomeRange, String height,
+            String weightRange, String eyeColor, String parent, Integer newsFrequency,
+            Boolean hasPet, List<String> petType, String chronotype, String outlook,
+            Boolean neurodivergent, List<String> neurodivergenceType, Boolean hasDisability,
+            List<String> disabilityType, String housingStatus, String propertyType) {
+        this(userId, politicalPersuasion, ageRange, gender, sexAtBirth, sexualOrientation,
+                maritalStatus, race, country, region, urbanRural, ukCounty, countryOfBirth,
+                citizenship, religion, religiosity, education, occupation, employmentSector,
+                universitySubject, personalIncomeRange, householdIncomeRange, height, weightRange,
+                eyeColor, parent, newsFrequency, hasPet, petType, chronotype, outlook,
+                neurodivergent, neurodivergenceType, hasDisability, disabilityType, housingStatus,
+                propertyType, null, null);
+    }
 }

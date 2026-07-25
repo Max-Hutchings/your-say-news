@@ -12,6 +12,7 @@ import java.util.Map;
 public record CharacteristicOptionsDto(
         int schemaVersion,
         int minimumAge,
-        Map<String, List<CharacteristicOptionDto>> fields
+        Map<String, List<CharacteristicOptionDto>> fields,
+        IncomeCatalogDto incomeCatalog
 ) {
 }

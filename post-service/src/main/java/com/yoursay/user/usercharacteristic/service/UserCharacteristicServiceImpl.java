@@ -1,8 +1,7 @@
 package com.yoursay.user.usercharacteristic.service;
 
 import com.yoursay.observability.DomainMetrics;
-import com.yoursay.user.usercharacteristic.UserCharacteristicDto;
-import com.yoursay.user.usercharacteristic.UserCharacteristicService;
+import com.yoursay.user.usercharacteristic.*;
 import com.yoursay.user.usercharacteristic.error.UserCharacteristicApiException;
 import com.yoursay.user.usercharacteristic.model.EnumOptionPolicy;
 import com.yoursay.user.usercharacteristic.model.Enums.*;
@@ -27,6 +26,9 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
 
     @Inject
     DomainMetrics metrics;
+
+    @Inject
+    IncomeProfileCatalog incomeProfiles;
 
     @Override
     public UserCharacteristicDto getByUserId(long userId) {
@@ -53,7 +55,7 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
     }
 
     /** Validates and copies the answer fields onto the entity. {@code userId} is never read from the body. */
-    private static void applyAnswers(UserCharacteristic entity, UserCharacteristicDto a) {
+    private void applyAnswers(UserCharacteristic entity, UserCharacteristicDto a) {
         if (a == null) {
             throw UserCharacteristicApiException.requestBodyRequired();
         }
@@ -61,6 +63,8 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
             throw UserCharacteristicApiException.requiredField("country");
         }
         entity.setCountry(a.country().trim());
+        CountryOfBirth residenceCountry = parse(CountryOfBirth.class, a.countryCode());
+        entity.setCountryCode(name(residenceCountry));
         entity.setCity(blankToNull(a.city()));
         entity.setRegion(blankToNull(a.region()));
         entity.setUkCounty(parse(UKCounty.class, a.ukCounty()));
@@ -111,8 +115,23 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
                 ? parse(UniversitySubject.class, a.universitySubject())
                 : null);
 
-        entity.setPersonalIncomeRange(required(IncomeRange.class, a.personalIncomeRange(), "personalIncomeRange"));
-        entity.setHouseholdIncomeRange(required(IncomeRange.class, a.householdIncomeRange(), "householdIncomeRange"));
+        if (a.income() != null) {
+            if (a.personalIncomeRange() != null || a.householdIncomeRange() != null) {
+                throw UserCharacteristicApiException.invalidField(
+                        "income", "versioned and legacy income answers cannot be mixed");
+            }
+            if (residenceCountry == null) {
+                throw UserCharacteristicApiException.requiredField("countryCode");
+            }
+            IncomeProfileCatalog.ResolvedIncomeAnswer resolved = incomeProfiles.resolve(a.income());
+            if (!incomeProfiles.isResidenceCompatible(residenceCountry.name(), resolved.profile())) {
+                throw UserCharacteristicApiException.invalidField(
+                        "income.profileId", "profile does not match the selected residence country");
+            }
+            applyVersionedIncome(entity, resolved);
+        } else {
+            applyLegacyIncome(entity, a);
+        }
         entity.setHeight(required(Height.class, a.height(), "height"));
         entity.setWeightRange(required(WeightRange.class, a.weightRange(), "weightRange"));
         entity.setEyeColor(required(EyeColor.class, a.eyeColor(), "eyeColor"));
@@ -166,6 +185,41 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         requireRange(a.mainstreamNewsPercent(), 0, 100, "mainstreamNewsPercent");
         entity.setMainstreamNewsPercent(a.mainstreamNewsPercent());
         entity.setBetterWorldWithData(requiredBoolean(a.betterWorldWithData(), "betterWorldWithData"));
+    }
+
+    private static void applyVersionedIncome(
+            UserCharacteristic entity,
+            IncomeProfileCatalog.ResolvedIncomeAnswer resolved) {
+        IncomeProfileDto profile = resolved.profile();
+        entity.setPersonalIncomeRange(null);
+        entity.setHouseholdIncomeRange(null);
+        entity.setIncomeAnswerVersion(IncomeProfileCatalog.ANSWER_VERSION);
+        entity.setIncomeCatalogVersion(profile.catalogVersion());
+        entity.setIncomeProfileId(profile.profileId());
+        entity.setIncomeProfileVersion(profile.profileVersion());
+        entity.setIncomeCurrencyCode(profile.currencyCode());
+        entity.setIncomeMarketCode(profile.marketCode());
+        entity.setPersonalIncomeBandId(resolved.personalBand().id());
+        entity.setHouseholdIncomeBandId(resolved.householdBand().id());
+        entity.setPersonalIncomeTier(resolved.personalBand().tier());
+        entity.setHouseholdIncomeTier(resolved.householdBand().tier());
+    }
+
+    private static void applyLegacyIncome(UserCharacteristic entity, UserCharacteristicDto answers) {
+        entity.setPersonalIncomeRange(required(
+                IncomeRange.class, answers.personalIncomeRange(), "personalIncomeRange"));
+        entity.setHouseholdIncomeRange(required(
+                IncomeRange.class, answers.householdIncomeRange(), "householdIncomeRange"));
+        entity.setIncomeAnswerVersion(1);
+        entity.setIncomeCatalogVersion(null);
+        entity.setIncomeProfileId(null);
+        entity.setIncomeProfileVersion(null);
+        entity.setIncomeCurrencyCode(null);
+        entity.setIncomeMarketCode(null);
+        entity.setPersonalIncomeBandId(null);
+        entity.setHouseholdIncomeBandId(null);
+        entity.setPersonalIncomeTier(null);
+        entity.setHouseholdIncomeTier(null);
     }
 
     /** Parse a required multi-select enum list: {@code null}/empty or any unknown value is a 400. */
@@ -236,6 +290,17 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         }
         Integer age = c.getBirthYear() == null ? null : Year.now().getValue() - c.getBirthYear();
         String ageRange = age == null ? null : AgeRange.fromAge(age).name();
+        IncomeAnswerDto income = c.getIncomeAnswerVersion() != null && c.getIncomeAnswerVersion() == 2
+                ? new IncomeAnswerDto(
+                        c.getIncomeAnswerVersion(),
+                        c.getIncomeCatalogVersion(),
+                        c.getIncomeProfileId(),
+                        c.getIncomeProfileVersion(),
+                        c.getIncomeMarketCode(),
+                        c.getIncomeCurrencyCode(),
+                        c.getPersonalIncomeBandId(),
+                        c.getHouseholdIncomeBandId())
+                : null;
         return new UserCharacteristicDto(
                 c.getId(),
                 c.getUserId(),
@@ -280,7 +345,11 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
                 c.getNewsFrequency(),
                 c.getBalancedNewsViewpoint(),
                 c.getMainstreamNewsPercent(),
-                c.getBetterWorldWithData()
+                c.getBetterWorldWithData(),
+                c.getCountryCode(),
+                income,
+                c.getPersonalIncomeTier(),
+                c.getHouseholdIncomeTier()
         );
     }
 
