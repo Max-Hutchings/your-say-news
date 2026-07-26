@@ -7,14 +7,16 @@
             INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
             SELECT p.id, 'Agree', 0, 'AGREE'
               FROM post p
-             WHERE NOT EXISTS (
+             WHERE p.id < 2000
+               AND NOT EXISTS (
                  SELECT 1 FROM post_vote_option o
                   WHERE o.post_id = p.id AND o.semantic_key = 'AGREE'
              );
             INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
             SELECT p.id, 'Disagree', 1, 'DISAGREE'
               FROM post p
-             WHERE NOT EXISTS (
+             WHERE p.id < 2000
+               AND NOT EXISTS (
                  SELECT 1 FROM post_vote_option o
                   WHERE o.post_id = p.id AND o.semantic_key = 'DISAGREE'
              );

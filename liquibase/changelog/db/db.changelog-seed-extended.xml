@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Optional extended local dataset. This changelog is deliberately not referenced by the
+     seeding container; run it explicitly only when the larger legacy post catalogue is useful. -->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <include file="db.changelog-seed.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0001-seed-posts.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0002-seed-portrait-posts.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0003-seed-more-portrait-posts.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0003a-seed-binary-vote-options.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0004-seed-john-doe-votes.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0005-seed-portrait-video-post.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0006-seed-active-account-posts.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0007-seed-voting-options.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0008-seed-more-multiple-choice-posts.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0009-seed-landlord-insulation-votes.xml" relativeToChangelogFile="true"/>
+</databaseChangeLog>

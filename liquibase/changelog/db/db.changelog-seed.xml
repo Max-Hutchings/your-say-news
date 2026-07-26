@@ -7,5 +7,6 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
     <includeAll path="user-seeding" relativeToChangelogFile="true"/>
-    <includeAll path="seeding" relativeToChangelogFile="true"/>
+    <include file="seeding/0000-reset-seed-data.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0010-seed-curated-posts.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
