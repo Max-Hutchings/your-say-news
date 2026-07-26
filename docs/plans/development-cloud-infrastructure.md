@@ -1,0 +1,908 @@
+# Development cloud infrastructure plan
+
+**Status:** Proposed for stakeholder and developer review  
+**Date:** 2026-07-25  
+**Scope:** The always-on, production-like development environment only  
+**Budget:** £20/month for compute, database, object storage and their network costs  
+**Excluded from the budget:** AI API usage, the one-off Google Play registration fee and future
+production support/SLA costs
+
+## Contents
+
+- [Recommendation](#recommendation)
+- [Why this fits the repository](#why-this-fits-the-repository)
+- [Wiki and roadmap reconciliation](#wiki-and-roadmap-reconciliation)
+- [Target architecture](#target-architecture)
+- [Expected monthly cost](#expected-monthly-cost)
+  - [Cost assumptions and limits](#cost-assumptions-and-limits)
+- [Does Akamai Cloud satisfy the project?](#does-akamai-cloud-satisfy-the-project)
+- [Options considered](#options-considered)
+- [Component design](#component-design)
+  - [Compute and host baseline](#compute-and-host-baseline)
+  - [PostgreSQL](#postgresql)
+  - [Media and backups](#media-and-backups)
+  - [Authentication, tester restriction and administration](#authentication-tester-restriction-and-administration)
+  - [Availability and job integrity](#availability-and-job-integrity)
+  - [Observability](#observability)
+- [Container images and deployment artifacts](#container-images-and-deployment-artifacts)
+  - [Dockerfile corrections before first deployment](#dockerfile-corrections-before-first-deployment)
+- [Repository and Terraform design](#repository-and-terraform-design)
+  - [Your Say News repository](#your-say-news-repository)
+  - [Reusable platform repository](#reusable-platform-repository)
+  - [Terraform scope](#terraform-scope)
+  - [Remote state](#remote-state)
+- [CI/CD plan](#cicd-plan)
+  - [Change classification](#change-classification)
+  - [Pull requests](#pull-requests)
+  - [Merge to main](#merge-to-main)
+  - [API compatibility](#api-compatibility)
+  - [Terraform plan and manual apply](#terraform-plan-and-manual-apply)
+  - [Secrets and variables](#secrets-and-variables)
+- [Application configuration work required](#application-configuration-work-required)
+- [Migration to funded AWS](#migration-to-funded-aws)
+- [Delivery phases and acceptance gates](#delivery-phases-and-acceptance-gates)
+- [Decision record](#decision-record)
+- [Primary references](#primary-references)
+
+## Recommendation
+
+Use a small EU Linux VM running Docker Compose, with state kept outside the VM:
+
+- **Compute:** Hetzner Cloud CX23 in Nuremberg or Falkenstein (2 shared vCPU, 4 GB RAM, 40 GB disk).
+- **Database:** Aiven for PostgreSQL Free in its Europe geographical area initially, conditional on
+  confirming that the Europe area remains its residency boundary. Otherwise use a region-fixed
+  Scaleway DB-DEV-S in Paris or Milan.
+- **Media:** a private Cloudflare R2 Standard bucket created with the `eu` jurisdiction.
+- **Ingress and DNS:** retain the domain registration at GoDaddy, delegate DNS to Cloudflare and
+  publish only the API hostname through Cloudflare Tunnel.
+- **Authentication:** Google-only authentication; the application database remains authoritative
+  for invitations and application permissions.
+- **Observability:** Grafana Cloud Free, fed by OpenTelemetry/Alloy from the VM.
+- **Images:** private GitHub Container Registry (GHCR), tagged by immutable Git commit SHA/digest.
+- **CI/CD:** ephemeral GitHub-hosted Ubuntu runners. A deployment job temporarily joins Tailscale
+  and connects to the VM over its private Tailscale address. Do not install a GitHub runner on the
+  application VM.
+- **Infrastructure as code:** environment roots in this repository, reusable Terraform modules and
+  Compose templates in a separate platform repository, and remote state in HCP Terraform.
+- **Orchestration:** Docker Compose now; AWS ECS is the funded migration target. Kubernetes and Helm
+  are deliberately out of scope.
+
+This is a production-shaped development environment, not a claim of production availability. It
+has one API instance, one database node, no multi-zone failover and no paid support SLA. The design
+keeps the application portable while accepting occasional development downtime.
+
+## Why this fits the repository
+
+The repository is not just one stateless HTTP container. The reviewed runtime comprises:
+
+- a Quarkus/JVM `post-service` API;
+- durable scheduled agent work that polls PostgreSQL and therefore needs an always-on process;
+- one-shot Liquibase migrations;
+- PostgreSQL accessed through both JDBC and reactive pools;
+- direct client media upload/download via S3-compatible presigned URLs;
+- xAI-compatible outbound calls;
+- OpenTelemetry metrics, logs and traces; and
+- an Expo/React Native Android application, built and distributed but not web-hosted.
+
+The current local Compose stack also contains Keycloak, a separate Keycloak database, LocalStack
+and the local Grafana/OTel distribution. Those are local-development substitutes, not four more
+cloud workloads:
+
+- Google authentication replaces Keycloak and its database in the remote environment.
+- R2 replaces LocalStack.
+- Aiven replaces the local PostgreSQL container.
+- Grafana Cloud replaces the local observability stack.
+
+The API container, a lightweight telemetry collector and `cloudflared` are the only steady
+Compose services proposed on the VM. Liquibase runs as a one-shot release step. Tailscale should be
+installed as a host service for private operations access.
+
+## Wiki and roadmap reconciliation
+
+The complete `wiki/` ADR set and metric tracking records were reviewed. The infrastructure plan
+preserves the following decisions:
+
+- ADR-011 and ADR-012 require image/video media and presigned object URLs. Private R2 implements
+  that contract without proxying media bytes through the JVM.
+- ADR-020, ADR-022 and ADR-027 require durable asynchronous agent jobs. This is why a scale-to-zero
+  platform is a poor fit while the worker polls every two seconds.
+- ADR-023 makes the application database authoritative for account and publisher status. The
+  proposed Google identity change extends this principle to invitations and site-administrator
+  permissions.
+- ADR-024 and ADR-025 keep voting, users and agents in the single `post-service` deployable and
+  central Liquibase tree. No microservices, Kubernetes cluster or separate worker container is
+  introduced now.
+- ADR-026 and every file under `wiki/all-metrics/` define the low-cardinality telemetry contract.
+  Grafana Cloud should receive those metrics; infrastructure labels must not add user IDs, emails,
+  post IDs or other high-cardinality/PII dimensions.
+- ADR-027's fixed `ysn` application-owned publisher and audit requirements remain. Only its
+  Keycloak `admin` role assumption needs superseding.
+
+Historical accepted ADRs should not be rewritten. A new proposed ADR,
+`wiki/ADR-028-2026-07-25-google-authentication-and-application-authorization.md`, records the
+authentication change and explicitly supersedes only the Keycloak-specific parts of ADR-023 and
+ADR-027.
+
+Two wiki risks must be closed before real people, rather than synthetic stakeholder data, use this
+environment:
+
+1. The database contains sensitive characteristic, disability, neurodiversity, income, vote and
+   impression data. Complete the privacy, retention, account deletion/export and consent work
+   already identified by the MVP plans.
+2. Vote aggregation currently permits a suppression threshold of zero. The wiki deliberately
+   deferred a minimum cohort threshold during MVP work, but the value must be non-zero before
+   characteristics from real testers can be exposed in aggregate results.
+
+## Target architecture
+
+```text
+Android internal/closed testers
+             |
+       HTTPS + app token
+             |
+      Cloudflare DNS/WAF
+             |
+   Cloudflare Tunnel (outbound)
+             |
+  +----------v----------------------------------+
+  | EU Linux VM                                 |
+  | Docker Compose                              |
+  |  - post-service JVM API                     |
+  |  - cloudflared                              |
+  |  - Grafana Alloy / OTel collector           |
+  | Host: Docker, Tailscale, firewall, updates  |
+  +------+------------------+-------------------+
+         | TLS              | S3 HTTPS
+         v                  v
+  Aiven PostgreSQL      Private EU R2
+  app data + jobs       images + videos
+
+  Google OIDC ---------- identity assertion ----> API
+  xAI API <------------- server-side egress ----- API
+  Grafana Cloud <------- metrics/logs/traces ---- Alloy
+
+  GitHub-hosted runner -- ephemeral Tailscale --> VM deploy user
+  GitHub Actions -------> GHCR / HCP Terraform / EAS / Play
+```
+
+The native application necessarily contains its API hostname, so the URL cannot be treated as a
+secret or made undiscoverable. Security comes from HTTPS, valid Google identity, the database
+invitation/allowlist and server-side permissions. Cloudflare Access browser redirects should not
+be placed in front of the mobile API. The administration endpoints receive the stricter
+application-owned `ADMIN` permission.
+
+## Expected monthly cost
+
+Prices were checked on 2026-07-25. Currency conversion and VAT vary, so keep headroom rather than
+budgeting to the penny.
+
+| Component | Development selection | Estimated monthly cost |
+| --- | --- | ---: |
+| API VM | Hetzner CX23, EU, plus primary IPv4 if required | about €6–€8 including VAT |
+| PostgreSQL | Aiven Free in Europe | £0 |
+| Media | R2 Standard, below 10 GB and free operation allowances | £0 |
+| DNS, tunnel and TLS | Cloudflare Free | £0 |
+| Telemetry | Grafana Cloud Free | £0 |
+| Terraform state | HCP Terraform Free, below 500 managed resources | £0 |
+| Private operations network | Tailscale Personal, while eligible and within limits | £0 |
+| CI | GitHub-hosted Linux, within the repository owner's allowance | £0 |
+| Image registry | GHCR, within allowance; control retention | £0 initially |
+| Android build | EAS Free or GitHub Linux fallback | £0 initially |
+| **Expected recurring total** | | **approximately £6–£8/month** |
+
+Allow a **£5 operational contingency** for image/artifact overage, R2 operations or a paid Aiven
+Developer plan. This still leaves the environment below £20 in the normal case. A region-fixed
+Scaleway DB-DEV-S instead brings the estimated total close to £18–£20/month including tax and
+small storage/backup volumes, so it has almost no contingency. Configure billing alerts at 50%,
+75%, 90% and 100% wherever providers support them.
+
+The Google Play personal developer account is a one-off US$25 charge and is not infrastructure
+spend. Google documents both the fee and extra testing/device-verification requirements for new
+personal accounts:
+[Play Console registration](https://support.google.com/googleplay/android-developer/answer/6112435).
+
+### Cost assumptions and limits
+
+- Hetzner's June 2026 price table lists CX23 at €5.49/month before tax in its principal EU pricing
+  column. Confirm stock, location, tax and IPv4 price at purchase:
+  [Hetzner 2026 pricing adjustment](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/).
+- Aiven Free is one node with 1 CPU, 1 GB RAM, 1 GB disk, backups and at most 20 connections. It has
+  no SLA, VPC, static IP or connection pooling. Aiven's Developer-tier announcement says Free and
+  Developer customers can choose the geographical area (including Europe), not the cloud or exact
+  region, while its service terms reserve the right to move provider/region or stop an inactive
+  Free service. Confirm with Aiven that a Europe choice cannot move the data outside Europe before
+  provisioning:
+  [Aiven Free PostgreSQL limitations](https://aiven.io/docs/products/postgresql/concepts/pg-free-tier).
+- Scaleway's Paris DB-DEV-S is currently €0.0156/hour before tax plus block storage and backups,
+  providing a deterministic EU fallback:
+  [Scaleway managed database pricing](https://www.scaleway.com/en/pricing/managed-databases/).
+- R2 Standard includes 10 GB-month, one million Class A operations and ten million Class B
+  operations monthly, with no direct R2 egress charge:
+  [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+- HCP Terraform Free supports up to 500 managed resources and at least the last 100 states:
+  [HCP Terraform limits](https://support.hashicorp.com/hc/en-us/articles/4414055267603-HCP-Terraform-Limits).
+- Grafana Cloud Free currently includes 10,000 metric series and 50 GB each of logs, traces and
+  profiles with 14-day retention:
+  [Grafana Cloud Free](https://grafana.com/get/).
+- GitHub Free currently includes 2,000 private-repository Actions minutes and 500 MB of shared
+  Actions/package storage:
+  [GitHub included usage](https://docs.github.com/en/billing/reference/product-usage-included).
+- Tailscale Personal currently allows up to six users, 50 tagged resources and 1,000 ephemeral
+  resource minutes:
+  [Tailscale pricing](https://tailscale.com/pricing). Re-check licence suitability when the project
+  becomes a funded commercial operation.
+
+Free tiers are dependencies, not permanent entitlements. Pin the date and limits in the monthly
+cost review and alert before a provider changes them.
+
+## Does Akamai Cloud satisfy the project?
+
+**Yes technically, but not as the recommended full stack under this budget.**
+
+Akamai offers London and continental European compute, Terraform support, managed PostgreSQL and
+S3-compatible object storage. It is a credible and familiar alternative. Its current European
+price page lists:
+
+- 1 GB shared compute at US$5/month;
+- 2 GB shared compute at US$12/month;
+- 4 GB shared compute at US$24/month;
+- one-node 1 GB managed PostgreSQL at US$16/month; and
+- object storage at US$0.02/GB-month with the first 1 TB outbound transfer free.
+
+Source: [Akamai Europe cloud pricing](https://www.akamai.com/cloud/pricing/europe).
+
+The Quarkus JVM, collector and tunnel should not be deliberately squeezed into a 1 GB VM. The
+smallest credible Akamai combination is therefore 2 GB compute plus 1 GB managed PostgreSQL at
+about US$28/month before tax and storage. It is above £20 and has less API memory than the proposed
+Hetzner VM.
+
+Use Akamai in either of these situations:
+
+- Hetzner capacity/account availability is a problem: run the 2 GB Akamai VM while retaining Aiven
+  and R2, for about US$12/month plus tax.
+- A single provider and London placement become more valuable than the £20 ceiling: use Akamai
+  compute and managed PostgreSQL, retaining R2 only if its zero-egress media economics are useful.
+
+Do not use Akamai's 1 GB VM for this JVM solely to save US$7. An out-of-memory loop is not a useful
+production rehearsal.
+
+## Options considered
+
+| Option | Fit | Cost/operational conclusion |
+| --- | --- | --- |
+| **Hetzner VM + Aiven PG + R2** | Best current fit, conditional | Lowest predictable cost, 4 GB API memory, standard interfaces; confirm Europe-area residency and accept the free DB limits. |
+| **Akamai VM + Aiven PG + R2** | Best fallback | Familiar provider, London available, still below budget with 2 GB VM; less memory. |
+| **Akamai VM + Akamai managed PG** | Technically strong | One provider and clean Terraform story, but credible minimum is above budget. |
+| Hetzner VM + Scaleway managed PG + R2 | Region-fixed EU fallback | Paris/Milan placement and managed backups; approximately consumes the full £20 ceiling after tax and small storage volumes. |
+| Scaleway compute + managed PG + R2 | Single-EU-provider alternative | Good EU control and standard services; recalculate VM/network prices before selection. |
+| Supabase Free PG + R2 | Secondary DB option | Only about 500 MB database storage and inactivity constraints; application features are unnecessary. |
+| Neon Free PG + R2 | Poor with current worker | Compute-hour economics conflict with an API worker polling every two seconds; revisit after event-driven jobs. |
+| Fly.io / Render / Railway | Convenient PaaS | Less host work, but always-on JVM plus managed PG is generally less predictable or above this budget. |
+| DigitalOcean | Simple mainstream option | A suitable 4 GB VM alone is around/above the budget; managed PG increases it further. |
+| Self-host PostgreSQL on the VM | Cheapest paid resources | Rejected: API/database failure share one disk and VM, and two developers become the database operations team. |
+| Kubernetes/Helm | Scalable eventually | Rejected now: unnecessary cost and control-plane/operations complexity for one deployable and under 100 users. |
+
+Serverless/scale-to-zero container products were considered, but the durable worker currently polls
+every two seconds and the requirement says the app is always available. A small VM gives a lower
+and more predictable always-on cost. ECS remains the future scaling path.
+
+## Component design
+
+### Compute and host baseline
+
+Provision Ubuntu 24.04 LTS x86-64 with:
+
+- Docker Engine and the Compose v2 plugin from pinned repositories;
+- automatic security updates and an agreed maintenance/reboot window;
+- an unprivileged `deploy` user, Docker access limited to that account and no password login;
+- Tailscale for private SSH/operations access;
+- provider firewall and host firewall denying all public inbound ports;
+- `cloudflared` making outbound-only connections to Cloudflare;
+- disk, memory, JVM and container-restart alerts; and
+- no persistent application data beyond container layers and bounded local log buffers.
+
+Cloudflare documents that Tunnel is outbound-only and lets the firewall block all inbound traffic:
+[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/).
+
+Set container memory reservations/limits after a load test, not by guesswork. A useful starting
+budget on 4 GB is:
+
+- API JVM: maximum heap around 1.5 GB, container limit around 2.5 GB;
+- Alloy/collector: 256–384 MB;
+- `cloudflared`: 128 MB;
+- host, Docker and page cache: the remainder.
+
+Measure startup, steady state and one concurrent agent-generation job before accepting the limits.
+Stay on the JVM for this environment; native compilation is deferred because its build time and
+maintenance cost do not currently earn enough infrastructure savings.
+
+### PostgreSQL
+
+Use managed PostgreSQL over TLS. Select the Aiven **Europe** geographical area, and record written
+confirmation of the area boundary in the environment evidence. If Aiven cannot confirm the
+database and its backups remain in Europe, select Scaleway Paris or Milan instead; do not waive the
+location requirement merely to keep the database free.
+
+Create separate least-privilege credentials for:
+
+- the API runtime;
+- Liquibase/schema migration; and
+- read-only operational diagnostics if needed.
+
+The API currently has JDBC and reactive pools. Aiven Free permits at most 20 connections and may
+consume some itself, so cap the combined application pools conservatively (for example four JDBC
+plus six reactive connections) and give migrations one short-lived connection. Load-test and tune
+these values before deployment.
+
+Enable Aiven termination protection in Terraform and `prevent_destroy` in the environment root.
+The Aiven provider explicitly warns that some changes recreate stateful services:
+[Aiven Terraform provider](https://registry.terraform.io/providers/aiven/aiven/latest/docs).
+
+Create automated logical dumps to a separate private R2 backup bucket even though Aiven Free
+includes backups. Encrypt them, use a dedicated write-only credential, retain daily backups for
+seven days and monthly backups for three months, and test restore quarterly. Do not claim a backup
+is usable until a restore drill succeeds.
+
+Upgrade/re-platform triggers:
+
+- database disk exceeds 60–70%;
+- sustained memory/connection pressure;
+- an exact EU location, static allowlist/VPC or formal SLA becomes mandatory;
+- backups/restore objectives cannot be met; or
+- real production users are admitted.
+
+For the funded AWS target use RDS PostgreSQL. For a nearer-term paid EU fallback compare Scaleway
+managed PostgreSQL, Aiven's region-selectable professional tiers and Akamai managed PostgreSQL at
+the time the trigger fires. The US$5 Aiven Developer plan increases storage and uptime but still
+does not permit an exact region, so it is a capacity upgrade rather than a stronger residency
+option.
+
+### Media and backups
+
+Create two separate private R2 buckets in the `eu` jurisdiction:
+
+- `...-media-development` for user/post images and videos;
+- `...-backup-development` for encrypted database dumps.
+
+The EU jurisdiction must be selected when the bucket is created and cannot later be changed.
+Cloudflare documents the EU S3 endpoint and `region = "auto"`:
+[R2 data location](https://developers.cloudflare.com/r2/reference/data-location/).
+
+Keep the existing direct presigned URL pattern, with these production requirements:
+
+- short expiry (the existing 15 minutes is reasonable);
+- object keys generated by the server and scoped to the authorised publisher/post;
+- private objects and expiring GET URLs;
+- exact content-type allowlist, content-length limit and checksum;
+- R2 CORS restricted to the expected application upload behaviour;
+- per-user/account upload quotas and rate limits;
+- lifecycle removal of abandoned uploads;
+- audit metadata without PII in the object key; and
+- malware/content moderation before media becomes visible to other testers.
+
+The current client can hold a whole blob and supports video up to 200 MB. Before wider testing,
+avoid buffering large videos in the JVM, add resumable/multipart upload if mobile reliability
+requires it, and test on a slow connection.
+
+R2's jurisdiction covers R2 object storage/processing, not a blanket guarantee that every
+Cloudflare, Google, HCP or telemetry operation is EU-only. A future strict residency requirement
+needs a processor-by-processor/DPA review and may require paid data-localisation products.
+
+### Authentication, tester restriction and administration
+
+Use Google as the only identity provider, but do not make Google the application authorisation
+database:
+
+1. The Android client signs in with Google using an authorization-code/PKCE-compatible flow.
+2. The backend verifies signature, issuer, audience, expiry and nonce as applicable.
+3. Link accounts using Google's immutable `sub`, never mutable email.
+4. Check a database invitation/allowlist before creating or enabling an application account.
+5. Load application permissions and publishing status from PostgreSQL on each protected operation
+   or from a short-lived application token with a revocation strategy.
+
+Google's OIDC reference explicitly says to validate tokens and use `sub`, not email, as the stable
+identifier:
+[Google OIDC validation](https://developers.google.com/identity/openid-connect/openid-connect).
+
+The implementation ADR must settle whether the application exchanges the Google assertion for its
+own short-lived access/refresh session or uses a supported Google-token validation mode on each
+request. The preferred enterprise shape is an application session because it keeps mobile API
+authorisation, refresh and future identity-provider migration explicit. Do not implement a custom
+token issuer without security review and full refresh-token rotation/revocation tests.
+
+Add application permissions such as `USER` and `ADMIN` independently from `AccountType` and
+`PublisherStatus`. Bootstrap the first admin through a one-time migration or privileged CLI using a
+Google `sub`, not an email committed to Terraform. Every invite, revoke, permission and publisher
+change must be audited.
+
+Add an infrastructure-aware admin-page TODO:
+
+- admin UI can be a later protected web/mobile surface;
+- its endpoints use application `ADMIN`, not a Google or Keycloak admin role;
+- no administration database or public VM port is added;
+- Cloudflare may apply additional rate/WAF controls to `/admin/*`; and
+- for the first release, a controlled audited CLI/migration is acceptable.
+
+### Availability and job integrity
+
+Compose should use restart policies, health checks and bounded log rotation. A single VM still has
+a failure domain; an automatic container restart is not high availability.
+
+`AgentJobWorker` skips overlapping scheduled executions and uses durable database claims. Before
+adding a second API task in ECS, add a lease/heartbeat and recovery path for jobs left in an
+in-progress state after process death. Then prove that multiple workers cannot publish the same
+job. This is a prerequisite for horizontal scaling, not a reason to add a second container today.
+
+### Observability
+
+Send the metrics in `wiki/all-metrics/` plus structured logs and sampled traces to Grafana Cloud
+Free. Use Grafana Alloy or an OpenTelemetry Collector on the VM:
+
+- redact tokens, query parameters, user attributes, post text and AI prompts/responses;
+- keep labels low-cardinality as required by ADR-026;
+- sample successful traces and retain errors;
+- bound local buffering so a Grafana outage cannot fill the VM disk;
+- create alerts for API availability, 5xx rate, latency, JVM heap/GC, disk, container restart,
+  database connections/storage, failed migrations, R2 failures and stuck/failed agent jobs; and
+- add a synthetic health check that traverses Cloudflare to a readiness endpoint which verifies
+  dependency health without exposing secrets.
+
+The free tier has only three active users, which covers the current two developers.
+
+## Container images and deployment artifacts
+
+Use private GHCR packages for:
+
+- `post-service` runtime image; and
+- a matching Liquibase migration image or immutable migration artifact.
+
+Build once and promote the same digest. Tag every image with `sha-<full-or-unambiguous-commit>`,
+optionally add a release label, and deploy by digest. Never deploy `latest`.
+
+Retain:
+
+- the currently deployed API and migration artifacts;
+- the immediately previous rollback set; and
+- one known-good emergency set.
+
+Delete untagged/intermediate packages after a short retention period. GitHub's 500 MB free storage
+is shared across packages and Actions artifacts, so a large UBI/JVM image can exceed it. Set a
+strict budget and measure the first image before assuming registry cost is zero.
+
+The VM needs read-only package access. Prefer a dedicated machine/service identity with only
+`read:packages`, stored in the root-owned Docker credential store and rotated; do not copy a
+developer's broad token to the VM. GitHub Actions should push using its scoped `GITHUB_TOKEN`.
+
+Generate an SBOM, scan the filesystem/image, sign the digest with keyless OIDC signing where
+supported, and verify the expected digest in deployment. Pin base images by digest and renovate
+them through reviewed pull requests.
+
+### Dockerfile corrections before first deployment
+
+The repository currently builds with a Java 25 toolchain, while `Dockerfile.jvm` uses a Java 21
+runtime, and the Dockerfile exposes 8080 while the application is configured for 8082. Replace it
+with a multi-stage, reproducible Java 25 image and one canonical container port. Add:
+
+- non-root runtime user;
+- health check/readiness endpoints;
+- JVM/container-aware memory flags;
+- OCI source/revision/version labels;
+- a `.dockerignore`; and
+- pinned base-image digests.
+
+## Repository and Terraform design
+
+Create a separate repository, provisionally named `your-say-platform`, for reusable material. Do
+not put live environment state or environment-specific secrets there.
+
+### Your Say News repository
+
+Keep the backend and its service operations material in the existing Your Say News repository.
+`post-service/` remains the actual backend module. A separate root-level `service/` directory owns
+the infrastructure and deployment configuration through `service/infra/` and `service/deploy/`;
+it is a directory in this repository, not another repository or backend service:
+
+```text
+your-say-news/                    # existing repository root
+  post-service/                   # existing backend module
+  service/                        # infrastructure and deployment operations
+    infra/
+      environments/
+        development/
+          backend.tf
+          main.tf
+          providers.tf
+          variables.tf
+          outputs.tf
+          development.tfvars     # non-secret values only
+      README.md
+    deploy/
+      compose.yaml               # service-owned Compose overlay/root
+      env.example                # names and safe defaults, no values
+      scripts/
+        deploy.ps1-or-sh         # thin, tested invocation
+        health-check.ps1-or-sh
+      README.md
+```
+
+`service/infra` is the environment composition/root: provider choices, module versions, tfvars and
+outputs for the backend. `service/deploy` identifies the exact runtime image,
+migration, environment contract and health/rollback procedure. There is no `chart/` directory
+because there is no Kubernetes or Helm deployment.
+
+### Reusable platform repository
+
+```text
+terraform/
+  modules/
+    linux-compose-host/
+    cloudflare-api-tunnel/
+    r2-private-bucket/
+    aiven-postgresql/
+compose/
+  templates/
+    single-jvm-api/
+github/
+  workflows/
+    terraform-plan.yml
+    compose-deploy.yml
+```
+
+The platform repository owns generic module/template behaviour. Its changes require a pull request
+and lead-developer approval (the user's brother), enforced with CODEOWNERS and branch protection.
+The Your Say News repository pins modules/workflows/templates to immutable tags or commit SHAs; it
+never tracks their default branch.
+
+Service environment changes still receive an automatic Terraform plan, but **every apply is
+manual** so both developers can read the exact plan first.
+
+### Terraform scope
+
+Manage these resources in Terraform where the provider supports them safely:
+
+- Hetzner VM, firewall, SSH key references, delete/rebuild protection;
+- Aiven project/service/database users and termination protection;
+- Cloudflare zone records, R2 buckets/CORS/lifecycle and Tunnel resources;
+- Grafana Cloud stack/service-account configuration where useful;
+- non-secret GitHub Environment variables and environment protection configuration where safe.
+
+Do not put these in Terraform state:
+
+- Google user emails/invitations;
+- application user/admin/publisher records;
+- database passwords when a provider can generate and deliver them separately;
+- xAI keys, Play credentials or private media; or
+- rendered `.env` files.
+
+Provider resources often expose generated credentials in state even when an output is marked
+sensitive. Treat Terraform state as secret.
+
+### Remote state
+
+Use one HCP Terraform organisation and a workspace per environment, initially
+`your-say-news-development`. Select an HCP Europe organisation if available to the account. Use
+HCP for remote state, locking, history and team access, but keep execution in GitHub Actions so the
+plan/apply approval path stays visible in the repository.
+
+- Store a narrowly scoped HCP token in the GitHub `development` Environment secret.
+- Require MFA for both developers and remove unused tokens.
+- Never use local state in CI or upload state as an Actions artifact.
+- Save the binary plan in the same trusted workflow run that later applies it.
+- Reject the apply if the commit, lock file, provider versions, module pins or state serial changed.
+
+When moving to AWS, migrate state deliberately to an encrypted versioned S3 backend with state
+locking after the AWS account foundation exists. Do not copy state by hand.
+
+## CI/CD plan
+
+Keep the existing pull-request quality checks, but split the current monolithic `ci.yml` into
+clear, path-aware workflows or jobs. Explicitly use `ubuntu-24.04`, not a mutable `ubuntu-latest`.
+GitHub's standard private Linux runner currently provides 2 vCPU and 8 GB RAM:
+[GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+
+### Change classification
+
+At the start of every pull request and `main` run, classify changes:
+
+| Paths | Backend release | Android release | Terraform plan |
+| --- | ---: | ---: | ---: |
+| `post-service/**`, `liquibase/**` | yes | no | no |
+| `frontend/**` | no | yes | no |
+| shared API/schema/build config | yes | yes if client contract affected | as applicable |
+| `service/infra/**` | no unless deploy contract changed | no | yes |
+| `service/deploy/**` | yes | no | no |
+| `docs/**`, `wiki/**` only | no | no | no |
+
+Change detection optimises work; it must not bypass required checks. Define explicit shared paths
+and test the filter itself.
+
+### Pull requests
+
+Backend job:
+
+- set up Java 25 and Gradle caching;
+- run formatting/static analysis, unit and integration tests;
+- start real PostgreSQL for integration tests;
+- run Liquibase from an empty schema and test upgrade from the prior released schema;
+- build the JVM artifact and container;
+- run dependency, secret and container vulnerability scans; and
+- generate an SBOM.
+
+Frontend job:
+
+- set up pinned Bun and Node;
+- install from lockfile;
+- typecheck, lint and run Jest;
+- run API contract/backward-compatibility tests; and
+- build/typecheck the Android production configuration without submitting it.
+
+Infrastructure job, when `service/infra/**` changes:
+
+- `terraform fmt -check`, `init -backend=false`, `validate`;
+- lock/provider/module checks;
+- IaC security and policy checks;
+- plan against the development workspace;
+- publish the human-readable plan summary and machine-readable replacement/destruction check; and
+- never apply from a pull request.
+
+### Merge to `main`
+
+Backend changes:
+
+1. Re-run required backend checks.
+2. Build API and migration artifacts once.
+3. Generate SBOM, scan and sign.
+4. Push immutable images to GHCR.
+5. Enter the protected GitHub `development` deployment environment.
+6. Join Tailscale using GitHub OIDC workload identity and a short-lived `tag:ci` node.
+7. SSH to the unprivileged deploy user over the Tailscale address.
+8. Pull the exact digest, run the one-shot Liquibase migration, then run Compose.
+9. Check readiness through both localhost/private path and the public Cloudflare hostname.
+10. Automatically roll the API back to the previous digest if health fails. Never automatically
+    reverse a database migration.
+
+Tailscale recommends workload identity for its GitHub Action and removes the ephemeral node at the
+end of the run:
+[Tailscale GitHub Action](https://tailscale.com/docs/integrations/github/github-action).
+
+Frontend changes:
+
+1. Re-run frontend checks.
+2. Determine whether the native fingerprint changed.
+3. Increment an Android version code from CI/release metadata.
+4. Build an AAB through EAS Free; if its current quota is insufficient, use the GitHub Linux runner
+   with the Android toolchain.
+5. Submit with a Google Play service account to the internal testing track.
+6. Promote to closed testing manually when desired.
+
+Only frontend changes spend an Android build. There is no iOS job and no macOS runner. Register the
+personal Google Play account and complete Google's personal-account testing/device-verification
+requirements before expecting automated distribution to work.
+
+If a commit changes both backend and frontend, release both. If it changes only one, release only
+that component.
+
+### API compatibility
+
+The backend must support the current Android release and the immediately previous release. Enforce
+this with:
+
+- versioned/compatible API contracts;
+- tolerant additions rather than removals/renames;
+- expand-and-contract database/API migrations;
+- CI tests using fixtures/contracts from both Android versions; and
+- a minimum-supported-version response only for security emergencies.
+
+A backend change that requires a client change must deploy the backward-compatible backend first,
+publish the Android update, wait for adoption, then remove old behaviour in a later release.
+
+### Terraform plan and manual apply
+
+Any change under `service/infra/**` automatically creates and uploads a plan for the exact
+commit. Applying is a separate GitHub Actions job protected by the `development-infrastructure`
+Environment:
+
+- require manual reviewer approval/button after the plan is read;
+- apply only the saved binary plan, not a newly generated unreviewed plan;
+- invalidate stale plans when main/state/module/provider pins move;
+- block any delete or replacement of PostgreSQL, R2, DNS zone or the VM unless a separate
+  break-glass workflow and explicit second confirmation are used;
+- serialize plans/applies with workflow concurrency; and
+- publish apply outputs and audit links without secrets.
+
+GitHub does not permit a PR author to approve their own protected deployment in every plan/account
+configuration, so verify the chosen repository plan supports the desired reviewer rule. If not,
+retain the manual dispatch/button and require the other developer's PR review as the compensating
+control.
+
+### Secrets and variables
+
+Use GitHub Environments, not repository `.env` files.
+
+Non-secret environment variables include:
+
+- environment name, region and hostname;
+- R2 bucket name and non-secret endpoint;
+- Google public client IDs/audiences;
+- image repository/digest inputs;
+- Grafana endpoints; and
+- JVM/pool sizing.
+
+Secrets include:
+
+- provider/HCP tokens;
+- database credentials;
+- R2 credentials;
+- xAI key;
+- Grafana publishing token;
+- Google/Play service-account material;
+- GHCR VM pull credential; and
+- any temporary deployment credential not replaced by OIDC.
+
+Use OIDC/workload federation wherever supported. Scope secrets to `development`, mask them, do not
+pass them as Docker build arguments, and prevent forked pull requests from receiving them. Render
+the VM runtime environment file at deploy time with owner-only permissions and atomically replace
+it. In AWS, move runtime secrets to Secrets Manager and ECS task roles.
+
+## Application configuration work required
+
+The infrastructure cannot safely deploy the current local configuration unchanged.
+
+### Backend
+
+- Add a documented `%prod`/remote environment contract for database, Google auth, R2, xAI and OTel.
+- Remove Keycloak-only role assumptions after ADR approval.
+- Replace localhost/static S3 endpoint and credentials with R2 endpoint/credential variables.
+- Restrict CORS to actual mobile/API needs; remove local origins from the remote profile.
+- Turn off Hibernate/Liquibase migrate-at-start when the release pipeline owns migration.
+- Configure JDBC/reactive pools for the Aiven connection ceiling.
+- Define readiness/liveness behaviour and do not expose sensitive config in health output.
+- Set a non-zero vote suppression threshold before real tester demographics are used.
+- Add job lease/recovery before more than one backend task is allowed.
+
+### Frontend
+
+- Replace localhost API host/port pieces with one HTTPS base URL.
+- Replace Keycloak discovery/client configuration with the approved Google flow.
+- Keep client IDs/public endpoints in build-time variables; never embed client secrets.
+- Store refresh/session material only in platform secure storage.
+- Add Android internal-release version and backend compatibility telemetry.
+- Add upload size/type/checksum handling and graceful expired-presign retry.
+
+### Liquibase
+
+- Separate schema migrations from local seed/test identities.
+- Make every released migration forward-only and backward-compatible with the prior application.
+- Seed the application-owned `ysn` publisher idempotently without interactive credentials.
+- Bootstrap initial admin identity through a controlled, audited secret/input outside Git.
+
+## Migration to funded AWS
+
+This design deliberately uses portable contracts:
+
+| Development | Funded AWS target |
+| --- | --- |
+| Compose API container | ECS service/task (Fargate initially or EC2 capacity when cheaper) |
+| One-shot migration container | ECS one-off task in the deployment workflow |
+| Aiven PostgreSQL | RDS PostgreSQL |
+| R2 S3-compatible API | S3 |
+| GitHub Environment secrets | AWS Secrets Manager + task IAM role |
+| Cloudflare Tunnel/DNS | ALB/API ingress; Cloudflare can stay or Route 53/CloudFront/WAF can replace it |
+| Grafana Cloud | Keep Grafana Cloud or connect CloudWatch/managed Grafana |
+| HCP Terraform state | Encrypted/versioned S3 backend with locking |
+| Tailscale deploy path | GitHub OIDC to AWS plus ECS APIs/SSM; no SSH deployment |
+
+The application image, environment-variable contract, PostgreSQL schema, S3 abstraction, Google
+identity boundary and OpenTelemetry instrumentation remain. Migration replaces Terraform modules
+and deployment adapters, not domain code.
+
+Do not move to EKS. ECS provides service scheduling, rolling deployment, autoscaling and task
+isolation without adding Kubernetes operations. Before the move:
+
+- load-test and measure an ECS task size;
+- make agent job leases safe for multiple replicas;
+- introduce ALB health checks and minimum/maximum task counts;
+- move runtime secrets to task roles/Secrets Manager;
+- rehearse PostgreSQL dump/restore or logical replication into RDS;
+- copy R2 objects to S3 and verify checksums;
+- lower DNS TTL before cutover; and
+- run old/new environments in parallel for a controlled acceptance window.
+
+## Delivery phases and acceptance gates
+
+### Phase 0 — approve decisions
+
+- Review this plan and proposed ADR-028.
+- Choose the Hetzner primary/Akamai fallback.
+- Register the Google Play personal account.
+- Confirm the domain/subdomain names without committing credentials.
+- Create provider accounts with MFA for both authorised developers.
+
+**Gate:** both developers accept cost, data processors, single-node availability and Google auth
+direction.
+
+### Phase 1 — make the application deployable
+
+- Correct the Java/port Dockerfile mismatch.
+- Add production environment contracts and Google authentication.
+- Add application invitation/permission schema and audited admin bootstrap.
+- Harden R2 uploads and separate migrations from application startup.
+- Add job recovery and privacy configuration required by the wiki.
+
+**Gate:** local production-profile Compose passes integration, security and rollback tests.
+
+### Phase 2 — platform repository and Terraform
+
+- Create the platform repo, CODEOWNERS and lead-developer approval.
+- Implement small provider-specific modules with deletion protection.
+- Create HCP Europe organisation/workspace and GitHub Environments.
+- Add `service/infra/environments/development`.
+
+**Gate:** automated plan is readable, contains no secret values and destructive changes are
+blocked.
+
+### Phase 3 — provision and deploy
+
+- Provision VM, Aiven PG, R2 buckets, Cloudflare DNS/Tunnel and Grafana stack.
+- Bootstrap host with no public inbound ports.
+- Build/sign/push images and deploy through ephemeral Tailscale.
+- Run migration, seed `ysn`, bootstrap first admin and complete health checks.
+
+**Gate:** API works through the app hostname, an uninvited Google account is denied, an invited
+account works, R2 upload/read works, and the VM can be rebuilt without losing database/media.
+
+### Phase 4 — Android and operations
+
+- Build/submit only on frontend changes.
+- Configure Play internal testers and then closed testing if required.
+- Exercise API N/N-1 compatibility.
+- Restore a PostgreSQL backup and verify R2 object checksums.
+- Trigger alerts and rehearse API rollback.
+
+**Gate:** both developers can operate/recover the environment from documented runbooks and monthly
+spend remains below £20.
+
+## Decision record
+
+Decisions already made:
+
+- one always-on Linux VM;
+- Docker Compose, not Kubernetes/Helm;
+- managed PostgreSQL separate from the API VM;
+- Cloudflare R2 EU media storage;
+- Google-only authentication;
+- application-owned invitations/roles;
+- Android-only testing through a personal Play account;
+- automatic component-specific application releases;
+- manual Terraform apply after automatic plan;
+- free Grafana Cloud;
+- HCP Terraform state;
+- future AWS ECS path; and
+- AI API cost outside this budget.
+
+Feedback should therefore focus on:
+
+- accepting Hetzner as primary and Akamai as fallback;
+- whether Aiven Free's 1 GB/no-SLA limitations are acceptable for the stakeholder environment;
+- the exact Google-to-application session design in ADR-028; and
+- when real, sensitive tester data will be allowed rather than synthetic demonstration data.
+
+## Primary references
+
+- [Hetzner current price adjustment](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/)
+- [Hetzner Terraform provider](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs)
+- [Aiven PostgreSQL Free](https://aiven.io/docs/products/postgresql/concepts/pg-free-tier)
+- [Aiven service pricing and location limitations](https://aiven.io/docs/platform/concepts/service-pricing)
+- [Aiven Terraform provider](https://registry.terraform.io/providers/aiven/aiven/latest/docs)
+- [Scaleway managed database pricing](https://www.scaleway.com/en/pricing/managed-databases/)
+- [Akamai Europe cloud pricing](https://www.akamai.com/cloud/pricing/europe)
+- [Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/)
+- [Cloudflare R2 EU jurisdiction](https://developers.cloudflare.com/r2/reference/data-location/)
+- [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/)
+- [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect)
+- [Google Play registration](https://support.google.com/googleplay/android-developer/answer/6112435)
+- [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
+- [GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+- [Tailscale GitHub Action](https://tailscale.com/docs/integrations/github/github-action)
+- [Grafana Cloud Free](https://grafana.com/get/)
+- [HCP Terraform plans](https://developer.hashicorp.com/terraform/cloud-docs/overview)
