@@ -27,7 +27,7 @@ production support/SLA costs
 - [Container images and deployment artifacts](#container-images-and-deployment-artifacts)
   - [Dockerfile corrections before first deployment](#dockerfile-corrections-before-first-deployment)
 - [Repository and Terraform design](#repository-and-terraform-design)
-  - [This service repository](#this-service-repository)
+  - [Your Say News repository](#your-say-news-repository)
   - [Reusable platform repository](#reusable-platform-repository)
   - [Terraform scope](#terraform-scope)
   - [Remote state](#remote-state)
@@ -495,31 +495,38 @@ with a multi-stage, reproducible Java 25 image and one canonical container port.
 Create a separate repository, provisionally named `your-say-platform`, for reusable material. Do
 not put live environment state or environment-specific secrets there.
 
-### This service repository
+### Your Say News repository
+
+Keep the backend and its service operations material in the existing Your Say News repository.
+`post-service/` remains the actual backend module. A separate root-level `service/` directory owns
+the infrastructure and deployment configuration through `service/infra/` and `service/deploy/`;
+it is a directory in this repository, not another repository or backend service:
 
 ```text
-post-service/
-  infra/
-    environments/
-      development/
-        backend.tf
-        main.tf
-        providers.tf
-        variables.tf
-        outputs.tf
-        development.tfvars       # non-secret values only
-    README.md
-  deploy/
-    compose.yaml                 # service-owned Compose overlay/root
-    env.example                  # names and safe defaults, no values
-    scripts/
-      deploy.ps1-or-sh           # thin, tested invocation
-      health-check.ps1-or-sh
-    README.md
+your-say-news/                    # existing repository root
+  post-service/                   # existing backend module
+  service/                        # infrastructure and deployment operations
+    infra/
+      environments/
+        development/
+          backend.tf
+          main.tf
+          providers.tf
+          variables.tf
+          outputs.tf
+          development.tfvars     # non-secret values only
+      README.md
+    deploy/
+      compose.yaml               # service-owned Compose overlay/root
+      env.example                # names and safe defaults, no values
+      scripts/
+        deploy.ps1-or-sh         # thin, tested invocation
+        health-check.ps1-or-sh
+      README.md
 ```
 
-`post-service/infra` is the environment composition/root: provider choices, module versions,
-tfvars and outputs for this service. `post-service/deploy` identifies the exact runtime image,
+`service/infra` is the environment composition/root: provider choices, module versions, tfvars and
+outputs for the backend. `service/deploy` identifies the exact runtime image,
 migration, environment contract and health/rollback procedure. There is no `chart/` directory
 because there is no Kubernetes or Helm deployment.
 
@@ -543,8 +550,8 @@ github/
 
 The platform repository owns generic module/template behaviour. Its changes require a pull request
 and lead-developer approval (the user's brother), enforced with CODEOWNERS and branch protection.
-The service repository pins modules/workflows/templates to immutable tags or commit SHAs; it never
-tracks their default branch.
+The Your Say News repository pins modules/workflows/templates to immutable tags or commit SHAs; it
+never tracks their default branch.
 
 Service environment changes still receive an automatic Terraform plan, but **every apply is
 manual** so both developers can read the exact plan first.
@@ -599,11 +606,11 @@ At the start of every pull request and `main` run, classify changes:
 
 | Paths | Backend release | Android release | Terraform plan |
 | --- | ---: | ---: | ---: |
-| `post-service/**`, `liquibase/**` | yes | no | only if infra path |
+| `post-service/**`, `liquibase/**` | yes | no | no |
 | `frontend/**` | no | yes | no |
 | shared API/schema/build config | yes | yes if client contract affected | as applicable |
-| `post-service/infra/**` | no unless deploy contract changed | no | yes |
-| `post-service/deploy/**` | yes | no | no |
+| `service/infra/**` | no unless deploy contract changed | no | yes |
+| `service/deploy/**` | yes | no | no |
 | `docs/**`, `wiki/**` only | no | no | no |
 
 Change detection optimises work; it must not bypass required checks. Define explicit shared paths
@@ -629,7 +636,7 @@ Frontend job:
 - run API contract/backward-compatibility tests; and
 - build/typecheck the Android production configuration without submitting it.
 
-Infrastructure job, when `post-service/infra/**` changes:
+Infrastructure job, when `service/infra/**` changes:
 
 - `terraform fmt -check`, `init -backend=false`, `validate`;
 - lock/provider/module checks;
@@ -691,7 +698,7 @@ publish the Android update, wait for adoption, then remove old behaviour in a la
 
 ### Terraform plan and manual apply
 
-Any change under `post-service/infra/**` automatically creates and uploads a plan for the exact
+Any change under `service/infra/**` automatically creates and uploads a plan for the exact
 commit. Applying is a separate GitHub Actions job protected by the `development-infrastructure`
 Environment:
 
@@ -829,7 +836,7 @@ direction.
 - Create the platform repo, CODEOWNERS and lead-developer approval.
 - Implement small provider-specific modules with deletion protection.
 - Create HCP Europe organisation/workspace and GitHub Environments.
-- Add `post-service/infra/environments/development`.
+- Add `service/infra/environments/development`.
 
 **Gate:** automated plan is readable, contains no secret values and destructive changes are
 blocked.
