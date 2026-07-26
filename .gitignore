@@ -64,6 +64,15 @@ nb-configuration.xml
 .env.*
 !.env.example
 *.local
+service/deploy/runtime.env
+
+# Terraform working data and local backend configuration
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars.local
+service/infra/**/*.backend.hcl
 
 # Plugin directory
 /.quarkus/cli/plugins/

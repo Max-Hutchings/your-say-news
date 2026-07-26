@@ -7,6 +7,9 @@
 **Excluded from the budget:** AI API usage, the one-off Google Play registration fee and future
 production support/SLA costs
 
+**External setup checklist:**
+[Development cloud external prerequisites](development-cloud-external-prerequisites.md)
+
 ## Contents
 
 - [Recommendation](#recommendation)
@@ -23,12 +26,12 @@ production support/SLA costs
   - [Media and backups](#media-and-backups)
   - [Authentication, tester restriction and administration](#authentication-tester-restriction-and-administration)
   - [Availability and job integrity](#availability-and-job-integrity)
-  - [Observability](#observability)
+- [Observability](#observability)
 - [Container images and deployment artifacts](#container-images-and-deployment-artifacts)
-  - [Dockerfile corrections before first deployment](#dockerfile-corrections-before-first-deployment)
+  - [Existing application image definition](#existing-application-image-definition)
 - [Repository and Terraform design](#repository-and-terraform-design)
   - [Your Say News repository](#your-say-news-repository)
-  - [Reusable platform repository](#reusable-platform-repository)
+  - [Reusable modules and templates](#reusable-modules-and-templates)
   - [Terraform scope](#terraform-scope)
   - [Remote state](#remote-state)
 - [CI/CD plan](#cicd-plan)
@@ -62,8 +65,9 @@ Use a small EU Linux VM running Docker Compose, with state kept outside the VM:
 - **CI/CD:** ephemeral GitHub-hosted Ubuntu runners. A deployment job temporarily joins Tailscale
   and connects to the VM over its private Tailscale address. Do not install a GitHub runner on the
   application VM.
-- **Infrastructure as code:** environment roots in this repository, reusable Terraform modules and
-  Compose templates in a separate platform repository, and remote state in HCP Terraform.
+- **Infrastructure as code:** environment roots, reusable Terraform modules and Compose templates
+  under the root-level `service/` directory in this repository, with remote state in HCP
+  Terraform.
 - **Orchestration:** Docker Compose now; AWS ECS is the funded migration target. Kubernetes and Helm
   are deliberately out of scope.
 
@@ -477,23 +481,24 @@ Generate an SBOM, scan the filesystem/image, sign the digest with keyless OIDC s
 supported, and verify the expected digest in deployment. Pin base images by digest and renovate
 them through reviewed pull requests.
 
-### Dockerfile corrections before first deployment
+### Existing application image definition
 
-The repository currently builds with a Java 25 toolchain, while `Dockerfile.jvm` uses a Java 21
-runtime, and the Dockerfile exposes 8080 while the application is configured for 8082. Replace it
-with a multi-stage, reproducible Java 25 image and one canonical container port. Add:
+`post-service/src/main/docker/Dockerfile.jvm` remains the authoritative application image
+definition. The infrastructure skeleton must not change its runtime base image, exposed port,
+packaging layout or entrypoint. Build and validate that existing image as a separate application
+concern before the first remote deployment.
 
-- non-root runtime user;
-- health check/readiness endpoints;
-- JVM/container-aware memory flags;
-- OCI source/revision/version labels;
-- a `.dockerignore`; and
-- pinned base-image digests.
+Any future image hardening, base-image update, health-check metadata or port change requires its own
+reviewed application change with an image build and runtime test. The deployment configuration
+should consume the resulting immutable application image digest rather than silently redefining
+the application image contract.
 
 ## Repository and Terraform design
 
-Create a separate repository, provisionally named `your-say-platform`, for reusable material. Do
-not put live environment state or environment-specific secrets there.
+Keep reusable infrastructure and deployment material beside its only current consumer. This lets
+application, runtime-contract and infrastructure changes be reviewed and tested atomically without
+introducing cross-repository release/version coordination for one application and two developers.
+Do not put live environment state or environment-specific secrets in Git.
 
 ### Your Say News repository
 
@@ -507,6 +512,11 @@ your-say-news/                    # existing repository root
   post-service/                   # existing backend module
   service/                        # infrastructure and deployment operations
     infra/
+      modules/
+        linux-compose-host/
+        cloudflare-api-tunnel/
+        r2-private-bucket/
+        aiven-postgresql/
       environments/
         development/
           backend.tf
@@ -519,39 +529,45 @@ your-say-news/                    # existing repository root
     deploy/
       compose.yaml               # service-owned Compose overlay/root
       env.example                # names and safe defaults, no values
+      templates/
+        single-jvm-api/
       scripts/
         deploy.ps1-or-sh         # thin, tested invocation
         health-check.ps1-or-sh
       README.md
 ```
 
-`service/infra` is the environment composition/root: provider choices, module versions, tfvars and
-outputs for the backend. `service/deploy` identifies the exact runtime image,
-migration, environment contract and health/rollback procedure. There is no `chart/` directory
-because there is no Kubernetes or Helm deployment.
+`service/infra/environments` owns environment composition: provider choices, local module calls,
+tfvars and outputs. `service/infra/modules` owns reusable provider-specific behaviour.
+`service/deploy` identifies the exact runtime image, migration, environment contract and
+health/rollback procedure, while `service/deploy/templates` holds reusable Compose behaviour when
+it is genuinely shared. There is no `chart/` directory because there is no Kubernetes or Helm
+deployment.
 
-### Reusable platform repository
+### Reusable modules and templates
 
 ```text
-terraform/
-  modules/
+service/
+  infra/modules/
     linux-compose-host/
     cloudflare-api-tunnel/
     r2-private-bucket/
     aiven-postgresql/
-compose/
-  templates/
+  deploy/templates/
     single-jvm-api/
-github/
-  workflows/
-    terraform-plan.yml
-    compose-deploy.yml
 ```
 
-The platform repository owns generic module/template behaviour. Its changes require a pull request
-and lead-developer approval (the user's brother), enforced with CODEOWNERS and branch protection.
-The Your Say News repository pins modules/workflows/templates to immutable tags or commit SHAs; it
-never tracks their default branch.
+Modules have narrow provider-specific responsibilities, explicit input/output contracts and
+deletion protection. Environment roots reference them through repository-local paths, so the
+reviewed application commit is also the immutable module/template version. Changes under
+`service/infra/modules/**` and `service/deploy/templates/**` require a pull request and
+lead-developer approval (the user's brother), enforced with path-specific CODEOWNERS and branch
+protection once the reviewer username is confirmed.
+
+Do not force abstraction into the first implementation: the development Compose root can remain
+the reference implementation until behaviour is actually shared. If a second application
+repository needs these modules/templates, extract the stable boundaries into a platform repository
+with their Git history and begin pinning consumers to immutable release tags or commit SHAs.
 
 Service environment changes still receive an automatic Terraform plan, but **every apply is
 manual** so both developers can read the exact plan first.
@@ -588,7 +604,8 @@ plan/apply approval path stays visible in the repository.
 - Require MFA for both developers and remove unused tokens.
 - Never use local state in CI or upload state as an Actions artifact.
 - Save the binary plan in the same trusted workflow run that later applies it.
-- Reject the apply if the commit, lock file, provider versions, module pins or state serial changed.
+- Reject the apply if the commit, lock file, provider versions, local module sources or state serial
+  changed.
 
 When moving to AWS, migrate state deliberately to an encrypted versioned S3 backend with state
 locking after the AWS account foundation exists. Do not copy state by hand.
@@ -704,7 +721,7 @@ Environment:
 
 - require manual reviewer approval/button after the plan is read;
 - apply only the saved binary plan, not a newly generated unreviewed plan;
-- invalidate stale plans when main/state/module/provider pins move;
+- invalidate stale plans when main, state, provider locks or local module sources move;
 - block any delete or replacement of PostgreSQL, R2, DNS zone or the VM unless a separate
   break-glass workflow and explicit second confirmation are used;
 - serialize plans/applies with workflow concurrency; and
@@ -823,7 +840,7 @@ direction.
 
 ### Phase 1 — make the application deployable
 
-- Correct the Java/port Dockerfile mismatch.
+- Build and validate the existing JVM Dockerfile without changing its application image contract.
 - Add production environment contracts and Google authentication.
 - Add application invitation/permission schema and audited admin bootstrap.
 - Harden R2 uploads and separate migrations from application startup.
@@ -831,10 +848,14 @@ direction.
 
 **Gate:** local production-profile Compose passes integration, security and rollback tests.
 
-### Phase 2 — platform repository and Terraform
+### Phase 2 — repository-local modules and Terraform
 
-- Create the platform repo, CODEOWNERS and lead-developer approval.
-- Implement small provider-specific modules with deletion protection.
+- Add path-specific CODEOWNERS and lead-developer approval for infrastructure/module/template
+  changes.
+- Implement small provider-specific modules under `service/infra/modules` with deletion
+  protection.
+- Add reusable Compose behaviour under `service/deploy/templates` only where the concrete
+  development deployment proves it is shared.
 - Create HCP Europe organisation/workspace and GitHub Environments.
 - Add `service/infra/environments/development`.
 
@@ -877,6 +898,8 @@ Decisions already made:
 - manual Terraform apply after automatic plan;
 - free Grafana Cloud;
 - HCP Terraform state;
+- repository-local Terraform modules and deployment templates until a second repository needs
+  them;
 - future AWS ECS path; and
 - AI API cost outside this budget.
 

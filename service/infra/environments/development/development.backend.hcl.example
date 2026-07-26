@@ -1,0 +1,5 @@
+organization = "replace-with-hcp-terraform-organization"
+
+workspaces {
+  name = "your-say-news-development"
+}

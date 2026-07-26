@@ -8,3 +8,6 @@ testing notes, and service layout.
 ```shell
 bun run dev
 ```
+
+Remote development-environment infrastructure and deployment operations live under
+[`service/`](./service/).
