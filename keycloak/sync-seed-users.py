@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reconcile the realm export's seeded users into an existing development realm."""
+"""Reconcile seeded users and the admin SPA client into an existing development realm."""
 
 import json
 import os
@@ -48,8 +48,15 @@ def main() -> None:
     realm_export = json.loads(realm_export_path.read_text(encoding="utf-8"))
     realm_name = realm_export.get("realm")
     users = realm_export.get("users")
+    admin_clients = [
+        client
+        for client in realm_export.get("clients", [])
+        if client.get("clientId") == "admin-client"
+    ]
     if not realm_name or not isinstance(users, list) or not users:
         raise RuntimeError("Realm export must contain a realm name and at least one seeded user")
+    if len(admin_clients) != 1:
+        raise RuntimeError("Realm export must contain exactly one admin-client")
 
     token_form = urllib.parse.urlencode(
         {
@@ -69,7 +76,7 @@ def main() -> None:
         raise RuntimeError("Keycloak admin token response did not contain an access token")
 
     import_payload = json.dumps(
-        {"ifResourceExists": "OVERWRITE", "users": users}
+        {"ifResourceExists": "OVERWRITE", "users": users, "clients": admin_clients}
     ).encode("utf-8")
     result = request_json(
         f"{keycloak_url}/admin/realms/{urllib.parse.quote(realm_name, safe='')}/partialImport",
@@ -81,7 +88,7 @@ def main() -> None:
     added = result.get("added", 0)
     overwritten = result.get("overwritten", 0)
     print(
-        f"Reconciled {len(users)} seeded users into realm '{realm_name}' "
+        f"Reconciled {len(users)} seeded users and admin-client into realm '{realm_name}' "
         f"(added={added}, overwritten={overwritten})."
     )
 

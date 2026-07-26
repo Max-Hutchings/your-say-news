@@ -9,12 +9,17 @@ function formatToday() {
     .toUpperCase();
 }
 
-export function Masthead() {
+type MastheadProps = {
+  email: string;
+  onLogout: () => void;
+};
+
+export function Masthead({ email, onLogout }: MastheadProps) {
   return (
     <header className="masthead">
       <div className="masthead__meta">
         <p>{formatToday()}</p>
-        <p>Administration</p>
+        <p>{email}</p>
       </div>
 
       <div className="masthead__rule">
@@ -25,7 +30,9 @@ export function Masthead() {
           <span>Your Say</span>
           <em>News</em>
         </div>
-        <span className="masthead__edition">Admin desk</span>
+        <button className="masthead__sign-out" type="button" onClick={onLogout}>
+          Sign out
+        </button>
       </div>
     </header>
   );

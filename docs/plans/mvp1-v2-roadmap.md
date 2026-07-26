@@ -17,8 +17,8 @@
   journey described below.
 - **Posts support two voting types.** Officials choose either the existing binary Agree/Disagree
   vote or a multiple-choice vote in which each voter selects exactly one publisher-controlled option.
-- **Account identity and publishing control are separate.** `AccountType` identifies `STANDARD`
-  versus `OFFICIAL`; `PublisherStatus` independently records `NONE`, `ACTIVE` or `SUSPENDED`.
+- **Account identity and publishing control are separate.** `AccountType` identifies `USER`,
+  `OFFICIAL` or `ADMIN`; `PublisherStatus` independently records `NONE`, `ACTIVE` or `SUSPENDED`.
   Publishing requires an active account with `OFFICIAL` type and `ACTIVE` publisher status.
 - **Voting now leads into “Post Unwrapped”.** Instead of landing on a conventional results page,
   the voter sees a paged, high-energy visual story that explains the result, meaningful cohort
@@ -36,7 +36,7 @@
 | Area | MVP1 v2 decision | Notes / fast-follow |
 | --- | --- | --- |
 | Publishing | **Only `OFFICIAL` accounts with `ACTIVE` publisher status publish.** There is no public create-post entry point or API permission. | Account type and status are application-owned database fields; see ADR-023. |
-| Account identity | **Persist `STANDARD` and `OFFICIAL` account types separately from publisher status.** | Future site-administration permissions are a separate decision and may coexist with either type. |
+| Account identity | **Persist `USER`, `OFFICIAL` and `ADMIN` account types separately from publisher status.** | Administration is application-owned; publisher status remains specific to official accounts. |
 | Voting | **Authenticated users vote once canonically per post, using either `BINARY` or `MULTIPLE_CHOICE`.** Both types are single-select and lock after submission. | Binary renders Agree/Disagree; multiple choice opens from one “Have your say...” button. The separate Post Unwrapped follow-up vote is captured for research but does not alter results. |
 | Post-vote experience | **Post Unwrapped replaces the raw results landing page.** | Direct aggregate exploration can remain accessible from the story. |
 | Analysis | **Aggregate-only agent analysis, cached by vote milestone.** | User-specific stories are deferred until the audience is large enough to justify them. |
@@ -159,7 +159,7 @@ centre.
   Record explicit consent.
 - Backend validates characteristic enums and keeps PII in `user`, characteristics in
   `usercharacteristic`, joined only for the authenticated subject server-side.
-- Normal accounts default to `STANDARD/NONE`. Only controlled internal seeding/operations can assign
+- Normal accounts default to `USER/NONE`. Only controlled internal seeding/operations can assign
   `OFFICIAL/ACTIVE` in MVP1; public signup can never self-select it.
 
 **Demoable:** a new user signs up, reads the privacy promise and completes their characteristic

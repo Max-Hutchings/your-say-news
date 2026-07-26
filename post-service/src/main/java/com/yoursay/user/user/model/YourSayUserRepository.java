@@ -24,6 +24,10 @@ public class YourSayUserRepository implements PanacheRepository<YourSayUser> {
             .firstResult();
     }
 
+    public java.util.List<YourSayUser> listForAdministration() {
+        return list("order by createdDate desc, id desc");
+    }
+
     public YourSayUser saveYourSayUser(YourSayUser yourSayUser) {
         yourSayUser.persist();
         Panache.getEntityManager().refresh(yourSayUser);

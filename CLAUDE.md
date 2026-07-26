@@ -74,9 +74,9 @@ processes and brings the Compose stack down. Docker volumes are preserved by bot
 Before each application pane starts, mprocs terminates any existing listener on its assigned port
 (`8082` or `5173`) so stale local dev processes do not block startup.
 
-`bun run test` uses the separate `mprocs.test.yaml` config to run `post-service` and frontend tests
-in independent panes. Backend tests use Testcontainers and random Quarkus HTTP ports; the test
-runner does not invoke Docker Compose. Select a pane and press `r` to rerun only that suite.
+`bun run test` uses the separate `mprocs.test.yaml` config to run `post-service`, Expo frontend and
+admin frontend tests in independent panes. Backend tests use Testcontainers and random Quarkus HTTP
+ports; the test runner does not invoke Docker Compose. Select a pane and press `r` to rerun only that suite.
 Completed panes remain open with an explicit PASS/FAIL result; `bun run tests` is supported as an
 alias.
 

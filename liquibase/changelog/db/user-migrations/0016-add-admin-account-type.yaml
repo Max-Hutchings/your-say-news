@@ -1,0 +1,24 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260726-0016-1
+      author: codex
+      logicalFilePath: db/migrations/0016-add-admin-account-type.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE your_say_user
+              DROP CONSTRAINT ck_your_say_user_standard_cannot_publish;
+              ALTER TABLE your_say_user
+              DROP CONSTRAINT ck_your_say_user_account_type;
+              UPDATE your_say_user
+              SET account_type = 'USER'
+              WHERE account_type = 'STANDARD';
+              ALTER TABLE your_say_user
+              ALTER COLUMN account_type SET DEFAULT 'USER';
+              ALTER TABLE your_say_user
+              ADD CONSTRAINT ck_your_say_user_account_type
+              CHECK (account_type IN ('USER', 'OFFICIAL', 'ADMIN'));
+              ALTER TABLE your_say_user
+              ADD CONSTRAINT ck_your_say_user_non_official_cannot_publish
+              CHECK (account_type = 'OFFICIAL' OR publisher_status = 'NONE');

@@ -48,7 +48,7 @@ public class YourSayUser extends PanacheEntityBase {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "account_type", nullable = false)
-    private AccountType accountType = AccountType.STANDARD;
+    private AccountType accountType = AccountType.USER;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "publisher_status", nullable = false)
@@ -217,8 +217,11 @@ public class YourSayUser extends PanacheEntityBase {
     }
 
     public void setAccountType(AccountType accountType) {
+        AccountType previousType = this.accountType;
         this.accountType = accountType;
-        if (accountType == AccountType.STANDARD) {
+        if (accountType == AccountType.OFFICIAL && previousType != AccountType.OFFICIAL) {
+            this.publisherStatus = PublisherStatus.ACTIVE;
+        } else if (accountType != AccountType.OFFICIAL) {
             this.publisherStatus = PublisherStatus.NONE;
         }
     }
@@ -228,8 +231,8 @@ public class YourSayUser extends PanacheEntityBase {
     }
 
     public void setPublisherStatus(PublisherStatus publisherStatus) {
-        if (accountType == AccountType.STANDARD && publisherStatus != PublisherStatus.NONE) {
-            throw new IllegalArgumentException("Standard accounts cannot have publisher status " + publisherStatus);
+        if (accountType != AccountType.OFFICIAL && publisherStatus != PublisherStatus.NONE) {
+            throw new IllegalArgumentException(accountType + " accounts cannot have publisher status " + publisherStatus);
         }
         this.publisherStatus = publisherStatus;
     }

@@ -402,7 +402,7 @@ public class PostControllerTest {
     public void createRejectsAStandardAccountEvenWhenAuthenticated() throws Exception {
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        AUTHOR_ID, "STANDARD", "NONE", false)));
+                        AUTHOR_ID, "USER", "NONE", false)));
         long before = countPosts();
 
         given()
@@ -422,7 +422,7 @@ public class PostControllerTest {
 
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        AUTHOR_ID, "STANDARD", "NONE", true)));
+                        AUTHOR_ID, "USER", "NONE", true)));
         given()
                 .contentType("application/json")
                 .body(createBody("A standard account with a bad flag.", "Should this be rejected?"))

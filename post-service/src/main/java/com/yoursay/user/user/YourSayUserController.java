@@ -7,6 +7,7 @@ import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -87,10 +88,9 @@ public class YourSayUserController {
      */
     @POST
     @Path("/consent")
-    public YourSayUserDto recordConsent(Map<String, String> body) {
+    public YourSayUserDto recordConsent(@Valid ConsentRequestDto request) {
         String email = securityIdentity.getPrincipal().getName();
-        String version = body.getOrDefault("privacyPolicyVersion", "unversioned");
-        return userService.recordConsent(email, version);
+        return userService.recordConsent(email, request.privacyPolicyVersion());
     }
 
     @POST
@@ -122,13 +122,16 @@ public class YourSayUserController {
 
 
     /**
-     * Resolve an email to its anonymised {@link UserRefDto} (used by other services to turn the
-     * authenticated caller's email into the internal id). Returns no PII, for the same reason as
-     * {@link #getUserById}.
+     * Resolve the authenticated subject's email to its anonymised {@link UserRefDto}. The path email
+     * must match the token subject so callers cannot build an email-to-internal-id directory.
      */
     @GET
     @Path("/email/{email}")
     public UserRefDto getUserByEmail(@PathParam(value = "email") String email) {
+        String subjectEmail = securityIdentity.getPrincipal().getName();
+        if (!subjectEmail.equalsIgnoreCase(email)) {
+            throw com.yoursay.user.user.error.UserApiException.subjectLookupForbidden(subjectEmail, email);
+        }
         YourSayUserDto user = userService.getByEmail(email);
         return user == null ? null : new UserRefDto(user.id());
     }

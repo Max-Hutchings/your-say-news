@@ -11,6 +11,9 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -40,13 +43,22 @@ public class YourSayUserControllerTest {
                 .when()
                 .post(BASE_URL + "/save")
                 .then()
-                .statusCode(201);
+                .statusCode(201)
+                .body("email", equalTo("max@gmail.com"))
+                .body("firstName", equalTo("max"))
+                .body("lastName", equalTo("rax"))
+                .body("dateOfBirth", equalTo("2001-03-17"))
+                .body("active", equalTo(true))
+                .body("accountType", equalTo("USER"))
+                .body("publisherStatus", equalTo("NONE"))
+                .body("canPublish", equalTo(false));
     }
 
     @Test
     @TestSecurity(user="nora.new@example.com", roles={"user"})
-    public void recordConsentStampsTimeAndVersion() {
-        given()
+    public void recordConsentStampsTimeAndVersion() throws Exception {
+        Instant before = Instant.now();
+        String consentedAt = given()
                 .contentType(ContentType.JSON)
                 .body("{ \"privacyPolicyVersion\": \"2026-06-01\" }")
                 .when()
@@ -55,7 +67,34 @@ public class YourSayUserControllerTest {
                 .statusCode(200)
                 .body("email", equalTo("nora.new@example.com"))
                 .body("privacyPolicyVersion", equalTo("2026-06-01"))
-                .body("consentedAt", notNullValue());
+                .body("consentedAt", notNullValue())
+                .extract().path("consentedAt");
+        Instant after = Instant.now();
+
+        Instant responseTime = Instant.parse(consentedAt);
+        org.junit.jupiter.api.Assertions.assertFalse(responseTime.isBefore(before));
+        org.junit.jupiter.api.Assertions.assertFalse(responseTime.isAfter(after));
+        assertPersistedConsent("nora.new@example.com", responseTime, "2026-06-01");
+    }
+
+    @Test
+    @TestSecurity(user="casey.morgan@example.com", roles={"user"})
+    public void recordConsentRejectsMissingBlankAndUnknownPolicyVersions() throws Exception {
+        for (String body : java.util.List.of(
+                "{}",
+                "{ \"privacyPolicyVersion\": \"\" }",
+                "{ \"privacyPolicyVersion\": \"2025-01-01\" }")) {
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(body)
+                    .when()
+                    .post(BASE_URL + "/consent")
+                    .then()
+                    .statusCode(400)
+                    .body("code", equalTo("VALIDATION_FAILED"));
+        }
+
+        assertPersistedConsent("casey.morgan@example.com", null, null);
     }
 
     @Test
@@ -70,6 +109,7 @@ public class YourSayUserControllerTest {
                 .then()
                 .statusCode(200)
                 .body("id", equalTo(1))
+                .body("$", aMapWithSize(1))
                 .body("email", nullValue())
                 .body("firstName", nullValue())
                 .body("lastName", nullValue())
@@ -88,9 +128,9 @@ public class YourSayUserControllerTest {
     }
 
     @Test
-    @TestSecurity(user="test@example.com", roles={"user"})
+    @TestSecurity(user="jane.smith@example.com", roles={"user"})
     public void testGetUserByEmailReturnsIdOnlyNeverPii() {
-        // Resolves the email to the internal id for cross-service callers, exposing no PII.
+        // A subject can resolve only their own internal id, and the response contains exactly that id.
         given()
                 .contentType(ContentType.JSON)
                 .when()
@@ -98,6 +138,7 @@ public class YourSayUserControllerTest {
                 .then()
                 .statusCode(200)
                 .body("id", equalTo(2))
+                .body("$", aMapWithSize(1))
                 .body("email", nullValue())
                 .body("firstName", nullValue())
                 .body("lastName", nullValue())
@@ -105,7 +146,7 @@ public class YourSayUserControllerTest {
     }
 
     @Test
-    @TestSecurity(user="test@example.com", roles={"user"})
+    @TestSecurity(user="nonexistent@example.com", roles={"user"})
     public void testGetUserByEmailNotFound() {
         given()
                 .contentType(ContentType.JSON)
@@ -116,14 +157,26 @@ public class YourSayUserControllerTest {
     }
 
     @Test
-    @TestSecurity(user="john.doe@example.com", roles={"user"})
+    @TestSecurity(user="test@example.com", roles={"user"})
+    public void testGetUserByEmailRejectsAnotherUsersIdentityLookup() {
+        given()
+                .contentType(ContentType.JSON)
+                .when()
+                .get(BASE_URL + "/email/jane.smith@example.com")
+                .then()
+                .statusCode(403)
+                .body("code", equalTo("USER_SUBJECT_LOOKUP_FORBIDDEN"));
+    }
+
+    @Test
+    @TestSecurity(user="jane.smith@example.com", roles={"user"})
     public void currentAccessIdentifiesAnActiveOfficialPublisher() {
         given()
                 .when()
                 .get(BASE_URL + "/me/access")
                 .then()
                 .statusCode(200)
-                .body("userId", equalTo(1))
+                .body("userId", equalTo(2))
                 .body("accountType", equalTo("OFFICIAL"))
                 .body("publisherStatus", equalTo("ACTIVE"))
                 .body("canPublish", equalTo(true))
@@ -131,21 +184,19 @@ public class YourSayUserControllerTest {
     }
 
     @Test
-    @TestSecurity(user="john.doe@example.com", roles={"user"})
+    @TestSecurity(user="jane.smith@example.com", roles={"user"})
     public void currentAccessDeniesPublishingWhenAnOfficialAccountIsInactive() throws Exception {
-        setUserActive(1, false);
+        setUserActive(2, false);
         try {
             given()
                     .when()
                     .get(BASE_URL + "/me/access")
                     .then()
-                    .statusCode(200)
-                    .body("userId", equalTo(1))
-                    .body("accountType", equalTo("OFFICIAL"))
-                    .body("publisherStatus", equalTo("ACTIVE"))
-                    .body("canPublish", equalTo(false));
+                    .statusCode(403)
+                    .body("code", equalTo("USER_ACCOUNT_INACTIVE"))
+                    .body("message", equalTo("This account is inactive."));
         } finally {
-            setUserActive(1, true);
+            setUserActive(2, true);
         }
     }
 
@@ -158,7 +209,7 @@ public class YourSayUserControllerTest {
                 .then()
                 .statusCode(200)
                 .body("userId", equalTo(5))
-                .body("accountType", equalTo("STANDARD"))
+                .body("accountType", equalTo("USER"))
                 .body("publisherStatus", equalTo("NONE"))
                 .body("canPublish", equalTo(false))
                 .body("email", nullValue());
@@ -173,7 +224,7 @@ public class YourSayUserControllerTest {
                 .then()
                 .statusCode(200)
                 .body("userId", equalTo(10))
-                .body("accountType", equalTo("STANDARD"))
+                .body("accountType", equalTo("USER"))
                 .body("publisherStatus", equalTo("NONE"))
                 .body("canPublish", equalTo(false))
                 .body("$", aMapWithSize(4))
@@ -199,6 +250,34 @@ public class YourSayUserControllerTest {
             statement.setBoolean(1, active);
             statement.setLong(2, userId);
             statement.executeUpdate();
+        }
+    }
+
+    private void assertPersistedConsent(
+            String email,
+            Instant expectedTime,
+            String expectedVersion
+    ) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     select consented_at, privacy_policy_version
+                     from your_say_user
+                     where email = ?
+                     """)) {
+            statement.setString(1, email);
+            try (ResultSet result = statement.executeQuery()) {
+                org.junit.jupiter.api.Assertions.assertTrue(result.next());
+                OffsetDateTime stored = result.getObject("consented_at", OffsetDateTime.class);
+                org.junit.jupiter.api.Assertions.assertEquals(
+                        expectedTime,
+                        stored == null ? null : stored.toInstant()
+                );
+                org.junit.jupiter.api.Assertions.assertEquals(
+                        expectedVersion,
+                        result.getString("privacy_policy_version")
+                );
+                org.junit.jupiter.api.Assertions.assertFalse(result.next());
+            }
         }
     }
 

@@ -21,8 +21,23 @@ body {
 }
 
 button,
-a {
+a,
+input,
+select {
   font: inherit;
+}
+
+button,
+select {
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
 }
 
 :focus-visible {
@@ -99,14 +114,67 @@ a {
   font-weight: 500;
 }
 
-.masthead__edition {
+.masthead__sign-out {
   padding: 0.4rem 0.65rem 0.34rem;
   border: 1px solid var(--editorial-border);
   border-radius: 999px;
+  background: transparent;
   color: var(--editorial-secondary);
   font-family: var(--font-mono);
   font-size: 0.58rem;
   letter-spacing: 0.13em;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.masthead__sign-out:hover {
+  border-color: var(--editorial-ink);
+  color: var(--editorial-ink);
+}
+
+.session-state {
+  display: grid;
+  min-height: 100svh;
+  place-content: center;
+  justify-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.session-state__mark {
+  display: grid;
+  width: 4rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 0.8rem;
+  background: var(--editorial-lime);
+  color: var(--editorial-on-lime);
+  font-family: var(--font-serif);
+  font-size: 2.5rem;
+}
+
+.session-state h1,
+.session-state p {
+  margin: 0;
+}
+
+.session-state h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 400;
+}
+
+.session-state p {
+  max-width: 34rem;
+  color: var(--editorial-secondary);
+}
+
+.session-state button {
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--editorial-ink);
+  color: var(--editorial-bg);
+  font-weight: 600;
 }

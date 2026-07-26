@@ -1,4 +1,4 @@
-# Test runner: runs both application test suites in separate mprocs panes.
+# Test runner: runs all application test suites in separate mprocs panes.
 # Testcontainers provide backend dependencies; this config never starts Compose.
 #
 # Run: bun run test
@@ -12,3 +12,7 @@ procs:
   frontend-tests:
     cwd: "frontend/mobile/your-say-news"
     shell: "../../../scripts/run-test-pane.sh frontend bun run test -- --runInBand"
+
+  admin-frontend-tests:
+    cwd: "post-service/src/main/webui"
+    shell: "../../../../scripts/run-test-pane.sh admin-frontend bun run test"
