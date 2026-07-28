@@ -2,10 +2,10 @@ package com.yoursay.user.user.service;
 
 import com.yoursay.observability.DomainMetrics;
 import com.yoursay.user.user.AccountType;
-import com.yoursay.user.user.AdminUserDto;
-import com.yoursay.user.user.AdminUserUpdateDto;
-import com.yoursay.user.user.UserAccessDto;
-import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.user.dto.AdminUserDto;
+import com.yoursay.user.user.dto.AdminUserUpdateDto;
+import com.yoursay.user.user.dto.UserAccessDto;
+import com.yoursay.user.user.dto.YourSayUserDto;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.user.user.error.UserApiException;
 import com.yoursay.user.user.model.YourSayUser;

@@ -1,15 +1,19 @@
 import { useMemo, useState } from "react";
 import { useAdminAuth } from "../../features/auth";
+import { UnwrappedReviewDesk, useUnwrappedReviews } from "../../features/unwrapped";
 import { AccountLedger, useAdminUsers, type AccountType } from "../../features/users";
 import { Masthead } from "../../shared/components/Masthead";
 import "./users-page.css";
 
 type TypeFilter = "ALL" | AccountType;
 type ActivityFilter = "ALL" | "ACTIVE" | "INACTIVE";
+type AdminSection = "ACCOUNTS" | "UNWRAPPED";
 
 export function UsersPage() {
   const { identity, logout } = useAdminAuth();
   const { users, error, savingUserIds, load, update } = useAdminUsers();
+  const unwrapped = useUnwrappedReviews();
+  const [section, setSection] = useState<AdminSection>("ACCOUNTS");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("ALL");
@@ -50,7 +54,44 @@ export function UsersPage() {
     <div className="accounts-shell">
       <Masthead email={identity?.email ?? "Authenticated"} onLogout={() => void logout()} />
 
-      <main className="accounts-page">
+      <nav className="admin-tabs" aria-label="Administration sections" role="tablist">
+        <button
+          type="button"
+          id="accounts-tab"
+          role="tab"
+          aria-controls="accounts-panel"
+          aria-selected={section === "ACCOUNTS"}
+          className={section === "ACCOUNTS" ? "admin-tab admin-tab--active" : "admin-tab"}
+          onClick={() => setSection("ACCOUNTS")}
+        >
+          <span>Accounts</span>
+          <small>People &amp; permissions</small>
+        </button>
+        <button
+          type="button"
+          id="unwrapped-tab"
+          role="tab"
+          aria-controls="unwrapped-panel"
+          aria-selected={section === "UNWRAPPED"}
+          className={section === "UNWRAPPED" ? "admin-tab admin-tab--active" : "admin-tab"}
+          onClick={() => setSection("UNWRAPPED")}
+        >
+          <span>
+            Unwrapped
+            <strong aria-label={`${unwrapped.reviews?.length ?? 0} drafts awaiting review`}>
+              {unwrapped.reviews?.length ?? "—"}
+            </strong>
+          </span>
+          <small>Publication approvals</small>
+        </button>
+      </nav>
+
+      {section === "ACCOUNTS" ? <main
+        id="accounts-panel"
+        className="accounts-page"
+        role="tabpanel"
+        aria-labelledby="accounts-tab"
+      >
         <header className="accounts-page__intro">
           <div>
             <p className="accounts-page__eyebrow">People &amp; permissions</p>
@@ -122,7 +163,21 @@ export function UsersPage() {
             />
           </>
         )}
-      </main>
+      </main> : (
+        <div id="unwrapped-panel" role="tabpanel" aria-labelledby="unwrapped-tab">
+          <UnwrappedReviewDesk
+            reviews={unwrapped.reviews}
+            error={unwrapped.error}
+            actingStoryId={unwrapped.actingStoryId}
+            generatingPostId={unwrapped.generatingPostId}
+            generationError={unwrapped.generationError}
+            onReload={unwrapped.load}
+            onApprove={unwrapped.approve}
+            onReject={unwrapped.reject}
+            onGenerate={unwrapped.generate}
+          />
+        </div>
+      )}
     </div>
   );
 }

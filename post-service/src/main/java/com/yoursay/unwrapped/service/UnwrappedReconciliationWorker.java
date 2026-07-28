@@ -1,6 +1,5 @@
 package com.yoursay.unwrapped.service;
 
-import com.yoursay.unwrapped.UnwrappedMode;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJob;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJobRepository;
 import io.quarkus.scheduler.Scheduled;
@@ -25,6 +24,15 @@ public class UnwrappedReconciliationWorker {
     @Inject
     UnwrappedAnalysisJobRepository jobs;
 
+    /**
+     * Claims and reconciles one dirty post as a single database transaction.
+     *
+     * <p>The marker claim uses PostgreSQL {@code FOR UPDATE SKIP LOCKED} so multiple service
+     * instances cannot process the same post concurrently. The vote count is also read directly
+     * because Unwrapped must not import the votes domain's internal entities or repositories.
+     * Panache would not remove either database-specific operation, so native SQL keeps the queue
+     * semantics explicit while Panache remains responsible for ordinary analysis-job persistence.</p>
+     */
     @Scheduled(identity = "unwrapped-milestone-reconciliation",
             every = "${unwrapped.jobs.reconcile-interval:2s}", concurrentExecution = SKIP)
     @RunOnVirtualThread
@@ -44,37 +52,14 @@ public class UnwrappedReconciliationWorker {
                 .setParameter(1, postId).getSingleResult()).longValue();
         for (Integer milestone : MILESTONES) {
             if (count >= milestone && jobs.count(
-                    "postId = ?1 and mode = ?2 and milestone = ?3 and analysisVersion = ?4",
-                    postId, UnwrappedMode.OBSERVED, milestone, "unwrapped-analysis-v1") == 0) {
-                jobs.persist(new UnwrappedAnalysisJob(UnwrappedMode.OBSERVED, postId, milestone,
-                        "unwrapped-analysis-v1", null));
+                    "postId = ?1 and milestone = ?2 and analysisVersion = ?3",
+                    postId, milestone, "unwrapped-analysis-v1") == 0) {
+                jobs.persist(new UnwrappedAnalysisJob(postId, milestone,
+                        "unwrapped-analysis-v1"));
             }
         }
         entityManager.createNativeQuery("delete from unwrapped_reconciliation where post_id = ?1")
                 .setParameter(1, postId).executeUpdate();
-    }
-
-    /** Recovery path that ensures every published post eventually gets one prediction draft. */
-    @Scheduled(identity = "unwrapped-prediction-reconciliation",
-            every = "${unwrapped.jobs.prediction-scan-interval:30s}", concurrentExecution = SKIP)
-    @RunOnVirtualThread
-    @Transactional
-    void enqueueMissingPrediction() {
-        @SuppressWarnings("unchecked")
-        List<Number> postIds = entityManager.createNativeQuery("""
-                select p.id
-                from post p
-                where not exists (
-                    select 1 from unwrapped_analysis_job j
-                    where j.post_id = p.id and j.mode = 'PREDICTION'
-                      and j.prediction_version = 'prediction-v1'
-                )
-                order by p.created_at
-                limit 1
-                """).getResultList();
-        if (postIds.isEmpty()) return;
-        jobs.persist(new UnwrappedAnalysisJob(UnwrappedMode.PREDICTION,
-                postIds.getFirst().longValue(), null, "unwrapped-analysis-v1", "prediction-v1"));
     }
 
     @Scheduled(identity = "unwrapped-stale-claim-recovery",
@@ -86,7 +71,13 @@ public class UnwrappedReconciliationWorker {
         jobs.staleClaims(cutoff).forEach(UnwrappedAnalysisJob::recoverStaleClaim);
     }
 
-    /** Defence-in-depth sweep for a vote transaction whose dirty marker was ever missed. */
+    /**
+     * Performs a defence-in-depth, set-based backfill for milestones whose dirty marker was missed.
+     *
+     * <p>The CTE evaluates every configured milestone and atomically upserts the affected posts.
+     * Expressing this as Panache entity iteration would require loading rows into application
+     * memory, issue many statements, and still need conflict handling for concurrent workers.</p>
+     */
     @Scheduled(identity = "unwrapped-milestone-backfill",
             every = "${unwrapped.jobs.milestone-scan-interval:5m}", concurrentExecution = SKIP)
     @RunOnVirtualThread
@@ -107,7 +98,6 @@ public class UnwrappedReconciliationWorker {
                           select 1
                           from unwrapped_analysis_job job
                           where job.post_id = counts.post_id
-                            and job.mode = 'OBSERVED'
                             and job.milestone = configured.milestone
                             and job.analysis_version = 'unwrapped-analysis-v1'
                       )

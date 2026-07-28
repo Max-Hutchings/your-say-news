@@ -1,6 +1,11 @@
 package com.yoursay.votes;
 
-import com.yoursay.posts.VoteOptionDto;
+import com.yoursay.votes.dto.BucketSentiment;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
+import com.yoursay.votes.dto.ChoiceSentiment;
+import com.yoursay.votes.dto.SentimentBreakdownDto;
+
+import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.posts.VotingType;
 import com.yoursay.votes.service.SentimentTally;
 import com.yoursay.votes.service.VoteSnapshot;

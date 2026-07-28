@@ -1,7 +1,13 @@
 package com.yoursay.user.user;
 
-import com.yoursay.user.user.OnboardingStatusDto;
-import com.yoursay.user.user.UserAccessDto;
+import com.yoursay.user.user.dto.YourSayUserDto;
+
+import com.yoursay.user.user.dto.ConsentRequestDto;
+
+import com.yoursay.user.user.dto.UserRefDto;
+
+import com.yoursay.user.user.dto.OnboardingStatusDto;
+import com.yoursay.user.user.dto.UserAccessDto;
 import com.yoursay.user.usercharacteristic.UserCharacteristicService;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;

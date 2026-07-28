@@ -41,7 +41,6 @@ const page = (optionId: number, headline: string): UnwrappedArgumentPage => ({
   optionId,
   headline,
   usedCohortIds: optionId === 71 ? ["ageRange=AGE_25_34"] : [],
-  predictedCohorts: [],
   contextClaims: [{
     id: `claim-${optionId}`,
     statement: "Official figures show how the financial trade-off has changed over time.",
@@ -65,7 +64,6 @@ function response(argumentPages: UnwrappedArgumentPage[] = [
       schemaVersion: "unwrapped-story-v1",
       storyId: "4e11bdba-3ae0-4c76-963a-d5b3b2db597f",
       postId: 7,
-      mode: "OBSERVED",
       milestone: 100,
       canonicalVoteCount: 126,
       aggregateVersion: "sha256:fixture",
@@ -150,24 +148,6 @@ test("reaches all five arguments in order and then the sixth reconsideration pag
   expect(screen.getByText("POST UNWRAPPED · 6 OF 6")).toBeOnTheScreen();
   expect(screen.getByText("Has seeing the context for every option changed your view?"))
     .toBeOnTheScreen();
-});
-
-test("labels early-voter content as a prediction rather than observed audience evidence", () => {
-  const data = response();
-  data.notice = "You are one of the first 100 voters. This is Pepper AI's prediction, not an analysis of the audience so far.";
-  data.story!.mode = "PREDICTION";
-  data.story!.milestone = null;
-  data.story!.argumentPages[0].usedCohortIds = [];
-  data.story!.argumentPages[0].predictedCohorts = ["Working-age taxpayers may favour this option."];
-  mockUseUnwrapped.mockReturnValue({
-    data, loading: false, submitting: false, error: false, refresh: jest.fn(), followUp,
-  });
-
-  renderScreen();
-
-  expect(screen.getByText(data.notice)).toBeOnTheScreen();
-  expect(screen.getByText("PEPPER’S PREDICTION")).toBeOnTheScreen();
-  expect(screen.queryByText("OBSERVED HERE")).toBeNull();
 });
 
 test("an existing follow-up is locked and can proceed without writing a second response", () => {

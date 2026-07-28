@@ -1,12 +1,24 @@
 package com.yoursay.feed.service;
 
+import com.yoursay.posts.dto.PresignResponse;
+
+import com.yoursay.posts.dto.PresignRequest;
+
+import com.yoursay.posts.dto.CreatePostRequest;
+
+import com.yoursay.posts.dto.PostDto;
+
+import com.yoursay.posts.dto.PostMediaDto;
+
+import com.yoursay.posts.MediaType;
+import com.yoursay.posts.Orientation;
+import com.yoursay.posts.PostService;
 import com.yoursay.feed.client.FeedUserClient;
 import com.yoursay.feed.client.SocialClient;
-import com.yoursay.feed.FeedContext;
+import com.yoursay.feed.dto.FeedContext;
 import com.yoursay.feed.FeedPostType;
 import com.yoursay.feed.FeedRanker;
-import com.yoursay.feed.RankablePost;
-import com.yoursay.posts.*;
+import com.yoursay.feed.dto.RankablePost;
 import com.yoursay.posts.error.PostApiException;
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.Test;

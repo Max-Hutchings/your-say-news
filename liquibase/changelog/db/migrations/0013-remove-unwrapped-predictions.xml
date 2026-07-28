@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="0013-remove-unwrapped-predictions" author="codex">
+        <sql>
+            DELETE FROM unwrapped_analysis_job WHERE mode = 'PREDICTION';
+
+            UPDATE unwrapped_story
+            SET story_json = jsonb_set(
+                    story_json,
+                    '{pages}',
+                    (
+                        SELECT jsonb_agg(page - 'predictedCohorts')
+                        FROM jsonb_array_elements(story_json -> 'pages') AS page
+                    )
+                )
+            WHERE jsonb_exists(story_json, 'pages');
+
+            DROP INDEX uk_unwrapped_prediction_job;
+            DROP INDEX uk_unwrapped_observed_job;
+
+            ALTER TABLE unwrapped_analysis_job
+                DROP CONSTRAINT ck_unwrapped_job_mode,
+                DROP CONSTRAINT ck_unwrapped_job_shape,
+                DROP COLUMN prediction_version,
+                DROP COLUMN mode,
+                ALTER COLUMN milestone SET NOT NULL;
+
+            ALTER TABLE unwrapped_story
+                DROP COLUMN mode,
+                ALTER COLUMN milestone SET NOT NULL,
+                ALTER COLUMN aggregate_version SET NOT NULL;
+
+            CREATE UNIQUE INDEX uk_unwrapped_analysis_job_version
+                ON unwrapped_analysis_job(post_id, milestone, analysis_version);
+        </sql>
+    </changeSet>
+</databaseChangeLog>

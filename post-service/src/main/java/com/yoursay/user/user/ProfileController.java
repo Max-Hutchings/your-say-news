@@ -1,7 +1,9 @@
 package com.yoursay.user.user;
 
+import com.yoursay.user.user.dto.YourSayUserDto;
+
 import com.yoursay.user.social.SocialService;
-import com.yoursay.user.user.PublicProfileDto;
+import com.yoursay.user.user.dto.PublicProfileDto;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;

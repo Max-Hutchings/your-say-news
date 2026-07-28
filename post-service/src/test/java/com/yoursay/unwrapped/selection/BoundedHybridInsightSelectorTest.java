@@ -1,17 +1,14 @@
 package com.yoursay.unwrapped.selection;
 
-import com.yoursay.posts.VoteOptionDto;
+import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.posts.VotingType;
-import com.yoursay.unwrapped.CandidateRole;
-import com.yoursay.unwrapped.OptionBriefV1;
-import com.yoursay.unwrapped.UnwrappedAnalysisBriefV1;
-import com.yoursay.votes.AggregationMetadataV1;
-import com.yoursay.votes.CohortAggregateV1;
-import com.yoursay.votes.CohortDimensionV1;
-import com.yoursay.votes.MembershipSemantics;
-import com.yoursay.votes.OptionStatisticV1;
-import com.yoursay.votes.OverallOptionStatisticV1;
-import com.yoursay.votes.PostAnalysisAggregateV1;
+import com.yoursay.votes.dto.AggregationMetadataV1;
+import com.yoursay.votes.dto.CohortAggregateV1;
+import com.yoursay.votes.dto.CohortDimensionV1;
+import com.yoursay.votes.dto.MembershipSemantics;
+import com.yoursay.votes.dto.OptionStatisticV1;
+import com.yoursay.votes.dto.OverallOptionStatisticV1;
+import com.yoursay.votes.dto.PostAnalysisAggregateV1;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

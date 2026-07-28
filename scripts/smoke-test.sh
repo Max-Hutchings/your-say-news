@@ -14,8 +14,10 @@ auth_port="${SMOKE_AUTH_PORT:-58080}"
 storage_port="${SMOKE_STORAGE_PORT:-54566}"
 backend_port="${SMOKE_BACKEND_PORT:-58082}"
 frontend_port="${SMOKE_FRONTEND_PORT:-55173}"
+admin_port="${SMOKE_ADMIN_PORT:-58083}"
 application_url="http://localhost:${frontend_port}"
 authentication_url="http://localhost:${auth_port}"
+admin_url="http://localhost:${admin_port}"
 
 export SMOKE_DB_PORT="$db_port"
 export SMOKE_AUTH_PORT="$auth_port"
@@ -73,6 +75,7 @@ cleanup() {
   fi
 
   stop_listener "$frontend_port"
+  stop_listener "$admin_port"
   stop_listener "$backend_port"
 
   docker compose \
@@ -129,6 +132,7 @@ reserved_ports=(
   "$storage_port"
   "$backend_port"
   "$frontend_port"
+  "$admin_port"
 )
 for port in "${reserved_ports[@]}"; do
   if [[ -n "$(listener_pids "$port")" ]]; then
@@ -250,18 +254,27 @@ echo "Starting post-service..."
   exec env \
     QUARKUS_OTEL_ENABLED=false \
     QUARKUS_HTTP_PORT="$backend_port" \
-    QUARKUS_HTTP_CORS_ORIGINS="$application_url" \
+    QUARKUS_HTTP_CORS_ORIGINS="$application_url,$admin_url" \
     QUARKUS_OIDC_AUTH_SERVER_URL="${authentication_url}/realms/your-say-news" \
+    QUARKUS_QUINOA_DEV_SERVER_PORT="$admin_port" \
     QUARKUS_DATASOURCE_USERNAME=app_user \
     QUARKUS_DATASOURCE_PASSWORD=app_password \
     QUARKUS_DATASOURCE_JDBC_URL="jdbc:postgresql://localhost:${db_port}/app_db" \
     QUARKUS_DATASOURCE_REACTIVE_URL="postgresql://localhost:${db_port}/app_db" \
     QUARKUS_S3_ENDPOINT_OVERRIDE="http://localhost:${storage_port}" \
+    VITE_API_ORIGIN="http://localhost:${backend_port}" \
+    VITE_ADMIN_PORT="$admin_port" \
+    VITE_KEYCLOAK_URL="$authentication_url" \
     ./gradlew :post-service:quarkusDev --console=plain
 ) >"$service_logs_dir/post-service.log" 2>&1 &
 backend_pid=$!
 
 wait_for_url "post-service" "http://localhost:${backend_port}/live" 180 || {
+  tail -n 120 "$service_logs_dir/post-service.log" >&2 || true
+  exit 1
+}
+
+wait_for_url "Admin web UI" "${admin_url}/admin/" 180 || {
   tail -n 120 "$service_logs_dir/post-service.log" >&2 || true
   exit 1
 }
@@ -275,7 +288,7 @@ echo "Starting Expo web..."
     EXPO_PUBLIC_AUTH_BASE_URL="$authentication_url" \
     EXPO_PUBLIC_POST_SERVICE_HOST=http://localhost \
     EXPO_PUBLIC_POST_SERVICE_PORT=":${backend_port}" \
-    bunx expo start --web --port "$frontend_port"
+    bunx expo start --web --clear --port "$frontend_port"
 ) >"$service_logs_dir/expo.log" 2>&1 &
 frontend_pid=$!
 
@@ -289,6 +302,7 @@ cd "$repo_root"
 exec_status=0
 SMOKE_BASE_URL="$application_url" \
 SMOKE_AUTH_ORIGIN="$authentication_url" \
+SMOKE_ADMIN_URL="$admin_url" \
 bunx playwright test \
   --config smoke-tests/playwright.config.ts || exec_status=$?
 

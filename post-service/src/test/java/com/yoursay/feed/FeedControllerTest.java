@@ -1,6 +1,6 @@
 package com.yoursay.feed;
 
-import com.yoursay.posts.PostDto;
+import com.yoursay.posts.dto.PostDto;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.QueryParam;

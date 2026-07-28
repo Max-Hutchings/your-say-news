@@ -3,7 +3,7 @@ package com.yoursay;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.user.usercharacteristic.model.Enums.AgeRange;
-import com.yoursay.votes.CharacteristicSnapshot;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;

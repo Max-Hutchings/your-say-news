@@ -1,10 +1,12 @@
-package com.yoursay.agents.postagent.generator;
+package com.yoursay.posts.postagent.generator;
 
-import com.yoursay.agents.postagent.AgentDraftDto;
-import com.yoursay.agents.postagent.AgentSourceDto;
-import com.yoursay.agents.postagent.SourcedClaimDto;
-import com.yoursay.agents.postagent.AgentVoteOptionDto;
+import com.yoursay.posts.postagent.dto.AgentDraftDto;
+import com.yoursay.posts.postagent.dto.AgentSourceDto;
+import com.yoursay.posts.postagent.dto.SourcedClaimDto;
+import com.yoursay.posts.postagent.dto.AgentVoteOptionDto;
 import com.yoursay.posts.VotingType;
+import com.yoursay.posts.postagent.generator.AgentDraftValidator;
+import com.yoursay.posts.postagent.generator.GenerationException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

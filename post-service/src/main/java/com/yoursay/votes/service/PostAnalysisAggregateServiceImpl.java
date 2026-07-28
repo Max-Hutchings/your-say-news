@@ -1,11 +1,11 @@
 package com.yoursay.votes.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.posts.PostVotingConfigurationDto;
+import com.yoursay.posts.dto.PostVotingConfigurationDto;
 import com.yoursay.posts.PostVotingConfigurationService;
-import com.yoursay.votes.CharacteristicSnapshot;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
 import com.yoursay.votes.PostAnalysisAggregateService;
-import com.yoursay.votes.PostAnalysisAggregateV1;
+import com.yoursay.votes.dto.PostAnalysisAggregateV1;
 import com.yoursay.votes.error.VoteApiException;
 import com.yoursay.votes.model.Vote;
 import com.yoursay.votes.model.VoteRepository;

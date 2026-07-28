@@ -2,6 +2,10 @@
 
 Date: 2026-07-25
 
+> **Amended by [ADR-035](ADR-035-2026-07-28-defer-unwrapped-prediction-stories.md):**
+> prediction stories are removed for now. The active lifecycle generates observed stories only
+> after the first safe vote milestone; human review, versioning and follow-up isolation remain.
+
 ## Situation
 
 After a canonical vote, users currently reach raw aggregate diagrams. MVP1 instead needs Post

@@ -2,10 +2,7 @@ package com.yoursay.unwrapped.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.unwrapped.UnwrappedResearchDraftV1;
-import com.yoursay.unwrapped.UnwrappedResearchGenerator;
-import com.yoursay.unwrapped.UnwrappedResearchRequest;
-import com.yoursay.unwrapped.UnwrappedResearchResult;
+import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;

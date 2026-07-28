@@ -1,14 +1,15 @@
-package com.yoursay.agents.postagent.service;
+package com.yoursay.posts.postagent.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.agents.postagent.AgentDraftDto;
-import com.yoursay.agents.postagent.AgentJobStatus;
-import com.yoursay.agents.postagent.AgentSourceDto;
-import com.yoursay.agents.postagent.SourcedClaimDto;
-import com.yoursay.agents.postagent.generator.GenerationException;
-import com.yoursay.agents.postagent.generator.GenerationResult;
-import com.yoursay.agents.postagent.model.AgentGenerationJob;
-import com.yoursay.agents.postagent.model.AgentGenerationJobRepository;
+import com.yoursay.posts.postagent.dto.AgentDraftDto;
+import com.yoursay.posts.postagent.AgentJobStatus;
+import com.yoursay.posts.postagent.dto.AgentSourceDto;
+import com.yoursay.posts.postagent.dto.SourcedClaimDto;
+import com.yoursay.posts.postagent.generator.GenerationException;
+import com.yoursay.posts.postagent.generator.GenerationResult;
+import com.yoursay.posts.postagent.model.AgentGenerationJob;
+import com.yoursay.posts.postagent.model.AgentGenerationJobRepository;
+import com.yoursay.posts.postagent.service.AgentJobProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

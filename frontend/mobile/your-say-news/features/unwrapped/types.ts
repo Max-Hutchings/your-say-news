@@ -6,7 +6,6 @@ export type UnwrappedAvailabilityState =
   | "REFRESHING"
   | "INSUFFICIENT_EVIDENCE"
   | "FAILED";
-export type UnwrappedMode = "PREDICTION" | "OBSERVED";
 export type SourceClassification = "OFFICIAL" | "ACADEMIC" | "REPUTABLE_MEDIA" | "OTHER";
 
 export interface UnwrappedSource {
@@ -28,7 +27,6 @@ export interface UnwrappedArgumentPage {
   optionId: number;
   headline: string;
   usedCohortIds: string[];
-  predictedCohorts: string[];
   contextClaims: UnwrappedClaim[];
   synthesis: string;
   caveat: string;
@@ -38,10 +36,9 @@ export interface UnwrappedStory {
   schemaVersion: "unwrapped-story-v1";
   storyId: string;
   postId: number;
-  mode: UnwrappedMode;
-  milestone: number | null;
+  milestone: number;
   canonicalVoteCount: number;
-  aggregateVersion: string | null;
+  aggregateVersion: string;
   generatedAt: string;
   model: string;
   argumentPages: UnwrappedArgumentPage[];

@@ -1,5 +1,15 @@
 package com.yoursay.user.usercharacteristic.service;
 
+import com.yoursay.user.usercharacteristic.dto.IncomeBandDto;
+
+import com.yoursay.user.usercharacteristic.dto.IncomeCatalogDto;
+
+import com.yoursay.user.usercharacteristic.dto.IncomeProfileDto;
+
+import com.yoursay.user.usercharacteristic.dto.IncomeProfileSummaryDto;
+
+import com.yoursay.user.usercharacteristic.dto.IncomeAnswerDto;
+
 import com.yoursay.user.usercharacteristic.*;
 import com.yoursay.user.usercharacteristic.error.UserCharacteristicApiException;
 import jakarta.enterprise.context.ApplicationScoped;

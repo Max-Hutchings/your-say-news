@@ -1,7 +1,11 @@
 package com.yoursay.user.user;
 
-import com.yoursay.user.user.UserAccessDto;
-import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.user.dto.AdminUserDto;
+
+import com.yoursay.user.user.dto.AdminUserUpdateDto;
+
+import com.yoursay.user.user.dto.UserAccessDto;
+import com.yoursay.user.user.dto.YourSayUserDto;
 
 import java.time.LocalDate;
 import java.util.List;

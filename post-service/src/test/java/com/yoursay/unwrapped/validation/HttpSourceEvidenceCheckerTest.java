@@ -1,7 +1,7 @@
 package com.yoursay.unwrapped.validation;
 
 import com.yoursay.unwrapped.SourceClassification;
-import com.yoursay.unwrapped.UnwrappedSourceDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import org.junit.jupiter.api.Test;
 
 import java.net.http.HttpClient;

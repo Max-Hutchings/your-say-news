@@ -1,7 +1,7 @@
 package com.yoursay.user.usercharacteristic.service;
 
-import com.yoursay.user.usercharacteristic.CharacteristicOptionDto;
-import com.yoursay.user.usercharacteristic.CharacteristicOptionsDto;
+import com.yoursay.user.usercharacteristic.dto.CharacteristicOptionDto;
+import com.yoursay.user.usercharacteristic.dto.CharacteristicOptionsDto;
 import com.yoursay.user.usercharacteristic.model.EnumOptionPolicy;
 import com.yoursay.user.usercharacteristic.model.Enums.*;
 import com.yoursay.user.usercharacteristic.model.UserCharacteristicRules;

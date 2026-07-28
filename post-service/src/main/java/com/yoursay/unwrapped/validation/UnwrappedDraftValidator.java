@@ -1,12 +1,11 @@
 package com.yoursay.unwrapped.validation;
 
-import com.yoursay.unwrapped.OptionBriefV1;
-import com.yoursay.unwrapped.UnwrappedArgumentDraftV1;
-import com.yoursay.unwrapped.UnwrappedClaimDraftV1;
-import com.yoursay.unwrapped.UnwrappedMode;
-import com.yoursay.unwrapped.UnwrappedResearchDraftV1;
-import com.yoursay.unwrapped.UnwrappedResearchRequest;
-import com.yoursay.unwrapped.UnwrappedSourceDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedClaimDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
+import com.yoursay.unwrapped.agent.UnwrappedResearchRequest;
+import com.yoursay.unwrapped.selection.OptionBriefV1;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -54,30 +53,15 @@ public class UnwrappedDraftValidator {
             require(page.contextClaims() != null && !page.contextClaims().isEmpty(),
                     "UNWRAPPED_PAGE_UNSOURCED");
             require(page.usedCohortIds() != null, "UNWRAPPED_COHORTS_MISSING");
-            require(page.predictedCohorts() != null, "UNWRAPPED_PREDICTIONS_MISSING");
             List<String> used = page.usedCohortIds();
-            List<String> predicted = page.predictedCohorts();
             require(used.size() <= 2 && new HashSet<>(used).size() == used.size(),
                     "UNWRAPPED_TOO_MANY_COHORTS");
-            require(predicted.size() <= 2 && new HashSet<>(predicted).size() == predicted.size(),
-                    "UNWRAPPED_TOO_MANY_PREDICTIONS");
-            require(predicted.stream().allMatch(value -> length(value, 8, 240)),
-                    "UNWRAPPED_PREDICTION_LENGTH");
-            predicted.forEach(UnwrappedDraftValidator::validateLanguage);
             Set<String> allowed = brief.candidates().stream()
                     .map(candidate -> candidate.cohortId()).collect(Collectors.toSet());
             require(allowed.containsAll(used), "UNWRAPPED_INVENTED_COHORT");
-            if (request.mode() == UnwrappedMode.PREDICTION) {
-                require(used.isEmpty(), "UNWRAPPED_PREDICTION_USED_OBSERVED_COHORT");
-                require(containsAny(page.caveat(), "prediction", "tentative", "may", "might"),
-                        "UNWRAPPED_PREDICTION_CAVEAT");
-            } else {
-                require(page.predictedCohorts() == null || page.predictedCohorts().isEmpty(),
-                        "UNWRAPPED_OBSERVED_CONTAINS_PREDICTION");
-                require(containsAny(page.caveat(), "association", "sample", "voters on this post")
-                                && containsAny(page.caveat(), "does not", "cannot", "not prove"),
-                        "UNWRAPPED_OBSERVED_CAVEAT");
-            }
+            require(containsAny(page.caveat(), "association", "sample", "voters on this post")
+                            && containsAny(page.caveat(), "does not", "cannot", "not prove"),
+                    "UNWRAPPED_OBSERVED_CAVEAT");
         }
 
         List<UnwrappedSourceDraftV1> sources = draft.sources() == null ? List.of() : draft.sources();

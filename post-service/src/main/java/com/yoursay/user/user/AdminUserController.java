@@ -1,5 +1,9 @@
 package com.yoursay.user.user;
 
+import com.yoursay.user.user.dto.AdminUserDto;
+
+import com.yoursay.user.user.dto.AdminUserUpdateDto;
+
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;

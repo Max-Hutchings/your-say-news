@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAdminAuth } from "../../features/auth";
+import { useUnwrappedReviews } from "../../features/unwrapped";
 import { useAdminUsers } from "../../features/users";
 import { UsersPage } from "./UsersPage";
 
@@ -11,6 +12,10 @@ vi.mock("../../features/auth", () => ({
 
 vi.mock("../../features/users/hooks/useAdminUsers", () => ({
   useAdminUsers: vi.fn(),
+}));
+
+vi.mock("../../features/unwrapped/hooks/useUnwrappedReviews", () => ({
+  useUnwrappedReviews: vi.fn(),
 }));
 
 const accounts = [
@@ -46,6 +51,37 @@ const accounts = [
   },
 ];
 
+const unwrappedReview = {
+  storyId: "4e11bdba-3ae0-4c76-963a-d5b3b2db597f",
+  postId: 42,
+  milestone: 100,
+  canonicalVoteCount: 126,
+  status: "DRAFT" as const,
+  generatedAt: "2026-07-28T10:00:00Z",
+  draft: {
+    pages: [{
+      optionId: 71,
+      headline: "The case for changing course",
+      usedCohortIds: ["ageRange=AGE_25_34"],
+      contextClaims: [{
+        id: "claim-1",
+        statement: "Official figures show a material change.",
+        sourceIds: ["source-1"],
+        interpretation: false,
+      }],
+      synthesis: "Taken together, the evidence makes a serious case.",
+      caveat: "This sample is an association and does not prove individual motivation.",
+    }],
+    sources: [{
+      id: "source-1",
+      url: "https://www.ons.gov.uk/data",
+      publisher: "Office for National Statistics",
+      title: "Public data",
+      classification: "OFFICIAL" as const,
+    }],
+  },
+};
+
 describe("UsersPage", () => {
   const update = vi.fn();
   const load = vi.fn();
@@ -65,6 +101,17 @@ describe("UsersPage", () => {
       savingUserIds: new Set(),
       load,
       update,
+    });
+    vi.mocked(useUnwrappedReviews).mockReturnValue({
+      reviews: [unwrappedReview],
+      error: null,
+      actingStoryId: null,
+      generatingPostId: null,
+      generationError: null,
+      load: vi.fn(),
+      approve: vi.fn(),
+      reject: vi.fn(),
+      generate: vi.fn(),
     });
     update.mockImplementation(async (userId, changes) => ({
       ...accounts.find((account) => account.id === userId)!,
@@ -115,6 +162,22 @@ describe("UsersPage", () => {
       accountType: "ADMIN",
       active: false,
     });
+  });
+
+  it("switches from accounts to the Unwrapped publication queue", async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+
+    expect(screen.getByRole("tab", { name: /Accounts/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("1 drafts awaiting review")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /Unwrapped/ }));
+
+    expect(screen.getByRole("tab", { name: /Unwrapped/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Unwrapped desk" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "The case for changing course" }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Accounts desk" })).not.toBeInTheDocument();
   });
 
   it("shows a restricted state when the database account is not an active admin", () => {

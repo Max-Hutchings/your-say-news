@@ -1,6 +1,5 @@
 package com.yoursay.unwrapped.model;
 
-import com.yoursay.unwrapped.UnwrappedMode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -9,8 +8,7 @@ class UnwrappedAnalysisJobTest {
     @Test
     void staleClaimsReturnToPendingUntilTheRetryBudgetIsExhausted() {
         UnwrappedAnalysisJob job =
-                new UnwrappedAnalysisJob(UnwrappedMode.PREDICTION, 42L, null,
-                        "analysis-v1", "prediction-v1");
+                new UnwrappedAnalysisJob(42L, 100, "analysis-v1");
 
         job.claim();
         job.recoverStaleClaim();

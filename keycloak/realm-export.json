@@ -166,11 +166,13 @@
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
         "http://localhost:8082/admin/*",
-        "http://localhost:8083/admin/*"
+        "http://localhost:8083/admin/*",
+        "http://localhost:58083/admin/*"
       ],
       "webOrigins": [
         "http://localhost:8082",
-        "http://localhost:8083"
+        "http://localhost:8083",
+        "http://localhost:58083"
       ],
       "bearerOnly": false,
       "consentRequired": false,

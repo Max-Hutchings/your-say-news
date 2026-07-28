@@ -1,0 +1,100 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  approveUnwrappedStory,
+  forceUnwrappedGeneration,
+  rejectUnwrappedStory,
+  UnwrappedAdminApiError,
+  getUnwrappedReviewQueue,
+} from "../services/unwrappedAdminApi";
+import type {
+  ForcedUnwrappedJob,
+  UnwrappedReviewError,
+  UnwrappedReviewStory,
+} from "../types";
+
+export function useUnwrappedReviews() {
+  const [reviews, setReviews] = useState<UnwrappedReviewStory[] | null>(null);
+  const [error, setError] = useState<UnwrappedReviewError | null>(null);
+  const [actingStoryId, setActingStoryId] = useState<string | null>(null);
+  const [generatingPostId, setGeneratingPostId] = useState<number | null>(null);
+  const [generationError, setGenerationError] = useState<UnwrappedReviewError | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      setReviews(await getUnwrappedReviewQueue());
+    } catch (reason) {
+      setError(toReviewError(reason));
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const act = useCallback(async (
+    storyId: string,
+    action: () => Promise<UnwrappedReviewStory>,
+  ) => {
+    setActingStoryId(storyId);
+    setError(null);
+    try {
+      const saved = await action();
+      setReviews((current) => current?.filter((story) => story.storyId !== saved.storyId) ?? null);
+      return saved;
+    } catch (reason) {
+      setError(toReviewError(reason));
+      throw reason;
+    } finally {
+      setActingStoryId(null);
+    }
+  }, []);
+
+  const approve = useCallback(
+    (storyId: string) => act(storyId, () => approveUnwrappedStory(storyId)),
+    [act],
+  );
+
+  const reject = useCallback(
+    (storyId: string, reason: string) =>
+      act(storyId, () => rejectUnwrappedStory(storyId, reason)),
+    [act],
+  );
+
+  const generate = useCallback(async (postId: number): Promise<ForcedUnwrappedJob> => {
+    setGeneratingPostId(postId);
+    setGenerationError(null);
+    try {
+      const job = await forceUnwrappedGeneration(postId);
+      await load();
+      return job;
+    } catch (reason) {
+      setGenerationError(toReviewError(reason));
+      throw reason;
+    } finally {
+      setGeneratingPostId(null);
+    }
+  }, [load]);
+
+  return {
+    reviews,
+    error,
+    actingStoryId,
+    generatingPostId,
+    generationError,
+    load,
+    approve,
+    reject,
+    generate,
+  };
+}
+
+function toReviewError(reason: unknown): UnwrappedReviewError {
+  if (reason instanceof UnwrappedAdminApiError) {
+    return { status: reason.status, message: reason.message };
+  }
+  return {
+    status: null,
+    message: reason instanceof Error ? reason.message : "The Unwrapped review request failed.",
+  };
+}

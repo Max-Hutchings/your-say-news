@@ -1,11 +1,11 @@
 package com.yoursay.votes.service;
 
-import com.yoursay.votes.CharacteristicSnapshot;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
 import com.yoursay.votes.SentimentAggregator;
-import com.yoursay.votes.SentimentBreakdownDto;
+import com.yoursay.votes.dto.SentimentBreakdownDto;
 import com.yoursay.votes.model.Vote;
 import com.yoursay.votes.model.VoteRepository;
-import com.yoursay.posts.PostVotingConfigurationDto;
+import com.yoursay.posts.dto.PostVotingConfigurationDto;
 import com.yoursay.posts.PostVotingConfigurationService;
 import com.yoursay.votes.error.VoteApiException;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -78,19 +78,11 @@ export class AuthenticationPage {
 
   private async expectProviderPage(): Promise<void> {
     const provider = new URL(this.providerOrigin);
-    await this.page.waitForURL(
-      (url) =>
-        url.protocol === provider.protocol &&
-        url.host === provider.host
-    );
+    await expect.poll(() => new URL(this.page.url()).origin).toBe(provider.origin);
   }
 
   private async expectApplicationReturn(): Promise<void> {
     const application = new URL(this.applicationOrigin);
-    await this.page.waitForURL(
-      (url) =>
-        url.protocol === application.protocol &&
-        url.host === application.host
-    );
+    await expect.poll(() => new URL(this.page.url()).origin).toBe(application.origin);
   }
 }

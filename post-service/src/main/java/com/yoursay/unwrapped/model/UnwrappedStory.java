@@ -1,7 +1,6 @@
 package com.yoursay.unwrapped.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yoursay.unwrapped.UnwrappedMode;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -22,15 +21,13 @@ public class UnwrappedStory extends PanacheEntityBase {
     UUID id;
     @Column(name = "job_id", nullable = false)
     UUID jobId;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    UnwrappedMode mode;
     @Column(name = "post_id", nullable = false)
     Long postId;
+    @Column(nullable = false)
     Integer milestone;
     @Column(name = "canonical_vote_count", nullable = false)
     long canonicalVoteCount;
-    @Column(name = "aggregate_version")
+    @Column(name = "aggregate_version", nullable = false)
     String aggregateVersion;
     @Column(name = "story_schema_version", nullable = false)
     String storySchemaVersion;
@@ -63,7 +60,6 @@ public class UnwrappedStory extends PanacheEntityBase {
     public UnwrappedStory(UnwrappedAnalysisJob job, JsonNode storyJson, String model) {
         this.id = UUID.randomUUID();
         this.jobId = job.getId();
-        this.mode = job.getMode();
         this.postId = job.getPostId();
         this.milestone = job.getMilestone();
         this.canonicalVoteCount = job.getCanonicalVoteCount() == null ? 0 : job.getCanonicalVoteCount();
@@ -79,7 +75,6 @@ public class UnwrappedStory extends PanacheEntityBase {
     }
 
     public UUID getId() { return id; }
-    public UnwrappedMode getMode() { return mode; }
     public Long getPostId() { return postId; }
     public Integer getMilestone() { return milestone; }
     public long getCanonicalVoteCount() { return canonicalVoteCount; }

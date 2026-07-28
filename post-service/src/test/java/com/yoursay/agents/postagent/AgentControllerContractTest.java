@@ -1,5 +1,8 @@
 package com.yoursay.agents.postagent;
 
+import com.yoursay.posts.postagent.dto.GenerateAgentPostRequest;
+import com.yoursay.posts.postagent.dto.AgentJobDto;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;

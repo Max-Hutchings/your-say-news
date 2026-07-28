@@ -1,6 +1,12 @@
 package com.yoursay.user.usercharacteristic;
 
-import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.usercharacteristic.dto.UserCharacteristicDto;
+
+import com.yoursay.user.usercharacteristic.dto.CharacteristicOptionsDto;
+
+import com.yoursay.user.usercharacteristic.dto.IncomeProfileDto;
+
+import com.yoursay.user.user.dto.YourSayUserDto;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.user.usercharacteristic.error.UserCharacteristicApiException;
 import com.yoursay.user.usercharacteristic.service.CharacteristicOptionsCatalog;

@@ -1,0 +1,15 @@
+package com.yoursay.unwrapped.dto;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public record FollowUpResponseDto(
+        UUID id,
+        Long postId,
+        UUID storyId,
+        Long originalOptionId,
+        Long optionId,
+        boolean changed,
+        Instant createdAt
+) {
+}

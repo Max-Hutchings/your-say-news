@@ -19,6 +19,24 @@ export const returningReader: SignInIdentity = {
   password: process.env.SMOKE_READER_PASSWORD ?? "password123",
 };
 
+export const adminAccount: SignInIdentity = {
+  username: process.env.SMOKE_ADMIN_USERNAME ?? "yoursay.admin",
+  email: process.env.SMOKE_ADMIN_EMAIL ?? "admin@yoursay.com",
+  password: process.env.SMOKE_ADMIN_PASSWORD ?? "password123",
+};
+
+export const managedAccount = {
+  id: 9,
+  displayName: "Casey Morgan",
+  email: "casey.morgan@example.com",
+  firstName: "Casey",
+  lastName: "Morgan",
+  createdDate: "2024-06-05",
+  initialAccountType: "USER",
+  changedAccountType: "OFFICIAL",
+  initialActive: true,
+} as const;
+
 export function newRegistrationIdentity(): RegistrationIdentity {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return {

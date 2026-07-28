@@ -1,5 +1,9 @@
 package com.yoursay.unwrapped;
 
+import com.yoursay.unwrapped.dto.RejectStoryRequest;
+
+import com.yoursay.unwrapped.dto.ReviewStoryDto;
+
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;
@@ -16,7 +20,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Path("/admin/unwrapped")
@@ -43,9 +46,10 @@ public class UnwrappedAdminController {
     }
 
     @POST
-    @Path("/posts/{postId}/prediction")
-    public Response prediction(@PathParam("postId") Long postId) {
-        return Response.accepted(Map.of("jobId", service.enqueuePrediction(postId))).build();
+    @Path("/posts/{postId}/generate")
+    @Consumes(MediaType.WILDCARD)
+    public Response forceGeneration(@PathParam("postId") Long postId) {
+        return Response.accepted(service.forceGeneration(postId)).build();
     }
 
     @POST

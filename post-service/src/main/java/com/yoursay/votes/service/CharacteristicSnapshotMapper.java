@@ -1,6 +1,6 @@
 package com.yoursay.votes.service;
 
-import com.yoursay.votes.CharacteristicSnapshot;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
 import com.yoursay.votes.client.UserCharacteristicView;
 
 import java.util.List;

@@ -1,9 +1,8 @@
 package com.yoursay.unwrapped.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.unwrapped.UnwrappedMode;
-import com.yoursay.unwrapped.UnwrappedResearchDraftV1;
-import com.yoursay.unwrapped.UnwrappedResearchResult;
+import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
+import com.yoursay.unwrapped.agent.UnwrappedResearchResult;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJob;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJobRepository;
 import com.yoursay.unwrapped.model.UnwrappedStory;
@@ -31,7 +30,7 @@ public class UnwrappedJobProcessor {
     public Optional<JobWork> claimNext() {
         Optional<UnwrappedAnalysisJob> next = jobs.nextForUpdate();
         next.ifPresent(UnwrappedAnalysisJob::claim);
-        return next.map(job -> new JobWork(job.getId(), job.getMode(), job.getPostId(),
+        return next.map(job -> new JobWork(job.getId(), job.getPostId(),
                 job.getMilestone(), job.getAnalysisVersion(), job.getAttemptCount()));
     }
 
@@ -73,7 +72,6 @@ public class UnwrappedJobProcessor {
 
     public record JobWork(
             UUID id,
-            UnwrappedMode mode,
             Long postId,
             Integer milestone,
             String analysisVersion,

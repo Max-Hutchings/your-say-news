@@ -1,9 +1,13 @@
-package com.yoursay.agents.postagent.generator;
+package com.yoursay.posts.postagent.generator;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.agents.postagent.AgentDraftDto;
-import com.yoursay.agents.postagent.AgentSourceDto;
-import com.yoursay.agents.postagent.SourcedClaimDto;
+import com.yoursay.posts.postagent.dto.AgentDraftDto;
+import com.yoursay.posts.postagent.dto.AgentSourceDto;
+import com.yoursay.posts.postagent.dto.SourcedClaimDto;
+import com.yoursay.posts.postagent.generator.GenerationException;
+import com.yoursay.posts.postagent.generator.PepperAiClient;
+import com.yoursay.posts.postagent.generator.PepperAiResponse;
+import com.yoursay.posts.postagent.generator.PepperAiService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.http.client.SuccessfulHttpResponse;
 import dev.langchain4j.model.chat.response.ChatResponse;

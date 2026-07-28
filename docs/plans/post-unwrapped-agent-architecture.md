@@ -1,5 +1,9 @@
 # Post Unwrapped agent architecture
 
+> **Current scope:** [ADR-035](../../wiki/ADR-035-2026-07-28-defer-unwrapped-prediction-stories.md)
+> removes prediction stories for now. Prediction sections below are retained as historical design
+> context, not active implementation requirements. Observed generation and human review remain.
+
 Status: implementation architecture agreed
 Scope: completion-checklist points 2 and 4
 Primary domain: `post-service/com.yoursay.unwrapped`

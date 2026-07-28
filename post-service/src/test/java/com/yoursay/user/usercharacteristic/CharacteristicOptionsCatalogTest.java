@@ -1,5 +1,9 @@
 package com.yoursay.user.usercharacteristic;
 
+import com.yoursay.user.usercharacteristic.dto.IncomeCatalogDto;
+
+import com.yoursay.user.usercharacteristic.dto.CharacteristicOptionDto;
+
 import com.yoursay.user.usercharacteristic.service.CharacteristicOptionsCatalog;
 import com.yoursay.user.usercharacteristic.service.IncomeProfileCatalog;
 import org.junit.jupiter.api.Test;

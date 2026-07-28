@@ -149,14 +149,13 @@ function ArgumentPage({ page, story, notice }: {
       <Text style={[styles.optionName, { color: e.secondary }]}>{option?.label}</Text>
       <Text style={[styles.headline, { color: e.ink }]}>{page.headline}</Text>
       <View style={[styles.notice, { backgroundColor: e.privacyBg, borderColor: e.privacyBorder }]}>
-        <Ionicons name={story.mode === "PREDICTION" ? "sparkles-outline" : "people-outline"}
-          size={17} color={e.privacyIcon} />
+        <Ionicons name="people-outline" size={17} color={e.privacyIcon} />
         <Text style={[styles.noticeText, { color: e.privacyText }]}>{notice}</Text>
       </View>
 
-      {(story.mode === "PREDICTION" ? page.predictedCohorts : page.usedCohortIds).length > 0 && (
-        <EvidenceSection title={story.mode === "PREDICTION" ? "Pepper’s prediction" : "Observed here"}>
-          {(story.mode === "PREDICTION" ? page.predictedCohorts : page.usedCohortIds).map((item) => (
+      {page.usedCohortIds.length > 0 && (
+        <EvidenceSection title="Observed here">
+          {page.usedCohortIds.map((item) => (
             <Text key={item} style={[styles.body, { color: e.ink }]}>• {humaniseCohort(item)}</Text>
           ))}
         </EvidenceSection>

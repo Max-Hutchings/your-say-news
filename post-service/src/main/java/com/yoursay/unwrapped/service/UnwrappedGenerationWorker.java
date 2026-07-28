@@ -1,16 +1,12 @@
 package com.yoursay.unwrapped.service;
 
-import com.yoursay.posts.PostVotingConfigurationDto;
-import com.yoursay.posts.PostVotingConfigurationService;
-import com.yoursay.unwrapped.InsightSelectionService;
-import com.yoursay.unwrapped.OptionBriefV1;
-import com.yoursay.unwrapped.UnwrappedAnalysisBriefV1;
-import com.yoursay.unwrapped.UnwrappedMode;
-import com.yoursay.unwrapped.UnwrappedResearchGenerator;
-import com.yoursay.unwrapped.UnwrappedResearchRequest;
-import com.yoursay.unwrapped.UnwrappedResearchResult;
+import com.yoursay.unwrapped.agent.UnwrappedResearchGenerator;
+import com.yoursay.unwrapped.agent.UnwrappedResearchRequest;
+import com.yoursay.unwrapped.agent.UnwrappedResearchResult;
+import com.yoursay.unwrapped.selection.InsightSelectionService;
+import com.yoursay.unwrapped.selection.UnwrappedAnalysisBriefV1;
 import com.yoursay.votes.PostAnalysisAggregateService;
-import com.yoursay.votes.PostAnalysisAggregateV1;
+import com.yoursay.votes.dto.PostAnalysisAggregateV1;
 import io.quarkus.logging.Log;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -18,7 +14,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.quarkus.scheduler.Scheduled.ConcurrentExecution.SKIP;
@@ -29,8 +24,6 @@ public class UnwrappedGenerationWorker {
 
     @Inject
     UnwrappedJobProcessor processor;
-    @Inject
-    PostVotingConfigurationService posts;
     @Inject
     PostAnalysisAggregateService aggregates;
     @Inject
@@ -54,37 +47,22 @@ public class UnwrappedGenerationWorker {
             UnwrappedResearchRequest request = request(job);
             UnwrappedResearchResult result = generator.generate(request);
             processor.complete(job.id(), result);
-            Log.infof("Unwrapped draft ready: jobId=%s postId=%d mode=%s",
-                    job.id(), job.postId(), job.mode());
+            Log.infof("Unwrapped draft ready: jobId=%s postId=%d",
+                    job.id(), job.postId());
         } catch (RuntimeException failure) {
             processor.fail(job.id(), failure);
-            Log.warnf("Unwrapped generation failed: jobId=%s postId=%d mode=%s code=%s",
-                    job.id(), job.postId(), job.mode(), failure.getMessage());
+            Log.warnf("Unwrapped generation failed: jobId=%s postId=%d code=%s",
+                    job.id(), job.postId(), failure.getMessage());
         }
     }
 
     private UnwrappedResearchRequest request(UnwrappedJobProcessor.JobWork job) {
-        if (job.mode() == UnwrappedMode.OBSERVED) {
-            PostAnalysisAggregateV1 aggregate = aggregates.capture(job.postId());
-            processor.attachAggregate(job.id(), aggregate.canonicalVoteCount(),
-                    aggregate.aggregateVersion(), aggregate);
-            UnwrappedAnalysisBriefV1 brief = selector.select(aggregate);
-            return new UnwrappedResearchRequest(UnwrappedMode.OBSERVED, brief.postId(),
-                    brief.summary(), brief.question(), brief.jurisdiction(), brief.canonicalVoteCount(),
-                    brief.aggregateVersion(), brief.options());
-        }
-        PostVotingConfigurationDto post = posts.findByPostId(job.postId())
-                .orElseThrow(() -> new IllegalStateException("UNWRAPPED_POST_MISSING"));
-        List<OptionBriefV1> options = post.options().stream()
-                .map(option -> new OptionBriefV1(option, 0, 0.0, List.of(),
-                        List.of("Which groups may favour '" + option.label()
-                                + "', and what current official evidence explains the case?"),
-                        List.of("Do not imply predicted groups have voted.",
-                                "Do not claim a demographic characteristic causes a view."),
-                        null))
-                .toList();
-        processor.attachAggregate(job.id(), 0, null, null);
-        return new UnwrappedResearchRequest(UnwrappedMode.PREDICTION, post.postId(),
-                post.summary(), post.question(), post.jurisdiction(), 0, null, options);
+        PostAnalysisAggregateV1 aggregate = aggregates.capture(job.postId());
+        processor.attachAggregate(job.id(), aggregate.canonicalVoteCount(),
+                aggregate.aggregateVersion(), aggregate);
+        UnwrappedAnalysisBriefV1 brief = selector.select(aggregate);
+        return new UnwrappedResearchRequest(brief.postId(), brief.summary(), brief.question(),
+                brief.jurisdiction(), brief.canonicalVoteCount(), brief.aggregateVersion(),
+                brief.options());
     }
 }

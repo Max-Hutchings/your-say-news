@@ -1,7 +1,7 @@
 package com.yoursay.votes.service;
 
-import com.yoursay.votes.CharacteristicSnapshot;
-import com.yoursay.votes.VoteResponseDto;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
+import com.yoursay.votes.dto.VoteResponseDto;
 import com.yoursay.votes.VoteService;
 import com.yoursay.votes.client.UserCharacteristicClient;
 import com.yoursay.votes.client.UserCharacteristicView;
@@ -9,7 +9,7 @@ import com.yoursay.votes.error.VoteApiException;
 import com.yoursay.votes.model.Vote;
 import com.yoursay.votes.model.VoteRepository;
 import com.yoursay.observability.DomainMetrics;
-import com.yoursay.posts.PostVotingConfigurationDto;
+import com.yoursay.posts.dto.PostVotingConfigurationDto;
 import com.yoursay.posts.PostVotingConfigurationService;
 import com.yoursay.unwrapped.UnwrappedMilestoneService;
 import io.quarkus.logging.Log;

@@ -1,5 +1,11 @@
 package com.yoursay.unwrapped;
 
+import com.yoursay.unwrapped.dto.FollowUpRequest;
+
+import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
+
+import com.yoursay.unwrapped.dto.FollowUpResponseDto;
+
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;

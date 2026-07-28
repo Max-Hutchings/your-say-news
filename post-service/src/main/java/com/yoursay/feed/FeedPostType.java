@@ -1,7 +1,7 @@
 package com.yoursay.feed;
 
 import com.yoursay.posts.MediaType;
-import com.yoursay.posts.PostDto;
+import com.yoursay.posts.dto.PostDto;
 
 /** The reader-facing feed split: video posts, or article posts made from text and images. */
 public enum FeedPostType {

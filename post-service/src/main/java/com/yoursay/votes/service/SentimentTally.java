@@ -1,10 +1,10 @@
 package com.yoursay.votes.service;
 
-import com.yoursay.posts.VoteOptionDto;
+import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.posts.VotingType;
-import com.yoursay.votes.BucketSentiment;
-import com.yoursay.votes.ChoiceSentiment;
-import com.yoursay.votes.SentimentBreakdownDto;
+import com.yoursay.votes.dto.BucketSentiment;
+import com.yoursay.votes.dto.ChoiceSentiment;
+import com.yoursay.votes.dto.SentimentBreakdownDto;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;

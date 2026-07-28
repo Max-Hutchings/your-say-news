@@ -13,12 +13,9 @@ public class UnwrappedStoryRepository implements PanacheRepositoryBase<Unwrapped
     public Optional<UnwrappedStory> newestApproved(Long postId, long currentCount) {
         return list("postId = ?1 and reviewStatus = ?2",
                 postId, UnwrappedReviewStatus.APPROVED).stream()
-                .filter(story -> story.mode == com.yoursay.unwrapped.UnwrappedMode.PREDICTION
-                        || (story.milestone != null && story.milestone <= currentCount))
+                .filter(story -> story.milestone <= currentCount)
                 .max(Comparator
-                        .comparingInt((UnwrappedStory story) ->
-                                story.mode == com.yoursay.unwrapped.UnwrappedMode.OBSERVED ? 1 : 0)
-                        .thenComparing(story -> story.milestone == null ? 0 : story.milestone)
+                        .comparingInt((UnwrappedStory story) -> story.milestone)
                         .thenComparing(UnwrappedStory::getReviewedAt,
                                 Comparator.nullsFirst(Comparator.naturalOrder())));
     }

@@ -9,6 +9,85 @@
   padding: clamp(2.5rem, 5vw, 5.5rem) clamp(0rem, 2vw, 2rem) 0;
 }
 
+.admin-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding-inline: clamp(0rem, 1.5vw, 1.5rem);
+  border-bottom: 1px solid var(--editorial-border);
+}
+
+.admin-tab {
+  position: relative;
+  display: grid;
+  min-width: min(18rem, 42vw);
+  gap: 0.2rem;
+  padding: 1rem 1.1rem 0.85rem;
+  border: 0;
+  border-right: 1px solid var(--editorial-border);
+  background: transparent;
+  color: var(--editorial-muted);
+  text-align: left;
+}
+
+.admin-tab:first-child {
+  border-left: 1px solid var(--editorial-border);
+}
+
+.admin-tab::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 0.25rem;
+  background: transparent;
+  content: "";
+}
+
+.admin-tab:hover {
+  color: var(--editorial-ink);
+}
+
+.admin-tab--active {
+  color: var(--editorial-ink);
+}
+
+.admin-tab--active::after {
+  background: var(--editorial-lime);
+}
+
+.admin-tab > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+}
+
+.admin-tab small {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-tab strong {
+  display: grid;
+  min-width: 1.7rem;
+  min-height: 1.7rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--editorial-track);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+}
+
+.admin-tab--active strong {
+  background: var(--editorial-lime);
+  color: var(--editorial-on-lime);
+}
+
 .accounts-page__intro {
   display: grid;
   align-items: end;
@@ -444,6 +523,10 @@
     gap: 1.4rem;
   }
 
+  .admin-tab {
+    min-width: 50%;
+  }
+
   .account-totals {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -501,6 +584,18 @@
 @media (max-width: 32rem) {
   .masthead__meta {
     display: none;
+  }
+
+  .admin-tabs {
+    padding-inline: 0;
+  }
+
+  .admin-tab {
+    padding-inline: 0.75rem;
+  }
+
+  .admin-tab > span {
+    font-size: 1.1rem;
   }
 
   .account-tools {

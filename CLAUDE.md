@@ -112,8 +112,9 @@ Clear structure is non-negotiable. The package layout encodes the architecture.
 ```
 com.yoursay.<domain>/                 <- top-level package = a DOMAIN (e.g. user, post, vote)
   <Domain>Controller.java             <- REST controllers          ┐ the domain's PUBLIC face,
-  <Domain>Service.java (interface)     <- public service interfaces ├ sit at the TOP LEVEL — the
-  <Domain>Dto.java                     <- DTOs crossing boundaries  ┘ ONLY things other domains touch
+  <Domain>Service.java (interface)     <- public service interfaces ┘ sit at the TOP LEVEL
+  dto/                                <- DTOs crossing boundaries — also PUBLIC
+    <Domain>Dto.java
   model/                              <- entities, repositories                ── internal sub-package
   service/                            <- service implementations, business logic ── internal sub-package
   ...                                 <- other tech-driven sub-packages, all internal
@@ -122,14 +123,15 @@ com.yoursay.<domain>/                 <- top-level package = a DOMAIN (e.g. user
 Rules:
 
 1. **Each top-level package is a domain.** (`user`, `usercharacteristic`, `post`, `vote`, …)
-2. The domain's **public face sits directly at the top level of the domain package**: REST
-   controllers, the public Java **interfaces** (e.g. service contracts), and the **DTOs** that
-   cross domain boundaries. These are the only things other domains may touch. Do **not** nest
-   them in an `interfaces/` sub-package.
-3. **Everything else goes in sub-packages and must never be referenced from outside the domain
-   package.** Entities, repositories, service *implementations*, mappers, etc. are private to the
-   domain. Cross domains only through the top-level controllers / interfaces / DTOs, never by
-   reaching into another domain's `model` or `service`.
+2. The domain's **public face** consists of its top-level package and its `dto` sub-package.
+   REST controllers and public Java **interfaces** (e.g. service contracts) sit directly at the
+   top level. DTOs sit in `dto/` so the domain's chain of events is immediately visible without
+   DTO declarations obscuring it. Do **not** nest controllers or public interfaces in an
+   `interfaces/` sub-package.
+3. **Every sub-package except `dto` is internal and must never be referenced from outside the
+   domain package.** Entities, repositories, service *implementations*, mappers, etc. are private
+   to the domain. Cross domains only through top-level controllers/interfaces or types in `dto`,
+   never by reaching into another domain's `model`, `service`, or other internal package.
 4. Below the top level, organise sub-packages by **technical concern** (`model`, `service`, etc.)
    — tech-driven design inside the domain, domain-driven design at the top.
 
@@ -140,8 +142,8 @@ beneath it, and each follows the public-face/internal-subpackage rules above ind
 technical package, not another domain.
 
 > Current code is mid-migration toward this. When you touch a domain, move it toward the structure
-> above — controllers, public interfaces and DTOs flattened to the domain's top level, everything
-> else pushed down into `model/`, `service/`, etc. — rather than adding to the old shape.
+> above — controllers and public interfaces at the domain's top level, DTOs in `dto/`, and
+> everything else pushed down into `model/`, `service/`, etc. — rather than adding to the old shape.
 
 ### Testing philosophy (applies to both backend and frontend)
 

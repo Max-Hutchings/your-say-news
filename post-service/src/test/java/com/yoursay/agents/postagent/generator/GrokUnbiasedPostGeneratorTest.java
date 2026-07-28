@@ -1,8 +1,9 @@
-package com.yoursay.agents.postagent.generator;
+package com.yoursay.posts.postagent.generator;
 
-import com.yoursay.agents.postagent.AgentDraftDto;
-import com.yoursay.agents.postagent.AgentSourceDto;
-import com.yoursay.agents.postagent.SourcedClaimDto;
+import com.yoursay.posts.postagent.dto.AgentDraftDto;
+import com.yoursay.posts.postagent.dto.AgentSourceDto;
+import com.yoursay.posts.postagent.dto.SourcedClaimDto;
+import com.yoursay.posts.postagent.generator.*;
 import dev.langchain4j.exception.InvalidRequestException;
 import dev.langchain4j.exception.RateLimitException;
 import org.junit.jupiter.api.BeforeEach;

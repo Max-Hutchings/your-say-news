@@ -1,0 +1,18 @@
+package com.yoursay.posts.postagent;
+
+import com.yoursay.posts.postagent.dto.GenerateAgentPostRequest;
+
+import com.yoursay.posts.postagent.dto.AgentJobDto;
+
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Public contract for asynchronous unbiased-post generation.
+ */
+public interface AgentService {
+
+    AgentJobDto start(String callerEmail, String authorization, GenerateAgentPostRequest request);
+
+    Optional<AgentJobDto> get(UUID jobId, String callerEmail, String authorization);
+}

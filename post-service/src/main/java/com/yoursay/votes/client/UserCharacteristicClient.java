@@ -1,9 +1,9 @@
 package com.yoursay.votes.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.user.dto.YourSayUserDto;
 import com.yoursay.user.user.YourSayUserService;
-import com.yoursay.user.usercharacteristic.UserCharacteristicDto;
+import com.yoursay.user.usercharacteristic.dto.UserCharacteristicDto;
 import com.yoursay.user.usercharacteristic.UserCharacteristicService;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;

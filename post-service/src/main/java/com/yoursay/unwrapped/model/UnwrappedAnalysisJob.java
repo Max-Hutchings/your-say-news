@@ -1,7 +1,6 @@
 package com.yoursay.unwrapped.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yoursay.unwrapped.UnwrappedMode;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,20 +20,14 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
     @Id
     UUID id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    UnwrappedMode mode;
-
     @Column(name = "post_id", nullable = false)
     Long postId;
 
+    @Column(nullable = false)
     Integer milestone;
 
     @Column(name = "analysis_version", nullable = false)
     String analysisVersion;
-
-    @Column(name = "prediction_version")
-    String predictionVersion;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -79,20 +72,16 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
     protected UnwrappedAnalysisJob() {
     }
 
-    public UnwrappedAnalysisJob(UnwrappedMode mode, Long postId, Integer milestone,
-                                String analysisVersion, String predictionVersion) {
+    public UnwrappedAnalysisJob(Long postId, Integer milestone, String analysisVersion) {
         this.id = UUID.randomUUID();
-        this.mode = mode;
         this.postId = postId;
         this.milestone = milestone;
         this.analysisVersion = analysisVersion;
-        this.predictionVersion = predictionVersion;
         this.status = UnwrappedJobStatus.PENDING;
         this.createdAt = Instant.now();
     }
 
     public UUID getId() { return id; }
-    public UnwrappedMode getMode() { return mode; }
     public Long getPostId() { return postId; }
     public Integer getMilestone() { return milestone; }
     public String getAnalysisVersion() { return analysisVersion; }

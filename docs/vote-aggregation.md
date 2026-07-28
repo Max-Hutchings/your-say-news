@@ -7,8 +7,8 @@ feel about a topic** as aggregates, **without ever exposing who voted how**. Get
 
 ## The shape
 
-All public types sit at the top of the `com.yoursay.votes` package (the domain's public face);
-everything else is internal to `votes/service`.
+Public controllers and interfaces sit at the top of `com.yoursay.votes`; transferable records sit
+in `com.yoursay.votes.dto`. Everything else is internal to the domain.
 
 | Type | Role |
 | --- | --- |

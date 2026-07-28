@@ -7,7 +7,8 @@
         objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
     <!-- The default feed is intentionally small but covers every important presentation path:
          binary and multiple-choice video in both orientations, then portrait-image,
-         landscape-image, and text-only articles. -->
+         landscape-image, and text-only articles. Vote snapshots mirror every field and derived
+         representation emitted by CharacteristicSnapshotMapper. -->
     <changeSet id="0010-seed-curated-posts" author="codex" context="seed">
         <sql splitStatements="false"><![CDATA[
 INSERT INTO post
@@ -152,11 +153,34 @@ profiles AS (
             WHEN 3 THEN 'WOMAN'
             ELSE 'MAN'
         END AS gender,
+        CASE series.n % 2
+            WHEN 0 THEN 'FEMALE'
+            ELSE 'MALE'
+        END AS sex_at_birth,
+        CASE series.n % 7
+            WHEN 0 THEN 'STRAIGHT_HETEROSEXUAL'
+            WHEN 1 THEN 'GAY_LESBIAN'
+            WHEN 2 THEN 'BISEXUAL'
+            WHEN 3 THEN 'PANSEXUAL'
+            WHEN 4 THEN 'ASEXUAL'
+            WHEN 5 THEN 'QUEER'
+            ELSE 'QUESTIONING'
+        END AS sexual_orientation,
+        CASE series.n % 8
+            WHEN 0 THEN 'SINGLE'
+            WHEN 1 THEN 'IN_RELATIONSHIP'
+            WHEN 2 THEN 'COHABITING'
+            WHEN 3 THEN 'MARRIED'
+            WHEN 4 THEN 'CIVIL_PARTNERSHIP'
+            WHEN 5 THEN 'SEPARATED'
+            WHEN 6 THEN 'DIVORCED_OR_DISSOLVED'
+            ELSE 'WIDOWED_OR_SURVIVING_PARTNER'
+        END AS marital_status,
         CASE series.n % 10
             WHEN 0 THEN 'SOUTH_ASIAN'
             WHEN 1 THEN 'BLACK_AFRICAN'
             WHEN 2 THEN 'EAST_ASIAN'
-            WHEN 3 THEN 'MIXED_MULTIPLE'
+            WHEN 3 THEN 'EAST_ASIAN+WHITE_EUROPEAN'
             WHEN 4 THEN 'MIDDLE_EASTERN_NORTH_AFRICAN'
             ELSE 'WHITE_EUROPEAN'
         END AS race,
@@ -170,12 +194,58 @@ profiles AS (
             WHEN 6 THEN 'Cardiff'
             ELSE 'Newcastle'
         END AS region,
+        CASE series.n % 8
+            WHEN 0 THEN 'GREATER_LONDON'
+            WHEN 1 THEN 'WEST_MIDLANDS'
+            WHEN 2 THEN 'GREATER_MANCHESTER'
+            WHEN 3 THEN 'WEST_YORKSHIRE'
+            WHEN 4 THEN 'BRISTOL'
+            WHEN 5 THEN 'LANARKSHIRE'
+            WHEN 6 THEN 'CARDIFF'
+            ELSE 'TYNE_AND_WEAR'
+        END AS uk_county,
         CASE series.n % 4
             WHEN 0 THEN 'URBAN'
             WHEN 1 THEN 'URBAN'
             WHEN 2 THEN 'SUBURBAN'
             ELSE 'RURAL'
         END AS urban_rural,
+        CASE series.n % 8
+            WHEN 0 THEN 'UNITED_KINGDOM'
+            WHEN 1 THEN 'INDIA'
+            WHEN 2 THEN 'NIGERIA'
+            WHEN 3 THEN 'POLAND'
+            WHEN 4 THEN 'PAKISTAN'
+            WHEN 5 THEN 'IRELAND'
+            WHEN 6 THEN 'UNITED_STATES'
+            ELSE 'AUSTRALIA'
+        END AS country_of_birth,
+        CASE series.n % 8
+            WHEN 1 THEN 'BRITISH+INDIA'
+            WHEN 3 THEN 'BRITISH+POLAND'
+            WHEN 5 THEN 'BRITISH+IRELAND'
+            ELSE 'BRITISH'
+        END AS citizenship,
+        CASE series.n % 8
+            WHEN 0 THEN 'NO_RELIGION'
+            WHEN 1 THEN 'CHRISTIANITY'
+            WHEN 2 THEN 'ISLAM'
+            WHEN 3 THEN 'HINDUISM'
+            WHEN 4 THEN 'BUDDHISM'
+            WHEN 5 THEN 'JUDAISM'
+            WHEN 6 THEN 'SIKHISM'
+            ELSE 'OTHER_RELIGION'
+        END AS religion,
+        CASE series.n % 8
+            WHEN 0 THEN 'NOT_RELIGIOUS'
+            WHEN 1 THEN 'SLIGHTLY_RELIGIOUS'
+            WHEN 2 THEN 'MODERATELY_RELIGIOUS'
+            WHEN 3 THEN 'VERY_RELIGIOUS'
+            WHEN 4 THEN 'SLIGHTLY_RELIGIOUS'
+            WHEN 5 THEN 'MODERATELY_RELIGIOUS'
+            WHEN 6 THEN 'VERY_RELIGIOUS'
+            ELSE 'MODERATELY_RELIGIOUS'
+        END AS religiosity,
         CASE series.n % 8
             WHEN 0 THEN 'NO_FORMAL_QUALIFICATIONS'
             WHEN 1 THEN 'SECONDARY_SCHOOL'
@@ -197,15 +267,98 @@ profiles AS (
             ELSE 'RETIRED'
         END AS occupation,
         CASE series.n % 8
-            WHEN 0 THEN 'BELOW_20K'
-            WHEN 1 THEN 'BETWEEN_20K_AND_30K'
-            WHEN 2 THEN 'BETWEEN_30K_AND_40K'
-            WHEN 3 THEN 'BETWEEN_40K_AND_50K'
-            WHEN 4 THEN 'BETWEEN_50K_AND_75K'
-            WHEN 5 THEN 'BETWEEN_75K_AND_100K'
-            WHEN 6 THEN 'BETWEEN_100K_AND_150K'
-            ELSE 'BETWEEN_150K_AND_200K'
-        END AS personal_income_range,
+            WHEN 0 THEN 'NOT_APPLICABLE'
+            WHEN 1 THEN 'IT_TECHNOLOGY'
+            WHEN 2 THEN 'HEALTHCARE'
+            WHEN 3 THEN 'PROFESSIONAL_SERVICES'
+            WHEN 4 THEN 'HOSPITALITY'
+            WHEN 5 THEN 'NOT_APPLICABLE'
+            WHEN 6 THEN 'SOCIAL_CARE'
+            ELSE 'NOT_APPLICABLE'
+        END AS employment_sector,
+        CASE series.n % 8
+            WHEN 3 THEN 'SOCIOLOGY'
+            WHEN 4 THEN 'COMPUTER_SCIENCE'
+            WHEN 5 THEN 'BUSINESS'
+            WHEN 6 THEN 'MEDICINE'
+            ELSE NULL
+        END AS university_subject,
+        'V2_TIER_' || ((series.n % 7) + 1) AS personal_income_range,
+        'V2_TIER_' || (((series.n + 2) % 7) + 1) AS household_income_range,
+        CASE series.n % 8
+            WHEN 0 THEN 'FEET_4_10_TO_5_0'
+            WHEN 1 THEN 'FEET_5_1_TO_5_3'
+            WHEN 2 THEN 'FEET_5_4_TO_5_6'
+            WHEN 3 THEN 'FEET_5_7_TO_5_9'
+            WHEN 4 THEN 'FEET_5_10_TO_6_0'
+            WHEN 5 THEN 'FEET_6_1_TO_6_3'
+            WHEN 6 THEN 'FEET_6_4_TO_6_6'
+            ELSE 'FEET_6_7_TO_6_9'
+        END AS height,
+        CASE series.n % 8
+            WHEN 0 THEN 'KG_40_49'
+            WHEN 1 THEN 'KG_50_59'
+            WHEN 2 THEN 'KG_60_69'
+            WHEN 3 THEN 'KG_70_79'
+            WHEN 4 THEN 'KG_80_89'
+            WHEN 5 THEN 'KG_90_99'
+            WHEN 6 THEN 'KG_100_109'
+            ELSE 'KG_110_119'
+        END AS weight_range,
+        CASE series.n % 8
+            WHEN 0 THEN 'BROWN'
+            WHEN 1 THEN 'BLUE'
+            WHEN 2 THEN 'GREEN'
+            WHEN 3 THEN 'HAZEL'
+            WHEN 4 THEN 'AMBER'
+            WHEN 5 THEN 'GRAY'
+            WHEN 6 THEN 'BLACK_DARK_BROWN'
+            ELSE 'OTHER_UNSURE'
+        END AS eye_color,
+        CASE series.n % 4
+            WHEN 0 THEN 'NOT_PARENT_CAREGIVER'
+            WHEN 1 THEN 'PARENT_CAREGIVER_UNDER_18'
+            WHEN 2 THEN 'PARENT_CAREGIVER_ADULT_ONLY'
+            ELSE 'EXPECTING'
+        END AS parent,
+        CASE series.n % 4
+            WHEN 0 THEN '0_2'
+            WHEN 1 THEN '3_5'
+            WHEN 2 THEN '6_8'
+            ELSE '9_10'
+        END AS news_frequency,
+        CASE WHEN series.n % 3 = 0 THEN 'false' ELSE 'true' END AS has_pet,
+        CASE series.n % 6
+            WHEN 0 THEN NULL
+            WHEN 1 THEN 'CAT'
+            WHEN 2 THEN 'DOG'
+            WHEN 3 THEN NULL
+            WHEN 4 THEN 'CAT+DOG'
+            ELSE 'FISH'
+        END AS pet_type,
+        CASE series.n % 3
+            WHEN 0 THEN 'MORNING_LARK'
+            WHEN 1 THEN 'NIGHT_OWL'
+            ELSE 'IN_BETWEEN'
+        END AS chronotype,
+        CASE series.n % 4
+            WHEN 0 THEN 'OPTIMIST'
+            WHEN 1 THEN 'PESSIMIST'
+            WHEN 2 THEN 'DEPENDS'
+            ELSE 'UNSURE'
+        END AS outlook,
+        CASE WHEN series.n % 4 = 0 THEN 'true' ELSE 'false' END AS neurodivergent,
+        CASE series.n % 8
+            WHEN 0 THEN 'ADHD'
+            WHEN 4 THEN 'AUTISM+DYSLEXIA'
+            ELSE NULL
+        END AS neurodivergence_type,
+        CASE WHEN series.n % 5 = 0 THEN 'true' ELSE 'false' END AS has_disability,
+        CASE series.n % 10
+            WHEN 0 THEN 'PHYSICAL_MOBILITY'
+            WHEN 5 THEN 'CHRONIC_ILLNESS+HEARING'
+            ELSE NULL
+        END AS disability_type,
         CASE series.n % 6
             WHEN 0 THEN 'PRIVATE_RENT'
             WHEN 1 THEN 'SOCIAL_RENT'
@@ -221,7 +374,15 @@ profiles AS (
             WHEN 3 THEN 'FLAT_APARTMENT'
             WHEN 4 THEN 'ROOM_SHARED_HOUSE'
             ELSE 'OTHER_UNKNOWN'
-        END AS property_type
+        END AS property_type,
+        CASE WHEN series.n % 2 = 0 THEN 'true' ELSE 'false' END AS balanced_news_viewpoint,
+        CASE series.n % 5
+            WHEN 0 THEN '0_24'
+            WHEN 1 THEN '25_49'
+            WHEN 2 THEN '50'
+            WHEN 3 THEN '51_75'
+            ELSE '76_100'
+        END AS mainstream_news_percent
     FROM post_specs spec
     CROSS JOIN LATERAL generate_series(0, spec.vote_count - 1) AS series(n)
 ),
@@ -292,16 +453,49 @@ SELECT
         'politicalPersuasion', political_persuasion,
         'ageRange', age_range,
         'gender', gender,
+        'sexAtBirth', sex_at_birth,
+        'sexualOrientation', sexual_orientation,
+        'maritalStatus', marital_status,
         'race', race,
-        'raceMemberships', jsonb_build_array(race),
         'country', 'United Kingdom',
         'region', region,
         'urbanRural', urban_rural,
+        'ukCounty', uk_county,
+        'countryOfBirth', country_of_birth,
+        'citizenship', citizenship,
+        'religion', religion,
+        'religiosity', religiosity,
         'education', education,
         'occupation', occupation,
+        'employmentSector', employment_sector,
+        'universitySubject', university_subject,
         'personalIncomeRange', personal_income_range,
+        'householdIncomeRange', household_income_range,
+        'height', height,
+        'weightRange', weight_range,
+        'eyeColor', eye_color,
+        'parent', parent,
+        'newsFrequency', news_frequency,
+        'hasPet', has_pet,
+        'petType', pet_type,
+        'chronotype', chronotype,
+        'outlook', outlook,
+        'neurodivergent', neurodivergent,
+        'neurodivergenceType', neurodivergence_type,
+        'hasDisability', has_disability,
+        'disabilityType', disability_type,
         'housingStatus', housing_status,
-        'propertyType', property_type
+        'propertyType', property_type,
+        'raceMemberships', to_jsonb(string_to_array(race, '+')),
+        'citizenshipMemberships', to_jsonb(string_to_array(citizenship, '+')),
+        'petTypeMemberships',
+            COALESCE(to_jsonb(string_to_array(pet_type, '+')), '[]'::jsonb),
+        'neurodivergenceTypeMemberships',
+            COALESCE(to_jsonb(string_to_array(neurodivergence_type, '+')), '[]'::jsonb),
+        'disabilityTypeMemberships',
+            COALESCE(to_jsonb(string_to_array(disability_type, '+')), '[]'::jsonb),
+        'balancedNewsViewpoint', balanced_news_viewpoint,
+        'mainstreamNewsPercent', mainstream_news_percent
     )
 FROM selected_options
 ORDER BY post_id, user_id;

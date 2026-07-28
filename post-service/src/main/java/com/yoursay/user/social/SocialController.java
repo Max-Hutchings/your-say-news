@@ -1,6 +1,10 @@
 package com.yoursay.user.social;
 
-import com.yoursay.user.social.FollowStatusDto;
+import com.yoursay.user.social.dto.FollowingDto;
+
+import com.yoursay.user.social.dto.FollowPageDto;
+
+import com.yoursay.user.social.dto.FollowStatusDto;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;

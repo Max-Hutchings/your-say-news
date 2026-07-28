@@ -11,6 +11,14 @@ public class UnwrappedMilestoneServiceImpl implements UnwrappedMilestoneService 
     @Inject
     EntityManager entityManager;
 
+    /**
+     * Marks this post dirty in the same Postgres database and transaction as the canonical vote.
+     *
+     * <p>This deliberately uses a native {@code INSERT ... ON CONFLICT} rather than a Panache
+     * find-then-persist/update sequence. Concurrent votes can mark the same post at once, so the
+     * marker must be an atomic, idempotent upsert; modelling the marker as a Panache entity would
+     * still require native SQL to avoid a duplicate-key race.</p>
+     */
     @Override
     @Transactional
     public void markForReconciliation(Long postId) {

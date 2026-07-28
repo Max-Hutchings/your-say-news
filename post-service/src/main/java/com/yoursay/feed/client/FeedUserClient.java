@@ -1,7 +1,7 @@
 package com.yoursay.feed.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.user.dto.YourSayUserDto;
 import com.yoursay.user.user.YourSayUserService;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
