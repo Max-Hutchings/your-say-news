@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react-native";
 import { Linking } from "react-native";
 import { ThemeProvider } from "@/constants/theme";
 import { UnwrappedScreen } from "./UnwrappedScreen";
@@ -37,23 +37,42 @@ const source: UnwrappedSource = {
   title: "Public sector finances",
   classification: "OFFICIAL",
 };
-const page = (optionId: number, headline: string): UnwrappedArgumentPage => ({
+const servicesSource: UnwrappedSource = {
+  id: "source-2",
+  url: "https://www.instituteforgovernment.org.uk/publication/performance-tracker-2025",
+  publisher: "Institute for Government",
+  title: "Public services performance tracker",
+  classification: "OTHER",
+};
+const taxSource: UnwrappedSource = {
+  id: "source-3",
+  url: "https://ifs.org.uk/publications/tax-outlook",
+  publisher: "Institute for Fiscal Studies",
+  title: "Tax outlook",
+  classification: "ACADEMIC",
+};
+const page = (
+  optionId: number,
+  headline: string,
+  sources: UnwrappedSource[] = [source]
+): UnwrappedArgumentPage => ({
   optionId,
   headline,
   usedCohortIds: optionId === 71 ? ["ageRange=AGE_25_34"] : [],
   contextClaims: [{
     id: `claim-${optionId}`,
     statement: "Official figures show how the financial trade-off has changed over time.",
-    sourceIds: ["source-1"],
+    sourceIds: sources.map((item) => item.id),
     interpretation: false,
   }],
   synthesis: "This evidence makes the strongest responsible case for this option.",
   caveat: "This pattern describes this vote and does not prove individual motivation.",
+  sources,
 });
 
 function response(argumentPages: UnwrappedArgumentPage[] = [
-  page(71, "The case for taking less in tax"),
-  page(72, "The case for protecting shared services"),
+  page(71, "The case for taking less in tax", [source, taxSource]),
+  page(72, "The case for protecting shared services", [servicesSource]),
 ]): UnwrappedResponse {
   return {
     state: "READY",
@@ -70,7 +89,6 @@ function response(argumentPages: UnwrappedArgumentPage[] = [
       generatedAt: "2026-07-25T12:00:00Z",
       model: "configured-model",
       argumentPages,
-      sources: [source],
       reconsiderationQuestion: "Has seeing the context for every option changed your view?",
       reconsiderationOptions: options,
     },
@@ -98,15 +116,51 @@ test("renders the binary three-page sequence, requires a second answer, then ope
   renderScreen();
 
   expect(screen.getByText("POST UNWRAPPED · 1 OF 3")).toBeOnTheScreen();
+  expect(screen.getByText("Reduce public spending")).toBeOnTheScreen();
   expect(screen.getByText("The case for taking less in tax")).toBeOnTheScreen();
-  expect(screen.getByText("Public sector finances")).toBeOnTheScreen();
-  const link = jest.spyOn(Linking, "openURL").mockResolvedValueOnce(undefined);
-  fireEvent.press(screen.getByText("Public sector finances"));
-  expect(link).toHaveBeenCalledWith(source.url);
+  expect(screen.getByText(
+    "This analysis describes people who voted on this post; it is not a population survey."
+  )).toBeOnTheScreen();
+  expect(screen.getByText("• agerange: age 25 34")).toBeOnTheScreen();
+  expect(screen.getByText(
+    "Official figures show how the financial trade-off has changed over time."
+  )).toBeOnTheScreen();
+  expect(screen.getByText("[1] [2]")).toBeOnTheScreen();
+  expect(screen.getByText(
+    "This evidence makes the strongest responsible case for this option."
+  )).toBeOnTheScreen();
+  expect(screen.getByText(
+    "This pattern describes this vote and does not prove individual motivation."
+  )).toBeOnTheScreen();
+  expect(screen.queryByText("Public services performance tracker")).toBeNull();
+  const sourceLinks = screen.getAllByRole("link");
+  expect(sourceLinks).toHaveLength(2);
+  expect(within(sourceLinks[0]).getByText("01")).toBeOnTheScreen();
+  expect(within(sourceLinks[0]).getByText("Public sector finances")).toBeOnTheScreen();
+  expect(within(sourceLinks[0]).getByText(
+    "Office for National Statistics · OFFICIAL"
+  )).toBeOnTheScreen();
+  expect(within(sourceLinks[1]).getByText("02")).toBeOnTheScreen();
+  expect(within(sourceLinks[1]).getByText("Tax outlook")).toBeOnTheScreen();
+  expect(within(sourceLinks[1]).getByText(
+    "Institute for Fiscal Studies · ACADEMIC"
+  )).toBeOnTheScreen();
+  const link = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+  fireEvent.press(sourceLinks[0]);
+  fireEvent.press(sourceLinks[1]);
+  expect(link).toHaveBeenNthCalledWith(1, source.url);
+  expect(link).toHaveBeenNthCalledWith(2, taxSource.url);
 
   fireEvent.press(screen.getByRole("button", { name: "Next argument" }));
   expect(screen.getByText("POST UNWRAPPED · 2 OF 3")).toBeOnTheScreen();
   expect(screen.getByText("The case for protecting shared services")).toBeOnTheScreen();
+  expect(screen.getByText("Public services performance tracker")).toBeOnTheScreen();
+  expect(screen.getByText("[1]")).toBeOnTheScreen();
+  expect(screen.queryByText("[0]")).toBeNull();
+  expect(screen.queryByText("[2]")).toBeNull();
+  expect(screen.queryByText("[3]")).toBeNull();
+  expect(screen.queryByText("Public sector finances")).toBeNull();
+  expect(screen.queryByText("Tax outlook")).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "Next argument" }));
 
   expect(screen.getByText("POST UNWRAPPED · 3 OF 3")).toBeOnTheScreen();

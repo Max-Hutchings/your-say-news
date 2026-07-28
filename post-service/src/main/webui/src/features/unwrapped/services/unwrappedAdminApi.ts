@@ -1,5 +1,5 @@
 import { getAccessToken } from "../../auth";
-import type { ForcedUnwrappedJob, UnwrappedReviewStory } from "../types";
+import type { UnwrappedGenerationTrigger, UnwrappedReviewStory } from "../types";
 
 export class UnwrappedAdminApiError extends Error {
   constructor(
@@ -37,8 +37,8 @@ export function getUnwrappedReviewQueue(): Promise<UnwrappedReviewStory[]> {
   return unwrappedRequest<UnwrappedReviewStory[]>("/admin/unwrapped/review");
 }
 
-export function forceUnwrappedGeneration(postId: number): Promise<ForcedUnwrappedJob> {
-  return unwrappedRequest<ForcedUnwrappedJob>(`/admin/unwrapped/posts/${postId}/generate`, {
+export function triggerUnwrappedGeneration(postId: number): Promise<UnwrappedGenerationTrigger> {
+  return unwrappedRequest<UnwrappedGenerationTrigger>(`/admin/unwrapped/posts/${postId}/generate`, {
     method: "POST",
   });
 }

@@ -134,6 +134,10 @@ Rules:
    never by reaching into another domain's `model`, `service`, or other internal package.
 4. Below the top level, organise sub-packages by **technical concern** (`model`, `service`, etc.)
    — tech-driven design inside the domain, domain-driven design at the top.
+5. **REST controller methods must not return the generic JAX-RS `Response` type.** Declare the
+   concrete DTO response contract (including collection or asynchronous wrappers where needed) and
+   express HTTP status codes with annotations such as `@ResponseStatus`. Returning `Response`
+   weakens the public Java/API contract and is prohibited.
 
 The deliberate exception is `com.yoursay.agents`: it is a namespace for role-specific official
 publishing agent subdomains. `postagent` and the planned `ysnagent` are separate domain boundaries

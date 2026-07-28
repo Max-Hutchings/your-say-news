@@ -100,14 +100,11 @@ describe("UnwrappedReviewDesk", () => {
     );
   });
 
-  it("queues a forced run by post ID and explains where the draft will appear", async () => {
+  it("queues the normal milestone check by post ID", async () => {
     const user = userEvent.setup();
     const generate = vi.fn().mockResolvedValue({
-      jobId: "29e798a2-90d8-4407-bd5e-92e31afc77cb",
       postId: 42,
-      milestone: 18,
-      status: "PENDING",
-      created: true,
+      status: "RECONCILIATION_QUEUED",
     });
 
     render(
@@ -124,7 +121,7 @@ describe("UnwrappedReviewDesk", () => {
       />,
     );
 
-    const button = screen.getByRole("button", { name: "Force generation" });
+    const button = screen.getByRole("button", { name: "Run milestone check" });
     expect(button).toBeDisabled();
 
     await user.type(screen.getByLabelText("Post ID"), "42");
@@ -132,7 +129,7 @@ describe("UnwrappedReviewDesk", () => {
 
     expect(generate).toHaveBeenCalledWith(42);
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Generation queued for post 42. Refresh the queue when the draft is ready.",
+      "Milestone check queued for post 42. Eligible jobs use the normal generation and review flow.",
     );
   });
 });

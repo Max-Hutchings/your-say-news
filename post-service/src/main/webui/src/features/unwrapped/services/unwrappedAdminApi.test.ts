@@ -6,7 +6,7 @@ vi.mock("../../auth", () => ({
 
 import {
   approveUnwrappedStory,
-  forceUnwrappedGeneration,
+  triggerUnwrappedGeneration,
   getUnwrappedReviewQueue,
   rejectUnwrappedStory,
 } from "./unwrappedAdminApi";
@@ -60,21 +60,18 @@ describe("unwrappedAdminApi", () => {
     );
   });
 
-  it("queues forced generation for the selected post", async () => {
-    const job = {
-      jobId: "29e798a2-90d8-4407-bd5e-92e31afc77cb",
+  it("queues normal reconciliation for the selected post", async () => {
+    const trigger = {
       postId: 42,
-      milestone: 18,
-      status: "PENDING",
-      created: true,
+      status: "RECONCILIATION_QUEUED",
     };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(job), {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(trigger), {
       status: 202,
       headers: { "Content-Type": "application/json" },
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(forceUnwrappedGeneration(42)).resolves.toEqual(job);
+    await expect(triggerUnwrappedGeneration(42)).resolves.toEqual(trigger);
     expect(fetchMock).toHaveBeenCalledWith(
       "/admin/unwrapped/posts/42/generate",
       expect.objectContaining({

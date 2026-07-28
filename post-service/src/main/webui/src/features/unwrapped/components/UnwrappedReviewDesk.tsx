@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
-  ForcedUnwrappedJob,
+  UnwrappedGenerationTrigger,
   UnwrappedReviewError,
   UnwrappedReviewStory,
 } from "../types";
@@ -15,7 +15,7 @@ type UnwrappedReviewDeskProps = {
   onReload: () => Promise<void>;
   onApprove: (storyId: string) => Promise<UnwrappedReviewStory>;
   onReject: (storyId: string, reason: string) => Promise<UnwrappedReviewStory>;
-  onGenerate: (postId: number) => Promise<ForcedUnwrappedJob>;
+  onGenerate: (postId: number) => Promise<UnwrappedGenerationTrigger>;
 };
 
 export function UnwrappedReviewDesk({
@@ -78,10 +78,10 @@ export function UnwrappedReviewDesk({
     if (!validPostId) return;
     setGenerationNotice(null);
     try {
-      const job = await onGenerate(numericPostId);
-      setGenerationNotice(job.created
-        ? `Generation queued for post ${job.postId}. Refresh the queue when the draft is ready.`
-        : `Post ${job.postId} already has a ${job.status.toLowerCase().replace("_", " ")} job at ${job.milestone} votes.`);
+      const trigger = await onGenerate(numericPostId);
+      setGenerationNotice(
+        `Milestone check queued for post ${trigger.postId}. Eligible jobs use the normal generation and review flow.`,
+      );
       setPostId("");
     } catch {
       // The hook exposes the server error beside the generation control.
@@ -103,9 +103,10 @@ export function UnwrappedReviewDesk({
       <section className="unwrapped-generator" aria-labelledby="unwrapped-generator-title">
         <div>
           <p>Manual run</p>
-          <h2 id="unwrapped-generator-title">Force an Unwrapped draft</h2>
+          <h2 id="unwrapped-generator-title">Run the Unwrapped milestone check</h2>
           <span>
-            This bypasses the automatic 100-vote trigger. Every result still requires review.
+            This queues the same reconciliation used after a canonical vote. It only creates jobs
+            for milestones the post has reached.
           </span>
         </div>
         <form onSubmit={(event) => {
@@ -128,7 +129,7 @@ export function UnwrappedReviewDesk({
               }}
             />
             <button type="submit" disabled={!validPostId || generatingPostId !== null}>
-              {generatingPostId === numericPostId ? "Queuing…" : "Force generation"}
+              {generatingPostId === numericPostId ? "Queuing…" : "Run milestone check"}
             </button>
           </div>
         </form>

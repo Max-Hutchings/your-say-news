@@ -30,6 +30,7 @@ export interface UnwrappedArgumentPage {
   contextClaims: UnwrappedClaim[];
   synthesis: string;
   caveat: string;
+  sources: UnwrappedSource[];
 }
 
 export interface UnwrappedStory {
@@ -42,7 +43,6 @@ export interface UnwrappedStory {
   generatedAt: string;
   model: string;
   argumentPages: UnwrappedArgumentPage[];
-  sources: UnwrappedSource[];
   reconsiderationQuestion: string;
   reconsiderationOptions: VoteOption[];
 }

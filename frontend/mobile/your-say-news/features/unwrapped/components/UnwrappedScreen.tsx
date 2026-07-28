@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -139,9 +139,7 @@ function ArgumentPage({ page, story, notice }: {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   const option = story.reconsiderationOptions.find((value) => value.id === page.optionId);
-  const sourcesById = useMemo(() => new Map(story.sources.map((source) => [source.id, source])),
-    [story.sources]);
-  const sourceIds = [...new Set(page.contextClaims.flatMap((claim) => claim.sourceIds))];
+  const sourceIds = page.sources.map((source) => source.id);
 
   return (
     <ScrollView contentContainerStyle={styles.page} accessibilityRole="summary">
@@ -178,12 +176,9 @@ function ArgumentPage({ page, story, notice }: {
 
       <View style={[styles.sources, { borderTopColor: e.border }]}>
         <Text style={[styles.sectionLabel, { color: e.muted }]}>DATA SOURCES</Text>
-        {sourceIds.map((id, index) => {
-          const source = sourcesById.get(id);
-          return source
-            ? <SourceRow key={id} index={index + 1} source={source} />
-            : null;
-        })}
+        {page.sources.map((source, index) => (
+          <SourceRow key={source.id} index={index + 1} source={source} />
+        ))}
       </View>
     </ScrollView>
   );

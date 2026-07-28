@@ -4,6 +4,8 @@ import com.yoursay.unwrapped.dto.RejectStoryRequest;
 
 import com.yoursay.unwrapped.dto.ReviewStoryDto;
 
+import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
+
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.annotation.security.RolesAllowed;
@@ -17,7 +19,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.ResponseStatus;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,8 +50,9 @@ public class UnwrappedAdminController {
     @POST
     @Path("/posts/{postId}/generate")
     @Consumes(MediaType.WILDCARD)
-    public Response forceGeneration(@PathParam("postId") Long postId) {
-        return Response.accepted(service.forceGeneration(postId)).build();
+    @ResponseStatus(202)
+    public UnwrappedGenerationTriggerDto triggerGeneration(@PathParam("postId") Long postId) {
+        return service.triggerGeneration(postId);
     }
 
     @POST

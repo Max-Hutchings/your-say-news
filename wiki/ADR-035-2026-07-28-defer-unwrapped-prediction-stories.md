@@ -3,8 +3,8 @@
 Date: 2026-07-28
 
 > **Amended by [ADR-036](ADR-036-2026-07-28-admin-forced-unwrapped-generation.md):**
-> the 100-vote threshold remains the automatic trigger, while administrators may explicitly
-> enqueue an observed draft at the post's current vote count.
+> administrators may manually request the same milestone reconciliation used after a canonical
+> vote; the 100-vote minimum and later configured milestones still determine job eligibility.
 
 ## Situation
 

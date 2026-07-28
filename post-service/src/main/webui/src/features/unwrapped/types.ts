@@ -42,10 +42,7 @@ export type UnwrappedReviewError = {
   message: string;
 };
 
-export type ForcedUnwrappedJob = {
-  jobId: string;
+export type UnwrappedGenerationTrigger = {
   postId: number;
-  milestone: number;
-  status: "PENDING" | "GENERATING" | "DRAFT_READY" | "FAILED";
-  created: boolean;
+  status: "RECONCILIATION_QUEUED";
 };

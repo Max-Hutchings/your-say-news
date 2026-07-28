@@ -37,7 +37,7 @@ public class UnwrappedReconciliationWorker {
             every = "${unwrapped.jobs.reconcile-interval:2s}", concurrentExecution = SKIP)
     @RunOnVirtualThread
     @Transactional
-    void reconcileOne() {
+    public void reconcileOne() {
         @SuppressWarnings("unchecked")
         List<Number> postIds = entityManager.createNativeQuery("""
                 select post_id from unwrapped_reconciliation

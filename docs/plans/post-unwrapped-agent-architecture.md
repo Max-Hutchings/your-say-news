@@ -540,7 +540,8 @@ deterministic reconsideration page:
       "observations": [],
       "contextClaims": [],
       "synthesis": "...",
-      "caveat": "This pattern describes this vote; it does not prove why any person chose it."
+      "caveat": "This pattern describes this vote; it does not prove why any person chose it.",
+      "sources": []
     },
     {
       "type": "ARGUMENT",
@@ -549,7 +550,8 @@ deterministic reconsideration page:
       "observations": [],
       "contextClaims": [],
       "synthesis": "...",
-      "caveat": "..."
+      "caveat": "...",
+      "sources": []
     },
     {
       "type": "RECONSIDERATION",
@@ -557,7 +559,6 @@ deterministic reconsideration page:
       "options": []
     }
   ],
-  "sources": [],
   "methodology": {
     "suppressionThreshold": 0,
     "minimumCohortSample": 30,

@@ -5,15 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.posts.dto.PostVotingConfigurationDto;
 import com.yoursay.posts.PostVotingConfigurationService;
 import com.yoursay.unwrapped.dto.FollowUpResponseDto;
-import com.yoursay.unwrapped.dto.ForcedUnwrappedJobDto;
 import com.yoursay.unwrapped.dto.ReviewStoryDto;
 import com.yoursay.unwrapped.UnwrappedAvailabilityState;
+import com.yoursay.unwrapped.UnwrappedMilestoneService;
+import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 import com.yoursay.unwrapped.UnwrappedService;
 import com.yoursay.unwrapped.dto.UnwrappedStoryDto;
 import com.yoursay.unwrapped.error.UnwrappedApiException;
-import com.yoursay.unwrapped.model.UnwrappedAnalysisJob;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJobRepository;
 import com.yoursay.unwrapped.model.UnwrappedFollowUp;
 import com.yoursay.unwrapped.model.UnwrappedFollowUpRepository;
@@ -50,6 +50,8 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     UnwrappedFollowUpRepository followUpRepository;
     @Inject
     ObjectMapper objectMapper;
+    @Inject
+    UnwrappedMilestoneService milestoneService;
 
     @Override
     public UnwrappedResponseDto get(Long postId, String callerEmail, String authorization) {
@@ -113,22 +115,11 @@ public class UnwrappedServiceImpl implements UnwrappedService {
 
     @Override
     @Transactional
-    public ForcedUnwrappedJobDto forceGeneration(Long postId) {
+    public UnwrappedGenerationTriggerDto triggerGeneration(Long postId) {
         postService.findByPostId(postId)
                 .orElseThrow(() -> UnwrappedApiException.postMissing(postId));
-        long voteCount = voteService.countForPost(postId);
-        int milestone = Math.toIntExact(voteCount);
-        String analysisVersion = "unwrapped-analysis-v1";
-        Optional<UnwrappedAnalysisJob> existing = jobRepository.find(
-                "postId = ?1 and milestone = ?2 and analysisVersion = ?3",
-                postId, milestone, analysisVersion).firstResultOptional();
-        if (existing.isPresent()) {
-            return toForcedJob(existing.get(), false);
-        }
-        UnwrappedAnalysisJob job =
-                new UnwrappedAnalysisJob(postId, milestone, analysisVersion);
-        jobRepository.persistAndFlush(job);
-        return toForcedJob(job, true);
+        milestoneService.markForReconciliation(postId);
+        return new UnwrappedGenerationTriggerDto(postId, "RECONCILIATION_QUEUED");
     }
 
     @Override
@@ -173,13 +164,13 @@ public class UnwrappedServiceImpl implements UnwrappedService {
         return access.userId();
     }
 
-    private UnwrappedStoryDto toStory(UnwrappedStory story) {
+    UnwrappedStoryDto toStory(UnwrappedStory story) {
         UnwrappedResearchDraftV1 draft = draftJson(story);
         PostVotingConfigurationDto post = postService.findByPostId(story.getPostId()).orElseThrow();
         return new UnwrappedStoryDto("unwrapped-story-v1", story.getId(), story.getPostId(),
                 story.getMilestone(), story.getCanonicalVoteCount(),
                 story.getAggregateVersion(), story.getGeneratedAt(), story.getModel(),
-                draft.pages(), draft.sources(),
+                UnwrappedStoryResponseAssembler.argumentPages(draft),
                 "Has seeing the context for every option changed your view?", post.options());
     }
 
@@ -203,8 +194,4 @@ public class UnwrappedServiceImpl implements UnwrappedService {
                 !value.getOriginalOptionId().equals(value.getFollowUpOptionId()), value.getCreatedAt());
     }
 
-    private static ForcedUnwrappedJobDto toForcedJob(UnwrappedAnalysisJob job, boolean created) {
-        return new ForcedUnwrappedJobDto(job.getId(), job.getPostId(), job.getMilestone(),
-                job.getStatus().name(), created);
-    }
 }

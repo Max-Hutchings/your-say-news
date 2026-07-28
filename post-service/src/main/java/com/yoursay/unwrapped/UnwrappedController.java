@@ -20,7 +20,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.ResponseStatus;
 
 import java.util.UUID;
 
@@ -44,12 +44,12 @@ public class UnwrappedController {
 
     @POST
     @Path("/{storyId}/follow-up")
-    public Response followUp(@PathParam("postId") Long postId,
-                             @PathParam("storyId") UUID storyId,
-                             @Valid @NotNull FollowUpRequest request,
-                             @HeaderParam("Authorization") String authorization) {
-        FollowUpResponseDto response = service.followUp(postId, storyId, request.optionId(),
+    @ResponseStatus(201)
+    public FollowUpResponseDto followUp(@PathParam("postId") Long postId,
+                                        @PathParam("storyId") UUID storyId,
+                                        @Valid @NotNull FollowUpRequest request,
+                                        @HeaderParam("Authorization") String authorization) {
+        return service.followUp(postId, storyId, request.optionId(),
                 identity.getPrincipal().getName(), authorization);
-        return Response.status(Response.Status.CREATED).entity(response).build();
     }
 }

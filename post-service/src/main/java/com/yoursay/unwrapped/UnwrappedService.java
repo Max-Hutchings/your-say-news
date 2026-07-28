@@ -1,7 +1,7 @@
 package com.yoursay.unwrapped;
 
-import com.yoursay.unwrapped.dto.ForcedUnwrappedJobDto;
 import com.yoursay.unwrapped.dto.ReviewStoryDto;
+import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
 
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 
@@ -77,16 +77,16 @@ public interface UnwrappedService {
                                  String callerEmail, String authorization);
 
     /**
-     * Durably starts generation for a post at its current canonical vote count.
+     * Manually requests the same milestone reconciliation that follows a canonical vote.
      *
-     * <p>This administrator-only path deliberately bypasses automatic milestone eligibility. It
-     * reuses an existing job for the same post, count, and analysis version so retries from the
-     * admin panel cannot create duplicate provider work.</p>
+     * <p>This administrator-only path does not create a job or bypass milestone eligibility.
+     * The normal reconciliation worker counts committed votes and idempotently creates any
+     * configured milestone jobs that are due.</p>
      *
-     * @param postId post for which an Unwrapped draft should be generated
-     * @return the created or already-existing durable generation job
+     * @param postId post whose normal Unwrapped reconciliation should run
+     * @return acknowledgement that reconciliation was queued
      */
-    ForcedUnwrappedJobDto forceGeneration(Long postId);
+    UnwrappedGenerationTriggerDto triggerGeneration(Long postId);
 
     /**
      * Lists generated stories currently awaiting human review, oldest first.

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   approveUnwrappedStory,
-  forceUnwrappedGeneration,
+  triggerUnwrappedGeneration,
   rejectUnwrappedStory,
   UnwrappedAdminApiError,
   getUnwrappedReviewQueue,
 } from "../services/unwrappedAdminApi";
 import type {
-  ForcedUnwrappedJob,
+  UnwrappedGenerationTrigger,
   UnwrappedReviewError,
   UnwrappedReviewStory,
 } from "../types";
@@ -61,13 +61,13 @@ export function useUnwrappedReviews() {
     [act],
   );
 
-  const generate = useCallback(async (postId: number): Promise<ForcedUnwrappedJob> => {
+  const generate = useCallback(async (postId: number): Promise<UnwrappedGenerationTrigger> => {
     setGeneratingPostId(postId);
     setGenerationError(null);
     try {
-      const job = await forceUnwrappedGeneration(postId);
+      const trigger = await triggerUnwrappedGeneration(postId);
       await load();
-      return job;
+      return trigger;
     } catch (reason) {
       setGenerationError(toReviewError(reason));
       throw reason;

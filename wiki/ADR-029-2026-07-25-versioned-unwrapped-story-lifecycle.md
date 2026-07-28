@@ -147,6 +147,13 @@ requires an explicit limitation on the page.
 Pages remain concise. Full data-source references are always available from each page rather than
 being hidden in a separate raw response.
 
+The immutable research draft keeps one story-level source catalogue so validation and persistence
+can deduplicate metadata and allow a source to support claims on more than one argument. The
+voter-facing response resolves that catalogue into each argument page: every page contains only
+the distinct sources cited by its claims, ordered by first citation. The public story object has no
+separate source list, so a delivered argument is self-contained and cannot expose unrelated
+sources.
+
 ### Review and immutable versions
 
 Every generated prediction and observed story enters `DRAFT`. An administrator must explicitly
