@@ -1,0 +1,35 @@
+name: Terraform format
+description: Check that every Terraform file uses the repository's canonical formatting.
+
+inputs:
+  working-directory:
+    description: Directory from which Terraform should run.
+    required: true
+  format-target:
+    description: Path, relative to the working directory, to check recursively.
+    required: false
+    default: ../..
+
+runs:
+  using: composite
+  steps:
+    - name: Announce formatting check
+      shell: bash
+      run: |
+        echo "::notice title=Terraform format::Checking all infrastructure files for canonical formatting"
+        {
+          echo "## Terraform format"
+          echo
+          echo "Checking \`${{ inputs.format-target }}\` with \`terraform fmt -check -recursive\`."
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Check Terraform formatting
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform fmt -check -recursive -diff "${{ inputs.format-target }}"
+
+    - name: Report formatting success
+      shell: bash
+      run: |
+        echo "::notice title=Terraform format complete::All Terraform files are correctly formatted"
+        echo "- Result: passed" >> "$GITHUB_STEP_SUMMARY"

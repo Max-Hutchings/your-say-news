@@ -1,0 +1,158 @@
+name: Terraform plan
+description: Create, inspect and upload the exact development Terraform plan.
+
+inputs:
+  working-directory:
+    description: Terraform environment root.
+    required: true
+  var-file:
+    description: Environment tfvars file relative to the working directory.
+    required: false
+    default: development.tfvars
+  backend-config:
+    description: Backend configuration file relative to the working directory.
+    required: false
+    default: development.backend.hcl.example
+  plan-file:
+    description: Binary plan filename relative to the working directory.
+    required: false
+    default: development.tfplan
+  artifact-name:
+    description: Unique artifact name used by the protected apply job.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify required credentials
+      shell: bash
+      run: |
+        missing=()
+        for variable_name in TF_TOKEN_app_terraform_io AIVEN_TOKEN HCLOUD_TOKEN; do
+          if [[ -z "${!variable_name:-}" ]]; then
+            missing+=("$variable_name")
+          fi
+        done
+
+        if (( ${#missing[@]} > 0 )); then
+          echo "::error title=Missing infrastructure credentials::Configure: ${missing[*]}"
+          exit 1
+        fi
+
+        echo "::notice title=Credential check::Required HCP, Aiven and Hetzner credentials are available"
+
+    - name: Create the saved Terraform plan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::Planning development infrastructure"
+        set +e
+        terraform plan \
+          -input=false \
+          -no-color \
+          -detailed-exitcode \
+          -lock-timeout=60s \
+          -var-file="${{ inputs.var-file }}" \
+          -out="${{ inputs.plan-file }}"
+        plan_exit_code=$?
+        set -e
+        echo "::endgroup::"
+
+        case "$plan_exit_code" in
+          0)
+            echo "::notice title=Terraform plan::No infrastructure changes detected"
+            ;;
+          2)
+            echo "::notice title=Terraform plan::Infrastructure changes detected and saved for review"
+            ;;
+          *)
+            echo "::error title=Terraform plan failed::Terraform exited with code $plan_exit_code"
+            exit "$plan_exit_code"
+            ;;
+        esac
+
+    - name: Summarise and guard the plan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        plan_json="${{ inputs.plan-file }}.json"
+        resource_summary="${{ inputs.plan-file }}.resources.md"
+        terraform show -json "${{ inputs.plan-file }}" > "$plan_json"
+
+        creates=$(jq '[.resource_changes[]? | select(.change.actions == ["create"])] | length' "$plan_json")
+        updates=$(jq '[.resource_changes[]? | select(.change.actions == ["update"])] | length' "$plan_json")
+        deletes=$(jq '[.resource_changes[]? | select(.change.actions == ["delete"])] | length' "$plan_json")
+        replacements=$(jq '[.resource_changes[]? | select(.change.actions == ["delete", "create"] or .change.actions == ["create", "delete"])] | length' "$plan_json")
+
+        jq -r '
+          .resource_changes[]?
+          | select(.change.actions != ["no-op"] and .change.actions != ["read"])
+          | "| `\(.address)` | `\(.change.actions | join(" → "))` |"
+        ' "$plan_json" > "$resource_summary"
+
+        {
+          echo "## Terraform plan"
+          echo
+          echo "| Create | Update | Delete | Replace |"
+          echo "| ---: | ---: | ---: | ---: |"
+          echo "| $creates | $updates | $deletes | $replacements |"
+          echo
+          if [[ -s "$resource_summary" ]]; then
+            echo "### Planned resource actions"
+            echo
+            echo "| Resource | Action |"
+            echo "| --- | --- |"
+            sed -n '1,200p' "$resource_summary"
+          else
+            echo "No managed-resource changes. The plan may contain output-only changes."
+          fi
+          echo
+          echo "Saved-plan artifact: \`${{ inputs.artifact-name }}\`"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        protected_changes=$(jq -r '
+          .resource_changes[]?
+          | select(.type == "hcloud_server"
+              or .type == "aiven_pg"
+              or .type == "aiven_pg_database"
+              or .type == "cloudflare_r2_bucket"
+              or .type == "cloudflare_zone")
+          | select(.change.actions | index("delete"))
+          | "\(.address): \(.change.actions | join(" → "))"
+        ' "$plan_json")
+
+        if [[ -n "$protected_changes" ]]; then
+          {
+            echo
+            echo "### Blocked protected-resource destruction"
+            echo
+            printf '%s\n' "$protected_changes"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error title=Protected resource destruction blocked::Use the separate break-glass procedure"
+          exit 1
+        fi
+
+        rm "$plan_json" "$resource_summary"
+
+    - name: Bind the plan to this source revision
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        sha256sum "${{ inputs.plan-file }}" > "${{ inputs.plan-file }}.sha256"
+        sha256sum .terraform.lock.hcl > terraform-lock.sha256
+        sha256sum "${{ inputs.backend-config }}" > terraform-backend.sha256
+        printf '%s\n' "$GITHUB_SHA" > terraform-commit.txt
+        echo "::notice title=Saved plan sealed::Plan, commit, provider lock and backend checksums recorded"
+
+    - name: Upload the exact saved plan
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ inputs.working-directory }}/${{ inputs.plan-file }}
+          ${{ inputs.working-directory }}/${{ inputs.plan-file }}.sha256
+          ${{ inputs.working-directory }}/terraform-lock.sha256
+          ${{ inputs.working-directory }}/terraform-backend.sha256
+          ${{ inputs.working-directory }}/terraform-commit.txt
+        if-no-files-found: error
+        retention-days: 1

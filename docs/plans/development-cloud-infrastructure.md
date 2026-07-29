@@ -53,9 +53,9 @@ production support/SLA costs
 Use a small EU Linux VM running Docker Compose, with state kept outside the VM:
 
 - **Compute:** Hetzner Cloud CX23 in Nuremberg (`nbg1`) (2 shared vCPU, 4 GB RAM, 40 GB disk).
-- **Database:** Aiven for PostgreSQL Free in its Europe geographical area initially, conditional on
-  confirming that the Europe area remains its residency boundary. Otherwise use a region-fixed
-  Scaleway DB-DEV-S in Paris or Milan.
+- **Database:** Aiven for PostgreSQL Free in its provider-assigned location for the synthetic-data
+  proof of concept. Exact-region placement is not a Gate B requirement; reassess it before Gate D
+  or funded production.
 - **Media:** a private Cloudflare R2 Standard bucket created with the `eu` jurisdiction.
 - **Ingress and DNS:** retain `yoursaynews.com` and `yoursaynews.co.uk` at GoDaddy, delegate both
   zones to Cloudflare, publish `dev.yoursaynews.com` through Cloudflare Tunnel and reserve
@@ -192,7 +192,7 @@ budgeting to the penny.
 | Component | Development selection | Estimated monthly cost |
 | --- | --- | ---: |
 | API VM | Hetzner CX23, EU, plus primary IPv4 if required | about €6–€8 including VAT |
-| PostgreSQL | Aiven Free in Europe | £0 |
+| PostgreSQL | Aiven Free in its provider-assigned location | £0 |
 | Media | R2 Standard, below 10 GB and free operation allowances | £0 |
 | DNS, tunnel, Access, redirects, coming-soon page and TLS | Cloudflare Free | £0 |
 | Telemetry | Grafana Cloud Free | £0 |
@@ -219,11 +219,9 @@ personal accounts:
   column. Confirm stock, location, tax and IPv4 price at purchase:
   [Hetzner 2026 pricing adjustment](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/).
 - Aiven Free is one node with 1 CPU, 1 GB RAM, 1 GB disk, backups and at most 20 connections. It has
-  no SLA, VPC, static IP or connection pooling. Aiven's Developer-tier announcement says Free and
-  Developer customers can choose the geographical area (including Europe), not the cloud or exact
-  region, while its service terms reserve the right to move provider/region or stop an inactive
-  Free service. Confirm with Aiven that a Europe choice cannot move the data outside Europe before
-  provisioning:
+  no SLA, VPC, static IP or connection pooling. Aiven assigns the Free service location and
+  reserves the right to move its provider/region or stop an inactive Free service. That trade-off
+  is accepted for synthetic proof-of-concept data:
   [Aiven Free PostgreSQL limitations](https://aiven.io/docs/products/postgresql/concepts/pg-free-tier).
 - Scaleway's Paris DB-DEV-S is currently €0.0156/hour before tax plus block storage and backups,
   providing a deterministic EU fallback:
@@ -286,7 +284,7 @@ production rehearsal.
 
 | Option | Fit | Cost/operational conclusion |
 | --- | --- | --- |
-| **Hetzner VM + Aiven PG + R2** | Best current fit, conditional | Lowest predictable cost, 4 GB API memory, standard interfaces; confirm Europe-area residency and accept the free DB limits. |
+| **Hetzner VM + Aiven PG + R2** | Best current fit | Lowest predictable cost, 4 GB API memory and standard interfaces; accepts Aiven's provider-assigned Free location and limits for synthetic data. |
 | **Akamai VM + Aiven PG + R2** | Best fallback | Familiar provider, London available, still below budget with 2 GB VM; less memory. |
 | **Akamai VM + Akamai managed PG** | Technically strong | One provider and clean Terraform story, but credible minimum is above budget. |
 | Hetzner VM + Scaleway managed PG + R2 | Region-fixed EU fallback | Paris/Milan placement and managed backups; approximately consumes the full £20 ceiling after tax and small storage volumes. |
@@ -334,10 +332,10 @@ maintenance cost do not currently earn enough infrastructure savings.
 
 ### PostgreSQL
 
-Use managed PostgreSQL over TLS. Select the Aiven **Europe** geographical area, and record written
-confirmation of the area boundary in the environment evidence. If Aiven cannot confirm the
-database and its backups remain in Europe, select Scaleway Paris or Milan instead; do not waive the
-location requirement merely to keep the database free.
+Use managed PostgreSQL over TLS. Aiven chooses the Free service's cloud and region, and may change
+them. This is accepted only while the environment contains synthetic proof-of-concept data. If an
+exact EU location becomes mandatory before real testers or funded production, move to a
+region-selectable paid Aiven plan or a fixed-region provider such as Scaleway.
 
 Create separate least-privilege credentials for:
 
@@ -423,9 +421,10 @@ revocation. No application token issuer or signing-key service will be built:
 [Firebase session management](https://firebase.google.com/docs/auth/admin/manage-sessions).
 
 Firebase Authentication processes authentication data in US data centres. This is accepted under
-the selected cost-first residency standard: PostgreSQL and R2 data remain in Europe, while other
-approved processors operate under reviewed terms. A future strict all-processors-EU requirement
-must replace or renegotiate the broker before it can become an acceptance criterion:
+the selected cost-first proof-of-concept standard: R2 uses its immutable EU jurisdiction, Aiven
+assigns the Free database location and only synthetic data is permitted before Gate D. A future
+strict all-processors-EU requirement must replace or renegotiate non-compliant processors before it
+can become an acceptance criterion:
 [Firebase privacy and data locations](https://firebase.google.com/support/privacy/).
 
 Add application permissions such as `USER` and `ADMIN` independently from `AccountType` and
@@ -859,13 +858,13 @@ isolation without adding Kubernetes operations. Before the move:
   the need for primary IPv4 before creating the VM.
 - Review the approved plan and accepted ADR-028 managed-broker decision.
 - Use Hetzner Nuremberg as primary and Akamai as fallback.
-- Register the Google Play personal account.
+- Defer the Google Play personal account until Android distribution work begins.
 - Delegate `yoursaynews.com` and `yoursaynews.co.uk` to Cloudflare, configure the approved
   redirects/hostnames and give Theo delegated GoDaddy access.
 - Create provider accounts with MFA for both authorised developers.
 
-**Gate:** the decisions are accepted; provider access, Aiven residency evidence and account setup
-remain.
+**Gate:** the decisions and primary provider accounts are accepted. Provider identifiers,
+credentials and Max-owned GoDaddy/xAI tasks remain before provisioning/deployment.
 
 ### Phase 1 — make the application deployable
 
@@ -918,8 +917,8 @@ Decisions already made:
 - Hetzner CX23 in Nuremberg as the primary one-node compute and Akamai 2 GB as fallback;
 - Docker Compose, not Kubernetes/Helm;
 - managed PostgreSQL separate from the API VM;
-- Aiven Free in Europe if written database-and-backup residency confirmation is obtained,
-  otherwise Scaleway Paris or Milan;
+- Aiven Free in its provider-assigned location for synthetic proof-of-concept data, with an exact
+  region reconsidered before Gate D or funded production;
 - Cloudflare R2 EU media storage;
 - `dev.yoursaynews.com` for the POC and `api.yoursaynews.com` reserved for funded production;
 - a coming-soon page at `yoursaynews.com`, with `.co.uk` and `www` redirected to the `.com` apex;
@@ -927,7 +926,8 @@ Decisions already made:
 - application-owned invitations/roles;
 - an initial vote-suppression threshold of `5`;
 - synthetic data only until Gate D is complete;
-- EU database/object storage with other approved processors governed by reviewed terms;
+- immutable EU R2 object storage; Aiven's provider-assigned Free database location is accepted only
+  for synthetic proof-of-concept data;
 - Cloudflare Access/Tunnel for human and CI SSH, with no Tailscale subscription;
 - Max and Theo as co-owners with self-approval allowed;
 - Theo as the operational DevOps owner, with Max retaining recovery/co-owner access;
@@ -945,9 +945,8 @@ Decisions already made:
 - AI API cost outside this budget.
 
 No stakeholder architecture questions remain for the synthetic-data implementation. Outstanding
-external work is obtaining Aiven's written residency evidence, creating provider accounts and
-credentials, granting Theo GoDaddy delegate access, and completing Gate D before real sensitive
-tester data is admitted.
+external work is collecting provider identifiers/credentials, completing Max's GoDaddy and xAI
+tasks, and completing Gate D before real sensitive tester data is admitted.
 
 ## Primary references
 

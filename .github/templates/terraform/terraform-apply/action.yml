@@ -1,0 +1,103 @@
+name: Terraform apply
+description: Verify and apply the exact plan artifact produced earlier in the workflow.
+
+inputs:
+  working-directory:
+    description: Terraform environment root.
+    required: true
+  plan-file:
+    description: Binary plan filename relative to the working directory.
+    required: false
+    default: development.tfplan
+  artifact-name:
+    description: Exact saved-plan artifact created by the plan job.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download the saved plan
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}
+
+    - name: Verify credentials and saved-plan integrity
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        missing=()
+        for variable_name in TF_TOKEN_app_terraform_io AIVEN_TOKEN HCLOUD_TOKEN; do
+          if [[ -z "${!variable_name:-}" ]]; then
+            missing+=("$variable_name")
+          fi
+        done
+
+        if (( ${#missing[@]} > 0 )); then
+          echo "::error title=Missing infrastructure credentials::Configure: ${missing[*]}"
+          exit 1
+        fi
+
+        recorded_commit=$(<terraform-commit.txt)
+        if [[ "$recorded_commit" != "$GITHUB_SHA" ]]; then
+          echo "::error title=Stale Terraform plan::Plan commit $recorded_commit does not match $GITHUB_SHA"
+          exit 1
+        fi
+
+        sha256sum --check "${{ inputs.plan-file }}.sha256"
+        sha256sum --check terraform-lock.sha256
+        sha256sum --check terraform-backend.sha256
+        echo "::notice title=Saved plan verified::Commit and all checksums match"
+
+    - name: Recheck protected-resource guard
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        terraform show -json "${{ inputs.plan-file }}" > "${{ inputs.plan-file }}.apply-check.json"
+        protected_changes=$(jq -r '
+          .resource_changes[]?
+          | select(.type == "hcloud_server"
+              or .type == "aiven_pg"
+              or .type == "aiven_pg_database"
+              or .type == "cloudflare_r2_bucket"
+              or .type == "cloudflare_zone")
+          | select(.change.actions | index("delete"))
+          | "\(.address): \(.change.actions | join(" → "))"
+        ' "${{ inputs.plan-file }}.apply-check.json")
+        rm "${{ inputs.plan-file }}.apply-check.json"
+
+        if [[ -n "$protected_changes" ]]; then
+          echo "::error title=Protected resource destruction blocked::$protected_changes"
+          exit 1
+        fi
+
+        echo "::notice title=Destruction guard::No protected resource deletion or replacement found"
+
+    - name: Apply the reviewed plan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::Applying the reviewed development plan"
+        terraform apply -input=false -no-color -auto-approve "${{ inputs.plan-file }}"
+        echo "::endgroup::"
+        echo "::notice title=Terraform apply complete::The reviewed saved plan was applied successfully"
+
+    - name: Publish non-secret outputs
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        terraform output -no-color > terraform-outputs.txt
+        {
+          echo "## Terraform apply"
+          echo
+          echo "- Saved-plan integrity: verified"
+          echo "- Protected-resource guard: passed"
+          echo "- Apply result: succeeded"
+          echo
+          echo "### Terraform outputs"
+          echo
+          echo '```text'
+          sed -n '1,200p' terraform-outputs.txt
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        rm terraform-outputs.txt

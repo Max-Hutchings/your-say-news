@@ -1,0 +1,207 @@
+name: Infrastructure
+run-name: Infrastructure · ${{ github.event_name }} · ${{ inputs.target || github.ref_name }}
+
+on:
+  pull_request:
+    paths:
+      - .github/templates/terraform/**
+      - .github/workflows/infrastructure.yml
+      - service/infra/**
+  push:
+    branches: ["**"]
+    paths:
+      - .github/templates/terraform/**
+      - .github/workflows/infrastructure.yml
+      - service/infra/**
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Choose the infrastructure environment to plan.
+        required: true
+        default: infra_run_dev
+        type: choice
+        options:
+          - infra_run_dev
+          - infra_run_prod
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infrastructure-${{ inputs.target || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TERRAFORM_VERSION: 1.15.8
+
+jobs:
+  terraform-format:
+    name: Format
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TERRAFORM_WORKING_DIRECTORY: service/infra/environments/development
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Run the format template
+        uses: ./.github/templates/terraform/terraform-fmt
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+  terraform-check:
+    name: Validate and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TERRAFORM_WORKING_DIRECTORY: service/infra/environments/development
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Initialise the check runner
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: validation
+
+      - name: Run the validation template
+        uses: ./.github/templates/terraform/terraform-validate
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+  infra_run_dev:
+    name: Development · Initialise and plan
+    needs:
+      - terraform-format
+      - terraform-check
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'infra_run_dev'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: development
+      deployment: false
+    env:
+      TERRAFORM_WORKING_DIRECTORY: service/infra/environments/development
+      TERRAFORM_BACKEND_CONFIG: development.backend.hcl.example
+      TERRAFORM_VAR_FILE: development.tfvars
+      TERRAFORM_PLAN_FILE: development.tfplan
+      TERRAFORM_PLAN_ARTIFACT: terraform-development-${{ github.sha }}
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+    steps:
+      - name: Check out the selected branch revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Connect to the development HCP workspace
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: remote
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+
+      - name: Create and publish the development plan
+        uses: ./.github/templates/terraform/terraform-plan
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          var-file: ${{ env.TERRAFORM_VAR_FILE }}
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+          plan-file: ${{ env.TERRAFORM_PLAN_FILE }}
+          artifact-name: ${{ env.TERRAFORM_PLAN_ARTIFACT }}
+
+  infra_apply_dev:
+    name: Development · Manual apply
+    needs: infra_run_dev
+    if: needs.infra_run_dev.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: development-infrastructure
+    env:
+      TERRAFORM_WORKING_DIRECTORY: service/infra/environments/development
+      TERRAFORM_BACKEND_CONFIG: development.backend.hcl.example
+      TERRAFORM_PLAN_FILE: development.tfplan
+      TERRAFORM_PLAN_ARTIFACT: terraform-development-${{ github.sha }}
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+    steps:
+      - name: Check out the selected branch revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Reconnect to the development HCP workspace
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: remote
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+
+      - name: Apply the exact reviewed development plan
+        uses: ./.github/templates/terraform/terraform-apply
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          plan-file: ${{ env.TERRAFORM_PLAN_FILE }}
+          artifact-name: ${{ env.TERRAFORM_PLAN_ARTIFACT }}
+
+  infra_run_prod:
+    name: Production · Not configured
+    needs:
+      - terraform-format
+      - terraform-check
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'infra_run_prod'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Restrict production runs to main
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error title=Production run rejected::Production infrastructure may only run from main"
+            exit 1
+          fi
+          echo "::notice title=Production branch accepted::Production run requested from main"
+
+      - name: Report production placeholder
+        run: |
+          echo "::warning title=Production infrastructure not configured::No production Terraform root or backend exists yet"
+          {
+            echo "## Production infrastructure"
+            echo
+            echo "The production pipeline slot is ready, but deliberately performs no initialisation,"
+            echo "plan or apply until the production Terraform root is approved."
+            echo
+            echo "- Requested by: \`$GITHUB_ACTOR\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Result: no changes"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -68,6 +68,8 @@ service/deploy/runtime.env
 
 # Terraform working data and local backend configuration
 **/.terraform/
+.terraform.d/
+credentials.tfrc.json
 *.tfstate
 *.tfstate.*
 *.tfplan

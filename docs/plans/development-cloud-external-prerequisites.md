@@ -64,24 +64,22 @@ Confirmed monthly price:
 
 ### PostgreSQL provider and residency
 
-- [ ] Ask Aiven for written confirmation that selecting its **Europe** geographical area keeps
-      both the database and provider backups in Europe.
-- [ ] Store the written answer in the private environment evidence/runbook location.
-- [x] If Aiven cannot provide that confirmation, select Scaleway DB-DEV-S in Paris or Milan.
+- [x] Accept Aiven Free's provider-assigned location for the synthetic-data proof of concept.
+- [x] Accept that Aiven may change the Free service's cloud, region or configuration.
+- [x] Defer any exact-region requirement until Gate D or a funded production environment.
 - [x] Accept Aiven Free's 1 GB disk, maximum 20 connections, one node, no VPC/static IP/pooling and
       no SLA.
-- [x] Accept that Scaleway consumes most of the £20 budget if it becomes necessary.
-
-Do not provision PostgreSQL until the residency question is resolved.
+- [x] Retain Scaleway DB-DEV-S as a paid fallback only if Aiven Free becomes unavailable or no
+      longer meets the proof-of-concept limits.
 
 Record:
 
 ```text
-Provider: Aiven if written Europe-residency confirmation is obtained; otherwise Scaleway
+Provider: Aiven
 Plan: Aiven Free; fallback DB-DEV-S
-Geographical area/region: Aiven Europe; fallback Paris or Milan
-Residency evidence location:
-Fallback decision: Use Scaleway if Aiven cannot confirm European database and backup residency
+Geographical area/region: Provider-assigned on Aiven Free
+Residency decision: Exact database region is not a synthetic-data proof-of-concept gate
+Fallback decision: Use Scaleway only if Aiven availability or capacity requires it
 ```
 
 ### Domain and public hostname
@@ -191,14 +189,14 @@ Restore-test owner: Alternates quarterly between Max and Theo
 Create organisation/team accounts where the provider supports them. Enable MFA for both authorised
 developers, configure recovery access and remove unused personal tokens.
 
-- [ ] Hetzner Cloud
-- [ ] Aiven, or Scaleway after the residency decision
-- [ ] Cloudflare
-- [ ] Grafana Cloud
-- [ ] HCP Terraform
-- [ ] Google Cloud
-- [ ] Firebase Authentication
-- [ ] GitHub/GHCR access confirmed
+- [x] Hetzner Cloud
+- [x] Aiven
+- [x] Cloudflare
+- [x] Grafana Cloud
+- [x] HCP Terraform
+- [x] Google Cloud
+- [x] Firebase Authentication
+- [x] GitHub/GHCR access confirmed
 - [ ] xAI
 - [ ] GoDaddy account access confirmed
 
@@ -208,9 +206,11 @@ required for this environment.
 ### Provider eligibility and plan checks
 
 - [ ] Confirm the GitHub plan's Actions, package-storage and protected Environment limits.
-- [ ] Confirm HCP Terraform can place the organisation/workspace in Europe if offered to the
-      account.
+- [x] Confirm HCP Terraform placement: the existing Free organisation is on global
+      `app.terraform.io`; HCP Europe requires a separate account/contract, so the approved
+      other-processors residency standard permits the global service for development state.
 - [ ] Confirm Grafana Cloud Free supports both developers and the intended telemetry volume.
+- [x] Activate the Cloudflare R2 subscription on the existing Cloudflare account.
 - [ ] Confirm Cloudflare R2 can create both buckets in the `eu` jurisdiction.
 - [x] Confirm Cloudflare's free plan supports the two-person proof-of-concept Access/Tunnel use.
 - [ ] Configure billing alerts at 50%, 75%, 90% and 100% wherever supported.
@@ -266,9 +266,10 @@ Suggested naming shape:
 
 #### HCP Terraform
 
-- [ ] Organisation name
-- [ ] Workspace `your-say-news-development`
-- [ ] Execution remains in GitHub Actions, with HCP used for state, locking and history
+- [x] Organisation `your-say-news`
+- [x] Workspace `your-say-news-development`
+- [x] Execution mode is Local, with HCP used for state, locking and history and execution
+      remaining in GitHub Actions
 
 #### GitHub
 
@@ -439,7 +440,7 @@ Start this work early because verification/testing requirements can introduce ca
 - Kubernetes, Helm or EKS
 - iOS/macOS build infrastructure
 - Akamai unless Hetzner is unavailable
-- Scaleway unless Aiven cannot satisfy the residency requirement
+- Scaleway unless Aiven Free becomes unavailable or exceeds proof-of-concept limits
 - Paid production support or a formal production SLA
 - A separate platform/deployment repository while this repository is the only consumer
 
@@ -456,7 +457,7 @@ The first action outside the codebase is:
 
 Then complete the remaining external execution/evidence:
 
-2. Aiven supplies written European database-and-backup residency confirmation, or the Scaleway
-   fallback is activated.
+2. Record the exact Aiven project, Free plan and provider-assigned cloud identifiers used by
+   Terraform.
 3. Max grants Theo delegated GoDaddy domain-management access.
 4. The remaining provider accounts, identifiers, protected variables and secrets are created.
