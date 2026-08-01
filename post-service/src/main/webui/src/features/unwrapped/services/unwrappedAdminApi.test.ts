@@ -6,6 +6,7 @@ vi.mock("../../auth", () => ({
 
 import {
   approveUnwrappedStory,
+  getUnwrappedAnalysisPosts,
   triggerUnwrappedGeneration,
   getUnwrappedReviewQueue,
   rejectUnwrappedStory,
@@ -29,6 +30,30 @@ describe("unwrappedAdminApi", () => {
     }));
   });
 
+  it("loads posts with their aggregate vote split", async () => {
+    const posts = [{
+      postId: 42,
+      canonicalVoteCount: 125,
+      overall: [
+        { optionId: 71, label: "Agree", count: 75, percentage: 60 },
+        { optionId: 72, label: "Disagree", count: 50, percentage: 40 },
+      ],
+    }];
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(posts), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getUnwrappedAnalysisPosts()).resolves.toEqual(posts);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/admin/unwrapped/posts?page=0&size=50",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+      }),
+    );
+  });
+
   it("sends explicit approve and reject actions", async () => {
     const story = { storyId: "story-1", status: "APPROVED" };
     const fetchMock = vi.fn()
@@ -42,8 +67,11 @@ describe("unwrappedAdminApi", () => {
       }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await approveUnwrappedStory("story-1");
-    await rejectUnwrappedStory("story-1", "Needs a primary source.");
+    await expect(approveUnwrappedStory("story-1")).resolves.toEqual(story);
+    await expect(rejectUnwrappedStory("story-1", "Needs a primary source.")).resolves.toEqual({
+      ...story,
+      status: "REJECTED",
+    });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -56,8 +84,31 @@ describe("unwrappedAdminApi", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ reason: "Needs a primary source." }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer admin-token",
+          "Content-Type": "application/json",
+        }),
       }),
     );
+  });
+
+  it("preserves server and fallback errors", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: "Post 42 is unavailable." }), {
+        status: 409,
+        headers: { "Content-Type": "application/json" },
+      }))
+      .mockResolvedValueOnce(new Response("not-json", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(triggerUnwrappedGeneration(42)).rejects.toMatchObject({
+      status: 409,
+      message: "Post 42 is unavailable.",
+    });
+    await expect(getUnwrappedReviewQueue()).rejects.toMatchObject({
+      status: 502,
+      message: "The Unwrapped review request failed.",
+    });
   });
 
   it("queues normal reconciliation for the selected post", async () => {

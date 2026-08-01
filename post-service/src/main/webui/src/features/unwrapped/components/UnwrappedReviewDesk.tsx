@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
+  UnwrappedAdminPost,
   UnwrappedGenerationTrigger,
   UnwrappedReviewError,
   UnwrappedReviewStory,
 } from "../types";
+import { UnwrappedAnalysisPosts } from "./UnwrappedAnalysisPosts";
 import "./unwrapped-review-desk.css";
 
 type UnwrappedReviewDeskProps = {
   reviews: UnwrappedReviewStory[] | null;
+  posts: UnwrappedAdminPost[] | null;
+  postsError: UnwrappedReviewError | null;
   error: UnwrappedReviewError | null;
   actingStoryId: string | null;
   generatingPostId: number | null;
   generationError: UnwrappedReviewError | null;
   onReload: () => Promise<void>;
+  onReloadPosts: () => Promise<void>;
   onApprove: (storyId: string) => Promise<UnwrappedReviewStory>;
   onReject: (storyId: string, reason: string) => Promise<UnwrappedReviewStory>;
   onGenerate: (postId: number) => Promise<UnwrappedGenerationTrigger>;
@@ -20,11 +25,14 @@ type UnwrappedReviewDeskProps = {
 
 export function UnwrappedReviewDesk({
   reviews,
+  posts,
+  postsError,
   error,
   actingStoryId,
   generatingPostId,
   generationError,
   onReload,
+  onReloadPosts,
   onApprove,
   onReject,
   onGenerate,
@@ -32,8 +40,6 @@ export function UnwrappedReviewDesk({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
-  const [postId, setPostId] = useState("");
-  const [generationNotice, setGenerationNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (reviews === null) {
@@ -71,23 +77,6 @@ export function UnwrappedReviewDesk({
     }
   };
 
-  const numericPostId = Number(postId);
-  const validPostId = Number.isSafeInteger(numericPostId) && numericPostId > 0;
-
-  const generate = async () => {
-    if (!validPostId) return;
-    setGenerationNotice(null);
-    try {
-      const trigger = await onGenerate(numericPostId);
-      setGenerationNotice(
-        `Milestone check queued for post ${trigger.postId}. Eligible jobs use the normal generation and review flow.`,
-      );
-      setPostId("");
-    } catch {
-      // The hook exposes the server error beside the generation control.
-    }
-  };
-
   return (
     <main className="unwrapped-page">
       <header className="unwrapped-page__intro">
@@ -100,46 +89,14 @@ export function UnwrappedReviewDesk({
         </p>
       </header>
 
-      <section className="unwrapped-generator" aria-labelledby="unwrapped-generator-title">
-        <div>
-          <p>Manual run</p>
-          <h2 id="unwrapped-generator-title">Run the Unwrapped milestone check</h2>
-          <span>
-            This queues the same reconciliation used after a canonical vote. It only creates jobs
-            for milestones the post has reached.
-          </span>
-        </div>
-        <form onSubmit={(event) => {
-          event.preventDefault();
-          void generate();
-        }}>
-          <label htmlFor="unwrapped-post-id">Post ID</label>
-          <div>
-            <input
-              id="unwrapped-post-id"
-              type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              value={postId}
-              placeholder="e.g. 42"
-              onChange={(event) => {
-                setPostId(event.target.value);
-                setGenerationNotice(null);
-              }}
-            />
-            <button type="submit" disabled={!validPostId || generatingPostId !== null}>
-              {generatingPostId === numericPostId ? "Queuing…" : "Run milestone check"}
-            </button>
-          </div>
-        </form>
-        {generationError ? (
-          <p className="unwrapped-generator__error" role="alert">{generationError.message}</p>
-        ) : null}
-        {generationNotice ? (
-          <p className="unwrapped-generator__notice" role="status">{generationNotice}</p>
-        ) : null}
-      </section>
+      <UnwrappedAnalysisPosts
+        posts={posts}
+        error={postsError}
+        generatingPostId={generatingPostId}
+        generationError={generationError}
+        onReload={onReloadPosts}
+        onGenerate={onGenerate}
+      />
 
       <div className="unwrapped-status-line">
         <span>Awaiting decision</span>

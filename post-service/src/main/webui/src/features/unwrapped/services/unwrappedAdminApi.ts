@@ -1,5 +1,9 @@
 import { getAccessToken } from "../../auth";
-import type { UnwrappedGenerationTrigger, UnwrappedReviewStory } from "../types";
+import type {
+  UnwrappedAdminPost,
+  UnwrappedGenerationTrigger,
+  UnwrappedReviewStory,
+} from "../types";
 
 export class UnwrappedAdminApiError extends Error {
   constructor(
@@ -35,6 +39,10 @@ async function unwrappedRequest<T>(path: string, init?: RequestInit): Promise<T>
 
 export function getUnwrappedReviewQueue(): Promise<UnwrappedReviewStory[]> {
   return unwrappedRequest<UnwrappedReviewStory[]>("/admin/unwrapped/review");
+}
+
+export function getUnwrappedAnalysisPosts(): Promise<UnwrappedAdminPost[]> {
+  return unwrappedRequest<UnwrappedAdminPost[]>("/admin/unwrapped/posts?page=0&size=50");
 }
 
 export function triggerUnwrappedGeneration(postId: number): Promise<UnwrappedGenerationTrigger> {

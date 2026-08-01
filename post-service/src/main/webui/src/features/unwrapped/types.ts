@@ -46,3 +46,25 @@ export type UnwrappedGenerationTrigger = {
   postId: number;
   status: "RECONCILIATION_QUEUED";
 };
+
+export type UnwrappedAdminVoteOption = {
+  optionId: number;
+  label: string;
+  ordinal: number;
+  semanticKey: string;
+  count: number;
+  percentage: number;
+};
+
+export type UnwrappedAdminPost = {
+  postId: number;
+  summary: string;
+  question: string;
+  caseFor: string | null;
+  caseAgainst: string | null;
+  jurisdiction: string;
+  votingType: "BINARY" | "MULTIPLE_CHOICE_SINGLE_SELECT";
+  createdAt: string;
+  canonicalVoteCount: number;
+  overall: UnwrappedAdminVoteOption[];
+};

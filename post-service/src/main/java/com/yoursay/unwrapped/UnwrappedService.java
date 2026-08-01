@@ -1,11 +1,13 @@
 package com.yoursay.unwrapped;
 
 import com.yoursay.unwrapped.dto.ReviewStoryDto;
+import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
 
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 
 import com.yoursay.unwrapped.dto.FollowUpResponseDto;
+import io.smallrye.mutiny.Uni;
 
 import java.util.List;
 import java.util.UUID;
@@ -87,6 +89,16 @@ public interface UnwrappedService {
      * @return acknowledgement that reconciliation was queued
      */
     UnwrappedGenerationTriggerDto triggerGeneration(Long postId);
+
+    /**
+     * Lists recent posts with identity-free overall vote totals for the administrator analysis
+     * desk. No raw vote or voter characteristic leaves the votes boundary.
+     *
+     * @param page zero-based recent-post page
+     * @param size requested page size, capped by the posts domain
+     * @return recent post context and exact aggregate vote splits
+     */
+    Uni<List<UnwrappedAdminPostDto>> analysisPosts(int page, int size);
 
     /**
      * Lists generated stories currently awaiting human review, oldest first.

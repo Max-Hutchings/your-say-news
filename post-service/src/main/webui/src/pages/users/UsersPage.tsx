@@ -167,11 +167,14 @@ export function UsersPage() {
         <div id="unwrapped-panel" role="tabpanel" aria-labelledby="unwrapped-tab">
           <UnwrappedReviewDesk
             reviews={unwrapped.reviews}
+            posts={unwrapped.posts}
+            postsError={unwrapped.postsError}
             error={unwrapped.error}
             actingStoryId={unwrapped.actingStoryId}
             generatingPostId={unwrapped.generatingPostId}
             generationError={unwrapped.generationError}
             onReload={unwrapped.load}
+            onReloadPosts={unwrapped.loadPosts}
             onApprove={unwrapped.approve}
             onReject={unwrapped.reject}
             onGenerate={unwrapped.generate}

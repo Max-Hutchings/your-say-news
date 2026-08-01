@@ -1,13 +1,14 @@
 package com.yoursay.unwrapped;
 
 import com.yoursay.unwrapped.dto.RejectStoryRequest;
-
 import com.yoursay.unwrapped.dto.ReviewStoryDto;
-
+import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
 
 import io.quarkus.security.identity.SecurityIdentity;
+import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.common.annotation.RunOnVirtualThread;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -18,6 +19,8 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.core.MediaType;
 import org.jboss.resteasy.reactive.ResponseStatus;
 
@@ -28,7 +31,6 @@ import java.util.UUID;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 @RolesAllowed("admin")
-@RunOnVirtualThread
 public class UnwrappedAdminController {
     @Inject
     UnwrappedService service;
@@ -37,12 +39,23 @@ public class UnwrappedAdminController {
 
     @GET
     @Path("/review")
+    @RunOnVirtualThread
     public List<ReviewStoryDto> reviewQueue() {
         return service.reviewQueue();
     }
 
     @GET
+    @Path("/posts")
+    @NonBlocking
+    public Uni<List<UnwrappedAdminPostDto>> analysisPosts(
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("50") int size) {
+        return service.analysisPosts(page, size);
+    }
+
+    @GET
     @Path("/{storyId}")
+    @RunOnVirtualThread
     public ReviewStoryDto story(@PathParam("storyId") UUID storyId) {
         return service.reviewStory(storyId);
     }
@@ -51,18 +64,21 @@ public class UnwrappedAdminController {
     @Path("/posts/{postId}/generate")
     @Consumes(MediaType.WILDCARD)
     @ResponseStatus(202)
+    @RunOnVirtualThread
     public UnwrappedGenerationTriggerDto triggerGeneration(@PathParam("postId") Long postId) {
         return service.triggerGeneration(postId);
     }
 
     @POST
     @Path("/{storyId}/approve")
+    @RunOnVirtualThread
     public ReviewStoryDto approve(@PathParam("storyId") UUID storyId) {
         return service.approve(storyId, identity.getPrincipal().getName());
     }
 
     @POST
     @Path("/{storyId}/reject")
+    @RunOnVirtualThread
     public ReviewStoryDto reject(@PathParam("storyId") UUID storyId,
                                  @Valid @NotNull RejectStoryRequest request) {
         return service.reject(storyId, identity.getPrincipal().getName(), request.reason());

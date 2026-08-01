@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   approveUnwrappedStory,
+  getUnwrappedAnalysisPosts,
   triggerUnwrappedGeneration,
   rejectUnwrappedStory,
   UnwrappedAdminApiError,
@@ -8,6 +9,7 @@ import {
 } from "../services/unwrappedAdminApi";
 import type {
   UnwrappedGenerationTrigger,
+  UnwrappedAdminPost,
   UnwrappedReviewError,
   UnwrappedReviewStory,
 } from "../types";
@@ -18,6 +20,8 @@ export function useUnwrappedReviews() {
   const [actingStoryId, setActingStoryId] = useState<string | null>(null);
   const [generatingPostId, setGeneratingPostId] = useState<number | null>(null);
   const [generationError, setGenerationError] = useState<UnwrappedReviewError | null>(null);
+  const [posts, setPosts] = useState<UnwrappedAdminPost[] | null>(null);
+  const [postsError, setPostsError] = useState<UnwrappedReviewError | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -31,6 +35,19 @@ export function useUnwrappedReviews() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadPosts = useCallback(async () => {
+    setPostsError(null);
+    try {
+      setPosts(await getUnwrappedAnalysisPosts());
+    } catch (reason) {
+      setPostsError(toReviewError(reason));
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPosts();
+  }, [loadPosts]);
 
   const act = useCallback(async (
     storyId: string,
@@ -82,7 +99,10 @@ export function useUnwrappedReviews() {
     actingStoryId,
     generatingPostId,
     generationError,
+    posts,
+    postsError,
     load,
+    loadPosts,
     approve,
     reject,
     generate,

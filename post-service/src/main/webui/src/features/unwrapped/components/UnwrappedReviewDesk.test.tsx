@@ -34,6 +34,22 @@ const review = {
   },
 };
 
+const analysisPost = {
+  postId: 42,
+  summary: "A measured summary of the proposal and its likely effects.",
+  question: "Should the city introduce a workplace parking levy?",
+  caseFor: "It could reduce congestion and fund public transport.",
+  caseAgainst: "It could increase costs for workers and employers.",
+  jurisdiction: "UNITED_KINGDOM",
+  votingType: "BINARY" as const,
+  createdAt: "2026-07-27T09:00:00Z",
+  canonicalVoteCount: 125,
+  overall: [
+    { optionId: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE", count: 75, percentage: 60 },
+    { optionId: 72, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE", count: 50, percentage: 40 },
+  ],
+};
+
 describe("UnwrappedReviewDesk", () => {
   it("shows the full proof and approves the selected publication", async () => {
     const user = userEvent.setup();
@@ -42,11 +58,14 @@ describe("UnwrappedReviewDesk", () => {
     render(
       <UnwrappedReviewDesk
         reviews={[review]}
+        posts={[analysisPost]}
+        postsError={null}
         error={null}
         actingStoryId={null}
         generatingPostId={null}
         generationError={null}
         onReload={vi.fn()}
+        onReloadPosts={vi.fn()}
         onApprove={approve}
         onReject={vi.fn()}
         onGenerate={vi.fn()}
@@ -56,10 +75,14 @@ describe("UnwrappedReviewDesk", () => {
     expect(await screen.findByRole("heading", { name: review.draft.pages[0].headline }))
       .toBeInTheDocument();
     expect(screen.getByText("Official figures show a material change.")).toBeInTheDocument();
+    expect(screen.getByText("Observed: ageRange=AGE_25_34")).toBeInTheDocument();
+    expect(screen.getByText(review.draft.pages[0].synthesis)).toBeInTheDocument();
+    expect(screen.getByText(review.draft.pages[0].caveat)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Public data" })).toHaveAttribute(
       "href",
       "https://www.ons.gov.uk/data",
     );
+    expect(screen.getByText("Office for National Statistics · OFFICIAL")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Approve publication" }));
 
@@ -73,11 +96,14 @@ describe("UnwrappedReviewDesk", () => {
     render(
       <UnwrappedReviewDesk
         reviews={[review]}
+        posts={[analysisPost]}
+        postsError={null}
         error={null}
         actingStoryId={null}
         generatingPostId={null}
         generationError={null}
         onReload={vi.fn()}
+        onReloadPosts={vi.fn()}
         onApprove={vi.fn()}
         onReject={reject}
         onGenerate={vi.fn()}
@@ -100,7 +126,7 @@ describe("UnwrappedReviewDesk", () => {
     );
   });
 
-  it("queues the normal milestone check by post ID", async () => {
+  it("shows post details and vote split, then queues analysis for that post", async () => {
     const user = userEvent.setup();
     const generate = vi.fn().mockResolvedValue({
       postId: 42,
@@ -110,26 +136,80 @@ describe("UnwrappedReviewDesk", () => {
     render(
       <UnwrappedReviewDesk
         reviews={[]}
+        posts={[analysisPost]}
+        postsError={null}
         error={null}
         actingStoryId={null}
         generatingPostId={null}
         generationError={null}
         onReload={vi.fn()}
+        onReloadPosts={vi.fn()}
         onApprove={vi.fn()}
         onReject={vi.fn()}
         onGenerate={generate}
       />,
     );
 
-    const button = screen.getByRole("button", { name: "Run milestone check" });
-    expect(button).toBeDisabled();
+    expect(screen.getByRole("heading", { name: analysisPost.question })).toBeInTheDocument();
+    expect(screen.getByText(analysisPost.summary)).toBeInTheDocument();
+    expect(screen.getByLabelText("Post analysis totals")).toHaveTextContent(
+      /Recent posts\s*1\s*Ready at 100\+\s*1\s*Votes shown\s*125/,
+    );
+    expect(screen.getByLabelText("Agree: 60%, 75 votes; Disagree: 40%, 50 votes"))
+      .toBeInTheDocument();
 
-    await user.type(screen.getByLabelText("Post ID"), "42");
+    const button = screen.getByRole("button", { name: "Run analysis for post 42" });
     await user.click(button);
 
     expect(generate).toHaveBeenCalledWith(42);
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Milestone check queued for post 42. Eligible jobs use the normal generation and review flow.",
+      "Milestone check queued",
     );
+  });
+
+  it("pins the first milestone boundary and filters the post ledger", async () => {
+    const user = userEvent.setup();
+    const belowMilestone = {
+      ...analysisPost,
+      postId: 41,
+      question: "Should library opening hours be extended?",
+      canonicalVoteCount: 99,
+      overall: analysisPost.overall.map((option) => ({ ...option, count: option.ordinal === 0 ? 59 : 40 })),
+    };
+    const atMilestone = {
+      ...analysisPost,
+      canonicalVoteCount: 100,
+      overall: analysisPost.overall.map((option) => ({ ...option, count: option.ordinal === 0 ? 60 : 40 })),
+    };
+
+    render(
+      <UnwrappedReviewDesk
+        reviews={[]}
+        posts={[belowMilestone, atMilestone]}
+        postsError={null}
+        error={null}
+        actingStoryId={null}
+        generatingPostId={null}
+        generationError={null}
+        onReload={vi.fn()}
+        onReloadPosts={vi.fn()}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+        onGenerate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("1 vote to go")).toBeInTheDocument();
+    expect(screen.getByText("Ready to analyse", { selector: "span.analysis-readiness" }))
+      .toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Milestone"), "ELIGIBLE");
+    expect(screen.getByRole("heading", { name: atMilestone.question })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: belowMilestone.question })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Milestone"), "ALL");
+    await user.type(screen.getByLabelText("Find a post"), "library");
+    expect(screen.getByRole("heading", { name: belowMilestone.question })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: atMilestone.question })).not.toBeInTheDocument();
   });
 });

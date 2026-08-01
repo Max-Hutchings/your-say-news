@@ -10,11 +10,15 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @QuarkusTest
 class UnwrappedAdminControllerTest {
@@ -22,6 +26,95 @@ class UnwrappedAdminControllerTest {
     AgroalDataSource dataSource;
     @Inject
     UnwrappedReconciliationWorker reconciliationWorker;
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void adminPostDeskShowsPostDetailsAndExactOverallVoteSplitWithoutVoterData() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotes(post, 3);
+            insertVotes(post.id(), post.disagreeOptionId(), 2, 10_000);
+
+            List<Map<String, Object>> posts = given()
+                    .queryParam("page", 0)
+                    .queryParam("size", 50)
+                    .when().get("/admin/unwrapped/posts")
+                    .then()
+                    .statusCode(200)
+                    .extract().jsonPath().getList("$");
+
+            Map<String, Object> item = posts.stream()
+                    .filter(candidate -> ((Number) candidate.get("postId")).longValue() == post.id())
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(Set.of("postId", "summary", "question", "caseFor", "caseAgainst",
+                    "jurisdiction", "votingType", "createdAt", "canonicalVoteCount", "overall"),
+                    item.keySet());
+            assertEquals("Forced generation summary", item.get("summary"));
+            assertEquals("Should this be generated?", item.get("question"));
+            assertEquals("A clear case for the proposal.", item.get("caseFor"));
+            assertEquals("A clear case against the proposal.", item.get("caseAgainst"));
+            assertEquals("GLOBAL", item.get("jurisdiction"));
+            assertEquals("BINARY", item.get("votingType"));
+            assertEquals(5, ((Number) item.get("canonicalVoteCount")).intValue());
+            assertFalse(item.containsKey("userId"));
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> overall = (List<Map<String, Object>>) item.get("overall");
+            assertEquals(List.of("Agree", "Disagree"),
+                    overall.stream().map(option -> (String) option.get("label")).toList());
+            assertEquals(List.of(3, 2),
+                    overall.stream().map(option -> ((Number) option.get("count")).intValue()).toList());
+            assertEquals(List.of(60.0, 40.0),
+                    overall.stream().map(option -> ((Number) option.get("percentage")).doubleValue()).toList());
+            assertEquals(Set.of("optionId", "label", "ordinal", "semanticKey", "count", "percentage"),
+                    overall.getFirst().keySet());
+            assertEquals(Set.of("optionId", "label", "ordinal", "semanticKey", "count", "percentage"),
+                    overall.getLast().keySet());
+            assertEquals(List.of(post.agreeOptionId(), post.disagreeOptionId()),
+                    overall.stream().map(option -> ((Number) option.get("optionId")).longValue()).toList());
+            assertEquals(List.of(0, 1),
+                    overall.stream().map(option -> ((Number) option.get("ordinal")).intValue()).toList());
+            assertEquals(List.of("AGREE", "DISAGREE"),
+                    overall.stream().map(option -> (String) option.get("semanticKey")).toList());
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void postDeskHonoursRecentPostPagination() throws Exception {
+        TestPost older = createPost();
+        TestPost newer = createPost();
+        try {
+            setCreatedAt(older.id(), "2034-01-01T12:00:00Z");
+            setCreatedAt(newer.id(), "2035-01-01T12:00:00Z");
+
+            List<Integer> firstPage = given()
+                    .queryParam("page", 0).queryParam("size", 1)
+                    .when().get("/admin/unwrapped/posts")
+                    .then().statusCode(200)
+                    .extract().jsonPath().getList("postId");
+            List<Integer> secondPage = given()
+                    .queryParam("page", 1).queryParam("size", 1)
+                    .when().get("/admin/unwrapped/posts")
+                    .then().statusCode(200)
+                    .extract().jsonPath().getList("postId");
+            List<Integer> emptyPage = given()
+                    .queryParam("page", 10_000).queryParam("size", 1)
+                    .when().get("/admin/unwrapped/posts")
+                    .then().statusCode(200)
+                    .extract().jsonPath().getList("postId");
+
+            assertEquals(List.of((int) newer.id()), firstPage);
+            assertEquals(List.of((int) older.id()), secondPage);
+            assertEquals(List.of(), emptyPage);
+        } finally {
+            deletePost(newer.id());
+            deletePost(older.id());
+        }
+    }
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
@@ -95,12 +188,14 @@ class UnwrappedAdminControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
-    void unknownPostDoesNotCreateAJob() {
+    void unknownPostDoesNotCreateAJob() throws Exception {
         given()
                 .when().post("/admin/unwrapped/posts/999999/generate")
                 .then()
                 .statusCode(404)
                 .body("code", equalTo("UNWRAPPED_POST_NOT_FOUND"));
+        assertEquals(0, reconciliationCount(999999));
+        assertEquals(0, jobCount(999999));
     }
 
     @Test
@@ -112,14 +207,24 @@ class UnwrappedAdminControllerTest {
                 .statusCode(403);
     }
 
+    @Test
+    @TestSecurity(user = "reader@yoursay.com", roles = "user")
+    void nonAdminCannotReadThePostAnalysisDesk() {
+        given()
+                .when().get("/admin/unwrapped/posts")
+                .then()
+                .statusCode(403);
+    }
+
     private TestPost createPost() throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement post = connection.prepareStatement("""
                      insert into post(
                          user_id, summary, support_question, is_unbiased,
-                         created_at, updated_at, voting_type, jurisdiction
+                         created_at, updated_at, voting_type, jurisdiction, case_for, case_against
                      ) values (1, 'Forced generation summary', 'Should this be generated?',
-                         false, now(), now(), 'BINARY', 'GLOBAL')
+                         false, now(), now(), 'BINARY', 'GLOBAL',
+                         'A clear case for the proposal.', 'A clear case against the proposal.')
                      returning id
                      """)) {
             long postId;
@@ -127,7 +232,8 @@ class UnwrappedAdminControllerTest {
                 result.next();
                 postId = result.getLong(1);
             }
-            long optionId;
+            long agreeOptionId;
+            long disagreeOptionId;
             try (PreparedStatement options = connection.prepareStatement("""
                     insert into post_vote_option(post_id, label, ordinal, semantic_key)
                     values (?, 'Agree', 0, 'AGREE'), (?, 'Disagree', 1, 'DISAGREE')
@@ -137,24 +243,41 @@ class UnwrappedAdminControllerTest {
                 options.setLong(2, postId);
                 try (ResultSet result = options.executeQuery()) {
                     result.next();
-                    optionId = result.getLong(1);
+                    agreeOptionId = result.getLong(1);
+                    result.next();
+                    disagreeOptionId = result.getLong(1);
                 }
             }
-            return new TestPost(postId, optionId);
+            return new TestPost(postId, agreeOptionId, disagreeOptionId);
         }
     }
 
     private void insertVotes(TestPost post, int count) throws Exception {
+        insertVotes(post.id(), post.agreeOptionId(), count, 0);
+    }
+
+    private void insertVotes(long postId, long optionId, int count, int userOffset) throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      insert into votes(post_id, user_id, option_id, characteristic_snapshot)
-                     select ?, 900000 + generated.user_number, ?, '{}'::jsonb
+                     select ?, 900000 + ? + generated.user_number, ?, '{}'::jsonb
                      from generate_series(1, ?) as generated(user_number)
                      """)) {
-            statement.setLong(1, post.id());
-            statement.setLong(2, post.optionId());
-            statement.setInt(3, count);
+            statement.setLong(1, postId);
+            statement.setInt(2, userOffset);
+            statement.setLong(3, optionId);
+            statement.setInt(4, count);
             assertEquals(count, statement.executeUpdate());
+        }
+    }
+
+    private void setCreatedAt(long postId, String instant) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "update post set created_at = ?::timestamptz where id = ?")) {
+            statement.setString(1, instant);
+            statement.setLong(2, postId);
+            assertEquals(1, statement.executeUpdate());
         }
     }
 
@@ -204,7 +327,7 @@ class UnwrappedAdminControllerTest {
         }
     }
 
-    private record TestPost(long id, long optionId) {
+    private record TestPost(long id, long agreeOptionId, long disagreeOptionId) {
     }
 
     private record JobState(UUID id, int milestone, String status) {

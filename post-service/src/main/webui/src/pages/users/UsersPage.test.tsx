@@ -82,13 +82,31 @@ const unwrappedReview = {
   },
 };
 
+const unwrappedPost = {
+  postId: 42,
+  summary: "A measured summary of the proposal.",
+  question: "Should the city introduce a workplace parking levy?",
+  caseFor: "It could reduce congestion.",
+  caseAgainst: "It could increase costs.",
+  jurisdiction: "UNITED_KINGDOM",
+  votingType: "BINARY" as const,
+  createdAt: "2026-07-27T09:00:00Z",
+  canonicalVoteCount: 125,
+  overall: [
+    { optionId: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE", count: 75, percentage: 60 },
+    { optionId: 72, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE", count: 50, percentage: 40 },
+  ],
+};
+
 describe("UsersPage", () => {
   const update = vi.fn();
   const load = vi.fn();
   const logout = vi.fn();
+  const generate = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    generate.mockResolvedValue({ postId: 42, status: "RECONCILIATION_QUEUED" });
     vi.mocked(useAdminAuth).mockReturnValue({
       status: "authenticated",
       identity: { email: "john.doe@example.com", name: "John Doe" },
@@ -108,10 +126,13 @@ describe("UsersPage", () => {
       actingStoryId: null,
       generatingPostId: null,
       generationError: null,
+      posts: [unwrappedPost],
+      postsError: null,
       load: vi.fn(),
+      loadPosts: vi.fn(),
       approve: vi.fn(),
       reject: vi.fn(),
-      generate: vi.fn(),
+      generate,
     });
     update.mockImplementation(async (userId, changes) => ({
       ...accounts.find((account) => account.id === userId)!,
@@ -177,6 +198,9 @@ describe("UsersPage", () => {
     expect(screen.getByRole("heading", { name: "Unwrapped desk" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "The case for changing course" }))
       .toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: unwrappedPost.question })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Run analysis for post 42" }));
+    expect(generate).toHaveBeenCalledWith(42);
     expect(screen.queryByRole("heading", { name: "Accounts desk" })).not.toBeInTheDocument();
   });
 

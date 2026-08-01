@@ -3,12 +3,16 @@ package com.yoursay.unwrapped.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.posts.dto.PostVotingConfigurationDto;
+import com.yoursay.posts.dto.PostDto;
+import com.yoursay.posts.PostService;
 import com.yoursay.posts.PostVotingConfigurationService;
 import com.yoursay.unwrapped.dto.FollowUpResponseDto;
 import com.yoursay.unwrapped.dto.ReviewStoryDto;
 import com.yoursay.unwrapped.UnwrappedAvailabilityState;
 import com.yoursay.unwrapped.UnwrappedMilestoneService;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
+import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
+import com.yoursay.unwrapped.dto.UnwrappedAdminVoteOptionDto;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 import com.yoursay.unwrapped.UnwrappedService;
@@ -23,14 +27,22 @@ import com.yoursay.unwrapped.model.UnwrappedStoryRepository;
 import com.yoursay.user.user.dto.UserAccessDto;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.votes.dto.VoteResponseDto;
+import com.yoursay.votes.dto.PostAnalysisAggregateV1;
+import com.yoursay.votes.dto.OverallOptionStatisticV1;
+import com.yoursay.votes.PostAnalysisAggregateService;
 import com.yoursay.votes.VoteService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class UnwrappedServiceImpl implements UnwrappedService {
@@ -40,6 +52,10 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     VoteService voteService;
     @Inject
     PostVotingConfigurationService postService;
+    @Inject
+    PostService postReader;
+    @Inject
+    PostAnalysisAggregateService aggregateService;
     @Inject
     YourSayUserService userService;
     @Inject
@@ -123,6 +139,13 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     }
 
     @Override
+    public Uni<List<UnwrappedAdminPostDto>> analysisPosts(int page, int size) {
+        return postReader.getRecent(page, size)
+                .emitOn(Infrastructure.getDefaultWorkerPool())
+                .map(posts -> posts.stream().map(this::toAdminPost).toList());
+    }
+
+    @Override
     public List<ReviewStoryDto> reviewQueue() {
         return storyRepository.drafts().stream().map(this::toReview).toList();
     }
@@ -178,6 +201,23 @@ public class UnwrappedServiceImpl implements UnwrappedService {
         return new ReviewStoryDto(story.getId(), story.getPostId(), story.getMilestone(),
                 story.getCanonicalVoteCount(), story.getReviewStatus(),
                 story.getGeneratedAt(), draftJson(story));
+    }
+
+    private UnwrappedAdminPostDto toAdminPost(PostDto post) {
+        PostAnalysisAggregateV1 aggregate = aggregateService.capture(post.id());
+        Map<Long, OverallOptionStatisticV1> statistics = aggregate.overall().stream()
+                .collect(Collectors.toMap(OverallOptionStatisticV1::optionId, Function.identity()));
+        List<UnwrappedAdminVoteOptionDto> overall = post.voteOptions().stream()
+                .map(option -> {
+                    OverallOptionStatisticV1 statistic = statistics.get(option.id());
+                    return new UnwrappedAdminVoteOptionDto(option.id(), option.label(), option.ordinal(),
+                            option.semanticKey(), statistic == null ? 0 : statistic.count(),
+                            statistic == null ? 0.0 : statistic.percentage());
+                })
+                .toList();
+        return new UnwrappedAdminPostDto(post.id(), post.summary(), post.supportQuestion(),
+                post.caseFor(), post.caseAgainst(), post.jurisdiction(), post.votingType(),
+                post.createdAt(), aggregate.canonicalVoteCount(), overall);
     }
 
     private UnwrappedResearchDraftV1 draftJson(UnwrappedStory story) {
