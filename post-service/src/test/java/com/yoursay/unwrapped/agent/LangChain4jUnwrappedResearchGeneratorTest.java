@@ -52,7 +52,11 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         assertEquals(List.of(15L), result.draft().pages().stream()
                 .map(page -> page.optionId()).toList());
         assertEquals("Development preview for Agree", result.draft().pages().getFirst().headline());
-        assertEquals(List.of(), result.draft().sources());
+        assertEquals(List.of("https://www.ons.gov.uk/"), result.providerCitations());
+        assertEquals(List.of("stub-source"), result.draft().sources().stream()
+                .map(source -> source.id()).toList());
+        assertEquals(List.of("stub-source"), result.draft().pages().getFirst()
+                .contextClaims().getFirst().sourceIds());
         verifyNoInteractions(aiService);
     }
 

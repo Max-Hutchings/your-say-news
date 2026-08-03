@@ -39,7 +39,7 @@ public class UnwrappedGenerationWorker {
     @Scheduled(identity = "unwrapped-generation-worker",
             every = "${unwrapped.jobs.poll-interval:2s}", concurrentExecution = SKIP)
     @RunOnVirtualThread
-    void processNext() {
+    public void processNext() {
         if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
             return;
         }

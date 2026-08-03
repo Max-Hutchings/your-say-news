@@ -59,6 +59,24 @@ class HttpSourceEvidenceCheckerTest {
     }
 
     @Test
+    void acceptsGovernedSourceThatBlocksBothAutomatedProbes() throws Exception {
+        HttpClient client = mock(HttpClient.class);
+        HttpResponse<Void> forbiddenHead = response(403, Map.of());
+        HttpResponse<Void> forbiddenGet = response(403, Map.of());
+        when(client.<Void>send(any(HttpRequest.class), any()))
+                .thenReturn(forbiddenHead, forbiddenGet);
+        HttpSourceEvidenceChecker checker =
+                new HttpSourceEvidenceChecker(new SourceUrlPolicy(), client);
+
+        assertDoesNotThrow(() -> checker.verify(source(PUBLIC_URL)));
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(client, times(2)).send(requests.capture(), any());
+        assertEquals(List.of("HEAD", "GET"), requests.getAllValues().stream()
+                .map(HttpRequest::method).toList());
+    }
+
+    @Test
     void validatesEveryRedirectTargetAndRejectsPrivateDestinations() throws Exception {
         HttpClient client = mock(HttpClient.class);
         HttpResponse<Void> response = response(302,

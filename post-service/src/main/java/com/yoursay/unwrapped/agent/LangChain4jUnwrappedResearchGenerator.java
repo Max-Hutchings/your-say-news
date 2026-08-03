@@ -2,8 +2,11 @@ package com.yoursay.unwrapped.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yoursay.unwrapped.SourceClassification;
 import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedClaimDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
@@ -101,6 +104,9 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     }
 
     private UnwrappedResearchResult stubbedResult(UnwrappedResearchRequest request) {
+        UnwrappedSourceDraftV1 source = new UnwrappedSourceDraftV1(
+                "stub-source", "https://www.ons.gov.uk/", "Office for National Statistics",
+                "Deterministic Unwrapped integration-test source", SourceClassification.OFFICIAL);
         List<UnwrappedArgumentDraftV1> pages = request.options().stream()
                 .map(option -> new UnwrappedArgumentDraftV1(
                         option.option().id(),
@@ -109,15 +115,18 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
                                 .limit(2)
                                 .map(candidate -> candidate.cohortId())
                                 .toList(),
-                        List.of(),
+                        List.of(new UnwrappedClaimDraftV1(
+                                "stub-claim-" + option.option().id(),
+                                "Deterministic source-backed context for " + option.option().label() + ".",
+                                List.of(source.id()), false)),
                         "This fixed development result represents " + option.overallVoteCount()
                                 + " votes (" + option.overallVotePercentage()
                                 + "%) for this option without calling an external model.",
-                        "This association describes only people who voted on this post."))
+                        "This association describes only people who voted on this post and does not represent any broader population."))
                 .toList();
         return new UnwrappedResearchResult(
-                new UnwrappedResearchDraftV1(pages, List.of()),
-                List.of(), "stubbed-unwrapped", "stub-post-" + request.postId());
+                new UnwrappedResearchDraftV1(pages, List.of(source)),
+                List.of(source.url()), "stubbed-unwrapped", "stub-post-" + request.postId());
     }
 
     private String researchPrompt(UnwrappedResearchRequest request) throws Exception {

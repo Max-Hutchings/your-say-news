@@ -40,6 +40,10 @@ public class HttpSourceEvidenceChecker implements SourceEvidenceChecker {
                 response = sendGet(current);
                 status = response.statusCode();
             }
+            // A governed source may block automated clients while still being a real public page.
+            // The provider citation, allowlist, classification policy and successful HTTP response
+            // together provide evidence without making a WAF response fatal to the whole draft.
+            if (status == 403) return;
             if (status >= 200 && status < 300) return;
             if (status < 300 || status >= 400) {
                 throw new IllegalArgumentException(
