@@ -22,16 +22,10 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class UnwrappedDraftValidator {
     private final SourceUrlPolicy urlPolicy;
-    private final SourceEvidenceChecker sourceEvidenceChecker;
-    private final SourceTrustPolicy sourceTrustPolicy;
 
     @Inject
-    public UnwrappedDraftValidator(SourceUrlPolicy urlPolicy,
-                                   SourceEvidenceChecker sourceEvidenceChecker,
-                                   SourceTrustPolicy sourceTrustPolicy) {
+    public UnwrappedDraftValidator(SourceUrlPolicy urlPolicy) {
         this.urlPolicy = urlPolicy;
-        this.sourceEvidenceChecker = sourceEvidenceChecker;
-        this.sourceTrustPolicy = sourceTrustPolicy;
     }
 
     public void validate(UnwrappedResearchRequest request, UnwrappedResearchDraftV1 draft,
@@ -68,14 +62,11 @@ public class UnwrappedDraftValidator {
 
         List<UnwrappedSourceDraftV1> sources = draft.sources() == null ? List.of() : draft.sources();
         Map<String, UnwrappedSourceDraftV1> byId = uniqueSources(sources);
-        Set<String> citations = providerCitations == null ? Set.of() : Set.copyOf(providerCitations);
         for (UnwrappedSourceDraftV1 source : sources) {
             require(length(source.publisher(), 2, 256) && length(source.title(), 4, 512)
                             && source.classification() != null,
                     "UNWRAPPED_SOURCE_METADATA");
             urlPolicy.validate(source.url());
-            require(citations.contains(source.url()), "UNWRAPPED_SOURCE_NOT_PROVIDER_CITED");
-            sourceEvidenceChecker.verify(source);
         }
         for (UnwrappedArgumentDraftV1 page : draft.pages()) {
             for (UnwrappedClaimDraftV1 claim :

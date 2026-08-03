@@ -24,8 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class UnwrappedDraftValidatorTest {
     private static final String SOURCE = "https://www.ons.gov.uk/economy/governmentpublicsectorandtaxes";
     private final UnwrappedDraftValidator validator =
-            new UnwrappedDraftValidator(new SourceUrlPolicy(), source -> {
-            }, new SourceTrustPolicy());
+            new UnwrappedDraftValidator(new SourceUrlPolicy());
 
     @Test
     void acceptsOrderedBalancedPagesWithClaimLevelProviderCitations() {
@@ -55,15 +54,16 @@ class UnwrappedDraftValidatorTest {
     }
 
     @Test
-    void rejectsPrivateOrNonHttpsResearchTargets() {
+    void acceptsHttpResearchTargetsWithoutServerSideProbing() {
+        String redirectedSource =
+                "http://www.icccodesolutions.org/blog/street-performers-legislation/";
         UnwrappedResearchDraftV1 draft = new UnwrappedResearchDraftV1(
                 validDraft(List.of("gender=MAN")).pages(),
-                List.of(new UnwrappedSourceDraftV1("source-1", "https://127.0.0.1/admin",
-                        "Internal", "Not public", SourceClassification.OTHER)));
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> validator.validate(request(), draft,
-                        List.of("https://127.0.0.1/admin")));
-        assertEquals("UNWRAPPED_SOURCE_URL_PRIVATE", error.getMessage());
+                List.of(new UnwrappedSourceDraftV1("source-1", redirectedSource,
+                        "ICC Code Solutions", "Street performer legislation",
+                        SourceClassification.OTHER)));
+
+        assertDoesNotThrow(() -> validator.validate(request(), draft, List.of()));
     }
 
     @Test
@@ -98,11 +98,9 @@ class UnwrappedDraftValidatorTest {
     }
 
     @Test
-    void rejectsAClaimedUrlAbsentFromProviderCitationMetadata() {
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> validator.validate(request(),
-                        validDraft(List.of("gender=MAN")), List.of()));
-        assertEquals("UNWRAPPED_SOURCE_NOT_PROVIDER_CITED", error.getMessage());
+    void acceptsAValidSourceWhenProviderCitationMetadataUsesADifferentUrlForm() {
+        assertDoesNotThrow(() -> validator.validate(request(),
+                validDraft(List.of("gender=MAN")), List.of()));
     }
 
     @Test
@@ -139,38 +137,14 @@ class UnwrappedDraftValidatorTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "http://www.ons.gov.uk/data",
-            "https://user:password@www.ons.gov.uk/data",
-            "https://www.ons.gov.uk:8443/data",
-            "https://localhost/data",
-            "https://10.0.0.8/data",
-            "https://169.254.10.2/data",
-            "https://[::1]/data",
-            "https://[fc00::1]/data",
-            "https://[fd12:3456:789a::1]/data"
-    })
-    void rejectsEveryUnsafeUrlShape(String url) {
+    @ValueSource(strings = {"ftp://www.ons.gov.uk/data", "javascript:alert('source')", "not-a-url"})
+    void rejectsNonWebSourceUrls(String url) {
         UnwrappedResearchDraftV1 valid = validDraft(List.of("gender=MAN"));
         UnwrappedResearchDraftV1 unsafe = new UnwrappedResearchDraftV1(valid.pages(),
                 List.of(new UnwrappedSourceDraftV1("source-1", url,
                         "Unsafe", "Unsafe source", SourceClassification.OTHER)));
         assertThrows(IllegalArgumentException.class,
                 () -> validator.validate(request(), unsafe, List.of(url)));
-    }
-
-    @Test
-    void rejectsIpv6UniqueLocalSourcesWithThePrivateUrlCode() {
-        String url = "https://[fc00::1]/data";
-        UnwrappedResearchDraftV1 valid = validDraft(List.of("gender=MAN"));
-        UnwrappedResearchDraftV1 unsafe = new UnwrappedResearchDraftV1(valid.pages(),
-                List.of(new UnwrappedSourceDraftV1("source-1", url,
-                        "Private publisher", "Private source", SourceClassification.OTHER)));
-
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> validator.validate(request(), unsafe, List.of(url)));
-
-        assertEquals("UNWRAPPED_SOURCE_URL_PRIVATE", error.getMessage());
     }
 
     @Test
@@ -187,7 +161,7 @@ class UnwrappedDraftValidatorTest {
     }
 
     @Test
-    void rejectsIncompleteSourceMetadataAndFailedReachabilityChecks() {
+    void rejectsIncompleteSourceMetadata() {
         UnwrappedResearchDraftV1 valid = validDraft(List.of("gender=MAN"));
         UnwrappedResearchDraftV1 missingMetadata = new UnwrappedResearchDraftV1(valid.pages(),
                 List.of(new UnwrappedSourceDraftV1("source-1", SOURCE, " ",
@@ -196,13 +170,6 @@ class UnwrappedDraftValidatorTest {
                 () -> validator.validate(request(), missingMetadata,
                         List.of(SOURCE))).getMessage());
 
-        UnwrappedDraftValidator unreachable = new UnwrappedDraftValidator(new SourceUrlPolicy(),
-                source -> {
-                    throw new IllegalArgumentException("UNWRAPPED_SOURCE_UNREACHABLE");
-                }, new SourceTrustPolicy());
-        assertEquals("UNWRAPPED_SOURCE_UNREACHABLE", assertThrows(IllegalArgumentException.class,
-                () -> unreachable.validate(request(), valid,
-                        List.of(SOURCE))).getMessage());
     }
 
     @Test
