@@ -244,7 +244,9 @@ export function UnwrappedAnalysisPosts({
                         type="button"
                         disabled={generatingPostId !== null || action.disabled}
                         onClick={() => void generate(post.postId)}
-                        aria-label={`Run analysis for post ${post.postId}`}
+                        aria-label={state === "FAILED"
+                          ? `Retry analysis for post ${post.postId}`
+                          : `Run analysis for post ${post.postId}`}
                       >
                         {generatingPostId === post.postId ? "Queuing…" : action.button}
                       </button>
@@ -328,8 +330,8 @@ function generationAction(
   if (state === "FAILED") return {
     label: "Generation failed",
     detail: status?.errorMessage ?? "Check the post-service logs for the failure details.",
-    button: "Failed",
-    disabled: true,
+    button: "Retry analysis",
+    disabled: false,
     emphasis: false,
   };
   if (workerAvailable === false) return {

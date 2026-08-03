@@ -211,6 +211,51 @@ describe("UnwrappedReviewDesk", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Progress updates automatically");
   });
 
+  it("allows an administrator to retry a failed generation", async () => {
+    const user = userEvent.setup();
+    const generate = vi.fn().mockResolvedValue({
+      postId: 42,
+      status: "RECONCILIATION_QUEUED",
+    });
+
+    render(
+      <UnwrappedReviewDesk
+        reviews={[]}
+        posts={[analysisPost]}
+        postsError={null}
+        error={null}
+        actingStoryId={null}
+        generatingPostId={null}
+        generationError={null}
+        generationMonitor={{
+          workerAvailable: true,
+          refreshedAt: "2026-07-28T10:01:00Z",
+          statuses: [{
+            postId: 42,
+            state: "FAILED",
+            queuedJobs: 0,
+            generatingJobs: 0,
+            readyJobs: 0,
+            failedJobs: 1,
+            updatedAt: "2026-07-28T10:00:00Z",
+            errorMessage: "Pepper could not build this story.",
+          }],
+        }}
+        onReload={vi.fn()}
+        onReloadPosts={vi.fn()}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+        onGenerate={generate}
+      />,
+    );
+
+    const retry = screen.getByRole("button", { name: "Retry analysis for post 42" });
+    expect(retry).toBeEnabled();
+    await user.click(retry);
+
+    expect(generate).toHaveBeenCalledWith(42);
+  });
+
   it("pins the first milestone boundary and filters the post ledger", async () => {
     const user = userEvent.setup();
     const belowMilestone = {
