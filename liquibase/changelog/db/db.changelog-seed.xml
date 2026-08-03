@@ -9,4 +9,5 @@
     <includeAll path="user-seeding" relativeToChangelogFile="true"/>
     <include file="seeding/0000-reset-seed-data.xml" relativeToChangelogFile="true"/>
     <include file="seeding/0010-seed-curated-posts.xml" relativeToChangelogFile="true"/>
+    <include file="seeding/0011-clear-seeded-unwrapped-queue.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
