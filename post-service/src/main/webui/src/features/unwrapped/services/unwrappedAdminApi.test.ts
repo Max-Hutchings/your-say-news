@@ -7,6 +7,7 @@ vi.mock("../../auth", () => ({
 import {
   approveUnwrappedStory,
   getUnwrappedAnalysisPosts,
+  getUnwrappedGenerationMonitor,
   triggerUnwrappedGeneration,
   getUnwrappedReviewQueue,
   rejectUnwrappedStory,
@@ -25,7 +26,7 @@ describe("unwrappedAdminApi", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getUnwrappedReviewQueue()).resolves.toEqual([]);
-    expect(fetchMock).toHaveBeenCalledWith("/admin/unwrapped/review", expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/unwrapped/review", expect.objectContaining({
       headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
     }));
   });
@@ -47,7 +48,28 @@ describe("unwrappedAdminApi", () => {
 
     await expect(getUnwrappedAnalysisPosts()).resolves.toEqual(posts);
     expect(fetchMock).toHaveBeenCalledWith(
-      "/admin/unwrapped/posts?page=0&size=50",
+      "/api/admin/unwrapped/posts?page=0&size=50",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+      }),
+    );
+  });
+
+  it("loads persistent generation progress", async () => {
+    const monitor = {
+      workerAvailable: false,
+      refreshedAt: "2026-07-28T10:01:00Z",
+      statuses: [{ postId: 42, state: "QUEUED", queuedJobs: 1 }],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(monitor), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getUnwrappedGenerationMonitor()).resolves.toEqual(monitor);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/admin/unwrapped/generation-status",
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
       }),
@@ -75,12 +97,12 @@ describe("unwrappedAdminApi", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "/admin/unwrapped/story-1/approve",
+      "/api/admin/unwrapped/story-1/approve",
       expect.objectContaining({ method: "POST" }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "/admin/unwrapped/story-1/reject",
+      "/api/admin/unwrapped/story-1/reject",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ reason: "Needs a primary source." }),
@@ -124,7 +146,7 @@ describe("unwrappedAdminApi", () => {
 
     await expect(triggerUnwrappedGeneration(42)).resolves.toEqual(trigger);
     expect(fetchMock).toHaveBeenCalledWith(
-      "/admin/unwrapped/posts/42/generate",
+      "/api/admin/unwrapped/posts/42/generate",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),

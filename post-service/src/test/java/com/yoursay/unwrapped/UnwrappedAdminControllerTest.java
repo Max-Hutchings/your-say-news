@@ -29,6 +29,24 @@ class UnwrappedAdminControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void adminViteOriginCanTriggerGeneration() throws Exception {
+        TestPost post = createPost();
+        try {
+            given()
+                    .header("Origin", "http://localhost:8083")
+                    .when().post("/api/admin/unwrapped/posts/" + post.id() + "/generate")
+                    .then()
+                    .statusCode(202)
+                    .header("Access-Control-Allow-Origin", "http://localhost:8083")
+                    .body("postId", equalTo((int) post.id()))
+                    .body("status", equalTo("RECONCILIATION_QUEUED"));
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
     void adminPostDeskShowsPostDetailsAndExactOverallVoteSplitWithoutVoterData() throws Exception {
         TestPost post = createPost();
         try {
@@ -38,7 +56,7 @@ class UnwrappedAdminControllerTest {
             List<Map<String, Object>> posts = given()
                     .queryParam("page", 0)
                     .queryParam("size", 50)
-                    .when().get("/admin/unwrapped/posts")
+                    .when().get("/api/admin/unwrapped/posts")
                     .then()
                     .statusCode(200)
                     .extract().jsonPath().getList("$");
@@ -93,17 +111,17 @@ class UnwrappedAdminControllerTest {
 
             List<Integer> firstPage = given()
                     .queryParam("page", 0).queryParam("size", 1)
-                    .when().get("/admin/unwrapped/posts")
+                    .when().get("/api/admin/unwrapped/posts")
                     .then().statusCode(200)
                     .extract().jsonPath().getList("postId");
             List<Integer> secondPage = given()
                     .queryParam("page", 1).queryParam("size", 1)
-                    .when().get("/admin/unwrapped/posts")
+                    .when().get("/api/admin/unwrapped/posts")
                     .then().statusCode(200)
                     .extract().jsonPath().getList("postId");
             List<Integer> emptyPage = given()
                     .queryParam("page", 10_000).queryParam("size", 1)
-                    .when().get("/admin/unwrapped/posts")
+                    .when().get("/api/admin/unwrapped/posts")
                     .then().statusCode(200)
                     .extract().jsonPath().getList("postId");
 
@@ -122,7 +140,7 @@ class UnwrappedAdminControllerTest {
         TestPost post = createPost();
         try {
             insertVotes(post, 100);
-            String path = "/admin/unwrapped/posts/" + post.id() + "/generate";
+            String path = "/api/admin/unwrapped/posts/" + post.id() + "/generate";
 
             given()
                     .when().post(path)
@@ -165,13 +183,43 @@ class UnwrappedAdminControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void generationMonitorShowsQueuedWorkAndUnavailableWorkerWithoutExposingConfiguration() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotes(post, 100);
+            given().when().post("/api/admin/unwrapped/posts/" + post.id() + "/generate")
+                    .then().statusCode(202);
+
+            Map<String, Object> monitor = given()
+                    .when().get("/api/admin/unwrapped/generation-status")
+                    .then().statusCode(200)
+                    .extract().jsonPath().getMap("$");
+
+            assertEquals(false, monitor.get("workerAvailable"));
+            assertEquals(Set.of("workerAvailable", "refreshedAt", "statuses"), monitor.keySet());
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> statuses = (List<Map<String, Object>>) monitor.get("statuses");
+            Map<String, Object> status = statuses.stream()
+                    .filter(candidate -> ((Number) candidate.get("postId")).longValue() == post.id())
+                    .findFirst().orElseThrow();
+            assertEquals("QUEUED", status.get("state"));
+            assertEquals(1, ((Number) status.get("queuedJobs")).intValue());
+            assertEquals(null, status.get("errorMessage"));
+            assertFalse(monitor.toString().contains("api-key"));
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
     void manualTriggerDoesNotBypassTheNormalVoteMilestone() throws Exception {
         TestPost post = createPost();
         try {
             insertVotes(post, 99);
 
             given()
-                    .when().post("/admin/unwrapped/posts/" + post.id() + "/generate")
+                    .when().post("/api/admin/unwrapped/posts/" + post.id() + "/generate")
                     .then()
                     .statusCode(202)
                     .body("postId", equalTo((int) post.id()))
@@ -190,7 +238,7 @@ class UnwrappedAdminControllerTest {
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
     void unknownPostDoesNotCreateAJob() throws Exception {
         given()
-                .when().post("/admin/unwrapped/posts/999999/generate")
+                .when().post("/api/admin/unwrapped/posts/999999/generate")
                 .then()
                 .statusCode(404)
                 .body("code", equalTo("UNWRAPPED_POST_NOT_FOUND"));
@@ -202,7 +250,7 @@ class UnwrappedAdminControllerTest {
     @TestSecurity(user = "reader@yoursay.com", roles = "user")
     void nonAdminCannotTriggerGeneration() {
         given()
-                .when().post("/admin/unwrapped/posts/1/generate")
+                .when().post("/api/admin/unwrapped/posts/1/generate")
                 .then()
                 .statusCode(403);
     }
@@ -211,7 +259,11 @@ class UnwrappedAdminControllerTest {
     @TestSecurity(user = "reader@yoursay.com", roles = "user")
     void nonAdminCannotReadThePostAnalysisDesk() {
         given()
-                .when().get("/admin/unwrapped/posts")
+                .when().get("/api/admin/unwrapped/posts")
+                .then()
+                .statusCode(403);
+        given()
+                .when().get("/api/admin/unwrapped/generation-status")
                 .then()
                 .statusCode(403);
     }

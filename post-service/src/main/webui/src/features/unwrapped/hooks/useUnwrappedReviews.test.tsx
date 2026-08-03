@@ -8,6 +8,7 @@ vi.mock("../services/unwrappedAdminApi", async (importOriginal) => {
     ...original,
     approveUnwrappedStory: vi.fn(),
     getUnwrappedAnalysisPosts: vi.fn(),
+    getUnwrappedGenerationMonitor: vi.fn(),
     getUnwrappedReviewQueue: vi.fn(),
     rejectUnwrappedStory: vi.fn(),
     triggerUnwrappedGeneration: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock("../services/unwrappedAdminApi", async (importOriginal) => {
 import {
   approveUnwrappedStory,
   getUnwrappedAnalysisPosts,
+  getUnwrappedGenerationMonitor,
   getUnwrappedReviewQueue,
   triggerUnwrappedGeneration,
 } from "../services/unwrappedAdminApi";
@@ -50,6 +52,11 @@ describe("useUnwrappedReviews", () => {
     vi.clearAllMocks();
     vi.mocked(getUnwrappedReviewQueue).mockResolvedValue([review]);
     vi.mocked(getUnwrappedAnalysisPosts).mockResolvedValue([post]);
+    vi.mocked(getUnwrappedGenerationMonitor).mockResolvedValue({
+      workerAvailable: true,
+      refreshedAt: "2026-07-28T10:01:00Z",
+      statuses: [],
+    });
     vi.mocked(triggerUnwrappedGeneration).mockResolvedValue({
       postId: 42,
       status: "RECONCILIATION_QUEUED",
@@ -71,6 +78,7 @@ describe("useUnwrappedReviews", () => {
 
     expect(triggerUnwrappedGeneration).toHaveBeenCalledWith(42);
     expect(getUnwrappedReviewQueue).toHaveBeenCalledTimes(2);
+    expect(getUnwrappedGenerationMonitor).toHaveBeenCalledTimes(2);
     expect(result.current.generatingPostId).toBeNull();
     expect(result.current.generationError).toBeNull();
   });

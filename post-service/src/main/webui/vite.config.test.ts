@@ -8,7 +8,7 @@ describe("admin development routing", () => {
     expect(config.base).toBe("/admin/");
     expect(config.server?.proxy).toEqual({
       "/api/admin/users": "http://localhost:8082",
-      "/admin/unwrapped": "http://localhost:8082",
+      "/api/admin/unwrapped": "http://localhost:8082",
     });
     expect(Object.keys(config.server?.proxy ?? {})).not.toContain("/admin/users");
   });
@@ -18,7 +18,7 @@ describe("admin development routing", () => {
 
     expect(config.server.proxy).toEqual({
       "/api/admin/users": "http://localhost:58082",
-      "/admin/unwrapped": "http://localhost:58082",
+      "/api/admin/unwrapped": "http://localhost:58082",
     });
     expect(config.server.port).toBe(58083);
   });

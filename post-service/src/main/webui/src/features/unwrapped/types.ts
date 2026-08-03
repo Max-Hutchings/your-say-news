@@ -47,6 +47,30 @@ export type UnwrappedGenerationTrigger = {
   status: "RECONCILIATION_QUEUED";
 };
 
+export type UnwrappedGenerationState =
+  | "NOT_STARTED"
+  | "QUEUED"
+  | "GENERATING"
+  | "READY_FOR_REVIEW"
+  | "FAILED";
+
+export type UnwrappedGenerationStatus = {
+  postId: number;
+  state: UnwrappedGenerationState;
+  queuedJobs: number;
+  generatingJobs: number;
+  readyJobs: number;
+  failedJobs: number;
+  updatedAt: string | null;
+  errorMessage: string | null;
+};
+
+export type UnwrappedGenerationMonitor = {
+  workerAvailable: boolean;
+  refreshedAt: string;
+  statuses: UnwrappedGenerationStatus[];
+};
+
 export type UnwrappedAdminVoteOption = {
   optionId: number;
   label: string;

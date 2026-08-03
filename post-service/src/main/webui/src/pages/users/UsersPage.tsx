@@ -173,6 +173,7 @@ export function UsersPage() {
             actingStoryId={unwrapped.actingStoryId}
             generatingPostId={unwrapped.generatingPostId}
             generationError={unwrapped.generationError}
+            generationMonitor={unwrapped.generationMonitor}
             onReload={unwrapped.load}
             onReloadPosts={unwrapped.loadPosts}
             onApprove={unwrapped.approve}

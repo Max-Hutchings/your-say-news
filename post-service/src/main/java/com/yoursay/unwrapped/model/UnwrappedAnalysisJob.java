@@ -90,6 +90,16 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
     public Long getCanonicalVoteCount() { return canonicalVoteCount; }
     public JsonNode getAggregateJson() { return aggregateJson; }
     public String getAggregateVersion() { return aggregateVersion; }
+    public String getErrorMessage() { return errorMessage; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getStartedAt() { return startedAt; }
+    public Instant getCompletedAt() { return completedAt; }
+
+    public Instant lastActivityAt() {
+        if (completedAt != null) return completedAt;
+        if (startedAt != null) return startedAt;
+        return createdAt;
+    }
 
     public void claim() {
         status = UnwrappedJobStatus.GENERATING;

@@ -15,7 +15,7 @@ export function createAdminViteConfig(
       strictPort: true,
       proxy: {
         "/api/admin/users": adminApiOrigin,
-        "/admin/unwrapped": adminApiOrigin,
+        "/api/admin/unwrapped": adminApiOrigin,
       },
     },
     test: {

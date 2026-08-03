@@ -126,6 +126,11 @@ describe("UsersPage", () => {
       actingStoryId: null,
       generatingPostId: null,
       generationError: null,
+      generationMonitor: {
+        workerAvailable: true,
+        refreshedAt: "2026-07-28T10:01:00Z",
+        statuses: [],
+      },
       posts: [unwrappedPost],
       postsError: null,
       load: vi.fn(),

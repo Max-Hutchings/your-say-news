@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import type {
   UnwrappedAdminPost,
+  UnwrappedGenerationMonitor,
+  UnwrappedGenerationState,
+  UnwrappedGenerationStatus,
   UnwrappedGenerationTrigger,
   UnwrappedReviewError,
 } from "../types";
@@ -12,6 +15,7 @@ type UnwrappedAnalysisPostsProps = {
   error: UnwrappedReviewError | null;
   generatingPostId: number | null;
   generationError: UnwrappedReviewError | null;
+  generationMonitor: UnwrappedGenerationMonitor | null;
   onReload: () => Promise<void>;
   onGenerate: (postId: number) => Promise<UnwrappedGenerationTrigger>;
 };
@@ -23,12 +27,12 @@ export function UnwrappedAnalysisPosts({
   error,
   generatingPostId,
   generationError,
+  generationMonitor,
   onReload,
   onGenerate,
 }: UnwrappedAnalysisPostsProps) {
   const [query, setQuery] = useState("");
   const [eligibility, setEligibility] = useState<EligibilityFilter>("ALL");
-  const [queuedPostId, setQueuedPostId] = useState<number | null>(null);
 
   const filteredPosts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -53,11 +57,19 @@ export function UnwrappedAnalysisPosts({
     votes: posts?.reduce((sum, post) => sum + post.canonicalVoteCount, 0) ?? 0,
   }), [posts]);
 
+  const statusByPost = useMemo(() => new Map(
+    generationMonitor?.statuses.map((status) => [status.postId, status]) ?? [],
+  ), [generationMonitor]);
+
+  const activeTotals = useMemo(() => ({
+    queued: generationMonitor?.statuses.filter((status) => status.state === "QUEUED").length ?? 0,
+    generating: generationMonitor?.statuses.filter((status) => status.state === "GENERATING").length ?? 0,
+    failed: generationMonitor?.statuses.filter((status) => status.state === "FAILED").length ?? 0,
+  }), [generationMonitor]);
+
   const generate = async (postId: number) => {
-    setQueuedPostId(null);
     try {
       await onGenerate(postId);
-      setQueuedPostId(postId);
     } catch {
       // The request error is rendered above the ledger with retry guidance.
     }
@@ -81,6 +93,34 @@ export function UnwrappedAnalysisPosts({
         <div><dt>Ready at 100+</dt><dd>{totals.eligible}</dd></div>
         <div><dt>Votes shown</dt><dd>{totals.votes.toLocaleString("en-GB")}</dd></div>
       </dl>
+
+      <div
+        className={generationMonitor?.workerAvailable === false
+          ? "generation-monitor generation-monitor--paused"
+          : "generation-monitor"}
+        aria-live="polite"
+      >
+        <span className="generation-monitor__signal" aria-hidden="true" />
+        <div>
+          <strong>
+            {generationMonitor === null
+              ? "Checking generation worker…"
+              : generationMonitor.workerAvailable
+                ? "Generation worker online"
+                : "Generation paused — API key unavailable"}
+          </strong>
+          <p>
+            {generationMonitor?.workerAvailable === false
+              ? "Queued work will not start until post-service is restarted with UNWRAPPED_API_KEY, YOUR_SAY_NEWS_GROK_API_KEY or XAI_API_KEY."
+              : "This page checks progress automatically every four seconds."}
+          </p>
+        </div>
+        <dl aria-label="Generation progress totals">
+          <div><dt>Generating</dt><dd>{activeTotals.generating}</dd></div>
+          <div><dt>Queued</dt><dd>{activeTotals.queued}</dd></div>
+          <div><dt>Failed</dt><dd>{activeTotals.failed}</dd></div>
+        </dl>
+      </div>
 
       <div className="analysis-tools" aria-label="Post filters">
         <label className="analysis-search">
@@ -139,7 +179,16 @@ export function UnwrappedAnalysisPosts({
           <ol>
             {filteredPosts.map((post) => {
               const ready = post.canonicalVoteCount >= FIRST_MILESTONE;
-              const queued = queuedPostId === post.postId;
+              const status = statusByPost.get(post.postId);
+              const state = status?.state ?? "NOT_STARTED";
+              const busy = state === "QUEUED" || state === "GENERATING";
+              const action = generationAction(
+                state,
+                ready,
+                post.canonicalVoteCount,
+                generationMonitor?.workerAvailable,
+                status,
+              );
               return (
                 <li key={post.postId}>
                   <article className={ready ? "analysis-row analysis-row--ready" : "analysis-row"}>
@@ -186,21 +235,20 @@ export function UnwrappedAnalysisPosts({
                       <span>votes</span>
                     </div>
 
-                    <div className="analysis-row__action">
-                      <span className={ready ? "analysis-readiness analysis-readiness--ready" : "analysis-readiness"}>
-                        {ready
-                          ? "Ready to analyse"
-                          : votesToMilestone(post.canonicalVoteCount)}
+                    <div className={`analysis-row__action analysis-row__action--${state.toLowerCase()}`}>
+                      <span className={action.emphasis ? "analysis-readiness analysis-readiness--ready" : "analysis-readiness"}>
+                        {action.label}
                       </span>
+                      <small>{action.detail}</small>
                       <button
                         type="button"
-                        disabled={generatingPostId !== null}
+                        disabled={generatingPostId !== null || action.disabled}
                         onClick={() => void generate(post.postId)}
                         aria-label={`Run analysis for post ${post.postId}`}
                       >
-                        {generatingPostId === post.postId ? "Queuing…" : "Run analysis"}
+                        {generatingPostId === post.postId ? "Queuing…" : action.button}
                       </button>
-                      {queued ? <span className="analysis-queued" role="status">Milestone check queued</span> : null}
+                      {busy ? <span className="analysis-progress-pulse" role="status">Progress updates automatically</span> : null}
                     </div>
                   </article>
                 </li>
@@ -238,4 +286,64 @@ function splitLabel(post: UnwrappedAdminPost) {
 function votesToMilestone(voteCount: number) {
   const remaining = FIRST_MILESTONE - voteCount;
   return `${remaining} ${remaining === 1 ? "vote" : "votes"} to go`;
+}
+
+function generationAction(
+  state: UnwrappedGenerationState,
+  eligible: boolean,
+  voteCount: number,
+  workerAvailable: boolean | undefined,
+  status: UnwrappedGenerationStatus | undefined,
+) {
+  if (!eligible) {
+    return {
+      label: votesToMilestone(voteCount),
+      detail: "Analysis unlocks at 100 votes.",
+      button: "Not eligible",
+      disabled: true,
+      emphasis: false,
+    };
+  }
+  if (state === "QUEUED") return {
+    label: "Queued for analysis",
+    detail: "Waiting for a generation worker to pick this up.",
+    button: "Queued",
+    disabled: true,
+    emphasis: true,
+  };
+  if (state === "GENERATING") return {
+    label: "Generating now",
+    detail: "Researching sources and writing the draft. This normally takes a few minutes.",
+    button: "Generating…",
+    disabled: true,
+    emphasis: true,
+  };
+  if (state === "READY_FOR_REVIEW") return {
+    label: "Draft ready for review",
+    detail: "The generated draft is in the review queue below.",
+    button: "Generated",
+    disabled: true,
+    emphasis: true,
+  };
+  if (state === "FAILED") return {
+    label: "Generation failed",
+    detail: status?.errorMessage ?? "Check the post-service logs for the failure details.",
+    button: "Failed",
+    disabled: true,
+    emphasis: false,
+  };
+  if (workerAvailable === false) return {
+    label: "Worker unavailable",
+    detail: "Configure the API key and restart post-service before starting analysis.",
+    button: "Unavailable",
+    disabled: true,
+    emphasis: false,
+  };
+  return {
+    label: "Ready to analyse",
+    detail: "Starts the milestone check and generation queue.",
+    button: "Run analysis",
+    disabled: false,
+    emphasis: true,
+  };
 }

@@ -4,6 +4,7 @@ import com.yoursay.unwrapped.dto.RejectStoryRequest;
 import com.yoursay.unwrapped.dto.ReviewStoryDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
+import com.yoursay.unwrapped.dto.UnwrappedGenerationMonitorDto;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.NonBlocking;
@@ -27,7 +28,7 @@ import org.jboss.resteasy.reactive.ResponseStatus;
 import java.util.List;
 import java.util.UUID;
 
-@Path("/admin/unwrapped")
+@Path("/api/admin/unwrapped")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 @RolesAllowed("admin")
@@ -51,6 +52,13 @@ public class UnwrappedAdminController {
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("50") int size) {
         return service.analysisPosts(page, size);
+    }
+
+    @GET
+    @Path("/generation-status")
+    @RunOnVirtualThread
+    public UnwrappedGenerationMonitorDto generationStatus() {
+        return service.generationMonitor();
     }
 
     @GET

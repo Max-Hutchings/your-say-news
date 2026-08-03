@@ -11,6 +11,9 @@ import com.yoursay.unwrapped.dto.ReviewStoryDto;
 import com.yoursay.unwrapped.UnwrappedAvailabilityState;
 import com.yoursay.unwrapped.UnwrappedMilestoneService;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
+import com.yoursay.unwrapped.dto.UnwrappedGenerationMonitorDto;
+import com.yoursay.unwrapped.dto.UnwrappedGenerationState;
+import com.yoursay.unwrapped.dto.UnwrappedGenerationStatusDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminVoteOptionDto;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
@@ -19,6 +22,8 @@ import com.yoursay.unwrapped.UnwrappedService;
 import com.yoursay.unwrapped.dto.UnwrappedStoryDto;
 import com.yoursay.unwrapped.error.UnwrappedApiException;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJobRepository;
+import com.yoursay.unwrapped.model.UnwrappedAnalysisJob;
+import com.yoursay.unwrapped.model.UnwrappedJobStatus;
 import com.yoursay.unwrapped.model.UnwrappedFollowUp;
 import com.yoursay.unwrapped.model.UnwrappedFollowUpRepository;
 import com.yoursay.unwrapped.model.UnwrappedReviewStatus;
@@ -33,10 +38,14 @@ import com.yoursay.votes.PostAnalysisAggregateService;
 import com.yoursay.votes.VoteService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +56,7 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class UnwrappedServiceImpl implements UnwrappedService {
     private static final long MINIMUM_OBSERVED_VOTES = 100;
+    private static final String API_KEY_NOT_CONFIGURED = "__not_configured__";
 
     @Inject
     VoteService voteService;
@@ -68,6 +78,10 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     ObjectMapper objectMapper;
     @Inject
     UnwrappedMilestoneService milestoneService;
+    @Inject
+    EntityManager entityManager;
+    @ConfigProperty(name = "unwrapped.agent.api-key", defaultValue = API_KEY_NOT_CONFIGURED)
+    String apiKey;
 
     @Override
     public UnwrappedResponseDto get(Long postId, String callerEmail, String authorization) {
@@ -143,6 +157,29 @@ public class UnwrappedServiceImpl implements UnwrappedService {
         return postReader.getRecent(page, size)
                 .emitOn(Infrastructure.getDefaultWorkerPool())
                 .map(posts -> posts.stream().map(this::toAdminPost).toList());
+    }
+
+    @Override
+    public UnwrappedGenerationMonitorDto generationMonitor() {
+        Map<Long, GenerationProgress> progress = new HashMap<>();
+        for (UnwrappedAnalysisJob job : jobRepository.listAll()) {
+            progress.computeIfAbsent(job.getPostId(), ignored -> new GenerationProgress())
+                    .add(job);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> reconciliations = entityManager.createNativeQuery(
+                "select post_id, dirty_at from unwrapped_reconciliation").getResultList();
+        for (Object[] row : reconciliations) {
+            progress.computeIfAbsent(((Number) row[0]).longValue(), ignored -> new GenerationProgress())
+                    .addReconciliation((Instant) row[1]);
+        }
+
+        List<UnwrappedGenerationStatusDto> statuses = progress.entrySet().stream()
+                .map(entry -> entry.getValue().toDto(entry.getKey()))
+                .sorted((left, right) -> compareActivity(right.updatedAt(), left.updatedAt()))
+                .toList();
+        return new UnwrappedGenerationMonitorDto(workerAvailable(), Instant.now(), statuses);
     }
 
     @Override
@@ -232,6 +269,68 @@ public class UnwrappedServiceImpl implements UnwrappedService {
         return new FollowUpResponseDto(value.getId(), value.getPostId(), value.getStoryId(),
                 value.getOriginalOptionId(), value.getFollowUpOptionId(),
                 !value.getOriginalOptionId().equals(value.getFollowUpOptionId()), value.getCreatedAt());
+    }
+
+    private boolean workerAvailable() {
+        return apiKey != null && !apiKey.isBlank() && !API_KEY_NOT_CONFIGURED.equals(apiKey);
+    }
+
+    private static int compareActivity(Instant left, Instant right) {
+        if (left == null && right == null) return 0;
+        if (left == null) return -1;
+        if (right == null) return 1;
+        return left.compareTo(right);
+    }
+
+    private static final class GenerationProgress {
+        private int queued;
+        private int generating;
+        private int ready;
+        private int failed;
+        private Instant updatedAt;
+        private UnwrappedAnalysisJob latestFinished;
+
+        void add(UnwrappedAnalysisJob job) {
+            switch (job.getStatus()) {
+                case PENDING -> queued++;
+                case GENERATING -> generating++;
+                case DRAFT_READY -> ready++;
+                case FAILED -> failed++;
+            }
+            Instant activity = job.lastActivityAt();
+            if (updatedAt == null || activity.isAfter(updatedAt)) updatedAt = activity;
+            if ((job.getStatus() == UnwrappedJobStatus.DRAFT_READY
+                    || job.getStatus() == UnwrappedJobStatus.FAILED)
+                    && (latestFinished == null
+                    || activity.isAfter(latestFinished.lastActivityAt()))) {
+                latestFinished = job;
+            }
+        }
+
+        void addReconciliation(Instant dirtyAt) {
+            queued++;
+            if (updatedAt == null || dirtyAt.isAfter(updatedAt)) updatedAt = dirtyAt;
+        }
+
+        UnwrappedGenerationStatusDto toDto(Long postId) {
+            UnwrappedGenerationState state;
+            if (generating > 0) {
+                state = UnwrappedGenerationState.GENERATING;
+            } else if (queued > 0) {
+                state = UnwrappedGenerationState.QUEUED;
+            } else if (latestFinished != null
+                    && latestFinished.getStatus() == UnwrappedJobStatus.FAILED) {
+                state = UnwrappedGenerationState.FAILED;
+            } else if (ready > 0) {
+                state = UnwrappedGenerationState.READY_FOR_REVIEW;
+            } else {
+                state = UnwrappedGenerationState.NOT_STARTED;
+            }
+            String error = state == UnwrappedGenerationState.FAILED
+                    ? latestFinished.getErrorMessage() : null;
+            return new UnwrappedGenerationStatusDto(postId, state, queued, generating, ready,
+                    failed, updatedAt, error);
+        }
     }
 
 }

@@ -50,6 +50,12 @@ const analysisPost = {
   ],
 };
 
+const generationMonitor = {
+  workerAvailable: true,
+  refreshedAt: "2026-07-28T10:01:00Z",
+  statuses: [],
+};
+
 describe("UnwrappedReviewDesk", () => {
   it("shows the full proof and approves the selected publication", async () => {
     const user = userEvent.setup();
@@ -64,6 +70,7 @@ describe("UnwrappedReviewDesk", () => {
         actingStoryId={null}
         generatingPostId={null}
         generationError={null}
+        generationMonitor={generationMonitor}
         onReload={vi.fn()}
         onReloadPosts={vi.fn()}
         onApprove={approve}
@@ -102,6 +109,7 @@ describe("UnwrappedReviewDesk", () => {
         actingStoryId={null}
         generatingPostId={null}
         generationError={null}
+        generationMonitor={generationMonitor}
         onReload={vi.fn()}
         onReloadPosts={vi.fn()}
         onApprove={vi.fn()}
@@ -142,6 +150,7 @@ describe("UnwrappedReviewDesk", () => {
         actingStoryId={null}
         generatingPostId={null}
         generationError={null}
+        generationMonitor={generationMonitor}
         onReload={vi.fn()}
         onReloadPosts={vi.fn()}
         onApprove={vi.fn()}
@@ -162,9 +171,44 @@ describe("UnwrappedReviewDesk", () => {
     await user.click(button);
 
     expect(generate).toHaveBeenCalledWith(42);
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Milestone check queued",
+  });
+
+  it("shows persistent queued progress and explains when generation is paused", () => {
+    render(
+      <UnwrappedReviewDesk
+        reviews={[]}
+        posts={[analysisPost]}
+        postsError={null}
+        error={null}
+        actingStoryId={null}
+        generatingPostId={null}
+        generationError={null}
+        generationMonitor={{
+          workerAvailable: false,
+          refreshedAt: "2026-07-28T10:01:00Z",
+          statuses: [{
+            postId: 42,
+            state: "QUEUED",
+            queuedJobs: 1,
+            generatingJobs: 0,
+            readyJobs: 0,
+            failedJobs: 0,
+            updatedAt: "2026-07-28T10:00:00Z",
+            errorMessage: null,
+          }],
+        }}
+        onReload={vi.fn()}
+        onReloadPosts={vi.fn()}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+        onGenerate={vi.fn()}
+      />,
     );
+
+    expect(screen.getByText("Generation paused — API key unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Queued for analysis")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run analysis for post 42" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Progress updates automatically");
   });
 
   it("pins the first milestone boundary and filters the post ledger", async () => {
@@ -191,6 +235,7 @@ describe("UnwrappedReviewDesk", () => {
         actingStoryId={null}
         generatingPostId={null}
         generationError={null}
+        generationMonitor={generationMonitor}
         onReload={vi.fn()}
         onReloadPosts={vi.fn()}
         onApprove={vi.fn()}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   UnwrappedAdminPost,
   UnwrappedGenerationTrigger,
+  UnwrappedGenerationMonitor,
   UnwrappedReviewError,
   UnwrappedReviewStory,
 } from "../types";
@@ -16,6 +17,7 @@ type UnwrappedReviewDeskProps = {
   actingStoryId: string | null;
   generatingPostId: number | null;
   generationError: UnwrappedReviewError | null;
+  generationMonitor: UnwrappedGenerationMonitor | null;
   onReload: () => Promise<void>;
   onReloadPosts: () => Promise<void>;
   onApprove: (storyId: string) => Promise<UnwrappedReviewStory>;
@@ -31,6 +33,7 @@ export function UnwrappedReviewDesk({
   actingStoryId,
   generatingPostId,
   generationError,
+  generationMonitor,
   onReload,
   onReloadPosts,
   onApprove,
@@ -94,6 +97,7 @@ export function UnwrappedReviewDesk({
         error={postsError}
         generatingPostId={generatingPostId}
         generationError={generationError}
+        generationMonitor={generationMonitor}
         onReload={onReloadPosts}
         onGenerate={onGenerate}
       />

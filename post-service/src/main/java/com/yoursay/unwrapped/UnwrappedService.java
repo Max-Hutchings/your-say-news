@@ -3,6 +3,7 @@ package com.yoursay.unwrapped;
 import com.yoursay.unwrapped.dto.ReviewStoryDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
+import com.yoursay.unwrapped.dto.UnwrappedGenerationMonitorDto;
 
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 
@@ -19,7 +20,7 @@ import java.util.UUID;
  * <p>Only the Unwrapped REST controllers use this interface:</p>
  * <ul>
  *     <li>{@link UnwrappedAdminController} exposes the administrator review API under
- *     {@code /admin/unwrapped}.</li>
+     *     {@code /api/admin/unwrapped}.</li>
  *     <li>{@link UnwrappedController} exposes the voter journey under
  *     {@code /posts/{postId}/unwrapped}.</li>
  * </ul>
@@ -99,6 +100,9 @@ public interface UnwrappedService {
      * @return recent post context and exact aggregate vote splits
      */
     Uni<List<UnwrappedAdminPostDto>> analysisPosts(int page, int size);
+
+    /** Returns worker availability and persistent progress for active and completed generation jobs. */
+    UnwrappedGenerationMonitorDto generationMonitor();
 
     /**
      * Lists generated stories currently awaiting human review, oldest first.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   approveUnwrappedStory,
   getUnwrappedAnalysisPosts,
+  getUnwrappedGenerationMonitor,
   triggerUnwrappedGeneration,
   rejectUnwrappedStory,
   UnwrappedAdminApiError,
@@ -9,6 +10,7 @@ import {
 } from "../services/unwrappedAdminApi";
 import type {
   UnwrappedGenerationTrigger,
+  UnwrappedGenerationMonitor,
   UnwrappedAdminPost,
   UnwrappedReviewError,
   UnwrappedReviewStory,
@@ -22,6 +24,7 @@ export function useUnwrappedReviews() {
   const [generationError, setGenerationError] = useState<UnwrappedReviewError | null>(null);
   const [posts, setPosts] = useState<UnwrappedAdminPost[] | null>(null);
   const [postsError, setPostsError] = useState<UnwrappedReviewError | null>(null);
+  const [generationMonitor, setGenerationMonitor] = useState<UnwrappedGenerationMonitor | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -48,6 +51,20 @@ export function useUnwrappedReviews() {
   useEffect(() => {
     void loadPosts();
   }, [loadPosts]);
+
+  const loadGenerationMonitor = useCallback(async () => {
+    try {
+      setGenerationMonitor(await getUnwrappedGenerationMonitor());
+    } catch {
+      // Keep the last known state. The normal request errors remain visible separately.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadGenerationMonitor();
+    const interval = window.setInterval(() => void loadGenerationMonitor(), 4_000);
+    return () => window.clearInterval(interval);
+  }, [loadGenerationMonitor]);
 
   const act = useCallback(async (
     storyId: string,
@@ -83,7 +100,7 @@ export function useUnwrappedReviews() {
     setGenerationError(null);
     try {
       const trigger = await triggerUnwrappedGeneration(postId);
-      await load();
+      await Promise.all([load(), loadGenerationMonitor()]);
       return trigger;
     } catch (reason) {
       setGenerationError(toReviewError(reason));
@@ -91,7 +108,7 @@ export function useUnwrappedReviews() {
     } finally {
       setGeneratingPostId(null);
     }
-  }, [load]);
+  }, [load, loadGenerationMonitor]);
 
   return {
     reviews,
@@ -101,6 +118,7 @@ export function useUnwrappedReviews() {
     generationError,
     posts,
     postsError,
+    generationMonitor,
     load,
     loadPosts,
     approve,
