@@ -228,11 +228,10 @@ class UnwrappedDraftValidatorTest {
                         List.of(new CohortDimensionV1("gender", "MAN")),
                         CandidateRole.CORE_ANCHOR, "Broad core group", 50, 50,
                         35, 58.3, 70, 10, 20, 56, 81, 0.01)),
-                List.of("What official data explains the case?"), List.of("No causation"), null);
+                List.of("No causation"), null);
         OptionBriefV1 oppose = new OptionBriefV1(
                 new VoteOptionDto(102L, "Oppose", 1, "DISAGREE"), 40, 40,
-                List.of(), List.of("What official data explains the case?"),
-                List.of("No causation"), "No reliable concentration.");
+                List.of(), List.of("No causation"), "No reliable concentration.");
         return new UnwrappedResearchRequest(42L, "A factual policy summary.",
                 "Should the policy change?", "GB", 100, "sha256:fixture",
                 List.of(support, oppose));

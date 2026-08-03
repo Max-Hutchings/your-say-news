@@ -37,7 +37,6 @@ public class BoundedHybridInsightSelector implements InsightSelectionService {
                     ? "No reliable demographic concentration passes the versioned narration rules."
                     : null;
             return new OptionBriefV1(option, overall.count(), overall.percentage(), selected,
-                    researchQuestions(aggregate.question(), option.label(), selected),
                     PROHIBITED, insufficient);
         }).toList();
         return new UnwrappedAnalysisBriefV1("unwrapped-analysis-brief-v1", aggregate.postId(),
@@ -130,17 +129,6 @@ public class BoundedHybridInsightSelector implements InsightSelectionService {
                 stat.differenceFromRestPercentagePoints(), stat.wilson95Low(), stat.wilson95High(),
                 stat.adjustedQValue()));
         used.add(cohort.cohortId());
-    }
-
-    private static List<String> researchQuestions(String question, String option,
-                                                  List<SelectedCohortV1> selected) {
-        List<String> result = new ArrayList<>();
-        result.add("What current official data supports the strongest responsible case for '"
-                + option + "' on: " + question);
-        selected.forEach(cohort -> result.add(
-                "What credible evidence may contextualise " + cohort.cohortId()
-                        + " without claiming causation?"));
-        return List.copyOf(result);
     }
 
     private record Eligible(CohortAggregateV1 cohort, OptionStatisticV1 stat) {

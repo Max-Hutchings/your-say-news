@@ -440,7 +440,6 @@ For each option:
 - `observations`: exact Your Say aggregate statements;
 - `candidates`: each cohort's composition, propensity, over-index, sample, interval, q-value,
   relevance reason and candidate role;
-- `researchQuestions`: topics worth researching, derived from the post and selected cohorts;
 - `prohibitedInferences`: causation, representativeness and stereotypes the writer must avoid;
 - `insufficientEvidence`: explicit reason when no demographic claim is safe.
 
