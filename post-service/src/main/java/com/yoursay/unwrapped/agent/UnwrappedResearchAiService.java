@@ -1,7 +1,6 @@
 package com.yoursay.unwrapped.agent;
 
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
-import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import io.quarkiverse.langchain4j.RegisterAiService;
@@ -28,5 +27,5 @@ import io.quarkiverse.langchain4j.RegisterAiService;
         Return structured data only. Keep headlines, evidence, synthesis, and caveats concise.
         """)
 interface UnwrappedResearchAiService {
-    Result<UnwrappedResearchDraftV1> research(@UserMessage String brief);
+    UnwrappedResearchDraftV1 research(@UserMessage String brief);
 }

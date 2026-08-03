@@ -34,6 +34,19 @@ class UnwrappedDraftValidatorTest {
     }
 
     @Test
+    void acceptsRequiredNeutralPeopleWhoVotedCaveat() {
+        UnwrappedResearchDraftV1 valid = validDraft(List.of("gender=MAN"));
+        UnwrappedResearchDraftV1 neutralCaveat = new UnwrappedResearchDraftV1(
+                valid.pages().stream()
+                        .map(page -> new UnwrappedArgumentDraftV1(page.optionId(), page.headline(),
+                                page.usedCohortIds(), page.contextClaims(), page.synthesis(),
+                                "These observations describe only people who voted on this post."))
+                        .toList(), valid.sources());
+
+        assertDoesNotThrow(() -> validator.validate(request(), neutralCaveat, List.of(SOURCE)));
+    }
+
+    @Test
     void rejectsAnObservedCohortThatDeterministicCodeDidNotShortlist() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> validator.validate(request(),

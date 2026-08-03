@@ -212,6 +212,26 @@ class UnwrappedAdminControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void manualTriggerQueuesOnlyTheHighestMilestoneAlreadyReached() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotes(post, 550);
+
+            given().when().post("/api/admin/unwrapped/posts/" + post.id() + "/generate")
+                    .then().statusCode(202);
+            reconciliationWorker.reconcileOne();
+
+            assertEquals(1, jobCount(post.id()));
+            JobState job = jobState(post.id());
+            assertEquals(500, job.milestone());
+            assertEquals("PENDING", job.status());
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
     void generationMonitorShowsQueuedWorkAndUnavailableWorkerWithoutExposingConfiguration() throws Exception {
         TestPost post = createPost();
         try {

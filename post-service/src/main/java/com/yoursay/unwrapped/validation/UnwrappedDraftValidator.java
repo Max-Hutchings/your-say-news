@@ -59,8 +59,10 @@ public class UnwrappedDraftValidator {
             Set<String> allowed = brief.candidates().stream()
                     .map(candidate -> candidate.cohortId()).collect(Collectors.toSet());
             require(allowed.containsAll(used), "UNWRAPPED_INVENTED_COHORT");
-            require(containsAny(page.caveat(), "association", "sample", "voters on this post")
-                            && containsAny(page.caveat(), "does not", "cannot", "not prove"),
+            require(containsAny(page.caveat(), "association", "sample", "voters on this post",
+                            "people who voted on this post")
+                    && (containsAny(page.caveat(), "does not", "do not", "cannot", "not prove")
+                            || containsAny(page.caveat(), "only people who voted on this post")),
                     "UNWRAPPED_OBSERVED_CAVEAT");
         }
 
@@ -165,7 +167,7 @@ public class UnwrappedDraftValidator {
             "(caus(?:e|ed|es)|prov(?:e|ed|es)|made|drove|led|because)"
                     + ".{0,100}(vote|voted|chose|choice|support|oppose)"
                     + "|(men|women|people|voters|group|cohort|demographic|audience|gender)"
-                    + ".{0,100}(because|therefore|caus(?:e|ed|es)|made|drove|led|chose|voted)");
+                    + ".{0,100}(because|therefore|caus(?:e|ed|es)|made|drove|led)");
     private static final Pattern POPULATION_LANGUAGE = Pattern.compile(
             "(representative of|represents|mirrors|reflects).{0,60}"
                     + "(the )?(population|national opinion|public opinion|everyone)"

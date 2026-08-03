@@ -2,13 +2,14 @@ package com.yoursay.unwrapped.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
-import dev.langchain4j.service.Result;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import io.quarkus.logging.Log;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.ArrayList;
@@ -23,6 +24,9 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     UnwrappedResearchAiService aiService;
 
     @Inject
+    UnwrappedChatResponseCapture responseCapture;
+
+    @Inject
     ObjectMapper objectMapper;
 
     @Inject
@@ -34,27 +38,79 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     @ConfigProperty(name = "unwrapped.agent.model", defaultValue = "configured-model")
     String configuredModel;
 
+    @ConfigProperty(name = "unwrapped.agent.stubbed", defaultValue = "false")
+    boolean stubbed;
+
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request) {
+        if (stubbed) return stubbedResult(request);
         if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_NOT_CONFIGURED");
         }
+        responseCapture.begin();
         try {
-            Result<UnwrappedResearchDraftV1> result =
-                    aiService.research(objectMapper.writeValueAsString(request));
-            ChatResponse response = result.finalResponse();
-            if (response == null || result.content() == null) {
+            UnwrappedResearchDraftV1 draft = aiService.research(researchPrompt(request));
+            ChatResponse response = responseCapture.take();
+            if (response == null || draft == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
             }
             List<String> citations = citations(response);
-            validator.validate(request, result.content(), citations);
-            return new UnwrappedResearchResult(result.content(), citations,
+            Log.infof("Unwrapped provider draft received: postId=%d expectedOptions=%s returnedOptions=%s citations=%d",
+                    request.postId(), request.options().stream().map(option -> option.option().id()).toList(),
+                    draft.pages() == null ? null : draft.pages().stream()
+                            .map(page -> page == null ? null : page.optionId()).toList(), citations.size());
+            validator.validate(request, draft, citations);
+            return new UnwrappedResearchResult(draft, citations,
                     valueOr(response.modelName(), configuredModel), response.id());
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_FAILURE", e);
+        } finally {
+            responseCapture.clear();
         }
+    }
+
+    private UnwrappedResearchResult stubbedResult(UnwrappedResearchRequest request) {
+        List<UnwrappedArgumentDraftV1> pages = request.options().stream()
+                .map(option -> new UnwrappedArgumentDraftV1(
+                        option.option().id(),
+                        "Development preview for " + option.option().label(),
+                        option.candidates().stream()
+                                .limit(2)
+                                .map(candidate -> candidate.cohortId())
+                                .toList(),
+                        List.of(),
+                        "This fixed development result represents " + option.overallVoteCount()
+                                + " votes (" + option.overallVotePercentage()
+                                + "%) for this option without calling an external model.",
+                        "This association describes only people who voted on this post."))
+                .toList();
+        return new UnwrappedResearchResult(
+                new UnwrappedResearchDraftV1(pages, List.of()),
+                List.of(), "stubbed-unwrapped", "stub-post-" + request.postId());
+    }
+
+    private String researchPrompt(UnwrappedResearchRequest request) throws Exception {
+        List<Long> optionIds = request.options().stream()
+                .map(option -> option.option().id())
+                .toList();
+        return """
+                OUTPUT CONTRACT:
+                - Return exactly %d pages.
+                - Return pages in this exact optionId order: %s.
+                - Include every optionId exactly once; do not merge or omit options.
+                - Use only cohort IDs supplied under that option.
+                - Describe cohort patterns only as associations or cautious interpretations.
+                - Do not use these causal words anywhere: because, cause, caused, drove, led, made, chose.
+                - Never say that a cohort or demographic voted, supported, or opposed due to a characteristic.
+                - Research supporting context with web search and include its exact cited URLs in sources.
+                - Every caveat must include exactly: This association describes only people who voted on this post and does not represent any broader population.
+
+                INPUT JSON:
+                %s
+                """.formatted(optionIds.size(), optionIds,
+                objectMapper.writeValueAsString(request));
     }
 
     private List<String> citations(ChatResponse response) {
@@ -63,14 +119,24 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
             throw new IllegalStateException("UNWRAPPED_PROVIDER_CITATIONS_MISSING");
         }
         try {
-            JsonNode array = objectMapper.readTree(metadata.rawHttpResponse().body()).path("citations");
+            JsonNode root = objectMapper.readTree(metadata.rawHttpResponse().body());
             List<String> values = new ArrayList<>();
+            JsonNode array = root.path("citations");
             if (array.isArray()) {
                 array.forEach(item -> {
                     if (item.isTextual()) values.add(item.asText());
                 });
             }
-            return List.copyOf(values);
+            root.findValues("annotations").stream()
+                    .filter(JsonNode::isArray)
+                    .forEach(annotations -> annotations.forEach(annotation -> {
+                        JsonNode url = annotation.path("url");
+                        if (url.isTextual()) values.add(url.asText());
+                    }));
+            return values.stream()
+                    .filter(value -> value.startsWith("https://"))
+                    .distinct()
+                    .toList();
         } catch (Exception e) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_CITATIONS_INVALID", e);
         }

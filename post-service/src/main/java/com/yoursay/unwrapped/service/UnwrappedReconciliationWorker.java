@@ -50,13 +50,15 @@ public class UnwrappedReconciliationWorker {
         long count = ((Number) entityManager.createNativeQuery(
                 "select count(*) from votes where post_id = ?1")
                 .setParameter(1, postId).getSingleResult()).longValue();
-        for (Integer milestone : MILESTONES) {
-            if (count >= milestone && jobs.count(
-                    "postId = ?1 and milestone = ?2 and analysisVersion = ?3",
-                    postId, milestone, "unwrapped-analysis-v1") == 0) {
-                jobs.persist(new UnwrappedAnalysisJob(postId, milestone,
-                        "unwrapped-analysis-v1"));
-            }
+        Integer milestone = MILESTONES.reversed().stream()
+                .filter(candidate -> count >= candidate)
+                .findFirst()
+                .orElse(null);
+        if (milestone != null && jobs.count(
+                "postId = ?1 and milestone = ?2 and analysisVersion = ?3",
+                postId, milestone, "unwrapped-analysis-v1") == 0) {
+            jobs.persist(new UnwrappedAnalysisJob(postId, milestone,
+                    "unwrapped-analysis-v1"));
         }
         entityManager.createNativeQuery("delete from unwrapped_reconciliation where post_id = ?1")
                 .setParameter(1, postId).executeUpdate();
