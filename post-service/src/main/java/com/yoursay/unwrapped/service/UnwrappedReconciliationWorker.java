@@ -71,40 +71,4 @@ public class UnwrappedReconciliationWorker {
         jobs.staleClaims(cutoff).forEach(UnwrappedAnalysisJob::recoverStaleClaim);
     }
 
-    /**
-     * Performs a defence-in-depth, set-based backfill for milestones whose dirty marker was missed.
-     *
-     * <p>The CTE evaluates every configured milestone and atomically upserts the affected posts.
-     * Expressing this as Panache entity iteration would require loading rows into application
-     * memory, issue many statements, and still need conflict handling for concurrent workers.</p>
-     */
-    @Scheduled(identity = "unwrapped-milestone-backfill",
-            every = "${unwrapped.jobs.milestone-scan-interval:5m}", concurrentExecution = SKIP)
-    @RunOnVirtualThread
-    @Transactional
-    void enqueueMissedMilestones() {
-        entityManager.createNativeQuery("""
-                with vote_counts as (
-                    select post_id, count(*) as vote_count
-                    from votes
-                    group by post_id
-                ),
-                crossed as (
-                    select distinct counts.post_id
-                    from vote_counts counts
-                    cross join (values (100), (250), (500), (1000)) as configured(milestone)
-                    where counts.vote_count >= configured.milestone
-                      and not exists (
-                          select 1
-                          from unwrapped_analysis_job job
-                          where job.post_id = counts.post_id
-                            and job.milestone = configured.milestone
-                            and job.analysis_version = 'unwrapped-analysis-v1'
-                      )
-                )
-                insert into unwrapped_reconciliation(post_id, dirty_at)
-                select post_id, now() from crossed
-                on conflict (post_id) do update set dirty_at = excluded.dirty_at
-                """).executeUpdate();
-    }
 }

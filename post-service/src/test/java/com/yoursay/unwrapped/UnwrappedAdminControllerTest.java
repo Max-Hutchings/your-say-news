@@ -26,6 +26,8 @@ class UnwrappedAdminControllerTest {
     AgroalDataSource dataSource;
     @Inject
     UnwrappedReconciliationWorker reconciliationWorker;
+    @Inject
+    UnwrappedMilestoneService milestoneService;
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
@@ -40,6 +42,33 @@ class UnwrappedAdminControllerTest {
                     .header("Access-Control-Allow-Origin", "http://localhost:8083")
                     .body("postId", equalTo((int) post.id()))
                     .body("status", equalTo("RECONCILIATION_QUEUED"));
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void seededVoteTotalsStayIdleUntilAVoteOrAdminMarksThePost() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotes(post, 100);
+
+            assertEquals(0, reconciliationCount(post.id()));
+            assertEquals(0, jobCount(post.id()));
+            List<Map<String, Object>> statuses = given()
+                    .when().get("/api/admin/unwrapped/generation-status")
+                    .then().statusCode(200)
+                    .extract().jsonPath().getList("statuses");
+            assertFalse(statuses.stream().anyMatch(
+                    candidate -> ((Number) candidate.get("postId")).longValue() == post.id()));
+
+            milestoneService.markForReconciliation(post.id());
+            reconciliationWorker.reconcileOne();
+
+            assertEquals(0, reconciliationCount(post.id()));
+            assertEquals(1, jobCount(post.id()));
+            assertEquals("PENDING", jobState(post.id()).status());
         } finally {
             deletePost(post.id());
         }
