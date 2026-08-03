@@ -64,9 +64,12 @@ class UnwrappedAdminGenerationIntegrationTest {
                      insert into post(
                          user_id, summary, support_question, is_unbiased,
                          created_at, updated_at, voting_type, jurisdiction, case_for, case_against
-                     ) values (1, 'Integration generation summary', 'Should this be generated?',
+                     ) values (1,
+                         'A council is considering permits that cap street-performance hours and rotate busy pitches after residents complained about amplified evening music.',
+                         'Should street performers need a licence to play in busy public spaces?',
                          false, now(), now(), 'BINARY', 'GLOBAL',
-                         'A clear case for the proposal.', 'A clear case against the proposal.')
+                         'Licensing can limit noise, protect residents and keep popular pitches fairly shared.',
+                         'Permits and auditions risk removing the spontaneity that makes street performance valuable.')
                      returning id
                      """)) {
             long postId;

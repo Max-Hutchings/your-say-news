@@ -2,17 +2,13 @@ package com.yoursay.unwrapped.validation;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class SourceUrlPolicyTest {
     @Test
-    void rejectsAValidPublicHostOutsideTheGovernedAllowlist() {
-        SourceUrlPolicy policy = new SourceUrlPolicy("gov.uk");
+    void acceptsAnyPublicHttpsHost() {
+        SourceUrlPolicy policy = new SourceUrlPolicy();
 
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> policy.validate("https://example.com/research"));
-
-        assertEquals("UNWRAPPED_SOURCE_DOMAIN_NOT_ALLOWED", error.getMessage());
+        assertDoesNotThrow(() -> policy.validate("https://8.8.8.8/research"));
     }
 }

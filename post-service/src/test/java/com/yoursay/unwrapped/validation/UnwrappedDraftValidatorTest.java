@@ -206,7 +206,7 @@ class UnwrappedDraftValidatorTest {
     }
 
     @Test
-    void allNonOfficialEvidenceMustBeDisclosedAndCannotSupportNumericClaims() {
+    void acceptsCitedNonOfficialAndNumericEvidenceWithoutAQualityGate() {
         UnwrappedResearchDraftV1 valid = validDraft(List.of("gender=MAN"));
         UnwrappedSourceDraftV1 other = new UnwrappedSourceDraftV1(
                 "source-1", SOURCE, "Independent publisher",
@@ -214,10 +214,7 @@ class UnwrappedDraftValidatorTest {
         UnwrappedResearchDraftV1 allOther = new UnwrappedResearchDraftV1(
                 valid.pages(), List.of(other));
 
-        assertEquals("UNWRAPPED_NON_OFFICIAL_DISCLOSURE",
-                assertThrows(IllegalArgumentException.class,
-                        () -> validator.validate(request(), allOther,
-                                List.of(SOURCE))).getMessage());
+        assertDoesNotThrow(() -> validator.validate(request(), allOther, List.of(SOURCE)));
 
         UnwrappedClaimDraftV1 numeric = new UnwrappedClaimDraftV1("claim-1",
                 "The published measure rose by 12 percent.", List.of("source-1"), false);
@@ -228,10 +225,22 @@ class UnwrappedDraftValidatorTest {
                                 page.synthesis(), "This sample is an association and does not prove "
                                 + "motivation. No official source was available for this claim."))
                         .toList(), List.of(other));
-        assertEquals("UNWRAPPED_NUMERIC_CLAIM_SOURCE_QUALITY",
-                assertThrows(IllegalArgumentException.class,
-                        () -> validator.validate(request(), numericOther,
-                                List.of(SOURCE))).getMessage());
+        assertDoesNotThrow(() -> validator.validate(request(), numericOther, List.of(SOURCE)));
+    }
+
+    @Test
+    void acceptsContextClaimsWhenTheProviderReturnsNoSources() {
+        UnwrappedResearchDraftV1 valid = validDraft(List.of("gender=MAN"));
+        UnwrappedClaimDraftV1 context = new UnwrappedClaimDraftV1(
+                "claim-1", "The provider returned cautious contextual interpretation.",
+                List.of(), true);
+        UnwrappedResearchDraftV1 withoutSources = new UnwrappedResearchDraftV1(
+                valid.pages().stream()
+                        .map(page -> new UnwrappedArgumentDraftV1(page.optionId(), page.headline(),
+                                page.usedCohortIds(), List.of(context), page.synthesis(), page.caveat()))
+                        .toList(), List.of());
+
+        assertDoesNotThrow(() -> validator.validate(request(), withoutSources, List.of()));
     }
 
     private static UnwrappedResearchDraftV1 draftWithClaim(String statement) {

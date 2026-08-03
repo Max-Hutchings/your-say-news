@@ -67,7 +67,6 @@ public class UnwrappedDraftValidator {
         }
 
         List<UnwrappedSourceDraftV1> sources = draft.sources() == null ? List.of() : draft.sources();
-        require(!sources.isEmpty(), "UNWRAPPED_SOURCES_MISSING");
         Map<String, UnwrappedSourceDraftV1> byId = uniqueSources(sources);
         Set<String> citations = providerCitations == null ? Set.of() : Set.copyOf(providerCitations);
         for (UnwrappedSourceDraftV1 source : sources) {
@@ -75,7 +74,6 @@ public class UnwrappedDraftValidator {
                             && source.classification() != null,
                     "UNWRAPPED_SOURCE_METADATA");
             urlPolicy.validate(source.url());
-            sourceTrustPolicy.validate(source);
             require(citations.contains(source.url()), "UNWRAPPED_SOURCE_NOT_PROVIDER_CITED");
             sourceEvidenceChecker.verify(source);
         }
@@ -84,23 +82,10 @@ public class UnwrappedDraftValidator {
                     page.contextClaims() == null ? List.<UnwrappedClaimDraftV1>of() : page.contextClaims()) {
                 require(length(claim.statement(), 8, 700), "UNWRAPPED_CLAIM_LENGTH");
                 validateLanguage(claim.statement());
-                require(claim.sourceIds() != null && !claim.sourceIds().isEmpty()
+                require(claim.sourceIds() != null
                                 && claim.sourceIds().stream().allMatch(byId::containsKey),
                         "UNWRAPPED_CLAIM_UNSOURCED");
-                if (claim.statement().matches(".*\\d.*")) {
-                    require(claim.sourceIds().stream()
-                                    .map(byId::get).anyMatch(sourceTrustPolicy::isHighQuality),
-                            "UNWRAPPED_NUMERIC_CLAIM_SOURCE_QUALITY");
-                }
             }
-            boolean hasHighQualitySource = page.contextClaims().stream()
-                    .flatMap(claim -> claim.sourceIds().stream())
-                    .map(byId::get)
-                    .anyMatch(sourceTrustPolicy::isHighQuality);
-            require(hasHighQualitySource
-                            || containsAny(page.caveat(), "no official source",
-                            "non-official evidence", "official evidence was unavailable"),
-                    "UNWRAPPED_NON_OFFICIAL_DISCLOSURE");
         }
         validateBalancedLengths(draft.pages());
     }

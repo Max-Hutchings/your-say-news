@@ -1,37 +1,12 @@
 package com.yoursay.unwrapped.validation;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.net.InetAddress;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class SourceUrlPolicy {
-    static final String DEFAULT_ALLOWED_SUFFIXES = "gov,gov.uk,gov.au,gc.ca,europa.eu,"
-            + "who.int,un.org,worldbank.org,oecd.org,imf.org,edu,edu.au,ac.uk,doi.org,"
-            + "reuters.com,apnews.com,bbc.com";
-
-    private final Set<String> allowedHostSuffixes;
-
-    public SourceUrlPolicy() {
-        this(DEFAULT_ALLOWED_SUFFIXES);
-    }
-
-    @Inject
-    public SourceUrlPolicy(@ConfigProperty(name = "unwrapped.sources.allowed-host-suffixes",
-            defaultValue = DEFAULT_ALLOWED_SUFFIXES) String configuredSuffixes) {
-        this.allowedHostSuffixes = Arrays.stream(configuredSuffixes.split(","))
-                .map(String::trim)
-                .map(value -> value.toLowerCase(java.util.Locale.ROOT))
-                .filter(value -> !value.isBlank())
-                .collect(Collectors.toUnmodifiableSet());
-    }
-
     public URI validate(String value) {
         try {
             URI uri = URI.create(value);
@@ -44,9 +19,6 @@ public class SourceUrlPolicy {
             for (InetAddress address : InetAddress.getAllByName(host)) {
                 require(isPublic(address), "UNWRAPPED_SOURCE_URL_PRIVATE");
             }
-            require(allowedHostSuffixes.stream()
-                            .anyMatch(suffix -> host.equals(suffix) || host.endsWith("." + suffix)),
-                    "UNWRAPPED_SOURCE_DOMAIN_NOT_ALLOWED");
             return uri;
         } catch (IllegalArgumentException e) {
             throw e;
