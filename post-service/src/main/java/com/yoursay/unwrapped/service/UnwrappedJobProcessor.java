@@ -5,12 +5,14 @@ import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.agent.UnwrappedResearchResult;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJob;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJobRepository;
+import com.yoursay.unwrapped.model.UnwrappedJobStatus;
 import com.yoursay.unwrapped.model.UnwrappedStory;
 import com.yoursay.unwrapped.model.UnwrappedStoryRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +27,8 @@ public class UnwrappedJobProcessor {
     ObjectMapper objectMapper;
     @Inject
     EntityManager entityManager;
+    @ConfigProperty(name = "unwrapped.jobs.retry-enabled", defaultValue = "false")
+    boolean retryEnabled;
 
     @Transactional
     public Optional<JobWork> claimNext() {
@@ -63,11 +67,24 @@ public class UnwrappedJobProcessor {
     }
 
     @Transactional
-    public void fail(UUID id, RuntimeException failure) {
+    public FailureResult fail(UUID id, RuntimeException failure) {
         UnwrappedAnalysisJob job = jobs.findById(id);
-        String code = failure.getMessage() != null && failure.getMessage().startsWith("UNWRAPPED_")
-                ? failure.getMessage() : "UNWRAPPED_GENERATION_FAILED";
-        job.fail(code, "Pepper could not build this story.", true);
+        String code = errorCode(failure);
+        job.fail(code, "Pepper could not build this story.", retryEnabled);
+        return new FailureResult(code, job.getStatus().name(),
+                job.getStatus() == UnwrappedJobStatus.PENDING);
+    }
+
+    private static String errorCode(RuntimeException failure) {
+        String message = failure.getMessage();
+        if (message == null || !message.startsWith("UNWRAPPED_")) {
+            return "UNWRAPPED_GENERATION_FAILED";
+        }
+        int separator = message.indexOf(':');
+        return separator < 0 ? message : message.substring(0, separator);
+    }
+
+    public record FailureResult(String code, String status, boolean retryScheduled) {
     }
 
     public record JobWork(

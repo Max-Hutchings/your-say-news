@@ -8,6 +8,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -23,6 +24,8 @@ public class UnwrappedReconciliationWorker {
     EntityManager entityManager;
     @Inject
     UnwrappedAnalysisJobRepository jobs;
+    @ConfigProperty(name = "unwrapped.jobs.retry-enabled", defaultValue = "false")
+    boolean retryEnabled;
 
     /**
      * Claims and reconciles one dirty post as a single database transaction.
@@ -70,7 +73,7 @@ public class UnwrappedReconciliationWorker {
     @Transactional
     void recoverStaleClaims() {
         Instant cutoff = Instant.now().minus(10, ChronoUnit.MINUTES);
-        jobs.staleClaims(cutoff).forEach(UnwrappedAnalysisJob::recoverStaleClaim);
+        jobs.staleClaims(cutoff).forEach(job -> job.recoverStaleClaim(retryEnabled));
     }
 
 }

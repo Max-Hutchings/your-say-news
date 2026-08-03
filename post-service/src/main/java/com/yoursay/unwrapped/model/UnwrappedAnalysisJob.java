@@ -134,8 +134,8 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
         }
     }
 
-    public void recoverStaleClaim() {
+    public void recoverStaleClaim(boolean retry) {
         fail("UNWRAPPED_CLAIM_EXPIRED",
-                "A generation worker stopped before completing this job.", true);
+                "A generation worker stopped before completing this job.", retry);
     }
 }

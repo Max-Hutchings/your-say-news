@@ -58,7 +58,8 @@ class HttpSourceEvidenceCheckerTest {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> checker.verify(source(PUBLIC_URL)));
 
-        assertEquals("UNWRAPPED_SOURCE_UNREACHABLE", error.getMessage());
+        assertEquals("UNWRAPPED_SOURCE_UNREACHABLE: url=" + PUBLIC_URL + " status=503",
+                error.getMessage());
     }
 
     @SuppressWarnings("unchecked")

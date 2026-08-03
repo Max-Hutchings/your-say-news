@@ -5,6 +5,7 @@ import com.yoursay.unwrapped.agent.UnwrappedResearchRequest;
 import com.yoursay.unwrapped.agent.UnwrappedResearchResult;
 import com.yoursay.unwrapped.selection.InsightSelectionService;
 import com.yoursay.unwrapped.selection.UnwrappedAnalysisBriefV1;
+import com.yoursay.observability.DomainMetrics;
 import com.yoursay.votes.PostAnalysisAggregateService;
 import com.yoursay.votes.dto.PostAnalysisAggregateV1;
 import io.quarkus.logging.Log;
@@ -30,6 +31,8 @@ public class UnwrappedGenerationWorker {
     InsightSelectionService selector;
     @Inject
     UnwrappedResearchGenerator generator;
+    @Inject
+    DomainMetrics metrics;
     @ConfigProperty(name = "unwrapped.agent.api-key", defaultValue = NOT_CONFIGURED)
     String apiKey;
 
@@ -43,17 +46,29 @@ public class UnwrappedGenerationWorker {
         Optional<UnwrappedJobProcessor.JobWork> claimed = processor.claimNext();
         if (claimed.isEmpty()) return;
         UnwrappedJobProcessor.JobWork job = claimed.get();
+        long started = System.nanoTime();
         try {
             UnwrappedResearchRequest request = request(job);
             UnwrappedResearchResult result = generator.generate(request);
             processor.complete(job.id(), result);
-            Log.infof("Unwrapped draft ready: jobId=%s postId=%d",
-                    job.id(), job.postId());
+            metrics.recordOperation("unwrapped", "generation", true);
+            Log.infof("Unwrapped draft ready: jobId=%s postId=%d milestone=%d attempt=%d model=%s durationMs=%d",
+                    job.id(), job.postId(), job.milestone(), job.attempt(), result.model(),
+                    elapsedMillis(started));
         } catch (RuntimeException failure) {
-            processor.fail(job.id(), failure);
-            Log.warnf("Unwrapped generation failed: jobId=%s postId=%d code=%s",
-                    job.id(), job.postId(), failure.getMessage());
+            UnwrappedJobProcessor.FailureResult result = processor.fail(job.id(), failure);
+            metrics.recordOperation("unwrapped", "generation", false);
+            metrics.recordError("unwrapped", "generation", result.code(), 500);
+            Log.warnf(failure,
+                    "Unwrapped generation failed: jobId=%s postId=%d milestone=%d attempt=%d code=%s status=%s retryScheduled=%s causeType=%s causeMessage=%s durationMs=%d",
+                    job.id(), job.postId(), job.milestone(), job.attempt(), result.code(),
+                    result.status(), result.retryScheduled(), failure.getClass().getSimpleName(),
+                    failure.getMessage(), elapsedMillis(started));
         }
+    }
+
+    private static long elapsedMillis(long started) {
+        return (System.nanoTime() - started) / 1_000_000;
     }
 
     private UnwrappedResearchRequest request(UnwrappedJobProcessor.JobWork job) {

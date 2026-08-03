@@ -59,7 +59,15 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
                     request.postId(), request.options().stream().map(option -> option.option().id()).toList(),
                     draft.pages() == null ? null : draft.pages().stream()
                             .map(page -> page == null ? null : page.optionId()).toList(), citations.size());
-            validator.validate(request, draft, citations);
+            try {
+                validator.validate(request, draft, citations);
+            } catch (IllegalArgumentException validationFailure) {
+                Log.warnf(
+                        "Unwrapped draft rejected: postId=%d code=%s pageDiagnostics=%s sourceDiagnostics=%s providerCitationCount=%d",
+                        request.postId(), validationFailure.getMessage(), pageDiagnostics(draft),
+                        sourceDiagnostics(draft), citations.size());
+                throw validationFailure;
+            }
             return new UnwrappedResearchResult(draft, citations,
                     valueOr(response.modelName(), configuredModel), response.id());
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -69,6 +77,27 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
         } finally {
             responseCapture.clear();
         }
+    }
+
+    private static List<String> pageDiagnostics(UnwrappedResearchDraftV1 draft) {
+        if (draft.pages() == null) return List.of("pages=null");
+        return draft.pages().stream()
+                .map(page -> page == null ? "page=null" : "optionId=" + page.optionId()
+                        + ",cohorts=" + size(page.usedCohortIds())
+                        + ",claims=" + size(page.contextClaims()))
+                .toList();
+    }
+
+    private static List<String> sourceDiagnostics(UnwrappedResearchDraftV1 draft) {
+        if (draft.sources() == null) return List.of("sources=null");
+        return draft.sources().stream()
+                .map(source -> source == null ? "source=null" : source.id() + "=" + source.url()
+                        + "(" + source.classification() + ")")
+                .toList();
+    }
+
+    private static int size(List<?> values) {
+        return values == null ? -1 : values.size();
     }
 
     private UnwrappedResearchResult stubbedResult(UnwrappedResearchRequest request) {

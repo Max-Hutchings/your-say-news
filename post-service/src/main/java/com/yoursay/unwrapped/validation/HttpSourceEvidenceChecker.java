@@ -38,13 +38,17 @@ public class HttpSourceEvidenceChecker implements SourceEvidenceChecker {
             int status = response.statusCode();
             if (status >= 200 && status < 300) return;
             if (status < 300 || status >= 400) {
-                throw new IllegalArgumentException("UNWRAPPED_SOURCE_UNREACHABLE");
+                throw new IllegalArgumentException(
+                        "UNWRAPPED_SOURCE_UNREACHABLE: url=" + current + " status=" + status);
             }
-            String location = response.headers().firstValue("location")
-                    .orElseThrow(() -> new IllegalArgumentException("UNWRAPPED_SOURCE_REDIRECT_INVALID"));
+            String location = response.headers().firstValue("location").orElse(null);
+            if (location == null) {
+                throw new IllegalArgumentException(
+                        "UNWRAPPED_SOURCE_REDIRECT_INVALID: url=" + current + " status=" + status);
+            }
             current = urlPolicy.validate(current.resolve(location).toString());
         }
-        throw new IllegalArgumentException("UNWRAPPED_SOURCE_REDIRECT_LIMIT");
+        throw new IllegalArgumentException("UNWRAPPED_SOURCE_REDIRECT_LIMIT: url=" + current);
     }
 
     private HttpResponse<Void> sendHead(URI uri) {
@@ -57,9 +61,11 @@ public class HttpSourceEvidenceChecker implements SourceEvidenceChecker {
             return client.send(request, HttpResponse.BodyHandlers.discarding());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalArgumentException("UNWRAPPED_SOURCE_UNREACHABLE", e);
+            throw new IllegalArgumentException(
+                    "UNWRAPPED_SOURCE_UNREACHABLE: url=" + uri + " cause=interrupted", e);
         } catch (Exception e) {
-            throw new IllegalArgumentException("UNWRAPPED_SOURCE_UNREACHABLE", e);
+            throw new IllegalArgumentException("UNWRAPPED_SOURCE_UNREACHABLE: url=" + uri
+                    + " cause=" + e.getClass().getSimpleName(), e);
         }
     }
 }
