@@ -13,12 +13,14 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.HashMap;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -84,6 +86,15 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         assertEquals("grok-test", result.model());
         assertEquals("response-42", result.providerResponseId());
         verify(validator).validate(request, draft, List.of("https://www.ons.gov.uk/source"));
+        ArgumentCaptor<String> brief = ArgumentCaptor.forClass(String.class);
+        verify(aiService).research(brief.capture());
+        assertTrue(brief.getValue().contains("You must call web search before drafting any page."));
+        assertTrue(brief.getValue().contains(
+                "Include one to three contextClaims on every page; empty contextClaims are forbidden."));
+        assertTrue(brief.getValue().contains(
+                "Give every contextClaim one or more sourceIds; empty sourceIds are forbidden."));
+        assertTrue(brief.getValue().contains(
+                "Include every referenced source exactly once in sources; empty sources are forbidden."));
     }
 
     private static ChatResponse responseWithCitation(String citation) {

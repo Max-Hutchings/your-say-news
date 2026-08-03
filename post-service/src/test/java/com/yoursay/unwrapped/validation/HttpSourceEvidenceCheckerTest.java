@@ -3,6 +3,9 @@ package com.yoursay.unwrapped.validation;
 import com.yoursay.unwrapped.SourceClassification;
 import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
@@ -16,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class HttpSourceEvidenceCheckerTest {
@@ -30,6 +35,27 @@ class HttpSourceEvidenceCheckerTest {
                 new HttpSourceEvidenceChecker(new SourceUrlPolicy(), client);
 
         assertDoesNotThrow(() -> checker.verify(source(PUBLIC_URL)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {403, 405})
+    void fallsBackToBoundedGetWhenServerRejectsHead(int headStatus) throws Exception {
+        HttpClient client = mock(HttpClient.class);
+        HttpResponse<Void> headResponse = response(headStatus, Map.of());
+        HttpResponse<Void> getResponse = response(206, Map.of());
+        when(client.<Void>send(any(HttpRequest.class), any()))
+                .thenReturn(headResponse, getResponse);
+        HttpSourceEvidenceChecker checker =
+                new HttpSourceEvidenceChecker(new SourceUrlPolicy(), client);
+
+        assertDoesNotThrow(() -> checker.verify(source(PUBLIC_URL)));
+
+        ArgumentCaptor<HttpRequest> requests = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(client, times(2)).send(requests.capture(), any());
+        assertEquals(List.of("HEAD", "GET"), requests.getAllValues().stream()
+                .map(HttpRequest::method).toList());
+        assertEquals("bytes=0-0", requests.getAllValues().get(1).headers()
+                .firstValue("Range").orElseThrow());
     }
 
     @Test

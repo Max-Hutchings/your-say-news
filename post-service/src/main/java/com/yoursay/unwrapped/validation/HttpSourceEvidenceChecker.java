@@ -36,6 +36,10 @@ public class HttpSourceEvidenceChecker implements SourceEvidenceChecker {
         for (int redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
             HttpResponse<Void> response = sendHead(current);
             int status = response.statusCode();
+            if (status == 403 || status == 405) {
+                response = sendGet(current);
+                status = response.statusCode();
+            }
             if (status >= 200 && status < 300) return;
             if (status < 300 || status >= 400) {
                 throw new IllegalArgumentException(
@@ -52,13 +56,21 @@ public class HttpSourceEvidenceChecker implements SourceEvidenceChecker {
     }
 
     private HttpResponse<Void> sendHead(URI uri) {
+        return send(uri, "HEAD");
+    }
+
+    private HttpResponse<Void> sendGet(URI uri) {
+        return send(uri, "GET");
+    }
+
+    private HttpResponse<Void> send(URI uri, String method) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(uri)
+            HttpRequest.Builder request = HttpRequest.newBuilder(uri)
                     .timeout(Duration.ofSeconds(8))
-                    .header("User-Agent", "Pepper-Unwrapped-Source-Checker/1.0")
-                    .method("HEAD", HttpRequest.BodyPublishers.noBody())
-                    .build();
-            return client.send(request, HttpResponse.BodyHandlers.discarding());
+                    .header("User-Agent", "Pepper-Unwrapped-Source-Checker/1.0");
+            if ("GET".equals(method)) request.header("Range", "bytes=0-0");
+            return client.send(request.method(method, HttpRequest.BodyPublishers.noBody()).build(),
+                    HttpResponse.BodyHandlers.discarding());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalArgumentException(

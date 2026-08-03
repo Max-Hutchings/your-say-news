@@ -133,7 +133,12 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
                 - Describe cohort patterns only as associations or cautious interpretations.
                 - Do not use these causal words anywhere: because, cause, caused, drove, led, made, chose.
                 - Never say that a cohort or demographic voted, supported, or opposed due to a characteristic.
-                - Research supporting context with web search and include its exact cited URLs in sources.
+                - You must call web search before drafting any page.
+                - Include one to three contextClaims on every page; empty contextClaims are forbidden.
+                - Give every contextClaim one or more sourceIds; empty sourceIds are forbidden.
+                - Include every referenced source exactly once in sources; empty sources are forbidden.
+                - Copy each source URL exactly from a URL returned by web search in this same call.
+                - Do not include a source unless it directly supports at least one contextClaim.
                 - Every caveat must include exactly: This association describes only people who voted on this post and does not represent any broader population.
 
                 INPUT JSON:
