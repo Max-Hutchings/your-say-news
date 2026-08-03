@@ -148,6 +148,17 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     public UnwrappedGenerationTriggerDto triggerGeneration(Long postId) {
         postService.findByPostId(postId)
                 .orElseThrow(() -> UnwrappedApiException.postMissing(postId));
+        Integer milestone = UnwrappedMilestones.highestReached(voteService.countForPost(postId));
+        if (milestone != null) {
+            Optional<UnwrappedAnalysisJob> failed = jobRepository.find(
+                    "postId = ?1 and milestone = ?2 and analysisVersion = ?3 and status = ?4",
+                    postId, milestone, "unwrapped-analysis-v1", UnwrappedJobStatus.FAILED)
+                    .firstResultOptional();
+            if (failed.isPresent()) {
+                failed.get().retryManually();
+                return new UnwrappedGenerationTriggerDto(postId, "RECONCILIATION_QUEUED");
+            }
+        }
         milestoneService.markForReconciliation(postId);
         return new UnwrappedGenerationTriggerDto(postId, "RECONCILIATION_QUEUED");
     }

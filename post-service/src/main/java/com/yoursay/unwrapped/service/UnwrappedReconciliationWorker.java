@@ -18,8 +18,6 @@ import static io.quarkus.scheduler.Scheduled.ConcurrentExecution.SKIP;
 
 @ApplicationScoped
 public class UnwrappedReconciliationWorker {
-    private static final List<Integer> MILESTONES = List.of(100, 250, 500, 1000);
-
     @Inject
     EntityManager entityManager;
     @Inject
@@ -53,10 +51,7 @@ public class UnwrappedReconciliationWorker {
         long count = ((Number) entityManager.createNativeQuery(
                 "select count(*) from votes where post_id = ?1")
                 .setParameter(1, postId).getSingleResult()).longValue();
-        Integer milestone = MILESTONES.reversed().stream()
-                .filter(candidate -> count >= candidate)
-                .findFirst()
-                .orElse(null);
+        Integer milestone = UnwrappedMilestones.highestReached(count);
         if (milestone != null && jobs.count(
                 "postId = ?1 and milestone = ?2 and analysisVersion = ?3",
                 postId, milestone, "unwrapped-analysis-v1") == 0) {

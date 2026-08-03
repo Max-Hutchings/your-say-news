@@ -97,6 +97,7 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
 
     public Instant lastActivityAt() {
         if (completedAt != null) return completedAt;
+        if (nextAttemptAt != null) return nextAttemptAt;
         if (startedAt != null) return startedAt;
         return createdAt;
     }
@@ -105,6 +106,19 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
         status = UnwrappedJobStatus.GENERATING;
         attemptCount++;
         startedAt = Instant.now();
+        completedAt = null;
+        nextAttemptAt = null;
+        errorCode = null;
+        errorMessage = null;
+    }
+
+    public void retryManually() {
+        if (status != UnwrappedJobStatus.FAILED) {
+            throw new IllegalStateException("Only failed Unwrapped jobs can be manually retried");
+        }
+        status = UnwrappedJobStatus.PENDING;
+        nextAttemptAt = Instant.now();
+        completedAt = null;
         errorCode = null;
         errorMessage = null;
     }

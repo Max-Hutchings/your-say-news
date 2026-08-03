@@ -212,6 +212,30 @@ class UnwrappedAdminControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void adminTriggerExplicitlyRequeuesTheFailedCurrentMilestone() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotes(post, 100);
+            milestoneService.markForReconciliation(post.id());
+            reconciliationWorker.reconcileOne();
+            failJob(post.id());
+
+            given()
+                    .when().post("/api/admin/unwrapped/posts/" + post.id() + "/generate")
+                    .then()
+                    .statusCode(202)
+                    .body("status", equalTo("RECONCILIATION_QUEUED"));
+
+            assertEquals(0, reconciliationCount(post.id()));
+            assertEquals(1, jobCount(post.id()));
+            assertEquals("PENDING", jobState(post.id()).status());
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
     void manualTriggerQueuesOnlyTheHighestMilestoneAlreadyReached() throws Exception {
         TestPost post = createPost();
         try {
@@ -416,6 +440,20 @@ class UnwrappedAdminControllerTest {
                 result.next();
                 return result.getInt(1);
             }
+        }
+    }
+
+    private void failJob(long postId) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     update unwrapped_analysis_job
+                     set status = 'FAILED', completed_at = now(),
+                         error_code = 'UNWRAPPED_PAGE_UNSOURCED',
+                         error_message = 'No sourced claims were returned.'
+                     where post_id = ?
+                     """)) {
+            statement.setLong(1, postId);
+            assertEquals(1, statement.executeUpdate());
         }
     }
 

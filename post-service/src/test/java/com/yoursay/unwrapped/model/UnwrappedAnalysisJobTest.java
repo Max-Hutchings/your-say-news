@@ -3,6 +3,7 @@ package com.yoursay.unwrapped.model;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class UnwrappedAnalysisJobTest {
     @Test
@@ -50,5 +51,23 @@ class UnwrappedAnalysisJobTest {
         assertEquals(UnwrappedJobStatus.FAILED, job.getStatus());
         assertEquals(1, job.getAttemptCount());
         assertEquals("No sourced claims were returned.", job.getErrorMessage());
+    }
+
+    @Test
+    void explicitManualRetryRequeuesAFailedJobWithoutResettingItsAttemptHistory() {
+        UnwrappedAnalysisJob job =
+                new UnwrappedAnalysisJob(42L, 500, "analysis-v1");
+        job.claim();
+        job.fail("UNWRAPPED_PAGE_UNSOURCED", "No sourced claims were returned.", false);
+
+        job.retryManually();
+
+        assertEquals(UnwrappedJobStatus.PENDING, job.getStatus());
+        assertEquals(1, job.getAttemptCount());
+        assertNull(job.getErrorMessage());
+
+        job.claim();
+        assertEquals(UnwrappedJobStatus.GENERATING, job.getStatus());
+        assertEquals(2, job.getAttemptCount());
     }
 }
