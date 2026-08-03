@@ -58,15 +58,15 @@ const page = (
 ): UnwrappedArgumentPage => ({
   optionId,
   headline,
-  usedCohortIds: optionId === 71 ? ["ageRange=AGE_25_34"] : [],
-  contextClaims: [{
-    id: `claim-${optionId}`,
-    statement: "Official figures show how the financial trade-off has changed over time.",
+  selectedCohortIds: optionId === 71 ? ["ageRange=AGE_25_34"] : ["occupation=PUBLIC_SECTOR"],
+  paragraphs: [{
+    text: "Younger adults are likely to favour lower spending because current deductions leave less room in already stretched monthly budgets, making a visible reduction feel more urgent than benefits promised later.",
     sourceIds: sources.map((item) => item.id),
-    interpretation: false,
+  }, {
+    text: "Official figures show how the financial trade-off has changed over time. For these voters, immediate take-home pay can feel more valuable than distant benefits that are harder to see.",
+    sourceIds: sources.map((item) => item.id),
   }],
-  synthesis: "This evidence makes the strongest responsible case for this option.",
-  caveat: "This pattern describes this vote and does not prove individual motivation.",
+  caveat: "This association describes only people who voted on this post and does not represent any broader population.",
   sources,
 });
 
@@ -80,7 +80,7 @@ function response(argumentPages: UnwrappedArgumentPage[] = [
     originalOptionId: 71,
     existingFollowUpOptionId: null,
     story: {
-      schemaVersion: "unwrapped-story-v1",
+      schemaVersion: "unwrapped-story-v2",
       storyId: "4e11bdba-3ae0-4c76-963a-d5b3b2db597f",
       postId: 7,
       milestone: 100,
@@ -118,20 +118,21 @@ test("renders the binary three-page sequence, requires a second answer, then ope
   expect(screen.getByText("POST UNWRAPPED · 1 OF 3")).toBeOnTheScreen();
   expect(screen.getByText("Reduce public spending")).toBeOnTheScreen();
   expect(screen.getByText("The case for taking less in tax")).toBeOnTheScreen();
-  expect(screen.getByText(
+  expect(screen.queryByText(
     "This analysis describes people who voted on this post; it is not a population survey."
-  )).toBeOnTheScreen();
-  expect(screen.getByText("• agerange: age 25 34")).toBeOnTheScreen();
+  )).toBeNull();
   expect(screen.getByText(
-    "Official figures show how the financial trade-off has changed over time."
+    "Younger adults are likely to favour lower spending because current deductions leave less room in already stretched monthly budgets, making a visible reduction feel more urgent than benefits promised later."
   )).toBeOnTheScreen();
-  expect(screen.getByText("[1] [2]")).toBeOnTheScreen();
+  expect(screen.getAllByText("[1] [2]")).toHaveLength(2);
   expect(screen.getByText(
-    "This evidence makes the strongest responsible case for this option."
+    "Official figures show how the financial trade-off has changed over time. For these voters, immediate take-home pay can feel more valuable than distant benefits that are harder to see."
   )).toBeOnTheScreen();
-  expect(screen.getByText(
-    "This pattern describes this vote and does not prove individual motivation."
-  )).toBeOnTheScreen();
+  expect(screen.queryByText(
+    "This association describes only people who voted on this post and does not represent any broader population."
+  )).toBeNull();
+  expect(screen.queryByText("OBSERVED HERE")).toBeNull();
+  expect(screen.queryByText("WIDER CONTEXT")).toBeNull();
   expect(screen.queryByText("Public services performance tracker")).toBeNull();
   const sourceLinks = screen.getAllByRole("link");
   expect(sourceLinks).toHaveLength(2);
@@ -155,7 +156,7 @@ test("renders the binary three-page sequence, requires a second answer, then ope
   expect(screen.getByText("POST UNWRAPPED · 2 OF 3")).toBeOnTheScreen();
   expect(screen.getByText("The case for protecting shared services")).toBeOnTheScreen();
   expect(screen.getByText("Public services performance tracker")).toBeOnTheScreen();
-  expect(screen.getByText("[1]")).toBeOnTheScreen();
+  expect(screen.getAllByText("[1]")).toHaveLength(2);
   expect(screen.queryByText("[0]")).toBeNull();
   expect(screen.queryByText("[2]")).toBeNull();
   expect(screen.queryByText("[3]")).toBeNull();

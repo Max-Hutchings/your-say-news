@@ -18,6 +18,7 @@ type UnwrappedAnalysisPostsProps = {
   generationMonitor: UnwrappedGenerationMonitor | null;
   onReload: () => Promise<void>;
   onGenerate: (postId: number) => Promise<UnwrappedGenerationTrigger>;
+  onBenchmark: (post: UnwrappedAdminPost) => void;
 };
 
 const FIRST_MILESTONE = 100;
@@ -30,6 +31,7 @@ export function UnwrappedAnalysisPosts({
   generationMonitor,
   onReload,
   onGenerate,
+  onBenchmark,
 }: UnwrappedAnalysisPostsProps) {
   const [query, setQuery] = useState("");
   const [eligibility, setEligibility] = useState<EligibilityFilter>("ALL");
@@ -240,16 +242,27 @@ export function UnwrappedAnalysisPosts({
                         {action.label}
                       </span>
                       <small>{action.detail}</small>
-                      <button
-                        type="button"
-                        disabled={generatingPostId !== null || action.disabled}
-                        onClick={() => void generate(post.postId)}
-                        aria-label={state === "FAILED"
-                          ? `Retry analysis for post ${post.postId}`
-                          : `Run analysis for post ${post.postId}`}
-                      >
-                        {generatingPostId === post.postId ? "Queuing…" : action.button}
-                      </button>
+                      <div className="analysis-row__buttons">
+                        <button
+                          type="button"
+                          disabled={generatingPostId !== null || action.disabled}
+                          onClick={() => void generate(post.postId)}
+                          aria-label={state === "FAILED"
+                            ? `Retry analysis for post ${post.postId}`
+                            : `Run analysis for post ${post.postId}`}
+                        >
+                          {generatingPostId === post.postId ? "Queuing…" : action.button}
+                        </button>
+                        <button
+                          type="button"
+                          className="analysis-benchmark"
+                          disabled={!ready || generationMonitor?.workerAvailable === false}
+                          onClick={() => onBenchmark(post)}
+                          aria-label={`Generate benchmarking for post ${post.postId}`}
+                        >
+                          Generate benchmarking
+                        </button>
+                      </div>
                       {busy ? <span className="analysis-progress-pulse" role="status">Progress updates automatically</span> : null}
                     </div>
                   </article>

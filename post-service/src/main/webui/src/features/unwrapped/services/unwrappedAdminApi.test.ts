@@ -8,6 +8,8 @@ import {
   approveUnwrappedStory,
   getUnwrappedAnalysisPosts,
   getUnwrappedGenerationMonitor,
+  getUnwrappedBenchmarkPrompt,
+  generateUnwrappedBenchmark,
   triggerUnwrappedGeneration,
   getUnwrappedReviewQueue,
   rejectUnwrappedStory,
@@ -150,6 +152,45 @@ describe("unwrappedAdminApi", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+      }),
+    );
+  });
+
+  it("loads the production prompt and submits one benchmark replacement", async () => {
+    const prompt = { systemPrompt: "Production system prompt" };
+    const benchmark = { postId: 42, variants: [] };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(prompt), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(benchmark), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getUnwrappedBenchmarkPrompt()).resolves.toEqual(prompt);
+    await expect(generateUnwrappedBenchmark(42, ["Prompt A"]))
+      .resolves.toEqual(benchmark);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/admin/unwrapped/benchmark/system-prompt",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/admin/unwrapped/posts/42/benchmark",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ systemPrompts: ["Prompt A"] }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer admin-token",
+          "Content-Type": "application/json",
+        }),
       }),
     );
   });

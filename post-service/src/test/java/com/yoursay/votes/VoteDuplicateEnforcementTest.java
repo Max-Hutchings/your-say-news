@@ -7,6 +7,7 @@ import com.yoursay.posts.dto.PostVotingConfigurationDto;
 import com.yoursay.posts.PostVotingConfigurationService;
 import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.posts.VotingType;
+import com.yoursay.unwrapped.UnwrappedMilestoneService;
 import com.yoursay.votes.client.UserCharacteristicClient;
 import com.yoursay.votes.error.VoteApiException;
 import com.yoursay.votes.model.Vote;
@@ -47,6 +48,9 @@ class VoteDuplicateEnforcementTest {
     @Mock
     PostVotingConfigurationService votingConfigurationService;
 
+    @Mock
+    UnwrappedMilestoneService unwrappedMilestoneService;
+
     @InjectMocks
     VoteServiceImpl voteService;
 
@@ -81,6 +85,7 @@ class VoteDuplicateEnforcementTest {
         assertEquals(USER_ID, persisted.getUserId());
         assertEquals(OPTION_ID, persisted.getOptionId());
         assertEquals(CharacteristicSnapshot.UNKNOWN, persisted.getSnapshot().bucketFor("ageRange"));
+        verifyNoInteractions(unwrappedMilestoneService);
     }
 
     @Test

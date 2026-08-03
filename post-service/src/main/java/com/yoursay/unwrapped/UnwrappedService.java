@@ -4,6 +4,8 @@ import com.yoursay.unwrapped.dto.ReviewStoryDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationMonitorDto;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkPromptDto;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkResponseDto;
 
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 
@@ -27,9 +29,8 @@ import java.util.UUID;
  *
  * <p>The methods participate in the journey in this order:</p>
  * <ol>
- *     <li>Background reconciliation and generation persist a draft independently of this service.
- *     Those workers use {@link UnwrappedMilestoneService} and internal job components rather than
- *     calling this interface.</li>
+ *     <li>An administrator explicitly calls {@link #triggerGeneration(Long)}. Only that action
+ *     places a post into background reconciliation and generation.</li>
  *     <li>The admin API calls {@link #reviewQueue()} to find drafts and
  *     {@link #reviewStory(UUID)} to inspect one.</li>
  *     <li>The admin API calls either {@link #approve(UUID, String)} or
@@ -42,8 +43,8 @@ import java.util.UUID;
  *     option changed. This never alters their canonical vote.</li>
  * </ol>
  *
- * <p>No other domain currently imports this interface. The votes domain communicates with
- * Unwrapped only through {@link UnwrappedMilestoneService}.</p>
+ * <p>No other domain currently imports this interface. Casting a vote never queues Unwrapped
+ * generation.</p>
  */
 public interface UnwrappedService {
     /**
@@ -80,16 +81,22 @@ public interface UnwrappedService {
                                  String callerEmail, String authorization);
 
     /**
-     * Manually requests the same milestone reconciliation that follows a canonical vote.
+     * Explicitly requests milestone reconciliation for one post.
      *
-     * <p>This administrator-only path does not create a job or bypass milestone eligibility.
-     * The normal reconciliation worker counts committed votes and idempotently creates any
-     * configured milestone jobs that are due.</p>
+     * <p>This administrator-only path is the sole production entry point into generation. It does
+     * not bypass milestone eligibility. The reconciliation worker counts committed votes and
+     * idempotently creates the current milestone job only after this request.</p>
      *
-     * @param postId post whose normal Unwrapped reconciliation should run
+     * @param postId post whose administrator-requested Unwrapped reconciliation should run
      * @return acknowledgement that reconciliation was queued
      */
     UnwrappedGenerationTriggerDto triggerGeneration(Long postId);
+
+    /** Returns the current production system message for the benchmark editors. */
+    UnwrappedBenchmarkPromptDto benchmarkPrompt();
+
+    /** Generates up to three ephemeral prompt variants without creating queued or reviewable work. */
+    UnwrappedBenchmarkResponseDto generateBenchmark(Long postId, List<String> systemPrompts);
 
     /**
      * Lists recent posts with identity-free overall vote totals for the administrator analysis

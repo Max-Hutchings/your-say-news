@@ -5,9 +5,8 @@ import java.util.List;
 public record UnwrappedArgumentPageDto(
         Long optionId,
         String headline,
-        List<String> usedCohortIds,
-        List<UnwrappedClaimDraftV1> contextClaims,
-        String synthesis,
+        List<String> selectedCohortIds,
+        List<UnwrappedArticleParagraphDraftV2> paragraphs,
         String caveat,
         List<UnwrappedSourceDraftV1> sources
 ) {

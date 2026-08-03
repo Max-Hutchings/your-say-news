@@ -31,7 +31,9 @@ const review = {
   canonicalVoteCount: 100,
   status: "DRAFT",
   generatedAt: "2026-07-28T10:00:00Z",
-  draft: { pages: [], sources: [] },
+  notice: "This analysis describes people who voted on this post; it is not a population survey.",
+  options: [],
+  argumentPages: [],
 } satisfies UnwrappedReviewStory;
 
 const post = {

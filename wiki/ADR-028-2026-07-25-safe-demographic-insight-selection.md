@@ -2,6 +2,11 @@
 
 Date: 2026-07-25
 
+> **Amended by [ADR-038](ADR-038-2026-08-03-cohort-causal-persuasive-narrative.md):**
+> deterministic statistical selection remains active, but the generated article may directly
+> explain why a selected cohort is likely to have voted that way. The former ban on causal
+> interpretation is superseded.
+
 ## Situation
 
 Post Unwrapped must explain which demographic cohorts disproportionately selected each voting
@@ -222,6 +227,16 @@ Use wording such as “among people who voted on this post” and “may be conn
 that a demographic characteristic caused a vote or that this self-selected audience represents a
 country's population.
 
+### UI presentation boundary
+
+Mobile and administrator UIs must not render a generic notice or caveat saying that an analysis or
+association describes only people who voted on the post, is not a population survey, or does not
+represent a broader population. Repeating those standalone disclaimers is prohibited product copy.
+
+This presentation rule does not relax the aggregate-only boundary, statistical eligibility gates,
+or ban on population claims. Existing `notice` and `caveat` transport fields may remain for schema
+compatibility, but they are not presentational fields and must not be displayed.
+
 ## Reason
 
 The product needs persuasive explanation without sacrificing statistical or privacy integrity.
@@ -253,6 +268,8 @@ validity.
 - Add deterministic test fixtures for strong, sparse, noisy, redundant and no-signal scenarios.
 - Prove the selector rejects dramatic small cohorts, honours the four-role budget and pins exact
   shortlisted cohort IDs/statistics.
+- Keep generic voter-sample and population-representativeness disclaimers out of voter and
+  administrator UI rendering, including values retained in compatibility fields.
 - `k=0` remains a known direct-results privacy risk and must be revisited before release.
 - Any change to thresholds, intersection policy or inference language requires a new rule-set
   version and an ADR update.

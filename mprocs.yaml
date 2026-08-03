@@ -10,6 +10,8 @@
 # Keys: 'r' restarts the selected process, 'x' stops it, and 'q' quits
 # everything. Restarting the Compose process runs down -> rebuild -> up, and
 # quitting mprocs also runs `docker compose down`.
+# The start-dev preflight blocks mprocs startup unless Docker is available and
+# YOUR_SAY_NEWS_GROK_API_KEY is present in the environment.
 # Before each application process starts, any existing listener on its assigned
 # port is terminated so stale dev processes cannot block startup.
 

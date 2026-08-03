@@ -94,7 +94,7 @@ export function UnwrappedScreen({ postId }: { postId: number }) {
       </View>
 
       {currentArgument
-        ? <ArgumentPage page={currentArgument} story={story} notice={data.notice} />
+        ? <ArgumentPage page={currentArgument} story={story} />
         : <ReconsiderationPage story={story} original={data.originalOptionId}
             existing={data.existingFollowUpOptionId} selected={selected} onSelect={setSelected} />}
 
@@ -131,10 +131,9 @@ export function UnwrappedScreen({ postId }: { postId: number }) {
   );
 }
 
-function ArgumentPage({ page, story, notice }: {
+function ArgumentPage({ page, story }: {
   page: UnwrappedArgumentPage;
   story: UnwrappedStory;
-  notice: string;
 }) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
@@ -146,33 +145,17 @@ function ArgumentPage({ page, story, notice }: {
       <Text style={[styles.optionLabel, { color: e.teal }]}>THE CASE FOR</Text>
       <Text style={[styles.optionName, { color: e.secondary }]}>{option?.label}</Text>
       <Text style={[styles.headline, { color: e.ink }]}>{page.headline}</Text>
-      <View style={[styles.notice, { backgroundColor: e.privacyBg, borderColor: e.privacyBorder }]}>
-        <Ionicons name="people-outline" size={17} color={e.privacyIcon} />
-        <Text style={[styles.noticeText, { color: e.privacyText }]}>{notice}</Text>
-      </View>
 
-      {page.usedCohortIds.length > 0 && (
-        <EvidenceSection title="Observed here">
-          {page.usedCohortIds.map((item) => (
-            <Text key={item} style={[styles.body, { color: e.ink }]}>• {humaniseCohort(item)}</Text>
-          ))}
-        </EvidenceSection>
-      )}
-
-      <EvidenceSection title="Wider context">
-        {page.contextClaims.map((claim) => (
-          <View key={claim.id} style={styles.claim}>
-            <Text style={[styles.body, { color: e.ink }]}>{claim.statement}</Text>
+      <View style={styles.article}>
+        {page.paragraphs.map((paragraph, index) => (
+          <View key={`${page.optionId}-${index}`} style={styles.paragraph}>
+            <Text style={[styles.articleText, { color: e.ink }]}>{paragraph.text}</Text>
             <Text style={[styles.citation, { color: e.teal }]}>
-              {claim.sourceIds.map((id) => `[${sourceIds.indexOf(id) + 1}]`).join(" ")}
-              {claim.interpretation ? " · interpretation" : ""}
+              {paragraph.sourceIds.map((id) => `[${sourceIds.indexOf(id) + 1}]`).join(" ")}
             </Text>
           </View>
         ))}
-      </EvidenceSection>
-
-      <Text style={[styles.synthesis, { color: e.ink }]}>{page.synthesis}</Text>
-      <Text style={[styles.caveat, { color: e.muted }]}>{page.caveat}</Text>
+      </View>
 
       <View style={[styles.sources, { borderTopColor: e.border }]}>
         <Text style={[styles.sectionLabel, { color: e.muted }]}>DATA SOURCES</Text>
@@ -234,17 +217,6 @@ function ReconsiderationPage({ story, original, existing, selected, onSelect }: 
   );
 }
 
-function EvidenceSection({ title, children }: { title: string; children: React.ReactNode }) {
-  const { isDark } = useTheme();
-  const e = getEditorial(isDark);
-  return (
-    <View style={[styles.evidence, { borderLeftColor: e.lime }]}>
-      <Text style={[styles.sectionLabel, { color: e.muted }]}>{title.toUpperCase()}</Text>
-      {children}
-    </View>
-  );
-}
-
 function SourceRow({ index, source }: { index: number; source: UnwrappedSource }) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
@@ -294,13 +266,6 @@ function StateScreen({ title, action, secondaryAction = null, spinner = false }:
   );
 }
 
-function humaniseCohort(value: string) {
-  return value
-    .split("&")
-    .map((part) => part.replace("=", ": ").replaceAll("_", " ").toLowerCase())
-    .join(" · ");
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   topBar: { minHeight: 74, paddingTop: 18, paddingHorizontal: 20, paddingBottom: 12,
@@ -313,14 +278,12 @@ const styles = StyleSheet.create({
   optionLabel: { fontFamily: EditorialFont.monoSemiBold, fontSize: 11, letterSpacing: 1.4 },
   optionName: { fontFamily: EditorialFont.sansSemiBold, fontSize: 14, marginTop: -10 },
   headline: { fontFamily: EditorialFont.serif, fontSize: 36, lineHeight: 40 },
-  notice: { borderWidth: 1, borderRadius: 12, padding: 14, flexDirection: "row", gap: 10 },
-  noticeText: { flex: 1, fontFamily: EditorialFont.sans, fontSize: 13, lineHeight: 19 },
-  evidence: { borderLeftWidth: 4, paddingLeft: 16, gap: 10, marginVertical: 4 },
   sectionLabel: { fontFamily: EditorialFont.monoSemiBold, fontSize: 10, letterSpacing: 1.2 },
   body: { fontFamily: EditorialFont.sans, fontSize: 16, lineHeight: 24 },
-  claim: { gap: 4 },
+  article: { gap: 16, marginVertical: 4 },
+  paragraph: { gap: 5 },
+  articleText: { fontFamily: EditorialFont.serifRegular, fontSize: 20, lineHeight: 29 },
   citation: { fontFamily: EditorialFont.mono, fontSize: 10 },
-  synthesis: { fontFamily: EditorialFont.serifRegular, fontSize: 21, lineHeight: 29 },
   caveat: { fontFamily: EditorialFont.sans, fontSize: 12, lineHeight: 18 },
   sources: { borderTopWidth: 1, paddingTop: 18, gap: 12 },
   sourceRow: { flexDirection: "row", alignItems: "center", gap: 12 },

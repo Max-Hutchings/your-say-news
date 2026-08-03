@@ -58,28 +58,28 @@ const unwrappedReview = {
   canonicalVoteCount: 126,
   status: "DRAFT" as const,
   generatedAt: "2026-07-28T10:00:00Z",
-  draft: {
-    pages: [{
+  notice: "This analysis describes people who voted on this post; it is not a population survey.",
+  options: [{ id: 71, label: "Reduce public spending", ordinal: 0, semanticKey: "AGREE" }],
+  argumentPages: [{
       optionId: 71,
-      headline: "The case for changing course",
-      usedCohortIds: ["ageRange=AGE_25_34"],
-      contextClaims: [{
-        id: "claim-1",
-        statement: "Official figures show a material change.",
+      headline: "Why younger adults favour reducing public spending",
+      selectedCohortIds: ["ageRange=AGE_25_34"],
+      paragraphs: [{
+        text: "Younger adults are likely to favour lower spending because deductions squeeze already stretched budgets, making a visible reduction feel more urgent than benefits promised later.",
         sourceIds: ["source-1"],
-        interpretation: false,
+      }, {
+        text: "Official figures show how the trade-off has changed over time. For these voters, immediate take-home pay can feel more valuable than distant benefits that are harder to see.",
+        sourceIds: ["source-1"],
       }],
-      synthesis: "Taken together, the evidence makes a serious case.",
-      caveat: "This sample is an association and does not prove individual motivation.",
+      caveat: "This association describes only people who voted on this post and does not represent any broader population.",
+      sources: [{
+        id: "source-1",
+        url: "https://www.ons.gov.uk/data",
+        publisher: "Office for National Statistics",
+        title: "Public data",
+        classification: "OFFICIAL" as const,
+      }],
     }],
-    sources: [{
-      id: "source-1",
-      url: "https://www.ons.gov.uk/data",
-      publisher: "Office for National Statistics",
-      title: "Public data",
-      classification: "OFFICIAL" as const,
-    }],
-  },
 };
 
 const unwrappedPost = {
@@ -201,12 +201,27 @@ describe("UsersPage", () => {
 
     expect(screen.getByRole("tab", { name: /Unwrapped/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("heading", { name: "Unwrapped desk" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "The case for changing course" }))
+    expect(await screen.findByRole("heading", {
+      name: "Why younger adults favour reducing public spending",
+    }))
       .toBeInTheDocument();
+    expect(screen.queryByText(unwrappedReview.notice)).not.toBeInTheDocument();
+    expect(screen.queryByText(unwrappedReview.argumentPages[0].caveat)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: unwrappedPost.question })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Run analysis for post 42" }));
     expect(generate).toHaveBeenCalledWith(42);
+
+    await user.click(screen.getByRole("button", { name: "Generate benchmarking for post 42" }));
+    expect(screen.getByRole("heading", { name: "Change the voice. Keep the evidence." }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to Unwrapped desk" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Accounts desk" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Back to Unwrapped desk" }));
+    expect(screen.getByRole("heading", { name: "Unwrapped desk" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: unwrappedPost.question })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Change the voice. Keep the evidence." }))
+      .not.toBeInTheDocument();
   });
 
   it("shows a restricted state when the database account is not an active admin", () => {

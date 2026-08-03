@@ -35,6 +35,29 @@ public record SelectedCohortV1(
         double differenceFromRestPercentagePoints,
         double wilson95Low,
         double wilson95High,
-        double adjustedQValue
+        double adjustedQValue,
+        String displayName
 ) {
+    public SelectedCohortV1(
+            String cohortId,
+            List<CohortDimensionV1> dimensions,
+            CandidateRole role,
+            String relevanceReason,
+            long sampleSize,
+            double populationSharePercentage,
+            long optionVoteCount,
+            double compositionPercentage,
+            double propensityPercentage,
+            double overIndexPercentagePoints,
+            double differenceFromRestPercentagePoints,
+            double wilson95Low,
+            double wilson95High,
+            double adjustedQValue
+    ) {
+        this(cohortId, dimensions, role, relevanceReason, sampleSize,
+                populationSharePercentage, optionVoteCount, compositionPercentage,
+                propensityPercentage, overIndexPercentagePoints,
+                differenceFromRestPercentagePoints, wilson95Low, wilson95High,
+                adjustedQValue, CohortDisplayNames.describe(dimensions));
+    }
 }

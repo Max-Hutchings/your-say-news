@@ -1,19 +1,17 @@
 export type UnwrappedReviewStatus = "DRAFT" | "APPROVED" | "REJECTED";
 
-export type UnwrappedClaim = {
-  id: string;
-  statement: string;
+export type UnwrappedArticleParagraph = {
+  text: string;
   sourceIds: string[];
-  interpretation: boolean;
 };
 
 export type UnwrappedArgument = {
   optionId: number;
   headline: string;
-  usedCohortIds: string[];
-  contextClaims: UnwrappedClaim[];
-  synthesis: string;
+  selectedCohortIds: string[];
+  paragraphs: UnwrappedArticleParagraph[];
   caveat: string;
+  sources: UnwrappedSource[];
 };
 
 export type UnwrappedSource = {
@@ -31,10 +29,9 @@ export type UnwrappedReviewStory = {
   canonicalVoteCount: number;
   status: UnwrappedReviewStatus;
   generatedAt: string;
-  draft: {
-    pages: UnwrappedArgument[];
-    sources: UnwrappedSource[];
-  };
+  notice: string;
+  options: Array<{ id: number; label: string; ordinal: number; semanticKey: string | null }>;
+  argumentPages: UnwrappedArgument[];
 };
 
 export type UnwrappedReviewError = {
@@ -91,4 +88,28 @@ export type UnwrappedAdminPost = {
   createdAt: string;
   canonicalVoteCount: number;
   overall: UnwrappedAdminVoteOption[];
+};
+
+export type UnwrappedBenchmarkPrompt = {
+  systemPrompt: string;
+};
+
+export type UnwrappedBenchmarkVariant = {
+  position: number;
+  systemPrompt: string;
+  effectiveSystemPrompt: string;
+  attemptCount: number;
+  status: "SUCCEEDED" | "FAILED";
+  model: string | null;
+  providerResponseId: string | null;
+  argumentPages: UnwrappedArgument[];
+  errorCode: string | null;
+  errorMessage: string | null;
+};
+
+export type UnwrappedBenchmarkResponse = {
+  postId: number;
+  generatedAt: string;
+  options: Array<{ id: number; label: string; ordinal: number; semanticKey: string | null }>;
+  variants: UnwrappedBenchmarkVariant[];
 };

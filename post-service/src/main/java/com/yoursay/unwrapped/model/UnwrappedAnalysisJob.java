@@ -90,6 +90,7 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
     public Long getCanonicalVoteCount() { return canonicalVoteCount; }
     public JsonNode getAggregateJson() { return aggregateJson; }
     public String getAggregateVersion() { return aggregateVersion; }
+    public String getErrorCode() { return errorCode; }
     public String getErrorMessage() { return errorMessage; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getStartedAt() { return startedAt; }

@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import { useAdminAuth } from "../../features/auth";
-import { UnwrappedReviewDesk, useUnwrappedReviews } from "../../features/unwrapped";
+import {
+  UnwrappedBenchmarkPage,
+  UnwrappedReviewDesk,
+  useUnwrappedReviews,
+  type UnwrappedAdminPost,
+} from "../../features/unwrapped";
 import { AccountLedger, useAdminUsers, type AccountType } from "../../features/users";
 import { Masthead } from "../../shared/components/Masthead";
 import "./users-page.css";
@@ -14,6 +19,7 @@ export function UsersPage() {
   const { users, error, savingUserIds, load, update } = useAdminUsers();
   const unwrapped = useUnwrappedReviews();
   const [section, setSection] = useState<AdminSection>("ACCOUNTS");
+  const [benchmarkPost, setBenchmarkPost] = useState<UnwrappedAdminPost | null>(null);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("ALL");
@@ -163,7 +169,12 @@ export function UsersPage() {
             />
           </>
         )}
-      </main> : (
+      </main> : benchmarkPost ? (
+        <UnwrappedBenchmarkPage
+          post={benchmarkPost}
+          onBack={() => setBenchmarkPost(null)}
+        />
+      ) : (
         <div id="unwrapped-panel" role="tabpanel" aria-labelledby="unwrapped-tab">
           <UnwrappedReviewDesk
             reviews={unwrapped.reviews}
@@ -179,6 +190,7 @@ export function UsersPage() {
             onApprove={unwrapped.approve}
             onReject={unwrapped.reject}
             onGenerate={unwrapped.generate}
+            onBenchmark={setBenchmarkPost}
           />
         </div>
       )}

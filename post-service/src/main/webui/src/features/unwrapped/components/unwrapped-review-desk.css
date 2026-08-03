@@ -452,6 +452,11 @@
   gap: 0.5rem;
 }
 
+.analysis-row__buttons {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .analysis-row__action > small {
   color: var(--editorial-secondary);
   font-size: 0.64rem;
@@ -511,6 +516,12 @@
 .analysis-row--ready .analysis-row__action button {
   background: var(--editorial-lime);
   color: var(--editorial-on-lime);
+}
+
+.analysis-row .analysis-row__buttons button.analysis-benchmark {
+  border-color: var(--editorial-border);
+  background: transparent;
+  color: var(--editorial-ink);
 }
 
 .analysis-row__action button:disabled {
@@ -713,27 +724,75 @@
   line-height: 1;
 }
 
+.review-argument__option {
+  margin: 0.35rem 0 0;
+  color: var(--editorial-secondary);
+  font-size: 0.85rem;
+}
+
 .review-argument__cohorts {
   color: var(--editorial-teal);
   font-family: var(--font-mono);
   font-size: 0.66rem;
 }
 
-.review-argument blockquote {
-  margin: 1rem 0;
-  padding-left: 1rem;
-  border-left: 0.2rem solid var(--editorial-lime);
-  color: var(--editorial-secondary);
+.review-argument__article {
+  display: grid;
+  gap: 1rem;
 }
 
-.review-argument__synthesis {
+.review-argument__paragraph p {
+  margin: 0;
   font-size: 1.05rem;
   line-height: 1.55;
 }
 
-.review-argument__caveat {
+.review-argument__paragraph small {
+  color: var(--editorial-teal);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+.review-argument__sources {
+  padding-top: 1rem;
+  border-top: 1px solid var(--editorial-border);
+}
+
+.review-argument__sources > p {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.review-argument__sources ol {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0;
+  list-style: none;
+}
+
+.review-argument__sources li {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.review-argument__sources li > span {
+  color: var(--editorial-teal);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.review-argument__sources li div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.review-argument__sources li small {
   color: var(--editorial-muted);
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
 }
 
 .review-sources {

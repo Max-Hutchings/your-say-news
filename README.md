@@ -17,6 +17,8 @@ Install these before setting up the project:
 - **Docker Desktop** — use a current release, start the Docker daemon, and make sure its bundled
   Docker Compose v2 command is available. Compose runs Postgres, Keycloak, LocalStack, Liquibase,
   and the local Grafana telemetry stack; backend tests also use Docker through Testcontainers.
+- **Grok API key** — export it as `YOUR_SAY_NEWS_GROK_API_KEY` before running `bun run dev`.
+  The development preflight blocks startup when the variable is absent or blank.
 - **Bash, `curl`, and `lsof`** — used by the development and smoke-test scripts. These are
   included with macOS; on other systems, install them and ensure they are on `PATH`.
 

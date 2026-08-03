@@ -5,6 +5,9 @@ import com.yoursay.unwrapped.dto.ReviewStoryDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationMonitorDto;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkPromptDto;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkRequest;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkResponseDto;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.NonBlocking;
@@ -75,6 +78,23 @@ public class UnwrappedAdminController {
     @RunOnVirtualThread
     public UnwrappedGenerationTriggerDto triggerGeneration(@PathParam("postId") Long postId) {
         return service.triggerGeneration(postId);
+    }
+
+    @GET
+    @Path("/benchmark/system-prompt")
+    @RunOnVirtualThread
+    public UnwrappedBenchmarkPromptDto benchmarkPrompt() {
+        return service.benchmarkPrompt();
+    }
+
+    @POST
+    @Path("/posts/{postId}/benchmark")
+    @RunOnVirtualThread
+    public UnwrappedBenchmarkResponseDto generateBenchmark(
+            @PathParam("postId") Long postId,
+            @Valid @NotNull UnwrappedBenchmarkRequest request
+    ) {
+        return service.generateBenchmark(postId, request.systemPrompts());
     }
 
     @POST

@@ -22,6 +22,7 @@ import java.util.List;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -82,6 +83,9 @@ public class VoteControllerTest {
                 .body("id", greaterThan(0))
                 .body("postId", is((int) postId))
                 .body("optionId", is((int) optionId(postId, "AGREE")));
+
+        assertEquals(0, countRows("unwrapped_reconciliation", postId));
+        assertEquals(0, countRows("unwrapped_analysis_job", postId));
     }
 
     @Test
@@ -347,6 +351,23 @@ public class VoteControllerTest {
             }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to find test option", e);
+        }
+    }
+
+    private int countRows(String table, long postId) {
+        if (!table.equals("unwrapped_reconciliation") && !table.equals("unwrapped_analysis_job")) {
+            throw new IllegalArgumentException("Unexpected table: " + table);
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT count(*) FROM " + table + " WHERE post_id=?")) {
+            statement.setLong(1, postId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to inspect Unwrapped queue state", e);
         }
     }
 

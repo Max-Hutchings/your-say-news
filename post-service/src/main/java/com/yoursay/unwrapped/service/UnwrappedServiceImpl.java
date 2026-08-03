@@ -14,6 +14,8 @@ import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationMonitorDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationState;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationStatusDto;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkPromptDto;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkResponseDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminVoteOptionDto;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
@@ -21,6 +23,7 @@ import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 import com.yoursay.unwrapped.UnwrappedService;
 import com.yoursay.unwrapped.dto.UnwrappedStoryDto;
 import com.yoursay.unwrapped.error.UnwrappedApiException;
+import com.yoursay.unwrapped.agent.UnwrappedSystemPrompt;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJobRepository;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJob;
 import com.yoursay.unwrapped.model.UnwrappedJobStatus;
@@ -55,6 +58,8 @@ import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class UnwrappedServiceImpl implements UnwrappedService {
+    private static final String OBSERVED_NOTICE =
+            "This analysis describes people who voted on this post; it is not a population survey.";
     private static final long MINIMUM_OBSERVED_VOTES = 100;
     private static final String API_KEY_NOT_CONFIGURED = "__not_configured__";
 
@@ -79,6 +84,8 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     @Inject
     UnwrappedMilestoneService milestoneService;
     @Inject
+    UnwrappedBenchmarkRunner benchmarkRunner;
+    @Inject
     EntityManager entityManager;
     @ConfigProperty(name = "unwrapped.agent.api-key", defaultValue = API_KEY_NOT_CONFIGURED)
     String apiKey;
@@ -99,9 +106,19 @@ public class UnwrappedServiceImpl implements UnwrappedService {
                         "Post Unwrapped becomes available after 100 votes.",
                         original.optionId(), existingFollowUp, null);
             }
+            boolean active = jobRepository.count(
+                    "postId = ?1 and status in ('PENDING','GENERATING','DRAFT_READY')", postId) > 0;
+            boolean insufficient = !active && jobRepository.count(
+                    "postId = ?1 and status = 'FAILED' and errorCode = ?2", postId,
+                    "UNWRAPPED_INSUFFICIENT_DEMOGRAPHIC_EVIDENCE") > 0;
+            if (insufficient) {
+                return new UnwrappedResponseDto(
+                        UnwrappedAvailabilityState.INSUFFICIENT_EVIDENCE,
+                        "There is no statistically reliable demographic pattern for every option yet.",
+                        original.optionId(), existingFollowUp, null);
+            }
             boolean failed = jobRepository.count("postId = ?1 and status = 'FAILED'", postId) > 0
-                    && jobRepository.count("postId = ?1 and status in ('PENDING','GENERATING','DRAFT_READY')",
-                    postId) == 0;
+                    && !active;
             return new UnwrappedResponseDto(
                     failed ? UnwrappedAvailabilityState.FAILED : UnwrappedAvailabilityState.BUILDING,
                     failed ? "Pepper could not build this story yet."
@@ -114,7 +131,7 @@ public class UnwrappedServiceImpl implements UnwrappedService {
                 postId, story.getGeneratedAt()) > 0;
         return new UnwrappedResponseDto(
                 refreshing ? UnwrappedAvailabilityState.REFRESHING : UnwrappedAvailabilityState.READY,
-                "This analysis describes people who voted on this post; it is not a population survey.",
+                OBSERVED_NOTICE,
                 original.optionId(), existingFollowUp, toStory(story));
     }
 
@@ -152,7 +169,7 @@ public class UnwrappedServiceImpl implements UnwrappedService {
         if (milestone != null) {
             Optional<UnwrappedAnalysisJob> failed = jobRepository.find(
                     "postId = ?1 and milestone = ?2 and analysisVersion = ?3 and status = ?4",
-                    postId, milestone, "unwrapped-analysis-v1", UnwrappedJobStatus.FAILED)
+                    postId, milestone, UnwrappedStory.ANALYSIS_VERSION, UnwrappedJobStatus.FAILED)
                     .firstResultOptional();
             if (failed.isPresent()) {
                 failed.get().retryManually();
@@ -161,6 +178,20 @@ public class UnwrappedServiceImpl implements UnwrappedService {
         }
         milestoneService.markForReconciliation(postId);
         return new UnwrappedGenerationTriggerDto(postId, "RECONCILIATION_QUEUED");
+    }
+
+    @Override
+    public UnwrappedBenchmarkPromptDto benchmarkPrompt() {
+        return new UnwrappedBenchmarkPromptDto(UnwrappedSystemPrompt.DEFAULT);
+    }
+
+    @Override
+    public UnwrappedBenchmarkResponseDto generateBenchmark(Long postId, List<String> systemPrompts) {
+        PostVotingConfigurationDto post = postService.findByPostId(postId)
+                .orElseThrow(() -> UnwrappedApiException.postMissing(postId));
+        var variants = benchmarkRunner.run(postId, systemPrompts);
+        return new UnwrappedBenchmarkResponseDto(
+                postId, Instant.now(), post.options(), variants);
     }
 
     @Override
@@ -238,7 +269,8 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     UnwrappedStoryDto toStory(UnwrappedStory story) {
         UnwrappedResearchDraftV1 draft = draftJson(story);
         PostVotingConfigurationDto post = postService.findByPostId(story.getPostId()).orElseThrow();
-        return new UnwrappedStoryDto("unwrapped-story-v1", story.getId(), story.getPostId(),
+        return new UnwrappedStoryDto(UnwrappedStory.STORY_SCHEMA_VERSION,
+                story.getId(), story.getPostId(),
                 story.getMilestone(), story.getCanonicalVoteCount(),
                 story.getAggregateVersion(), story.getGeneratedAt(), story.getModel(),
                 UnwrappedStoryResponseAssembler.argumentPages(draft),
@@ -246,9 +278,11 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     }
 
     private ReviewStoryDto toReview(UnwrappedStory story) {
+        PostVotingConfigurationDto post = postService.findByPostId(story.getPostId()).orElseThrow();
         return new ReviewStoryDto(story.getId(), story.getPostId(), story.getMilestone(),
                 story.getCanonicalVoteCount(), story.getReviewStatus(),
-                story.getGeneratedAt(), draftJson(story));
+                story.getGeneratedAt(), OBSERVED_NOTICE, post.options(),
+                UnwrappedStoryResponseAssembler.argumentPages(draftJson(story)));
     }
 
     private UnwrappedAdminPostDto toAdminPost(PostDto post) {
@@ -270,6 +304,9 @@ public class UnwrappedServiceImpl implements UnwrappedService {
 
     private UnwrappedResearchDraftV1 draftJson(UnwrappedStory story) {
         try {
+            if (!UnwrappedStory.STORY_SCHEMA_VERSION.equals(story.getStorySchemaVersion())) {
+                return LegacyUnwrappedDraftAdapter.convert(story.getStoryJson(), objectMapper);
+            }
             return objectMapper.treeToValue(story.getStoryJson(), UnwrappedResearchDraftV1.class);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Stored Unwrapped story is invalid: " + story.getId(), e);

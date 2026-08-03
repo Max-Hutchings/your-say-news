@@ -3,11 +3,7 @@ package com.yoursay.unwrapped.service;
 import com.yoursay.unwrapped.agent.UnwrappedResearchGenerator;
 import com.yoursay.unwrapped.agent.UnwrappedResearchRequest;
 import com.yoursay.unwrapped.agent.UnwrappedResearchResult;
-import com.yoursay.unwrapped.selection.InsightSelectionService;
-import com.yoursay.unwrapped.selection.UnwrappedAnalysisBriefV1;
 import com.yoursay.observability.DomainMetrics;
-import com.yoursay.votes.PostAnalysisAggregateService;
-import com.yoursay.votes.dto.PostAnalysisAggregateV1;
 import io.quarkus.logging.Log;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -26,9 +22,7 @@ public class UnwrappedGenerationWorker {
     @Inject
     UnwrappedJobProcessor processor;
     @Inject
-    PostAnalysisAggregateService aggregates;
-    @Inject
-    InsightSelectionService selector;
+    UnwrappedResearchPreparation preparation;
     @Inject
     UnwrappedResearchGenerator generator;
     @Inject
@@ -72,12 +66,10 @@ public class UnwrappedGenerationWorker {
     }
 
     private UnwrappedResearchRequest request(UnwrappedJobProcessor.JobWork job) {
-        PostAnalysisAggregateV1 aggregate = aggregates.capture(job.postId());
+        UnwrappedResearchPreparation.PreparedResearch prepared = preparation.prepare(job.postId());
+        var aggregate = prepared.aggregate();
         processor.attachAggregate(job.id(), aggregate.canonicalVoteCount(),
                 aggregate.aggregateVersion(), aggregate);
-        UnwrappedAnalysisBriefV1 brief = selector.select(aggregate);
-        return new UnwrappedResearchRequest(brief.postId(), brief.summary(), brief.question(),
-                brief.jurisdiction(), brief.canonicalVoteCount(), brief.aggregateVersion(),
-                brief.options());
+        return prepared.request();
     }
 }

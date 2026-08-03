@@ -2,6 +2,7 @@ package com.yoursay.unwrapped.service;
 
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJob;
 import com.yoursay.unwrapped.model.UnwrappedAnalysisJobRepository;
+import com.yoursay.unwrapped.model.UnwrappedStory;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -54,9 +55,9 @@ public class UnwrappedReconciliationWorker {
         Integer milestone = UnwrappedMilestones.highestReached(count);
         if (milestone != null && jobs.count(
                 "postId = ?1 and milestone = ?2 and analysisVersion = ?3",
-                postId, milestone, "unwrapped-analysis-v1") == 0) {
+                postId, milestone, UnwrappedStory.ANALYSIS_VERSION) == 0) {
             jobs.persist(new UnwrappedAnalysisJob(postId, milestone,
-                    "unwrapped-analysis-v1"));
+                    UnwrappedStory.ANALYSIS_VERSION));
         }
         entityManager.createNativeQuery("delete from unwrapped_reconciliation where post_id = ?1")
                 .setParameter(1, postId).executeUpdate();

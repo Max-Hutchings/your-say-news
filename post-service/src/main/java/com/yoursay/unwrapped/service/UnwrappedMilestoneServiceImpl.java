@@ -12,12 +12,13 @@ public class UnwrappedMilestoneServiceImpl implements UnwrappedMilestoneService 
     EntityManager entityManager;
 
     /**
-     * Marks this post dirty in the same Postgres database and transaction as the canonical vote.
+     * Marks an administrator-selected post dirty for asynchronous reconciliation.
      *
      * <p>This deliberately uses a native {@code INSERT ... ON CONFLICT} rather than a Panache
-     * find-then-persist/update sequence. Concurrent votes can mark the same post at once, so the
-     * marker must be an atomic, idempotent upsert; modelling the marker as a Panache entity would
-     * still require native SQL to avoid a duplicate-key race.</p>
+     * find-then-persist/update sequence. Repeated administrator requests can target the same post,
+     * so the marker remains an atomic, idempotent upsert; modelling it as a Panache entity would
+     * still require native SQL to avoid a duplicate-key race. Vote casting never calls this
+     * service.</p>
      */
     @Override
     @Transactional

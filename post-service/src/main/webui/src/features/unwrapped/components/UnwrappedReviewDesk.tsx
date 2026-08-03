@@ -23,6 +23,7 @@ type UnwrappedReviewDeskProps = {
   onApprove: (storyId: string) => Promise<UnwrappedReviewStory>;
   onReject: (storyId: string, reason: string) => Promise<UnwrappedReviewStory>;
   onGenerate: (postId: number) => Promise<UnwrappedGenerationTrigger>;
+  onBenchmark: (post: UnwrappedAdminPost) => void;
 };
 
 export function UnwrappedReviewDesk({
@@ -39,6 +40,7 @@ export function UnwrappedReviewDesk({
   onApprove,
   onReject,
   onGenerate,
+  onBenchmark,
 }: UnwrappedReviewDeskProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
@@ -100,6 +102,7 @@ export function UnwrappedReviewDesk({
         generationMonitor={generationMonitor}
         onReload={onReloadPosts}
         onGenerate={onGenerate}
+        onBenchmark={onBenchmark}
       />
 
       <div className="unwrapped-status-line">
@@ -162,41 +165,51 @@ export function UnwrappedReviewDesk({
                   <p>Post {selected.postId} · {selected.canonicalVoteCount} canonical votes</p>
                   <h2>Publication proof</h2>
                 </div>
-                <span>{selected.draft.pages.length} arguments</span>
+                <span>{selected.argumentPages.length} arguments</span>
               </header>
 
               <div className="review-proof__pages">
-                {selected.draft.pages.map((page, index) => (
+                {selected.argumentPages.map((page) => {
+                  const option = selected.options.find((value) => value.id === page.optionId);
+                  const sourceIds = page.sources.map((source) => source.id);
+                  return (
                   <section key={page.optionId} className="review-argument">
                     <p className="review-argument__kicker">
-                      Argument {index + 1} · option {page.optionId}
+                      THE CASE FOR
+                    </p>
+                    <p className="review-argument__option">
+                      {option?.label ?? `Option ${page.optionId}`}
                     </p>
                     <h3>{page.headline}</h3>
-                    {page.usedCohortIds.length > 0 ? (
-                      <p className="review-argument__cohorts">
-                        Observed: {page.usedCohortIds.join(" · ")}
-                      </p>
-                    ) : null}
-                    {page.contextClaims.map((claim) => (
-                      <blockquote key={claim.id}>{claim.statement}</blockquote>
+                    <div className="review-argument__article">
+                    {page.paragraphs.map((paragraph, paragraphIndex) => (
+                      <div key={`${page.optionId}-${paragraphIndex}`}
+                        className="review-argument__paragraph">
+                        <p>{paragraph.text}</p>
+                        <small>{paragraph.sourceIds.map(
+                          (id) => `[${sourceIds.indexOf(id) + 1}]`,
+                        ).join(" ")}</small>
+                      </div>
                     ))}
-                    <p className="review-argument__synthesis">{page.synthesis}</p>
-                    <p className="review-argument__caveat">{page.caveat}</p>
+                    </div>
+                    <div className="review-argument__sources">
+                      <p>Data sources</p>
+                      <ol>
+                        {page.sources.map((source, sourceIndex) => (
+                          <li key={source.id}>
+                            <span>{String(sourceIndex + 1).padStart(2, "0")}</span>
+                            <div>
+                              <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
+                              <small>{source.publisher} · {source.classification.replace("_", " ")}</small>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
                   </section>
-                ))}
+                  );
+                })}
               </div>
-
-              <section className="review-sources" aria-label="Sources">
-                <h3>Source ledger</h3>
-                <ol>
-                  {selected.draft.sources.map((source) => (
-                    <li key={source.id}>
-                      <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
-                      <span>{source.publisher} · {source.classification.replace("_", " ")}</span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
 
               {rejecting ? (
                 <section className="review-rejection" aria-label="Reject draft">

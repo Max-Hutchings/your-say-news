@@ -34,8 +34,8 @@ final class UnwrappedStoryResponseAssembler {
             UnwrappedArgumentDraftV1 page,
             Map<String, UnwrappedSourceDraftV1> sourcesById
     ) {
-        LinkedHashSet<String> citedIds = page.contextClaims().stream()
-                .flatMap(claim -> claim.sourceIds().stream())
+        LinkedHashSet<String> citedIds = page.paragraphs().stream()
+                .flatMap(paragraph -> paragraph.sourceIds().stream())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         List<UnwrappedSourceDraftV1> sources = citedIds.stream()
                 .map(sourceId -> source(sourceId, sourcesById))
@@ -44,9 +44,8 @@ final class UnwrappedStoryResponseAssembler {
         return new UnwrappedArgumentPageDto(
                 page.optionId(),
                 page.headline(),
-                page.usedCohortIds(),
-                page.contextClaims(),
-                page.synthesis(),
+                page.selectedCohortIds(),
+                page.paragraphs(),
                 page.caveat(),
                 sources);
     }

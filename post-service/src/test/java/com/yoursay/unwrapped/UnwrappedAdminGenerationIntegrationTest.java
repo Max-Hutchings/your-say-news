@@ -13,10 +13,13 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.List;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
@@ -34,7 +37,7 @@ class UnwrappedAdminGenerationIntegrationTest {
     void adminGenerateEndpointRunsThroughToAReviewableSourcedDraft() throws Exception {
         TestPost post = createPost();
         try {
-            insertVotes(post, 100);
+            insertStronglySplitVotes(post, 100);
 
             given()
                     .when().post("/api/admin/unwrapped/posts/" + post.id() + "/generate")
@@ -47,12 +50,98 @@ class UnwrappedAdminGenerationIntegrationTest {
 
             JobResult job = jobResult(post.id());
             assertEquals("DRAFT_READY", job.status());
+            assertEquals(null, job.errorCode());
             if (ProviderProfile.stubbed()) {
                 assertEquals("stubbed-unwrapped", job.model());
                 assertEquals("stub-post-" + post.id(), job.providerResponseId());
                 assertEquals("https://www.ons.gov.uk/", sourceUrl(post.id()));
             }
             assertEquals(1, storyCount(post.id()));
+            assertEquals("unwrapped-story-v2", storySchemaVersion(post.id()));
+            assertEquals("unwrapped-cohort-causal-v2", promptVersion(post.id()));
+            assertEquals(2, articleParagraphCount(post.id()));
+            assertEquals(1, selectedCohortCount(post.id()));
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void normalGenerationStillCreatesEveryOptionWhenNoDemographicCohortQualifies() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotesWithoutCharacteristics(post, 100);
+            given().when().post("/api/admin/unwrapped/posts/" + post.id() + "/generate")
+                    .then().statusCode(202);
+
+            reconciliationWorker.reconcileOne();
+            generationWorker.processNext();
+
+            JobResult job = jobResult(post.id());
+            assertEquals("DRAFT_READY", job.status());
+            assertEquals(null, job.errorCode());
+            assertEquals(1, storyCount(post.id()));
+            assertEquals(0, selectedCohortCount(post.id()));
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void benchmarkGeneratesThreeDirectDraftsWithoutCreatingPublicationWork() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertStronglySplitVotes(post, 100);
+
+            given()
+                    .contentType("application/json")
+                    .body(Map.of("systemPrompts", List.of(
+                            "Write concise analysis.",
+                            "Write detailed analysis.",
+                            "Write conversational analysis.")))
+                    .when().post("/api/admin/unwrapped/posts/" + post.id() + "/benchmark")
+                    .then()
+                    .statusCode(200)
+                    .body("postId", equalTo((int) post.id()))
+                    .body("variants", hasSize(3))
+                    .body("variants.position", equalTo(List.of(1, 2, 3)))
+                    .body("variants.status", everyItem(equalTo("SUCCEEDED")))
+                    .body("variants.argumentPages", everyItem(hasSize(2)));
+
+            assertEquals(0, lifecycleCount("unwrapped_reconciliation", post.id()));
+            assertEquals(0, lifecycleCount("unwrapped_analysis_job", post.id()));
+            assertEquals(0, storyCount(post.id()));
+        } finally {
+            deletePost(post.id());
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void benchmarkCallsTheAgentDirectlyForEveryOptionWithoutAQualifiedCohort() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotesWithoutCharacteristics(post, 100);
+
+            given()
+                    .contentType("application/json")
+                    .body(Map.of("systemPrompts", List.of("Write a concise balanced analysis.")))
+                    .when().post("/api/admin/unwrapped/posts/" + post.id() + "/benchmark")
+                    .then()
+                    .statusCode(200)
+                    .body("postId", equalTo((int) post.id()))
+                    .body("variants", hasSize(1))
+                    .body("variants[0].status", equalTo("SUCCEEDED"))
+                    .body("variants[0].systemPrompt", equalTo("Write a concise balanced analysis."))
+                    .body("variants[0].argumentPages", hasSize(2))
+                    .body("variants[0].argumentPages.selectedCohortIds",
+                            equalTo(List.of(List.of(), List.of())));
+
+            assertEquals(0, lifecycleCount("unwrapped_reconciliation", post.id()));
+            assertEquals(0, lifecycleCount("unwrapped_analysis_job", post.id()));
+            assertEquals(0, storyCount(post.id()));
         } finally {
             deletePost(post.id());
         }
@@ -86,21 +175,43 @@ class UnwrappedAdminGenerationIntegrationTest {
                 options.setLong(2, postId);
                 try (ResultSet result = options.executeQuery()) {
                     result.next();
-                    return new TestPost(postId, result.getLong(1));
+                    long agree = result.getLong(1);
+                    result.next();
+                    return new TestPost(postId, agree, result.getLong(1));
                 }
             }
         }
     }
 
-    private void insertVotes(TestPost post, int amount) throws Exception {
+    private void insertStronglySplitVotes(TestPost post, int amountPerOption) throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      insert into votes(post_id, user_id, option_id, characteristic_snapshot)
-                     select ?, 950000 + generated.user_number, ?, '{}'::jsonb
+                     select ?, 950000 + generated.user_number, ?, '{"gender":"MAN"}'::jsonb
+                     from generate_series(1, ?) as generated(user_number)
+                     union all
+                     select ?, 960000 + generated.user_number, ?, '{"gender":"WOMAN"}'::jsonb
                      from generate_series(1, ?) as generated(user_number)
                      """)) {
             statement.setLong(1, post.id());
-            statement.setLong(2, post.optionId());
+            statement.setLong(2, post.agreeOptionId());
+            statement.setInt(3, amountPerOption);
+            statement.setLong(4, post.id());
+            statement.setLong(5, post.disagreeOptionId());
+            statement.setInt(6, amountPerOption);
+            assertEquals(amountPerOption * 2, statement.executeUpdate());
+        }
+    }
+
+    private void insertVotesWithoutCharacteristics(TestPost post, int amount) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into votes(post_id, user_id, option_id, characteristic_snapshot)
+                     select ?, 970000 + generated.user_number, ?, '{}'::jsonb
+                     from generate_series(1, ?) as generated(user_number)
+                     """)) {
+            statement.setLong(1, post.id());
+            statement.setLong(2, post.agreeOptionId());
             statement.setInt(3, amount);
             assertEquals(amount, statement.executeUpdate());
         }
@@ -110,14 +221,14 @@ class UnwrappedAdminGenerationIntegrationTest {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
                      """
-                     select status, model, provider_response_id
+                     select status, model, provider_response_id, error_code
                      from unwrapped_analysis_job where post_id = ?
                      """)) {
             statement.setLong(1, postId);
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
                 return new JobResult(result.getString("status"), result.getString("model"),
-                        result.getString("provider_response_id"));
+                        result.getString("provider_response_id"), result.getString("error_code"));
             }
         }
     }
@@ -126,6 +237,18 @@ class UnwrappedAdminGenerationIntegrationTest {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
                      "select count(*) from unwrapped_story where post_id = ?")) {
+            statement.setLong(1, postId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        }
+    }
+
+    private int lifecycleCount(String table, long postId) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select count(*) from " + table + " where post_id = ?")) {
             statement.setLong(1, postId);
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
@@ -145,6 +268,54 @@ class UnwrappedAdminGenerationIntegrationTest {
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
                 return result.getString(1);
+            }
+        }
+    }
+
+    private String storySchemaVersion(long postId) throws Exception {
+        return storyValue(postId, "story_schema_version");
+    }
+
+    private String promptVersion(long postId) throws Exception {
+        return storyValue(postId, "prompt_version");
+    }
+
+    private String storyValue(long postId, String column) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select " + column + " from unwrapped_story where post_id = ?")) {
+            statement.setLong(1, postId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getString(1);
+            }
+        }
+    }
+
+    private int articleParagraphCount(long postId) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     select jsonb_array_length(story_json->'pages'->0->'paragraphs')
+                     from unwrapped_story where post_id = ?
+                     """)) {
+            statement.setLong(1, postId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        }
+    }
+
+    private int selectedCohortCount(long postId) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     select jsonb_array_length(story_json->'pages'->0->'selectedCohortIds')
+                     from unwrapped_story where post_id = ?
+                     """)) {
+            statement.setLong(1, postId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
             }
         }
     }
@@ -179,9 +350,10 @@ class UnwrappedAdminGenerationIntegrationTest {
         }
     }
 
-    private record TestPost(long id, long optionId) {
+    private record TestPost(long id, long agreeOptionId, long disagreeOptionId) {
     }
 
-    private record JobResult(String status, String model, String providerResponseId) {
+    private record JobResult(String status, String model, String providerResponseId,
+                             String errorCode) {
     }
 }

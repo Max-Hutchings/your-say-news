@@ -17,6 +17,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "unwrapped_story")
 public class UnwrappedStory extends PanacheEntityBase {
+    public static final String STORY_SCHEMA_VERSION = "unwrapped-story-v2";
+    public static final String ANALYSIS_VERSION = "unwrapped-analysis-v2";
+    public static final String PROMPT_VERSION = "unwrapped-cohort-causal-v2";
     @Id
     UUID id;
     @Column(name = "job_id", nullable = false)
@@ -64,9 +67,9 @@ public class UnwrappedStory extends PanacheEntityBase {
         this.milestone = job.getMilestone();
         this.canonicalVoteCount = job.getCanonicalVoteCount() == null ? 0 : job.getCanonicalVoteCount();
         this.aggregateVersion = job.getAggregateVersion();
-        this.storySchemaVersion = "unwrapped-story-v1";
+        this.storySchemaVersion = STORY_SCHEMA_VERSION;
         this.analysisVersion = job.getAnalysisVersion();
-        this.promptVersion = "unwrapped-case-v1";
+        this.promptVersion = PROMPT_VERSION;
         this.ruleSetVersion = "cohort-rules-v1";
         this.model = model;
         this.storyJson = storyJson;
@@ -79,6 +82,7 @@ public class UnwrappedStory extends PanacheEntityBase {
     public Integer getMilestone() { return milestone; }
     public long getCanonicalVoteCount() { return canonicalVoteCount; }
     public String getAggregateVersion() { return aggregateVersion; }
+    public String getStorySchemaVersion() { return storySchemaVersion; }
     public JsonNode getStoryJson() { return storyJson; }
     public UnwrappedReviewStatus getReviewStatus() { return reviewStatus; }
     public Instant getGeneratedAt() { return generatedAt; }

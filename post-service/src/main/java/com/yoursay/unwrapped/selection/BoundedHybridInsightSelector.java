@@ -18,11 +18,11 @@ public class BoundedHybridInsightSelector implements InsightSelectionService {
             "ageRange", "gender", "politicalPersuasion", "country", "region", "urbanRural",
             "personalIncomeRange", "householdIncomeRange", "education", "occupation",
             "employmentSector");
-    private static final List<String> PROHIBITED = List.of(
-            "Do not claim that a demographic characteristic caused a vote.",
+    private static final List<String> NARRATIVE_INSTRUCTIONS = List.of(
+            "Explain why a selected cohort is likely to favour the option using researched context.",
+            "Do not claim direct knowledge of every individual voter's private motivation.",
             "Do not claim this self-selected audience represents a jurisdiction's population.",
-            "Do not introduce a cohort absent from this shortlist.",
-            "Distinguish observed vote data, external context, and interpretation.");
+            "Do not introduce a cohort absent from this shortlist.");
 
     @Override
     public UnwrappedAnalysisBriefV1 select(PostAnalysisAggregateV1 aggregate) {
@@ -37,7 +37,7 @@ public class BoundedHybridInsightSelector implements InsightSelectionService {
                     ? "No reliable demographic concentration passes the versioned narration rules."
                     : null;
             return new OptionBriefV1(option, overall.count(), overall.percentage(), selected,
-                    PROHIBITED, insufficient);
+                    NARRATIVE_INSTRUCTIONS, insufficient);
         }).toList();
         return new UnwrappedAnalysisBriefV1("unwrapped-analysis-brief-v1", aggregate.postId(),
                 aggregate.summary(), aggregate.question(), aggregate.jurisdiction(), aggregate.canonicalVoteCount(),

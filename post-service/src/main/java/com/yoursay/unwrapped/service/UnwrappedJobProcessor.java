@@ -70,7 +70,11 @@ public class UnwrappedJobProcessor {
     public FailureResult fail(UUID id, RuntimeException failure) {
         UnwrappedAnalysisJob job = jobs.findById(id);
         String code = errorCode(failure);
-        job.fail(code, "Pepper could not build this story.", retryEnabled);
+        String message = "UNWRAPPED_INSUFFICIENT_DEMOGRAPHIC_EVIDENCE".equals(code)
+                ? "No statistically reliable demographic pattern is available for every option."
+                : "Pepper could not build this story.";
+        job.fail(code, message, retryEnabled
+                && !"UNWRAPPED_INSUFFICIENT_DEMOGRAPHIC_EVIDENCE".equals(code));
         return new FailureResult(code, job.getStatus().name(),
                 job.getStatus() == UnwrappedJobStatus.PENDING);
     }

@@ -6,6 +6,15 @@ Date: 2026-07-25
 > prediction stories are removed for now. The active lifecycle generates observed stories only
 > after the first safe vote milestone; human review, versioning and follow-up isolation remain.
 
+> **Amended by [ADR-038](ADR-038-2026-08-03-cohort-causal-persuasive-narrative.md):**
+> each option now presents one cohort-led, two-or-three-paragraph persuasive analysis of 50–100
+> words rather than separate observed, context and synthesis sections. The admin proof must match
+> the voter-facing article exactly.
+
+> **Amended by [ADR-039](ADR-039-2026-08-03-admin-only-unwrapped-generation.md):**
+> reaching a vote milestone no longer queues generation. Only an explicit administrator action may
+> create reconciliation work or a provider-backed analysis job.
+
 ## Situation
 
 After a canonical vote, users currently reach raw aggregate diagrams. MVP1 instead needs Post

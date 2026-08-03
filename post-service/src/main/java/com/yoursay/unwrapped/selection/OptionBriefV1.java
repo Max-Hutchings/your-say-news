@@ -10,7 +10,7 @@ import java.util.List;
  * @param overallVoteCount number of post voters who selected the option
  * @param overallVotePercentage option's share of all votes on the post
  * @param candidates statistically safe cohorts the model may use as observed context
- * @param prohibitedInferences claims the model must avoid to preserve statistical integrity
+ * @param narrativeInstructions required explanatory and statistical boundaries for the model
  * @param insufficientEvidence explanation supplied when no cohort passes the narration rules
  */
 public record OptionBriefV1(
@@ -18,7 +18,7 @@ public record OptionBriefV1(
         long overallVoteCount,
         double overallVotePercentage,
         List<SelectedCohortV1> candidates,
-        List<String> prohibitedInferences,
+        List<String> narrativeInstructions,
         String insufficientEvidence
 ) {
 }

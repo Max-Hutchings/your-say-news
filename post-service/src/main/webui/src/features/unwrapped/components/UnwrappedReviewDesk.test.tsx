@@ -10,28 +10,28 @@ const review = {
   canonicalVoteCount: 126,
   status: "DRAFT" as const,
   generatedAt: "2026-07-28T10:00:00Z",
-  draft: {
-    pages: [{
+  notice: "This analysis describes people who voted on this post; it is not a population survey.",
+  options: [{ id: 71, label: "Reduce public spending", ordinal: 0, semanticKey: "AGREE" }],
+  argumentPages: [{
       optionId: 71,
-      headline: "The case for changing course",
-      usedCohortIds: ["ageRange=AGE_25_34"],
-      contextClaims: [{
-        id: "claim-1",
-        statement: "Official figures show a material change.",
+      headline: "Why younger adults favour reducing public spending",
+      selectedCohortIds: ["ageRange=AGE_25_34"],
+      paragraphs: [{
+        text: "Younger adults are likely to favour lower spending because current deductions squeeze already stretched budgets, making a visible reduction feel more urgent than benefits promised later.",
         sourceIds: ["source-1"],
-        interpretation: false,
+      }, {
+        text: "Official figures show how the trade-off has changed over time. For these voters, immediate take-home pay can feel more valuable than distant benefits that are harder to see.",
+        sourceIds: ["source-1"],
       }],
-      synthesis: "Taken together, the evidence makes a serious case.",
-      caveat: "This sample is an association and does not prove individual motivation.",
+      caveat: "This association describes only people who voted on this post and does not represent any broader population.",
+      sources: [{
+        id: "source-1",
+        url: "https://www.ons.gov.uk/data",
+        publisher: "Office for National Statistics",
+        title: "Public data",
+        classification: "OFFICIAL" as const,
+      }],
     }],
-    sources: [{
-      id: "source-1",
-      url: "https://www.ons.gov.uk/data",
-      publisher: "Office for National Statistics",
-      title: "Public data",
-      classification: "OFFICIAL" as const,
-    }],
-  },
 };
 
 const analysisPost = {
@@ -76,15 +76,21 @@ describe("UnwrappedReviewDesk", () => {
         onApprove={approve}
         onReject={vi.fn()}
         onGenerate={vi.fn()}
+        onBenchmark={vi.fn()}
       />,
     );
 
-    expect(await screen.findByRole("heading", { name: review.draft.pages[0].headline }))
+    expect(await screen.findByRole("heading", { name: review.argumentPages[0].headline }))
       .toBeInTheDocument();
-    expect(screen.getByText("Official figures show a material change.")).toBeInTheDocument();
-    expect(screen.getByText("Observed: ageRange=AGE_25_34")).toBeInTheDocument();
-    expect(screen.getByText(review.draft.pages[0].synthesis)).toBeInTheDocument();
-    expect(screen.getByText(review.draft.pages[0].caveat)).toBeInTheDocument();
+    expect(screen.getByText("THE CASE FOR")).toBeInTheDocument();
+    expect(screen.getByText("Reduce public spending")).toBeInTheDocument();
+    expect(screen.queryByText(review.notice)).not.toBeInTheDocument();
+    expect(screen.getByText(review.argumentPages[0].paragraphs[0].text)).toBeInTheDocument();
+    expect(screen.getByText(review.argumentPages[0].paragraphs[1].text)).toBeInTheDocument();
+    expect(screen.getAllByText("[1]")).toHaveLength(2);
+    expect(screen.queryByText(/Observed:/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Wider context")).not.toBeInTheDocument();
+    expect(screen.queryByText(review.argumentPages[0].caveat)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Public data" })).toHaveAttribute(
       "href",
       "https://www.ons.gov.uk/data",
@@ -115,6 +121,7 @@ describe("UnwrappedReviewDesk", () => {
         onApprove={vi.fn()}
         onReject={reject}
         onGenerate={vi.fn()}
+        onBenchmark={vi.fn()}
       />,
     );
 
@@ -140,6 +147,7 @@ describe("UnwrappedReviewDesk", () => {
       postId: 42,
       status: "RECONCILIATION_QUEUED",
     });
+    const benchmark = vi.fn();
 
     render(
       <UnwrappedReviewDesk
@@ -156,6 +164,7 @@ describe("UnwrappedReviewDesk", () => {
         onApprove={vi.fn()}
         onReject={vi.fn()}
         onGenerate={generate}
+        onBenchmark={benchmark}
       />,
     );
 
@@ -171,6 +180,9 @@ describe("UnwrappedReviewDesk", () => {
     await user.click(button);
 
     expect(generate).toHaveBeenCalledWith(42);
+
+    await user.click(screen.getByRole("button", { name: "Generate benchmarking for post 42" }));
+    expect(benchmark).toHaveBeenCalledWith(analysisPost);
   });
 
   it("shows persistent queued progress and explains when generation is paused", () => {
@@ -202,6 +214,7 @@ describe("UnwrappedReviewDesk", () => {
         onApprove={vi.fn()}
         onReject={vi.fn()}
         onGenerate={vi.fn()}
+        onBenchmark={vi.fn()}
       />,
     );
 
@@ -246,6 +259,7 @@ describe("UnwrappedReviewDesk", () => {
         onApprove={vi.fn()}
         onReject={vi.fn()}
         onGenerate={generate}
+        onBenchmark={vi.fn()}
       />,
     );
 
@@ -286,6 +300,7 @@ describe("UnwrappedReviewDesk", () => {
         onApprove={vi.fn()}
         onReject={vi.fn()}
         onGenerate={vi.fn()}
+        onBenchmark={vi.fn()}
       />,
     );
 

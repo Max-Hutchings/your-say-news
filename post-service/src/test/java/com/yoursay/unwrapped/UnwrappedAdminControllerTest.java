@@ -1,5 +1,6 @@
 package com.yoursay.unwrapped;
 
+import com.yoursay.unwrapped.agent.UnwrappedSystemPrompt;
 import com.yoursay.unwrapped.service.UnwrappedReconciliationWorker;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -49,7 +50,7 @@ class UnwrappedAdminControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
-    void seededVoteTotalsStayIdleUntilAVoteOrAdminMarksThePost() throws Exception {
+    void seededVoteTotalsStayIdleUntilAnAdminExplicitlyQueuesThePost() throws Exception {
         TestPost post = createPost();
         try {
             insertVotes(post, 100);
@@ -63,7 +64,11 @@ class UnwrappedAdminControllerTest {
             assertFalse(statuses.stream().anyMatch(
                     candidate -> ((Number) candidate.get("postId")).longValue() == post.id()));
 
-            milestoneService.markForReconciliation(post.id());
+            given()
+                    .when().post("/api/admin/unwrapped/posts/" + post.id() + "/generate")
+                    .then().statusCode(202)
+                    .body("postId", equalTo((int) post.id()))
+                    .body("status", equalTo("RECONCILIATION_QUEUED"));
             reconciliationWorker.reconcileOne();
 
             assertEquals(0, reconciliationCount(post.id()));
@@ -339,6 +344,98 @@ class UnwrappedAdminControllerTest {
                 .when().get("/api/admin/unwrapped/generation-status")
                 .then()
                 .statusCode(403);
+        given()
+                .when().get("/api/admin/unwrapped/benchmark/system-prompt")
+                .then()
+                .statusCode(403);
+        given()
+                .contentType("application/json")
+                .body(Map.of("systemPrompts", List.of("A", "B", "C")))
+                .when().post("/api/admin/unwrapped/posts/1/benchmark")
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void benchmarkContractExposesTheDefaultPromptAndAcceptsUpToThreePrompts() {
+        given()
+                .when().get("/api/admin/unwrapped/benchmark/system-prompt")
+                .then()
+                .statusCode(200)
+                .body("systemPrompt", equalTo(UnwrappedSystemPrompt.DEFAULT));
+
+        given()
+                .contentType("application/json")
+                .body(Map.of("systemPrompts", List.of()))
+                .when().post("/api/admin/unwrapped/posts/1/benchmark")
+                .then()
+                .statusCode(400)
+                .body("code", equalTo("VALIDATION_FAILED"));
+
+        given()
+                .contentType("application/json")
+                .body(Map.of("systemPrompts", List.of("Prompt A", "Prompt B", "Prompt C", "Prompt D")))
+                .when().post("/api/admin/unwrapped/posts/1/benchmark")
+                .then()
+                .statusCode(400)
+                .body("code", equalTo("VALIDATION_FAILED"));
+
+        given()
+                .contentType("application/json")
+                .body(Map.of("systemPrompts", List.of("Prompt A", "Prompt B", "Prompt C")))
+                .when().post("/api/admin/unwrapped/posts/999999/benchmark")
+                .then()
+                .statusCode(404)
+                .body("code", equalTo("UNWRAPPED_POST_NOT_FOUND"));
+
+        given()
+                .contentType("application/json")
+                .body("{}")
+                .when().post("/api/admin/unwrapped/posts/1/benchmark")
+                .then()
+                .statusCode(400)
+                .body("code", equalTo("VALIDATION_FAILED"));
+
+        given()
+                .contentType("application/json")
+                .body("{\"systemPrompts\":null}")
+                .when().post("/api/admin/unwrapped/posts/1/benchmark")
+                .then()
+                .statusCode(400)
+                .body("code", equalTo("VALIDATION_FAILED"));
+
+        given()
+                .contentType("application/json")
+                .when().post("/api/admin/unwrapped/posts/1/benchmark")
+                .then()
+                .statusCode(400)
+                .body("code", equalTo("VALIDATION_FAILED"));
+
+        given()
+                .contentType("application/json")
+                .body(Map.of("systemPrompts", List.of("   ")))
+                .when().post("/api/admin/unwrapped/posts/1/benchmark")
+                .then()
+                .statusCode(400)
+                .body("code", equalTo("VALIDATION_FAILED"));
+
+        String maximumPrompt = "x".repeat(20_000);
+        given()
+                .contentType("application/json")
+                .body(Map.of("systemPrompts", List.of(maximumPrompt)))
+                .when().post("/api/admin/unwrapped/posts/999999/benchmark")
+                .then()
+                .statusCode(404)
+                .body("code", equalTo("UNWRAPPED_POST_NOT_FOUND"));
+
+        given()
+                .contentType("application/json")
+                .body(Map.of("systemPrompts", List.of(maximumPrompt + "x")))
+                .when().post("/api/admin/unwrapped/posts/999999/benchmark")
+                .then()
+                .statusCode(400)
+                .body("code", equalTo("VALIDATION_FAILED"));
     }
 
     private TestPost createPost() throws Exception {

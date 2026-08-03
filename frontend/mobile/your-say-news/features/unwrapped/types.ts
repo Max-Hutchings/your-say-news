@@ -16,25 +16,22 @@ export interface UnwrappedSource {
   classification: SourceClassification;
 }
 
-export interface UnwrappedClaim {
-  id: string;
-  statement: string;
+export interface UnwrappedArticleParagraph {
+  text: string;
   sourceIds: string[];
-  interpretation: boolean;
 }
 
 export interface UnwrappedArgumentPage {
   optionId: number;
   headline: string;
-  usedCohortIds: string[];
-  contextClaims: UnwrappedClaim[];
-  synthesis: string;
+  selectedCohortIds: string[];
+  paragraphs: UnwrappedArticleParagraph[];
   caveat: string;
   sources: UnwrappedSource[];
 }
 
 export interface UnwrappedStory {
-  schemaVersion: "unwrapped-story-v1";
+  schemaVersion: "unwrapped-story-v2";
   storyId: string;
   postId: number;
   milestone: number;

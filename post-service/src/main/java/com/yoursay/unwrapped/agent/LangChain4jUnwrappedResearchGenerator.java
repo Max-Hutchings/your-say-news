@@ -4,13 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.unwrapped.SourceClassification;
 import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
-import com.yoursay.unwrapped.dto.UnwrappedClaimDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 import io.quarkus.logging.Log;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -20,6 +21,7 @@ import java.util.List;
 
 /** LangChain4j implementation kept behind the provider-neutral Unwrapped domain interface. */
 @ApplicationScoped
+@ActivateRequestContext
 public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchGenerator {
     private static final String NOT_CONFIGURED = "__not_configured__";
 
@@ -46,17 +48,26 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
 
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request) {
+        return generate(request, null);
+    }
+
+    @Override
+    public UnwrappedResearchResult generate(UnwrappedResearchRequest request, String systemPrompt) {
         if (stubbed) return stubbedResult(request);
         if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_NOT_CONFIGURED");
         }
         responseCapture.begin();
         try {
-            UnwrappedResearchDraftV1 draft = aiService.research(researchPrompt(request));
+            String brief = researchPrompt(request);
+            UnwrappedResearchDraftV1 draft = systemPrompt == null
+                    ? aiService.research(brief)
+                    : aiService.researchWithSystemPrompt(systemPrompt, brief);
             ChatResponse response = responseCapture.take();
-            if (response == null || draft == null) {
+            if (response == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
             }
+            if (draft == null) throw new IllegalArgumentException("UNWRAPPED_DRAFT_MISSING");
             List<String> citations = citations(response);
             Log.infof("Unwrapped provider draft received: postId=%d expectedOptions=%s returnedOptions=%s citations=%d",
                     request.postId(), request.options().stream().map(option -> option.option().id()).toList(),
@@ -86,8 +97,8 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
         if (draft.pages() == null) return List.of("pages=null");
         return draft.pages().stream()
                 .map(page -> page == null ? "page=null" : "optionId=" + page.optionId()
-                        + ",cohorts=" + size(page.usedCohortIds())
-                        + ",claims=" + size(page.contextClaims()))
+                        + ",cohorts=" + size(page.selectedCohortIds())
+                        + ",paragraphs=" + size(page.paragraphs()))
                 .toList();
     }
 
@@ -108,21 +119,33 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
                 "stub-source", "https://www.ons.gov.uk/", "Office for National Statistics",
                 "Deterministic Unwrapped integration-test source", SourceClassification.OFFICIAL);
         List<UnwrappedArgumentDraftV1> pages = request.options().stream()
-                .map(option -> new UnwrappedArgumentDraftV1(
-                        option.option().id(),
-                        "Development preview for " + option.option().label(),
-                        option.candidates().stream()
-                                .limit(2)
-                                .map(candidate -> candidate.cohortId())
-                                .toList(),
-                        List.of(new UnwrappedClaimDraftV1(
-                                "stub-claim-" + option.option().id(),
-                                "Deterministic source-backed context for " + option.option().label() + ".",
-                                List.of(source.id()), false)),
-                        "This fixed development result represents " + option.overallVoteCount()
-                                + " votes (" + option.overallVotePercentage()
-                                + "%) for this option without calling an external model.",
-                        "This association describes only people who voted on this post and does not represent any broader population."))
+                .map(option -> {
+                    boolean hasCohort = !option.candidates().isEmpty();
+                    String audience = hasCohort
+                            ? option.candidates().getFirst().displayName()
+                            : "People choosing " + option.option().label();
+                    return new UnwrappedArgumentDraftV1(
+                        option.option().id(), "Why " + audience.toLowerCase(java.util.Locale.ROOT)
+                                + " favour the development option",
+                        hasCohort
+                                ? option.candidates().stream().limit(2)
+                                        .map(candidate -> candidate.cohortId()).toList()
+                                : List.of(),
+                        List.of(
+                                new UnwrappedArticleParagraphDraftV2(
+                                        audience + " are likely to favour this option because its immediate effects "
+                                                + "fit the pressures represented by this deterministic development fixture. "
+                                                + "The observed pattern is carried into the preview without inventing another audience.",
+                                        List.of(source.id())),
+                                new UnwrappedArticleParagraphDraftV2(
+                                        "The fixed source provides stable context while the preview records "
+                                                + option.overallVoteCount() + " votes, or "
+                                                + option.overallVotePercentage() + " percent, for this option. "
+                                                + "This keeps integration tests repeatable without calling an external model.",
+                                        List.of(source.id()))),
+                        "This analysis describes patterns among people who voted on this post; "
+                                + "it cannot know every individual's reason.");
+                })
                 .toList();
         return new UnwrappedResearchResult(
                 new UnwrappedResearchDraftV1(pages, List.of(source)),
@@ -138,17 +161,22 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
                 - Return exactly %d pages.
                 - Return pages in this exact optionId order: %s.
                 - Include every optionId exactly once; do not merge or omit options.
-                - Use only cohort IDs supplied under that option.
-                - Describe cohort patterns only as associations or cautious interpretations.
-                - Do not use these causal words anywhere: because, cause, caused, drove, led, made, chose.
-                - Never say that a cohort or demographic voted, supported, or opposed due to a characteristic.
+                - When an option supplies cohort candidates, select one or two of their IDs and name a
+                  selected cohort in the headline using its supplied displayName.
+                - When an option supplies no cohort candidates, return an empty selectedCohortIds list,
+                  write the strongest general researched case for that option, and do not invent a cohort.
+                - Headlines must be catchy, 6 to 10 words, and must not use agreement or disagreement.
+                - Write two or three paragraphs totalling 50 to 100 words for every page.
+                - In those paragraphs, explain why the selected cohort, or voters choosing the option
+                  when no cohort is supplied, are likely to favour that option.
+                - Direct explanations using words such as because, led or drove are allowed.
+                - Do not claim direct knowledge of every individual voter's private motivation.
                 - You must call web search before drafting any page.
-                - Include one to three contextClaims on every page; empty contextClaims are forbidden.
-                - Give every contextClaim one or more sourceIds; empty sourceIds are forbidden.
+                - Give every paragraph one or more sourceIds; empty sourceIds are forbidden.
                 - Include every referenced source exactly once in sources; empty sources are forbidden.
                 - Copy each source URL exactly from a URL returned by web search in this same call.
-                - Do not include a source unless it directly supports at least one contextClaim.
-                - Every caveat must include exactly: This association describes only people who voted on this post and does not represent any broader population.
+                - Do not include a source unless it directly supports context used in a paragraph.
+                - Every caveat must be exactly: This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.
 
                 INPUT JSON:
                 %s

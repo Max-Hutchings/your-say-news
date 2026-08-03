@@ -4,6 +4,8 @@ import type {
   UnwrappedGenerationTrigger,
   UnwrappedGenerationMonitor,
   UnwrappedReviewStory,
+  UnwrappedBenchmarkPrompt,
+  UnwrappedBenchmarkResponse,
 } from "../types";
 
 export class UnwrappedAdminApiError extends Error {
@@ -54,6 +56,23 @@ export function triggerUnwrappedGeneration(postId: number): Promise<UnwrappedGen
   return unwrappedRequest<UnwrappedGenerationTrigger>(`/api/admin/unwrapped/posts/${postId}/generate`, {
     method: "POST",
   });
+}
+
+export function getUnwrappedBenchmarkPrompt(): Promise<UnwrappedBenchmarkPrompt> {
+  return unwrappedRequest<UnwrappedBenchmarkPrompt>("/api/admin/unwrapped/benchmark/system-prompt");
+}
+
+export function generateUnwrappedBenchmark(
+  postId: number,
+  systemPrompts: string[],
+): Promise<UnwrappedBenchmarkResponse> {
+  return unwrappedRequest<UnwrappedBenchmarkResponse>(
+    `/api/admin/unwrapped/posts/${postId}/benchmark`,
+    {
+      method: "POST",
+      body: JSON.stringify({ systemPrompts }),
+    },
+  );
 }
 
 export function approveUnwrappedStory(storyId: string): Promise<UnwrappedReviewStory> {
