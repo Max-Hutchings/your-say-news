@@ -276,7 +276,8 @@ Suggested naming shape:
 - [ ] Repository owner
 - [ ] `development` deployment Environment
 - [ ] `development-infrastructure` apply Environment
-- [x] Required reviewers for both Environments: none; manual self-approval is allowed
+- [x] Required reviewers for both Environments: none; manual self-approval uses the explicit
+      `workflow_dispatch` confirmation fallback from the approved infrastructure plan
 - [ ] GHCR package names for the API and migration images
 
 #### Google Cloud

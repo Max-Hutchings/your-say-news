@@ -1,0 +1,124 @@
+name: Terraform manual apply authorization
+description: Verify an explicit manual confirmation and the provenance of a saved plan workflow run.
+
+inputs:
+  environment-name:
+    description: Environment being approved.
+    required: true
+  plan-run-id:
+    description: GitHub Actions run ID that created the reviewed plan artifact.
+    required: true
+  expected-commit:
+    description: Full commit SHA recorded in the reviewed plan run.
+    required: true
+  confirmation:
+    description: Exact confirmation supplied by the operator.
+    required: true
+  confirmation-phrase:
+    description: Required environment-specific confirmation phrase.
+    required: true
+  expected-workflow-path:
+    description: Workflow file that must have created the plan run.
+    required: true
+  required-branch:
+    description: Branch that must have created and dispatched the plan; blank allows any branch.
+    required: false
+    default: ""
+  github-token:
+    description: GitHub token used only to read workflow-run metadata.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify the explicit apply confirmation
+      shell: bash
+      env:
+        MANUAL_CONFIRMATION: ${{ inputs.confirmation }}
+        REQUIRED_CONFIRMATION: ${{ inputs.confirmation-phrase }}
+      run: |
+        if [[ "$MANUAL_CONFIRMATION" != "$REQUIRED_CONFIRMATION" ]]; then
+          echo "::error title=Manual confirmation rejected::Enter the exact phrase: $REQUIRED_CONFIRMATION"
+          exit 1
+        fi
+
+        echo "::notice title=Manual confirmation accepted::The operator explicitly approved this environment apply"
+
+    - name: Verify the saved plan workflow run
+      uses: actions/github-script@v8
+      env:
+        PLAN_RUN_ID: ${{ inputs.plan-run-id }}
+        EXPECTED_COMMIT: ${{ inputs.expected-commit }}
+        EXPECTED_WORKFLOW_PATH: ${{ inputs.expected-workflow-path }}
+        REQUIRED_BRANCH: ${{ inputs.required-branch }}
+        ENVIRONMENT_NAME: ${{ inputs.environment-name }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const runIdText = process.env.PLAN_RUN_ID;
+          const expectedCommit = process.env.EXPECTED_COMMIT.toLowerCase();
+          const expectedWorkflowPath = process.env.EXPECTED_WORKFLOW_PATH;
+          const requiredBranch = process.env.REQUIRED_BRANCH;
+
+          if (!/^[1-9][0-9]*$/.test(runIdText)) {
+            throw new Error("The plan run ID must be a positive integer.");
+          }
+
+          if (!/^[0-9a-f]{40}$/.test(expectedCommit)) {
+            throw new Error("The expected commit must be a full 40-character SHA.");
+          }
+
+          if (context.sha.toLowerCase() !== expectedCommit) {
+            throw new Error(
+              `The selected workflow ref resolves to ${context.sha}, not the planned commit ${expectedCommit}. ` +
+              "Run a new plan for the current branch head."
+            );
+          }
+
+          if (requiredBranch && context.ref !== `refs/heads/${requiredBranch}`) {
+            throw new Error(`This apply must be dispatched from the ${requiredBranch} branch.`);
+          }
+
+          const runId = Number(runIdText);
+          if (!Number.isSafeInteger(runId)) {
+            throw new Error("The plan run ID is outside JavaScript's safe integer range.");
+          }
+
+          const { data: sourceRun } = await github.rest.actions.getWorkflowRun({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            run_id: runId,
+          });
+
+          if (sourceRun.path !== expectedWorkflowPath) {
+            throw new Error(
+              `Run ${runId} came from ${sourceRun.path}, not ${expectedWorkflowPath}.`
+            );
+          }
+
+          if (sourceRun.event !== "push") {
+            throw new Error(`Run ${runId} was triggered by ${sourceRun.event}, not a push.`);
+          }
+
+          if (sourceRun.status !== "completed" || sourceRun.conclusion !== "success") {
+            throw new Error(
+              `Run ${runId} is ${sourceRun.status} with conclusion ${sourceRun.conclusion}.`
+            );
+          }
+
+          if (sourceRun.head_sha.toLowerCase() !== expectedCommit) {
+            throw new Error(
+              `Run ${runId} planned ${sourceRun.head_sha}, not ${expectedCommit}.`
+            );
+          }
+
+          if (requiredBranch && sourceRun.head_branch !== requiredBranch) {
+            throw new Error(
+              `Run ${runId} planned branch ${sourceRun.head_branch}, not ${requiredBranch}.`
+            );
+          }
+
+          core.notice(
+            `Authorized ${process.env.ENVIRONMENT_NAME} apply from successful plan run ` +
+            `${runId} at ${expectedCommit}.`
+          );

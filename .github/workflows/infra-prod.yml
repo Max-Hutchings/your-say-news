@@ -1,0 +1,252 @@
+name: Infrastructure Production
+run-name: Infrastructure production · ${{ github.ref_name }} · ${{ github.sha }}
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      plan_run_id:
+        description: Run ID of the successful main-branch production plan to apply
+        required: true
+        type: string
+      commit_sha:
+        description: Full 40-character SHA shown in that plan summary
+        required: true
+        type: string
+      confirmation:
+        description: Type "apply production" after reviewing the plan
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: infrastructure-production
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TERRAFORM_VERSION: 1.15.8
+  TERRAFORM_WORKING_DIRECTORY: service/infra/environments/production
+  TERRAFORM_BACKEND_CONFIG: production.backend.hcl.example
+  TERRAFORM_VAR_FILE: production.tfvars
+  TERRAFORM_PLAN_FILE: production.tfplan
+  TERRAFORM_PLAN_ARTIFACT: terraform-production-${{ github.sha }}
+
+jobs:
+  production-readiness:
+    name: Production · Readiness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      configured: ${{ steps.detect.outputs.configured }}
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Detect the production Terraform contract
+        id: detect
+        run: |
+          required_files=(
+            backend.tf
+            production.backend.hcl.example
+            production.tfvars
+            .terraform.lock.hcl
+          )
+          missing_files=()
+
+          for required_file in "${required_files[@]}"; do
+            if [[ ! -f "${TERRAFORM_WORKING_DIRECTORY}/${required_file}" ]]; then
+              missing_files+=("$required_file")
+            fi
+          done
+
+          if (( ${#missing_files[@]} > 0 )); then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Production infrastructure not configured"
+              echo
+              echo "The production workflow is present, but no production plan or apply will run."
+              echo
+              echo "Missing contract files:"
+              for missing_file in "${missing_files[@]}"; do
+                echo "- \`$missing_file\`"
+              done
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning title=Production placeholder::Production Terraform files are not ready"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Production ready::Production Terraform contract detected"
+          fi
+
+  production-placeholder:
+    name: Production · Awaiting configuration
+    needs: production-readiness
+    if: needs.production-readiness.outputs.configured != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Report no-op production run
+        run: echo "Production is not configured; validation, planning and apply are intentionally skipped."
+
+  terraform-format:
+    name: Production · Format
+    needs: production-readiness
+    if: >-
+      github.event_name == 'push'
+      && needs.production-readiness.outputs.configured == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        uses: ./.github/templates/terraform/terraform-fmt
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+  terraform-validate:
+    name: Production · Validate and test
+    needs: production-readiness
+    if: >-
+      github.event_name == 'push'
+      && needs.production-readiness.outputs.configured == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Initialise production without remote state
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: validation
+
+      - name: Validate production and run its Terraform tests
+        uses: ./.github/templates/terraform/terraform-validate
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+  terraform-plan:
+    name: Production · Plan
+    needs:
+      - production-readiness
+      - terraform-format
+      - terraform-validate
+    if: >-
+      github.event_name == 'push'
+      && needs.production-readiness.outputs.configured == 'true'
+      && needs.terraform-format.result == 'success'
+      && needs.terraform-validate.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: production
+      deployment: false
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Connect to the production HCP workspace
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: remote
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+
+      - name: Create and publish the production plan
+        uses: ./.github/templates/terraform/terraform-plan
+        with:
+          environment-name: production
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          var-file: ${{ env.TERRAFORM_VAR_FILE }}
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+          plan-file: ${{ env.TERRAFORM_PLAN_FILE }}
+          artifact-name: ${{ env.TERRAFORM_PLAN_ARTIFACT }}
+
+  terraform-apply:
+    name: Production · Explicit manual apply
+    needs: production-readiness
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      && github.ref == 'refs/heads/main'
+      && needs.production-readiness.outputs.configured == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: production-infrastructure
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+    steps:
+      - name: Check out the selected workflow revision
+        uses: actions/checkout@v6
+
+      - name: Authorize the reviewed production plan
+        uses: ./.github/templates/terraform/terraform-authorize-apply
+        with:
+          environment-name: production
+          plan-run-id: ${{ inputs.plan_run_id }}
+          expected-commit: ${{ inputs.commit_sha }}
+          confirmation: ${{ inputs.confirmation }}
+          confirmation-phrase: apply production
+          expected-workflow-path: .github/workflows/infra-prod.yml
+          required-branch: main
+          github-token: ${{ github.token }}
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Reconnect to the production HCP workspace
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: remote
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+
+      - name: Apply the exact reviewed production plan
+        uses: ./.github/templates/terraform/terraform-apply
+        with:
+          environment-name: production
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          plan-file: ${{ env.TERRAFORM_PLAN_FILE }}
+          artifact-name: terraform-production-${{ inputs.commit_sha }}
+          source-run-id: ${{ inputs.plan_run_id }}
+          expected-commit: ${{ inputs.commit_sha }}
+          github-token: ${{ github.token }}

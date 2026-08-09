@@ -1,7 +1,10 @@
 name: Terraform plan
-description: Create, inspect and upload the exact development Terraform plan.
+description: Create, inspect and upload the exact Terraform plan for one environment.
 
 inputs:
+  environment-name:
+    description: Environment name shown in logs and summaries.
+    required: true
   working-directory:
     description: Terraform environment root.
     required: true
@@ -18,7 +21,7 @@ inputs:
     required: false
     default: development.tfplan
   artifact-name:
-    description: Unique artifact name used by the protected apply job.
+    description: Unique artifact name used by the explicit manual apply run.
     required: true
 
 runs:
@@ -45,7 +48,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        echo "::group::Planning development infrastructure"
+        echo "::group::Planning ${{ inputs.environment-name }} infrastructure"
         set +e
         terraform plan \
           -input=false \
@@ -91,7 +94,7 @@ runs:
         ' "$plan_json" > "$resource_summary"
 
         {
-          echo "## Terraform plan"
+          echo "## Terraform plan · ${{ inputs.environment-name }}"
           echo
           echo "| Create | Update | Delete | Replace |"
           echo "| ---: | ---: | ---: | ---: |"
@@ -142,7 +145,19 @@ runs:
         sha256sum .terraform.lock.hcl > terraform-lock.sha256
         sha256sum "${{ inputs.backend-config }}" > terraform-backend.sha256
         printf '%s\n' "$GITHUB_SHA" > terraform-commit.txt
-        echo "::notice title=Saved plan sealed::Plan, commit, provider lock and backend checksums recorded"
+        printf '%s\n' "$GITHUB_RUN_ID" > terraform-run-id.txt
+        echo "::notice title=Saved plan sealed::Plan, run, commit, provider lock and backend checksums recorded"
+
+        {
+          echo
+          echo "### Manual apply reference"
+          echo
+          echo "- Plan run ID: \`$GITHUB_RUN_ID\`"
+          echo "- Full commit SHA: \`$GITHUB_SHA\`"
+          echo "- Confirmation phrase: \`apply ${{ inputs.environment-name }}\`"
+          echo
+          echo "Use these values with **Run workflow** only after reviewing this plan."
+        } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Upload the exact saved plan
       uses: actions/upload-artifact@v7
@@ -154,5 +169,6 @@ runs:
           ${{ inputs.working-directory }}/terraform-lock.sha256
           ${{ inputs.working-directory }}/terraform-backend.sha256
           ${{ inputs.working-directory }}/terraform-commit.txt
+          ${{ inputs.working-directory }}/terraform-run-id.txt
         if-no-files-found: error
         retention-days: 1
