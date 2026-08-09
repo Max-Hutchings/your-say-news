@@ -157,7 +157,7 @@ that has logic worth each. Optimise for **signal, not coverage** — a handful o
 pin core logic and the edge cases where bugs live beats a wall of weak ones. Every test must be
 **concise and clear**: representative data, assertions that pin **expected values** (never just
 "not null" / "size > 0"), and it must actually fail if the code breaks. Do not add tests to chase a
-coverage number. After writing tests, run the `test-audit` skill.
+coverage number. After writing tests, run the `test-audit-for-after-changing-tests` skill.
 
 - **Unit tests** — pure domain logic and algorithms in isolation, no framework boot, no
   datastore. Fast and focused (e.g. `SentimentTallyTest`, `FeedRankerTest`, `CharacteristicSnapshotTest`
@@ -323,14 +323,14 @@ the repo-root one (which is tuned for the Quarkus jar build).
 
 ## Skills
 
-- `test-audit` — audits whether tests give real signal.
+- `test-audit-for-after-changing-tests` — audits whether tests give real signal.
 - `commit-message` — commit message conventions.
 
 Side note: Don't do work on a new branch unless instructed by a user or a designated skill
 
 ---
 
-**After writing tests for a feature, run the `test-audit` skill** to confirm the tests actually
+**After writing tests for a feature, run the `test-audit-for-after-changing-tests` skill** to confirm the tests actually
 provide signal (representative data, assertions that pin expected values, and a suite that would
 genuinely fail if the code broke).
 
