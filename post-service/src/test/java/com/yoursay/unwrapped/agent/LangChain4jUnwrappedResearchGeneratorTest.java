@@ -17,6 +17,7 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
 import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import jakarta.enterprise.context.control.ActivateRequestContext;
 import org.junit.jupiter.api.Test;
@@ -81,14 +82,16 @@ class LangChain4jUnwrappedResearchGeneratorTest {
     }
 
     @Test
-    void combinesStructuredDraftWithCapturedRawResponseMetadata() {
+    void appendsRequiredOutputToTheProductionSystemPromptAndSendsOnlyInputAsUserMessage()
+            throws Exception {
         UnwrappedResearchDraftV1 draft = mock(UnwrappedResearchDraftV1.class);
         UnwrappedResearchRequest request = representativeRequest();
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
         UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/source");
-        when(aiService.research(anyString())).thenAnswer(ignored -> {
+        ObjectMapper objectMapper = new ObjectMapper();
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
             capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
                     ModelProvider.OPEN_AI, new HashMap<>()));
             return draft;
@@ -98,7 +101,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 new LangChain4jUnwrappedResearchGenerator();
         generator.aiService = aiService;
         generator.responseCapture = capture;
-        generator.objectMapper = new ObjectMapper();
+        generator.objectMapper = objectMapper;
         generator.validator = validator;
         generator.apiKey = "test-key";
         generator.configuredModel = "configured-fallback-model";
@@ -110,37 +113,33 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         assertEquals("provider-grok-4.5", result.model());
         assertEquals("response-42", result.providerResponseId());
         verify(validator).validate(request, draft, List.of("https://www.ons.gov.uk/source"));
-        ArgumentCaptor<String> brief = ArgumentCaptor.forClass(String.class);
-        verify(aiService).research(brief.capture());
-        assertTrue(brief.getValue().contains("You must call web search before drafting any page."));
-        assertTrue(brief.getValue().contains(
-                "Write two or three paragraphs totalling 50 to 100 words"));
-        assertTrue(brief.getValue().contains(
-                "explain why the selected cohort, or voters choosing the option"));
-        assertTrue(brief.getValue().contains(
-                "When an option supplies cohort candidates"));
-        assertTrue(brief.getValue().contains(
-                "Give every paragraph one or more sourceIds"));
-        assertTrue(brief.getValue().contains(
-                "Include every referenced source exactly once in sources; empty sources are forbidden."));
-        assertTrue(!brief.getValue().contains("Do not use these causal words anywhere"));
-        assertTrue(brief.getValue().contains("Return exactly 2 pages."));
-        assertTrue(brief.getValue().contains("[71, 72]"));
-        assertTrue(brief.getValue().contains("\"postId\":42"));
-        assertTrue(brief.getValue().contains("\"question\":\"Should the city introduce a workplace parking levy?\""));
-        assertTrue(brief.getValue().contains("\"label\":\"Agree\""));
-        assertTrue(brief.getValue().contains("\"label\":\"Disagree\""));
+        ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> outputInstructions = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> input = ArgumentCaptor.forClass(String.class);
+        verify(aiService).research(
+                systemPrompt.capture(), outputInstructions.capture(), input.capture());
+        assertEquals(UnwrappedSystemPrompt.DEFAULT, systemPrompt.getValue());
+        assertTrue(systemPrompt.getValue().startsWith("# Post Unwrapped editorial brief\n\n"));
+        assertTrue(!systemPrompt.getValue().contains("Do not use these causal words anywhere"));
+        assertEquals(expectedOutputInstructions(), outputInstructions.getValue());
+        assertTrue(!outputInstructions.getValue().contains("{{pageCount}}"));
+        assertTrue(!outputInstructions.getValue().contains("{{optionIds}}"));
+
+        assertTrue(!input.getValue().contains("Required output contract"));
+        assertTrue(!input.getValue().contains("You must call web search"));
+        assertEquals("INPUT JSON:\n" + objectMapper.writeValueAsString(request) + "\n",
+                input.getValue());
     }
 
     @Test
-    void replacesOnlyTheSystemPromptForABenchmarkGeneration() {
+    void appendsRequiredOutputAfterTheEditableBenchmarkSystemPrompt() {
         UnwrappedResearchDraftV1 draft = mock(UnwrappedResearchDraftV1.class);
         UnwrappedResearchRequest request = requestWithoutCohorts();
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
         UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
-        when(aiService.researchWithSystemPrompt(anyString(), anyString())).thenAnswer(ignored -> {
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
             capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
                     ModelProvider.OPEN_AI, new HashMap<>()));
             return draft;
@@ -158,14 +157,15 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         generator.generate(request, "Use a deliberately terse editorial voice.");
 
         ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String> brief = ArgumentCaptor.forClass(String.class);
-        verify(aiService).researchWithSystemPrompt(systemPrompt.capture(), brief.capture());
+        ArgumentCaptor<String> outputInstructions = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> input = ArgumentCaptor.forClass(String.class);
+        verify(aiService).research(
+                systemPrompt.capture(), outputInstructions.capture(), input.capture());
         verifyNoMoreInteractions(aiService);
         assertEquals("Use a deliberately terse editorial voice.", systemPrompt.getValue());
-        assertTrue(brief.getValue().contains("OUTPUT CONTRACT:"));
-        assertTrue(brief.getValue().contains("You must call web search before drafting any page."));
-        assertTrue(brief.getValue().contains("\"candidates\":[]"));
-        assertTrue(brief.getValue().contains("do not invent a cohort"));
+        assertEquals(expectedOutputInstructions(), outputInstructions.getValue());
+        assertTrue(!input.getValue().contains("Required output contract"));
+        assertTrue(input.getValue().contains("\"candidates\":[]"));
         verify(validator).validate(request, draft, List.of("https://www.ons.gov.uk/benchmark"));
     }
 
@@ -176,7 +176,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
-        when(aiService.researchWithSystemPrompt(anyString(), anyString())).thenAnswer(ignored -> {
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
             capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
                     ModelProvider.OPEN_AI, new HashMap<>()));
             return null;
@@ -196,22 +196,23 @@ class LangChain4jUnwrappedResearchGeneratorTest {
 
         assertEquals("UNWRAPPED_DRAFT_MISSING", failure.getMessage());
         verifyNoInteractions(validator);
-        verify(aiService).researchWithSystemPrompt(anyString(), anyString());
+        verify(aiService).research(anyString(), anyString(), anyString());
     }
 
     @Test
-    void bindsTheExactProductionAndBenchmarkSystemMessages() throws Exception {
-        SystemMessage production = UnwrappedResearchAiService.class
-                .getDeclaredMethod("research", String.class)
-                .getAnnotation(SystemMessage.class);
-        var benchmarkMethod = UnwrappedResearchAiService.class
-                .getDeclaredMethod("researchWithSystemPrompt", String.class, String.class);
-        SystemMessage benchmark = benchmarkMethod.getAnnotation(SystemMessage.class);
-        V promptVariable = benchmarkMethod.getParameters()[0].getAnnotation(V.class);
+    void bindsTheCompletedPromptAsTheDynamicSystemMessage() throws Exception {
+        var method = UnwrappedResearchAiService.class
+                .getDeclaredMethod("research", String.class, String.class, String.class);
+        SystemMessage systemMessage = method.getAnnotation(SystemMessage.class);
+        V systemPromptVariable = method.getParameters()[0].getAnnotation(V.class);
+        V outputInstructionsVariable = method.getParameters()[1].getAnnotation(V.class);
+        UserMessage userMessage = method.getParameters()[2].getAnnotation(UserMessage.class);
 
-        assertArrayEquals(new String[]{UnwrappedSystemPrompt.DEFAULT}, production.value());
-        assertArrayEquals(new String[]{"{{benchmarkSystemPrompt}}"}, benchmark.value());
-        assertEquals("benchmarkSystemPrompt", promptVariable.value());
+        assertArrayEquals(new String[]{"{{systemPrompt}}\n\n{{outputInstructions}}\n"},
+                systemMessage.value());
+        assertEquals("systemPrompt", systemPromptVariable.value());
+        assertEquals("outputInstructions", outputInstructionsVariable.value());
+        assertNotNull(userMessage);
     }
 
     private static SelectedCohortV1 cohort() {
@@ -276,5 +277,31 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 .aiMessage(AiMessage.from("{}"))
                 .metadata(metadata)
                 .build();
+    }
+
+    private static String expectedOutputInstructions() {
+        return """
+                # Required output contract
+
+                - Return exactly 2 pages.
+                - Return pages in this exact `optionId` order: [71, 72].
+                - Include every `optionId` exactly once; do not merge or omit options.
+                - When an option supplies cohort candidates, select one or two of their IDs and name a
+                  selected cohort in the headline using its supplied `displayName`.
+                - When an option supplies no cohort candidates, return an empty `selectedCohortIds` list,
+                  write the strongest general researched case for that option, and do not invent a cohort.
+                - Headlines must be catchy, 6 to 10 words, and must not use agreement or disagreement.
+                - Write two or three paragraphs totalling 50 to 100 words for every page.
+                - In those paragraphs, explain why the selected cohort, or voters choosing the option
+                  when no cohort is supplied, are likely to favour that option.
+                - Direct explanations using words such as because, led or drove are allowed.
+                - Do not claim direct knowledge of every individual voter's private motivation.
+                - You must call web search before drafting any page.
+                - Give every paragraph one or more `sourceIds`; empty `sourceIds` are forbidden.
+                - Include every referenced source exactly once in `sources`; empty `sources` are forbidden.
+                - Copy each source URL exactly from a URL returned by web search in this same call.
+                - Do not include a source unless it directly supports context used in a paragraph.
+                - Every caveat must be exactly: This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.
+                """.strip();
     }
 }

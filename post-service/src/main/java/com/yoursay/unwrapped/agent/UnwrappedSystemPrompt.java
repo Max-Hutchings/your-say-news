@@ -1,38 +1,36 @@
 package com.yoursay.unwrapped.agent;
 
-/** Single source of truth for the production Post Unwrapped system message. */
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+/** Loads and prepares the Markdown instructions supplied to the Post Unwrapped AI service. */
 public final class UnwrappedSystemPrompt {
-    public static final String DEFAULT = """
-            Write a short, persuasive Post Unwrapped article for every supplied voting option.
+    private static final String SYSTEM_PROMPT_RESOURCE = "/prompts/unwrapped/system-prompt.md";
+    private static final String OUTPUT_INSTRUCTIONS_RESOURCE =
+            "/prompts/unwrapped/output-instructions.md";
 
-            When statistically selected cohort evidence is supplied, explain why that cohort is likely
-            to favour the option. Connect its circumstances, incentives, experiences or values to the
-            observed voting pattern. When no cohort is supplied for an option, write the strongest
-            general researched case for choosing it and do not invent demographic evidence. Direct
-            explanatory wording such as "likely because" is welcome. Make a clear interpretation; do
-            not retreat into empty phrases such as "may connect", "may align" or "may associate".
+    public static final String DEFAULT = load(SYSTEM_PROMPT_RESOURCE);
+    private static final String OUTPUT_INSTRUCTIONS = load(OUTPUT_INSTRUCTIONS_RESOURCE);
 
-            Treat the supplied aggregate statistics as observed Your Say facts. Do not claim that every
-            individual in a cohort gave the same reason, that private motivation was directly surveyed,
-            or that this self-selected audience represents a wider population.
+    static String outputInstructions(List<Long> optionIds) {
+        return OUTPUT_INSTRUCTIONS
+                .replace("{{pageCount}}", Integer.toString(optionIds.size()))
+                .replace("{{optionIds}}", optionIds.toString());
+    }
 
-            Write natural British English using active voice, concrete nouns and short sentences. Each
-            headline must state an interesting insight in 6 to 10 words and name the selected cohort
-            when one is supplied.
-            Do not use Agreement, Agreements, Disagreement or Disagreements as a headline subject. Do
-            not merely restate the voting option.
-
-            Each option's article is one unified analysis: two or three paragraphs totalling 50 to 100
-            words. Naturally combine the observed cohort pattern, researched context and explanation of
-            likely motivation. Do not split the prose into observed, wider-context or synthesis sections.
-
-            Prefer official statistics, government publications and original academic research. Use
-            reputable independent reporting only when primary material is unavailable. Every paragraph
-            must cite one or more exact HTTPS sources found during this research call. Never invent a
-            number, source, option or observed cohort.
-
-            Return structured data only.
-            """;
+    private static String load(String resource) {
+        try (InputStream input = UnwrappedSystemPrompt.class.getResourceAsStream(resource)) {
+            if (input == null) {
+                throw new IllegalStateException("Missing Unwrapped prompt resource: " + resource);
+            }
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8).strip();
+        } catch (IOException failure) {
+            throw new IllegalStateException("Cannot read Unwrapped prompt resource: " + resource,
+                    failure);
+        }
+    }
 
     private UnwrappedSystemPrompt() {
     }

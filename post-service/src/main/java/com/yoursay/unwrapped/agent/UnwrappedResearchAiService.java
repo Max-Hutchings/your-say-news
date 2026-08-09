@@ -11,11 +11,13 @@ import io.quarkiverse.langchain4j.RegisterAiService;
         chatMemoryProviderSupplier = RegisterAiService.NoChatMemoryProviderSupplier.class
 )
 interface UnwrappedResearchAiService {
-    @SystemMessage(UnwrappedSystemPrompt.DEFAULT)
-    UnwrappedResearchDraftV1 research(@UserMessage String brief);
+    @SystemMessage("""
+            {{systemPrompt}}
 
-    @SystemMessage("{{benchmarkSystemPrompt}}")
-    UnwrappedResearchDraftV1 researchWithSystemPrompt(
-            @V("benchmarkSystemPrompt") String systemPrompt,
-            @UserMessage String brief);
+            {{outputInstructions}}
+            """)
+    UnwrappedResearchDraftV1 research(
+            @V("systemPrompt") String systemPrompt,
+            @V("outputInstructions") String outputInstructions,
+            @UserMessage String input);
 }

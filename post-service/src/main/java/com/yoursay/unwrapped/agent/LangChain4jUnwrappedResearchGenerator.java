@@ -59,10 +59,16 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
         }
         responseCapture.begin();
         try {
-            String brief = researchPrompt(request);
-            UnwrappedResearchDraftV1 draft = systemPrompt == null
-                    ? aiService.research(brief)
-                    : aiService.researchWithSystemPrompt(systemPrompt, brief);
+            List<Long> optionIds = request.options().stream()
+                    .map(option -> option.option().id())
+                    .toList();
+            String editorialPrompt = systemPrompt == null
+                    ? UnwrappedSystemPrompt.DEFAULT
+                    : systemPrompt;
+            UnwrappedResearchDraftV1 draft = aiService.research(
+                    editorialPrompt,
+                    UnwrappedSystemPrompt.outputInstructions(optionIds),
+                    inputPrompt(request));
             ChatResponse response = responseCapture.take();
             if (response == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
@@ -152,36 +158,11 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
                 List.of(source.url()), "stubbed-unwrapped", "stub-post-" + request.postId());
     }
 
-    private String researchPrompt(UnwrappedResearchRequest request) throws Exception {
-        List<Long> optionIds = request.options().stream()
-                .map(option -> option.option().id())
-                .toList();
+    private String inputPrompt(UnwrappedResearchRequest request) throws Exception {
         return """
-                OUTPUT CONTRACT:
-                - Return exactly %d pages.
-                - Return pages in this exact optionId order: %s.
-                - Include every optionId exactly once; do not merge or omit options.
-                - When an option supplies cohort candidates, select one or two of their IDs and name a
-                  selected cohort in the headline using its supplied displayName.
-                - When an option supplies no cohort candidates, return an empty selectedCohortIds list,
-                  write the strongest general researched case for that option, and do not invent a cohort.
-                - Headlines must be catchy, 6 to 10 words, and must not use agreement or disagreement.
-                - Write two or three paragraphs totalling 50 to 100 words for every page.
-                - In those paragraphs, explain why the selected cohort, or voters choosing the option
-                  when no cohort is supplied, are likely to favour that option.
-                - Direct explanations using words such as because, led or drove are allowed.
-                - Do not claim direct knowledge of every individual voter's private motivation.
-                - You must call web search before drafting any page.
-                - Give every paragraph one or more sourceIds; empty sourceIds are forbidden.
-                - Include every referenced source exactly once in sources; empty sources are forbidden.
-                - Copy each source URL exactly from a URL returned by web search in this same call.
-                - Do not include a source unless it directly supports context used in a paragraph.
-                - Every caveat must be exactly: This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.
-
                 INPUT JSON:
                 %s
-                """.formatted(optionIds.size(), optionIds,
-                objectMapper.writeValueAsString(request));
+                """.formatted(objectMapper.writeValueAsString(request));
     }
 
     private List<String> citations(ChatResponse response) {
