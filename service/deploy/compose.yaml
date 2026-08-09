@@ -17,8 +17,8 @@ services:
     image: ${MIGRATION_IMAGE:?MIGRATION_IMAGE must be an immutable image digest}
     environment:
       DB_URL: ${DB_URL:?DB_URL is required}
-      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_USERNAME: ${MIGRATION_DB_USERNAME:?MIGRATION_DB_USERNAME is required}
+      DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?MIGRATION_DB_PASSWORD is required}
     profiles:
       - migration
     restart: "no"
@@ -28,6 +28,8 @@ services:
     image: ${POST_SERVICE_IMAGE:?POST_SERVICE_IMAGE must be an immutable image digest}
     environment:
       QUARKUS_PROFILE: prod
+      # Public remote endpoints live below /api; local development keeps its existing root paths.
+      QUARKUS_HTTP_ROOT_PATH: /api
       QUARKUS_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
       QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       QUARKUS_DATASOURCE_JDBC_URL: ${DB_URL:?DB_URL is required}
@@ -64,7 +66,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "exec 3<>/dev/tcp/127.0.0.1/8082; printf 'GET /live HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q '200 OK' <&3",
+          "exec 3<>/dev/tcp/127.0.0.1/8082; printf 'GET /api/live HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q '200 OK' <&3",
         ]
       interval: 15s
       timeout: 5s
@@ -93,23 +95,6 @@ services:
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - alloy-data:/var/lib/alloy
-
-  cloudflared:
-    <<: *service-defaults
-    image: ${CLOUDFLARED_IMAGE:?CLOUDFLARED_IMAGE must be pinned}
-    environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?TUNNEL_TOKEN is required}
-    command:
-      - tunnel
-      - --no-autoupdate
-      - run
-    restart: unless-stopped
-    read_only: true
-    cap_drop:
-      - ALL
-    depends_on:
-      post-service:
-        condition: service_healthy
 
 networks:
   service:

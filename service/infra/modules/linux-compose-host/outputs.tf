@@ -22,3 +22,8 @@ output "firewall_id" {
   description = "Deny-public-ingress firewall identifier."
   value       = hcloud_firewall.this.id
 }
+
+output "cloud_init_sha256" {
+  description = "SHA-256 fingerprint of the non-secret first-boot host configuration."
+  value       = nonsensitive(sha256(hcloud_server.this.user_data))
+}

@@ -4,6 +4,15 @@ locals {
     environment = var.environment
     managed_by  = "terraform"
   }
+
+  compose_host_cloud_init = templatefile("${path.module}/cloud-init.yaml.tftpl", {
+    bootstrap_script = file("${path.module}/files/bootstrap-host.sh")
+  })
+
+  cloudflare_tunnel_routes = {
+    (var.api_hostname) = "http://localhost:8082"
+    (var.ssh_hostname) = "ssh://localhost:22"
+  }
 }
 
 module "compose_host" {
@@ -16,6 +25,7 @@ module "compose_host" {
   image         = var.hcloud_image
   ssh_key_names = var.hcloud_ssh_key_names
   ipv4_enabled  = var.hcloud_ipv4_enabled
+  cloud_init    = local.compose_host_cloud_init
   labels        = local.common_labels
 }
 
@@ -57,8 +67,5 @@ module "api_tunnel" {
   account_id  = var.cloudflare_account_id
   zone_id     = var.cloudflare_zone_id
   tunnel_name = var.cloudflare_tunnel_name
-  routes = {
-    (var.api_hostname) = "http://post-service:8082"
-    (var.ssh_hostname) = "ssh://localhost:22"
-  }
+  routes      = local.cloudflare_tunnel_routes
 }

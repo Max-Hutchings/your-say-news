@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-private_url="${PRIVATE_HEALTH_URL:-http://127.0.0.1:8082/live}"
+private_url="${PRIVATE_HEALTH_URL:-http://127.0.0.1:8082/api/live}"
 public_url="${PUBLIC_HEALTH_URL:-}"
 attempts="${HEALTH_CHECK_ATTEMPTS:-12}"
 delay_seconds="${HEALTH_CHECK_DELAY_SECONDS:-5}"

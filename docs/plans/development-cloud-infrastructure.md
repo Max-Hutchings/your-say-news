@@ -58,9 +58,10 @@ Use a small EU Linux VM running Docker Compose, with state kept outside the VM:
   or funded production.
 - **Media:** a private Cloudflare R2 Standard bucket created with the `eu` jurisdiction.
 - **Ingress and DNS:** retain `yoursaynews.com` and `yoursaynews.co.uk` at GoDaddy, delegate both
-  zones to Cloudflare, publish `dev.yoursaynews.com` through Cloudflare Tunnel and reserve
-  `api.yoursaynews.com` for funded production. Redirect the `.co.uk` and `www` names to the `.com`
-  apex, which initially serves a minimal coming-soon page.
+  zones to Cloudflare and publish the development API at `https://dev.yoursaynews.com/api` through
+  Cloudflare Tunnel. Development has no public web frontend. Future production uses
+  `https://yoursaynews.com/api` for the API and the same apex origin for a marketing web
+  application; neither production workload is created in this development phase.
 - **Authentication:** Firebase Authentication with Google Sign-In; the application database
   remains authoritative for invitations and application permissions.
 - **Observability:** Grafana Cloud Free, fed by OpenTelemetry/Alloy from the VM.
@@ -92,8 +93,9 @@ The repository is not just one stateless HTTP container. The reviewed runtime co
 - OpenTelemetry metrics, logs and traces; and
 - an Expo/React Native Android application, built and distributed but not web-hosted.
 
-The minimal `yoursaynews.com` coming-soon page is a separate static Cloudflare-hosted holding page,
-not a web build of the Android application.
+No marketing or holding page is part of the development deployment. A future marketing web
+application will use `yoursaynews.com`, with the production backend remaining below the `/api`
+path on that same origin.
 
 The current local Compose stack also contains Keycloak, a separate Keycloak database, LocalStack
 and the local Grafana/OTel distribution. Those are local-development substitutes, not four more
@@ -104,10 +106,12 @@ cloud workloads:
 - Aiven replaces the local PostgreSQL container.
 - Grafana Cloud replaces the local observability stack.
 
-The API container, a lightweight telemetry collector and `cloudflared` are the only steady
-Compose services proposed on the VM. Liquibase runs as a one-shot release step. The same
-`cloudflared` connector carries the public API route and a separately Access-protected private SSH
-route; the mobile API itself must not receive an Access browser-login challenge.
+The API container and a lightweight telemetry collector are the only steady application Compose
+services proposed on the VM. Liquibase runs as a one-shot release step. A host-level `cloudflared`
+service is installed by the non-secret infrastructure bootstrap so the deployment workflow can
+reach the VM before application Compose exists. The same connector carries the public API route
+and a separately Access-protected private SSH route; the mobile API itself must not receive an
+Access browser-login challenge.
 
 ## Wiki and roadmap reconciliation
 
@@ -161,9 +165,9 @@ Android internal/closed testers
   | EU Linux VM                                 |
   | Docker Compose                              |
   |  - post-service JVM API                     |
-  |  - cloudflared                              |
   |  - Grafana Alloy / OTel collector           |
-  | Host: Docker, SSH, firewall, updates        |
+  | Host: cloudflared, Docker, SSH, firewall,    |
+  |       updates                               |
   +------+------------------+-------------------+
          | TLS              | S3 HTTPS
          v                  v
@@ -178,10 +182,11 @@ Android internal/closed testers
   GitHub Actions -------> GHCR / HCP Terraform / EAS / Play
 ```
 
-The native application necessarily contains its API hostname, so the URL cannot be treated as a
-secret or made undiscoverable. Security comes from HTTPS, valid Google identity, the database
-invitation/allowlist and server-side permissions. Cloudflare Access browser redirects should not
-be placed in front of the mobile API. The administration endpoints receive the stricter
+The native application necessarily contains its API base URL, so it cannot be treated as a secret
+or made undiscoverable. Development builds use `https://dev.yoursaynews.com/api`; future production
+builds use `https://yoursaynews.com/api`. Security comes from HTTPS, valid Google identity, the
+database invitation/allowlist and server-side permissions. Cloudflare Access browser redirects
+should not be placed in front of the mobile API. The administration endpoints receive the stricter
 application-owned `ADMIN` permission.
 
 ## Expected monthly cost
@@ -194,7 +199,7 @@ budgeting to the penny.
 | API VM | Hetzner CX23, EU, plus primary IPv4 if required | about €6–€8 including VAT |
 | PostgreSQL | Aiven Free in its provider-assigned location | £0 |
 | Media | R2 Standard, below 10 GB and free operation allowances | £0 |
-| DNS, tunnel, Access, redirects, coming-soon page and TLS | Cloudflare Free | £0 |
+| DNS, tunnel, Access and TLS | Cloudflare Free | £0 |
 | Telemetry | Grafana Cloud Free | £0 |
 | Terraform state | HCP Terraform Free, below 500 managed resources | £0 |
 | CI | GitHub-hosted Linux, within the repository owner's allowance | £0 |
@@ -311,7 +316,8 @@ Provision Ubuntu 24.04 LTS x86-64 with:
 - an unprivileged `deploy` user, Docker access limited to that account and no password login;
 - Cloudflare Access for identity-gated SSH/operations access over the outbound Tunnel;
 - provider firewall and host firewall denying all public inbound ports;
-- `cloudflared` making outbound-only connections to Cloudflare;
+- a host-level `cloudflared` service, dormant until its separately delivered token is installed,
+  making outbound-only connections to Cloudflare;
 - disk, memory, JVM and container-restart alerts; and
 - no persistent application data beyond container layers and bounded local log buffers.
 
@@ -468,13 +474,15 @@ The free tier has only three active users, which covers the current two develope
 
 ## Container images and deployment artifacts
 
-Use private GHCR packages for:
+Use private GHCR snapshot packages for development:
 
-- `post-service` runtime image; and
-- a matching Liquibase migration image or immutable migration artifact.
+- `your-say-news-post-service-snapshot`; and
+- `your-say-news-migrations-snapshot`.
 
-Build once and promote the same digest. Tag every image with `sha-<full-or-unambiguous-commit>`,
-optionally add a release label, and deploy by digest. Never deploy `latest`.
+Build each snapshot from one commit, tag it with `sha-<seven-character-commit>`, retain the full SHA
+in OCI labels and sealed metadata, and deploy by digest.
+Reserve the unsuffixed package names for a future production workflow that publishes only from
+approved version tags. Never deploy `latest`; see ADR-037.
 
 Retain:
 
@@ -803,11 +811,12 @@ The infrastructure cannot safely deploy the current local configuration unchange
 
 ### Frontend
 
-- Replace localhost API host/port pieces with one HTTPS base URL.
+- Replace localhost API host/port pieces with one environment-specific base URL; local development
+  may use `http://localhost:8082`, while distributed builds use the public `/api` URL.
 - Replace Keycloak discovery/client configuration with Firebase Authentication and Google Sign-In.
 - Set the permanent Android application/package ID to `com.yoursaynews.app`.
-- Use `https://dev.yoursaynews.com` for the POC and reserve `https://api.yoursaynews.com` for the
-  funded production build.
+- Use `https://dev.yoursaynews.com/api` for the development-store build and
+  `https://yoursaynews.com/api` for the future production build.
 - Keep client IDs/public endpoints in build-time variables; never embed client secrets.
 - Store refresh/session material only in platform secure storage.
 - Add Android internal-release version and backend compatibility telemetry.
@@ -863,7 +872,8 @@ isolation without adding Kubernetes operations. Before the move:
 - Use Hetzner Nuremberg as primary and Akamai as fallback.
 - Defer the Google Play personal account until Android distribution work begins.
 - Delegate `yoursaynews.com` and `yoursaynews.co.uk` to Cloudflare, configure the approved
-  redirects/hostnames and give Theo delegated GoDaddy access.
+  development hostname and give Theo delegated GoDaddy access. Do not create a development
+  marketing page or premature production origin.
 - Create provider accounts with MFA for both authorised developers.
 
 **Gate:** the decisions and primary provider accounts are accepted. Provider identifiers,
@@ -923,8 +933,9 @@ Decisions already made:
 - Aiven Free in its provider-assigned location for synthetic proof-of-concept data, with an exact
   region reconsidered before Gate D or funded production;
 - Cloudflare R2 EU media storage;
-- `dev.yoursaynews.com` for the POC and `api.yoursaynews.com` reserved for funded production;
-- a coming-soon page at `yoursaynews.com`, with `.co.uk` and `www` redirected to the `.com` apex;
+- `https://dev.yoursaynews.com/api` for the development app, with no development web frontend;
+- `https://yoursaynews.com/api` for the future production app and a future marketing web
+  application at the production apex, neither created yet;
 - Firebase Authentication with Google Sign-In, not an application-built token issuer;
 - application-owned invitations/roles;
 - an initial vote-suppression threshold of `5`;

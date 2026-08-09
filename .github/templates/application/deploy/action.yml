@@ -1,0 +1,239 @@
+name: Deploy application snapshot
+description: Verify and deploy one approved commit snapshot through Cloudflare Access SSH.
+
+inputs:
+  environment-name:
+    description: Target environment.
+    required: true
+  snapshot-run-id:
+    description: Workflow run that uploaded the sealed snapshot.
+    required: true
+  commit-sha:
+    description: Full source commit represented by the snapshot.
+    required: true
+  artifact-prefix:
+    description: Sealed snapshot artifact prefix; the short commit SHA is appended automatically.
+    required: true
+  github-token:
+    description: Token used to download the artifact and temporarily pull private GHCR packages.
+    required: true
+  deployment-root:
+    description: Root directory on the target VM.
+    required: true
+  ssh-hostname:
+    description: Cloudflare Access protected SSH hostname.
+    required: true
+  public-health-url:
+    description: Public health endpoint checked after deployment.
+    required: true
+  cloudflared-version:
+    description: Checksum-pinned cloudflared release used by the runner.
+    required: true
+  cloudflared-sha256:
+    description: SHA-256 for the cloudflared Linux amd64 binary.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the selected snapshot name
+      id: revision
+      shell: bash
+      env:
+        EXPECTED_COMMIT: ${{ inputs.commit-sha }}
+      run: |
+        short_sha=${EXPECTED_COMMIT:0:7}
+        if [[ ! "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ || ! "$short_sha" =~ ^[0-9a-f]{7}$ ]]; then
+          echo "::error title=Invalid snapshot revision::Expected a full lowercase hexadecimal commit SHA"
+          exit 1
+        fi
+        echo "short-sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+    - name: Verify required deployment credentials
+      shell: bash
+      run: |
+        missing=()
+        for variable_name in \
+          TUNNEL_SERVICE_TOKEN_ID TUNNEL_SERVICE_TOKEN_SECRET \
+          SSH_PRIVATE_KEY SSH_KNOWN_HOSTS \
+          DB_URL DB_REACTIVE_URL MIGRATION_DB_USERNAME MIGRATION_DB_PASSWORD \
+          DB_USERNAME DB_PASSWORD \
+          OIDC_AUTH_SERVER_URL OIDC_CLIENT_ID \
+          S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY XAI_API_KEY \
+          GRAFANA_CLOUD_OTLP_ENDPOINT GRAFANA_CLOUD_OTLP_AUTHORIZATION; do
+          if [[ -z "${!variable_name:-}" ]]; then
+            missing+=("$variable_name")
+          fi
+        done
+
+        if (( ${#missing[@]} > 0 )); then
+          echo "::error title=Missing application deployment credentials::Configure repository secrets for: ${missing[*]}"
+          exit 1
+        fi
+
+        echo "::notice title=Deployment credentials::All required repository secrets are available"
+
+    - name: Download the reviewed snapshot bundle
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact-prefix }}-${{ steps.revision.outputs.short-sha }}
+        path: ${{ runner.temp }}/application-${{ inputs.environment-name }}
+        run-id: ${{ inputs.snapshot-run-id }}
+        github-token: ${{ inputs.github-token }}
+
+    - name: Verify bundle integrity and render runtime configuration
+      shell: bash
+      env:
+        EXPECTED_COMMIT: ${{ inputs.commit-sha }}
+        EXPECTED_RUN_ID: ${{ inputs.snapshot-run-id }}
+        BUNDLE_DIRECTORY: ${{ runner.temp }}/application-${{ inputs.environment-name }}
+      run: |
+        set -euo pipefail
+        cd "$BUNDLE_DIRECTORY"
+
+        sha256sum --check deployment.tar.gz.sha256
+        sha256sum --check deployment-metadata.env.sha256
+
+        metadata_value() {
+          local key=$1
+          sed -n "s/^${key}=//p" deployment-metadata.env
+        }
+
+        [[ "$(metadata_value SOURCE_COMMIT)" == "$EXPECTED_COMMIT" ]]
+        [[ "$(metadata_value SOURCE_SHORT_COMMIT)" == '${{ steps.revision.outputs.short-sha }}' ]]
+        [[ "$(metadata_value SOURCE_RUN_ID)" == "$EXPECTED_RUN_ID" ]]
+
+        export POST_SERVICE_IMAGE
+        POST_SERVICE_IMAGE=$(metadata_value POST_SERVICE_IMAGE)
+        export MIGRATION_IMAGE
+        MIGRATION_IMAGE=$(metadata_value MIGRATION_IMAGE)
+        export ALLOY_IMAGE
+        ALLOY_IMAGE=$(metadata_value ALLOY_IMAGE)
+
+        mkdir -p "$BUNDLE_DIRECTORY/release"
+        tar --extract --gzip --file deployment.tar.gz --directory "$BUNDLE_DIRECTORY/release"
+        "$GITHUB_WORKSPACE/service/deploy/scripts/render-runtime-env.sh" "$BUNDLE_DIRECTORY/runtime.env"
+
+        docker compose \
+          --env-file "$BUNDLE_DIRECTORY/runtime.env" \
+          --file "$BUNDLE_DIRECTORY/release/compose.yaml" \
+          config --quiet
+
+        echo "::notice title=Deployment bundle verified::Checksums, provenance, immutable images and Compose configuration passed"
+
+    - name: Install checksum-pinned cloudflared
+      shell: bash
+      env:
+        CLOUDFLARED_VERSION: ${{ inputs.cloudflared-version }}
+        CLOUDFLARED_SHA256: ${{ inputs.cloudflared-sha256 }}
+      run: |
+        install -d -m 0755 "$RUNNER_TEMP/bin"
+        curl --fail --silent --show-error --location \
+          "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" \
+          --output "$RUNNER_TEMP/bin/cloudflared"
+        printf '%s  %s\n' "$CLOUDFLARED_SHA256" "$RUNNER_TEMP/bin/cloudflared" \
+          | sha256sum --check
+        chmod 0755 "$RUNNER_TEMP/bin/cloudflared"
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+    - name: Configure strict SSH through Cloudflare Access
+      shell: bash
+      env:
+        SSH_HOSTNAME: ${{ inputs.ssh-hostname }}
+      run: |
+        install -d -m 0700 "$RUNNER_TEMP/ssh"
+        printf '%s\n' "$SSH_PRIVATE_KEY" > "$RUNNER_TEMP/ssh/deploy-key"
+        printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/ssh/known-hosts"
+        chmod 0600 "$RUNNER_TEMP/ssh/deploy-key" "$RUNNER_TEMP/ssh/known-hosts"
+
+        cat > "$RUNNER_TEMP/ssh/config" <<SSH_CONFIG
+        Host ysn-${{ inputs.environment-name }}
+          HostName $SSH_HOSTNAME
+          HostKeyAlias $SSH_HOSTNAME
+          User deploy
+          IdentityFile $RUNNER_TEMP/ssh/deploy-key
+          IdentitiesOnly yes
+          StrictHostKeyChecking yes
+          UserKnownHostsFile $RUNNER_TEMP/ssh/known-hosts
+          ProxyCommand $RUNNER_TEMP/bin/cloudflared access ssh --hostname %h
+        SSH_CONFIG
+        chmod 0600 "$RUNNER_TEMP/ssh/config"
+
+    - name: Verify the bootstrapped VM
+      shell: bash
+      run: |
+        ssh -F "$RUNNER_TEMP/ssh/config" ysn-${{ inputs.environment-name }} \
+          'sh -s' < "$RUNNER_TEMP/application-${{ inputs.environment-name }}/release/scripts/verify-host.sh"
+
+    - name: Transfer and install the reviewed commit snapshot
+      shell: bash
+      env:
+        RELEASE_COMMIT: ${{ inputs.commit-sha }}
+        DEPLOYMENT_ROOT: ${{ inputs.deployment-root }}
+      run: |
+        set -euo pipefail
+        incoming_directory="$DEPLOYMENT_ROOT/incoming/$RELEASE_COMMIT"
+        release_directory="$DEPLOYMENT_ROOT/releases/$RELEASE_COMMIT"
+
+        ssh -F "$RUNNER_TEMP/ssh/config" ysn-${{ inputs.environment-name }} \
+          "install -d -m 0700 '$incoming_directory' && install -d -m 0750 '$release_directory'"
+
+        scp -F "$RUNNER_TEMP/ssh/config" \
+          "$RUNNER_TEMP/application-${{ inputs.environment-name }}/deployment.tar.gz" \
+          "$RUNNER_TEMP/application-${{ inputs.environment-name }}/deployment.tar.gz.sha256" \
+          "$RUNNER_TEMP/application-${{ inputs.environment-name }}/runtime.env" \
+          ysn-${{ inputs.environment-name }}:"$incoming_directory/"
+
+        ssh -F "$RUNNER_TEMP/ssh/config" ysn-${{ inputs.environment-name }} sh -s -- \
+          "$incoming_directory" "$release_directory" <<'INSTALL_RELEASE'
+        set -eu
+        incoming_directory=$1
+        release_directory=$2
+
+        cd "$incoming_directory"
+        sha256sum --check deployment.tar.gz.sha256
+        tar --extract --gzip --file deployment.tar.gz --directory "$release_directory"
+        install -m 0600 runtime.env "$release_directory/runtime.env"
+        chmod 0750 "$release_directory/scripts/"*.sh
+        INSTALL_RELEASE
+
+    - name: Authenticate the VM to private GHCR
+      shell: bash
+      env:
+        GHCR_TOKEN: ${{ inputs.github-token }}
+      run: |
+        printf '%s\n' "$GHCR_TOKEN" | ssh -F "$RUNNER_TEMP/ssh/config" ysn-${{ inputs.environment-name }} \
+          "docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
+
+    - name: Deploy the migration and application snapshots
+      shell: bash
+      env:
+        RELEASE_COMMIT: ${{ inputs.commit-sha }}
+        DEPLOYMENT_ROOT: ${{ inputs.deployment-root }}
+        PUBLIC_HEALTH_URL: ${{ inputs.public-health-url }}
+      run: |
+        ssh -F "$RUNNER_TEMP/ssh/config" ysn-${{ inputs.environment-name }} \
+          "PUBLIC_HEALTH_URL='$PUBLIC_HEALTH_URL' '$DEPLOYMENT_ROOT/releases/$RELEASE_COMMIT/scripts/release.sh' '$DEPLOYMENT_ROOT/releases/$RELEASE_COMMIT'"
+
+        {
+          echo "## ${{ inputs.environment-name }} application deployment"
+          echo
+          echo "- Snapshot run: \`${{ inputs.snapshot-run-id }}\`"
+          echo "- Short commit: \`${{ steps.revision.outputs.short-sha }}\`"
+          echo "- Commit: \`${{ inputs.commit-sha }}\`"
+          echo "- Bundle integrity: verified locally and on the VM"
+          echo "- VM bootstrap: ready"
+          echo "- Migration: completed"
+          echo "- Private and public health checks: passed"
+          echo "- Active release: \`$DEPLOYMENT_ROOT/releases/$RELEASE_COMMIT\`"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Remove transient credentials
+      if: always()
+      shell: bash
+      run: |
+        if [[ -f "$RUNNER_TEMP/ssh/config" ]]; then
+          ssh -F "$RUNNER_TEMP/ssh/config" ysn-${{ inputs.environment-name }} \
+            'docker logout ghcr.io >/dev/null 2>&1 || true' || true
+        fi
+        rm -rf "${RUNNER_TEMP:?}/ssh" "${RUNNER_TEMP:?}/application-${{ inputs.environment-name }}"

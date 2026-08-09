@@ -91,18 +91,20 @@ Fallback decision: Use Scaleway only if Aiven availability or capacity requires 
 - [x] Approve delegating both zones' nameservers to Cloudflare.
 - [x] Confirm the native application may contain and publicly reveal this hostname.
 - [x] Do not put Cloudflare Access browser redirects in front of the mobile API.
-- [x] Reserve `api.yoursaynews.com` for the future funded production environment.
-- [x] Redirect `www.yoursaynews.com`, `yoursaynews.co.uk` and `www.yoursaynews.co.uk` to
-      `yoursaynews.com`.
-- [x] Show a minimal coming-soon page at `yoursaynews.com` until the funded launch.
+- [x] Use the `/api` boundary on each environment origin: `dev.yoursaynews.com/api` for development
+      and `yoursaynews.com/api` for future production.
+- [x] Do not create a marketing or coming-soon frontend for the development hostname.
+- [x] Leave the production apex frontend and API routing unprovisioned until production work begins.
 
 Record:
 
 ```text
 Registered domains: yoursaynews.com and yoursaynews.co.uk
 Cloudflare zones: yoursaynews.com and yoursaynews.co.uk
-Development API hostname: dev.yoursaynews.com
-Reserved production API hostname: api.yoursaynews.com
+Development API base URL: https://dev.yoursaynews.com/api
+Future production API base URL: https://yoursaynews.com/api
+Development web frontend: none
+Future production web frontend: https://yoursaynews.com/
 Registrar owner: Max Hutchings; Theo Hutchings to receive delegated domain-management access
 Cloudflare account control: Max and Theo use separate MFA-protected members; Theo is operational owner
 ```
@@ -241,15 +243,18 @@ non-secret Terraform variables:
 
 #### Cloudflare
 
-- [ ] Account ID
-- [ ] Zone ID and zone name
-- [ ] Development API hostname
-- [ ] Tunnel name
+- [x] Account ID: `9538d45e127bdb7d6b1bf1ecf9020146`
+- [ ] Zone ID for the active `yoursaynews.com` zone; zone name is confirmed
+- [x] Development API hostname: `dev.yoursaynews.com` with application-owned `/api` paths
+- [x] Tunnel name: `your-say-news-development`
 - [x] Private SSH hostname: `ssh-dev.yoursaynews.com`
+- [ ] Confirm Universal SSL is active for `yoursaynews.com` and first-level subdomains.
+- [ ] Enable Always Use HTTPS and retain a minimum TLS version of 1.2; leave HSTS disabled until
+      every production hostname is deliberately live.
 - [ ] Access application and policies for Max and Theo
 - [ ] CI service-token identifier; Theo owns rotation and Max is backup
-- [ ] Media bucket name
-- [ ] Database-backup bucket name
+- [x] Media bucket name: `your-say-news-media-development`
+- [x] Database-backup bucket name: `your-say-news-backup-development`
 - [ ] Confirmation that both buckets use the immutable `eu` jurisdiction
 
 Suggested naming shape:
@@ -281,7 +286,8 @@ Suggested naming shape:
 - [x] Provider credentials use narrowly scoped Actions repository secrets
 - [x] Manual self-approval uses the explicit `workflow_dispatch` confirmation fallback from the
       approved infrastructure plan
-- [ ] GHCR package names for the API and migration images
+- [x] GHCR snapshot package names: `your-say-news-post-service-snapshot` and
+      `your-say-news-migrations-snapshot`; reserve the unsuffixed names for future tagged releases
 
 #### Google Cloud
 
@@ -328,7 +334,7 @@ secrets are the accepted fallback for this trusted two-developer private GitHub 
 - [ ] Deny all public inbound ports at provider and host firewalls.
 - [ ] Create a dedicated GHCR machine/service identity; do not reuse a developer's broad token.
 - [ ] Store the VM's Docker credential material in a root-owned location and define rotation.
-- [ ] Confirm the Cloudflare Tunnel route points to `post-service:8082`.
+- [ ] Confirm the host-level Cloudflare Tunnel API route points to `http://localhost:8082`.
 
 ### PostgreSQL access and backup operations
 
@@ -366,7 +372,7 @@ secrets are the accepted fallback for this trusted two-developer private GitHub 
 
 ### Release operations
 
-- [ ] Create GHCR packages for the runtime and migration images.
+- [ ] Publish the first commit so Actions creates the two private GHCR snapshot packages.
 - [ ] Set a GHCR/Actions storage budget and retention policy.
 - [ ] Retain the current, immediately previous and known-good emergency image sets.
 - [ ] Confirm image signing and SBOM retention.

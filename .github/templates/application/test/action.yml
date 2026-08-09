@@ -1,0 +1,38 @@
+name: Test application snapshot
+description: Test the backend and deployment contract without building or publishing image archives.
+
+outputs:
+  short-sha:
+    description: Seven-character source revision used in snapshot names and image tags.
+    value: ${{ steps.revision.outputs.short-sha }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the snapshot revision
+      id: revision
+      shell: bash
+      run: |
+        short_sha=${GITHUB_SHA:0:7}
+        if [[ ! "$short_sha" =~ ^[0-9a-f]{7}$ ]]; then
+          echo "::error title=Invalid source revision::Expected a seven-character hexadecimal commit SHA"
+          exit 1
+        fi
+        echo "short-sha=$short_sha" >> "$GITHUB_OUTPUT"
+        echo "::notice title=Snapshot revision::Commit snapshot names will use $short_sha"
+
+    - name: Test post-service
+      shell: bash
+      run: |
+        echo "::group::Testing post-service"
+        ./gradlew :post-service:check
+        echo "::endgroup::"
+        echo "::notice title=Application tests passed::post-service was tested with GraalVM 25"
+
+    - name: Test the deployment contract
+      shell: bash
+      run: |
+        echo "::group::Testing deployment scripts and Compose contract"
+        service/deploy/tests/deploy-scripts.test.sh
+        echo "::endgroup::"
+        echo "::notice title=Deployment contract passed::Runtime rendering, command order, host checks and rollback were verified"

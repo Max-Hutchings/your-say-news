@@ -1,0 +1,38 @@
+name: Build migration snapshot image
+description: Build the Liquibase migration image into an archive without publishing it.
+
+inputs:
+  image-artifact:
+    description: Artifact name for the built image archive.
+    required: true
+  image-name:
+    description: Final GHCR snapshot image name, used for the archive's commit tag.
+    required: true
+  short-sha:
+    description: Seven-character commit SHA used in the image tag and archive provenance.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Build the migration image archive
+      uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+      with:
+        context: .
+        file: ./liquibase/Dockerfile.migrate
+        platforms: linux/amd64
+        push: false
+        tags: ${{ inputs.image-name }}:sha-${{ inputs.short-sha }}
+        labels: |
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.version=sha-${{ inputs.short-sha }}
+        outputs: type=docker,dest=${{ runner.temp }}/migration-image.tar
+
+    - name: Upload the migration image archive
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.image-artifact }}
+        path: ${{ runner.temp }}/migration-image.tar
+        if-no-files-found: error
+        retention-days: 1

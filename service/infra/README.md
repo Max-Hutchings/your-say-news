@@ -115,11 +115,30 @@ Inputs:
 - `name`, `location`, `server_type` and `image`;
 - existing Hetzner `ssh_key_names` for break-glass recovery;
 - explicit `ipv4_enabled` cost decision;
-- optional non-secret `cloud_init`; and
+- required non-secret `cloud_init` that creates the deployment account, installs Docker/Compose
+  and the dormant host Tunnel connector, hardens SSH and prepares deployment directories; and
 - shared low-cardinality `labels`.
 
 Outputs are limited to server and firewall IDs, the server name and public addresses. The empty
 Hetzner firewall denies new public inbound connections while allowing outbound traffic.
+
+The first boot leaves `cloudflared-ysn.service` enabled but stopped because
+`/etc/cloudflared/tunnel.env` does not exist. After the Cloudflare zone, Tunnel and Access policy
+are ready, use the Hetzner web console for the one-time connector bootstrap:
+
+```shell
+install -o root -g cloudflared -m 0640 /dev/null /etc/cloudflared/tunnel.env
+read -rsp "Tunnel token: " YSN_TUNNEL_BOOTSTRAP_TOKEN
+printf '\n'
+printf 'TUNNEL_TOKEN=%s\n' "$YSN_TUNNEL_BOOTSTRAP_TOKEN" > /etc/cloudflared/tunnel.env
+unset YSN_TUNNEL_BOOTSTRAP_TOKEN
+systemctl start cloudflared-ysn.service
+systemctl status --no-pager cloudflared-ysn.service
+```
+
+Run these commands only in the root Hetzner console session; never paste the token into shell
+arguments, Git, Terraform variables or cloud-init. Once the connector is healthy, normal
+operations and application deployment use the Access-protected SSH hostname.
 
 ### `aiven-postgresql`
 
@@ -160,7 +179,9 @@ name, jurisdiction and non-secret EU S3 endpoint.
 ### `cloudflare-api-tunnel`
 
 Owns one remotely configured Cloudflare Tunnel and its proxied DNS routes. The development
-environment supplies the public API route to `post-service:8082` and the private SSH route.
+environment supplies the public API hostname route to the loopback-only backend on port 8082 and
+the private SSH route. The deployed application owns the `/api` path prefix, producing public URLs
+such as `https://dev.yoursaynews.com/api/posts`; the Tunnel does not rewrite paths.
 
 Inputs:
 
@@ -170,5 +191,5 @@ Inputs:
 
 The module adds a final `http_status:404` catch-all. Cloudflare Access policies remain separate so
 operator emails do not enter this module or Terraform state. The tunnel UUID and route hostnames
-are non-secret outputs; the connector token is a sensitive output used only by the VM deployment
-secret workflow.
+are non-secret outputs; the connector token is a sensitive output delivered once to the host-level
+connector and never embedded in cloud-init or application Compose.

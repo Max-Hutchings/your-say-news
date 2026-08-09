@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-deploy_dir=$(CDPATH= cd -- "$script_dir/.." && pwd)
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+deploy_dir=$(CDPATH='' cd -- "$script_dir/.." && pwd)
 runtime_env="${DEPLOY_ENV_FILE:-$deploy_dir/runtime.env}"
 compose_file="$deploy_dir/compose.yaml"
 
@@ -24,6 +24,7 @@ assert_digest() {
 
 assert_digest POST_SERVICE_IMAGE
 assert_digest MIGRATION_IMAGE
+assert_digest ALLOY_IMAGE
 
 compose() {
   docker compose --env-file "$runtime_env" \
@@ -31,12 +32,12 @@ compose() {
     "$@"
 }
 
-compose pull post-service alloy cloudflared
+compose pull post-service alloy
 compose --profile migration pull migrate
 compose --profile migration run --rm migrate
-compose up --detach --remove-orphans post-service alloy cloudflared
+compose up --detach --remove-orphans post-service alloy
 
-PRIVATE_HEALTH_URL="${PRIVATE_HEALTH_URL:-http://127.0.0.1:8082/live}" \
+PRIVATE_HEALTH_URL="${PRIVATE_HEALTH_URL:-http://127.0.0.1:8082/api/live}" \
   PUBLIC_HEALTH_URL="${PUBLIC_HEALTH_URL:-}" \
   "$script_dir/health-check.sh"
 

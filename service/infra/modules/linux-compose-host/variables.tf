@@ -22,6 +22,11 @@ variable "image" {
 variable "ssh_key_names" {
   description = "Names of existing Hetzner SSH keys injected for break-glass recovery."
   type        = set(string)
+
+  validation {
+    condition     = length(var.ssh_key_names) > 0
+    error_message = "At least one existing Hetzner SSH key is required for break-glass recovery."
+  }
 }
 
 variable "ipv4_enabled" {
@@ -36,9 +41,13 @@ variable "ipv6_enabled" {
 }
 
 variable "cloud_init" {
-  description = "Optional non-secret cloud-init document. Never include runtime credentials."
+  description = "Non-secret cloud-init document used to prepare the host for deployment. Never include runtime credentials."
   type        = string
-  default     = null
+
+  validation {
+    condition     = can(regex("^#cloud-config(?:\\r?\\n|$)", var.cloud_init))
+    error_message = "cloud_init must begin with the exact #cloud-config header."
+  }
 }
 
 variable "labels" {

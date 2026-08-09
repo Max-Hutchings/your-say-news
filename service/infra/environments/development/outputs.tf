@@ -20,11 +20,12 @@ output "common_labels" {
 output "hcloud_host" {
   description = "Hetzner host identifiers when host provisioning is enabled."
   value = var.enable_hcloud_host ? {
-    id           = module.compose_host[0].server_id
-    name         = module.compose_host[0].server_name
-    ipv4_address = module.compose_host[0].ipv4_address
-    ipv6_address = module.compose_host[0].ipv6_address
-    firewall_id  = module.compose_host[0].firewall_id
+    id                = module.compose_host[0].server_id
+    name              = module.compose_host[0].server_name
+    ipv4_address      = module.compose_host[0].ipv4_address
+    ipv6_address      = module.compose_host[0].ipv6_address
+    firewall_id       = module.compose_host[0].firewall_id
+    cloud_init_sha256 = module.compose_host[0].cloud_init_sha256
   } : null
 }
 
@@ -55,6 +56,7 @@ output "cloudflare_tunnel" {
   value = var.enable_cloudflare_tunnel ? {
     id        = module.api_tunnel[0].tunnel_id
     hostnames = module.api_tunnel[0].route_hostnames
+    routes    = module.api_tunnel[0].route_services
   } : null
 }
 

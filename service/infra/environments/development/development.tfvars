@@ -12,7 +12,7 @@ enable_cloudflare_tunnel = false
 
 # Cloudflare dashboard -> account/zone overview.
 cloudflare_account_id = "9538d45e127bdb7d6b1bf1ecf9020146"
-cloudflare_zone_id    = "" # BLOCKED: awaiting GoDaddy delegation before Cloudflare zone setup.
+cloudflare_zone_id    = "" # REQUIRED: copy the Zone ID from the active yoursaynews.com overview.
 cloudflare_zone_name  = "yoursaynews.com"
 
 api_hostname             = "dev.yoursaynews.com"

@@ -31,4 +31,15 @@ run "all_resource_groups_are_disabled_by_default" {
     condition     = output.cloudflare_tunnel == null
     error_message = "Cloudflare Tunnel must not be planned until explicitly enabled."
   }
+
+  assert {
+    condition = alltrue([
+      length(module.compose_host) == 0,
+      length(module.postgresql) == 0,
+      length(module.media_bucket) == 0,
+      length(module.backup_bucket) == 0,
+      length(module.api_tunnel) == 0,
+    ])
+    error_message = "Disabled resource-group switches must create no module instances."
+  }
 }

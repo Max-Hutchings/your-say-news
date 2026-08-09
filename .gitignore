@@ -1,5 +1,7 @@
 # Build outputs
 build/
+!.github/templates/application/build/
+!.github/templates/application/build/**
 out/
 dist/
 .gradle/

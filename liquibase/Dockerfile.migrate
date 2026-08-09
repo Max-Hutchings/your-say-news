@@ -3,7 +3,7 @@
 # Runs independently of the application service.
 #
 # Build context is the repo root so the central changelog can be copied.
-FROM liquibase/liquibase:4.29
+FROM liquibase/liquibase@sha256:b940077d0581d7d425e1eb27a5a0c8b1e92398bc592868539db1c8e30ce9c75b
 
 # The search-path root ensures includeAll records "db/migrations/..." paths that
 # match what the Quarkus app records at migrate-at-start.
