@@ -62,26 +62,38 @@ API and all administrative data remain protected by the database `ADMIN` check.
 
 Max owns the external mobile-platform setup and all corresponding repository implementation:
 
-1. Register/verify the Google Play developer account and complete the one-off fee where no existing
+1. Accept Theo's Expo Organization invitation using Max's own MFA-protected Expo account and
+   confirm the **Developer** role can access the shared EAS project. Do not share Expo passwords.
+2. Register/verify the Google Play developer account and complete the one-off fee where no existing
    account is available.
-2. Create the Play application with the testing title **Your Say News Dev**, accept Play App
+3. Create the Play application with the testing title **Your Say News Dev**, accept Play App
    Signing and use the repository's approved permanent Android application ID
    `com.yoursaynews.app`. The listing may be renamed **Your Say News** when the same application is
    promoted to production.
-3. Complete the required Play declarations and create the internal tester email list.
-4. Link `frontend/mobile/your-say-news` to the shared Expo Organization/EAS project and commit the
-   generated `owner`, EAS project ID, `eas.json`, update configuration and reviewed app config.
-5. Register `com.yoursaynews.app` as the development Android app in the development Firebase
+4. Complete the required Play declarations and create the internal tester email list.
+5. Link this repository and `frontend/mobile/your-say-news` to the shared Expo Organization/EAS
+   project, then link that EAS application to the Firebase Android application and Google Play
+   application. Commit the generated `owner`, EAS project ID, `eas.json`, update configuration and
+   reviewed app config.
+6. Register `com.yoursaynews.app` as the development Android app in the development Firebase
    project, enable Google Sign-In, add the EAS/upload and Play App Signing SHA-1/SHA-256
    fingerprints, and supply the reviewed `google-services.json` through the approved build
    configuration.
-6. Create the least-privilege Expo and Google Play automation identities/tokens and store them
+7. Create the least-privilege Expo and Google Play automation identities/tokens and store them
    directly in GitHub/EAS secret stores.
-7. Implement the Firebase backend/mobile/admin migration and tests in the phases below.
-8. Create the separate mobile delivery workflow only after Expo, Firebase and Play are linked and
+8. Implement Firebase Authentication with Google Sign-In across the mobile app, `post-service`
+   token verification/account linking and the embedded `/admin` frontend, including the tests in
+   the phases below.
+9. Repair the current backend CI failure in
+   `YourSayUserControllerTest.recordConsentStampsTimeAndVersion`: the API `Instant` can contain
+   nanoseconds while PostgreSQL persists microseconds, causing the exact persisted-time assertion
+   to fail intermittently. Preserve the test's exact API/database consistency guarantee and prove
+   the fix with `./gradlew :post-service:build`. Also update the old Node-20-based GitHub Actions to
+   supported Node 24 action releases rather than enabling the insecure Node 20 override.
+10. Create the separate mobile delivery workflow only after Expo, Firebase and Play are linked and
    a manual EAS build has proved the package/signing/configuration contract.
 
-The existing general CI mobile test job remains the only mobile workflow until item 8. Do not add a
+The existing general CI mobile test job remains the only mobile workflow until item 10. Do not add a
 placeholder delivery workflow that is guaranteed to fail because project IDs, signing credentials
 or external applications do not yet exist.
 

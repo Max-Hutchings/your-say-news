@@ -13,6 +13,7 @@ enable_cloudflare_tunnel = true
 # Cloudflare dashboard -> account/zone overview.
 cloudflare_account_id = "9538d45e127bdb7d6b1bf1ecf9020146"
 cloudflare_zone_id    = "9d9a9700dea3507c8af078cf7ff839c5"
+cloudflare_zone_name  = "yoursaynews.com"
 
 api_hostname             = "dev.yoursaynews.com"
 ssh_hostname             = "ssh-dev.yoursaynews.com"
