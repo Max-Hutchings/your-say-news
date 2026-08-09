@@ -63,7 +63,7 @@ class LocalUserDomainIntegrationTest {
                     .when().get("/feed?size=50")
                     .then()
                     .statusCode(200)
-                    .body("find { it.id == %d }.userId".formatted(postId), is(1));
+                    .body("posts.find { it.id == %d }.userId".formatted(postId), is(1));
 
             Response vote = given()
                     .contentType("application/json")

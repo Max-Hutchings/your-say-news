@@ -1,10 +1,16 @@
 import React from "react";
-import { FlatList } from "react-native";
+import { FlatList, RefreshControl } from "react-native";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { ThemeProvider } from "@/constants/theme";
 import { HomeFeed } from "./HomeFeed";
 import { getFeed } from "../services/PostService";
-import type { Post } from "../types";
+import type { FeedPage, Post } from "../types";
+
+/** The service always answers with a page envelope; `nextCursor` null means the end of the feed. */
+const page = (posts: Post[], nextCursor: string | null = null): FeedPage => ({
+  posts,
+  nextCursor,
+});
 
 const mockPush = jest.fn();
 
@@ -87,7 +93,7 @@ describe("HomeFeed", () => {
   it("shows the create-post action only to an active publisher", () => {
     // The publishing action is independent of feed loading; keep that request pending so this test
     // observes only the capability-driven render and produces no unrelated async state updates.
-    mockGetFeed.mockReturnValue(new Promise<Post[]>(() => undefined));
+    mockGetFeed.mockReturnValue(new Promise<FeedPage>(() => undefined));
 
     const { rerender } = render(
       <ThemeProvider>
@@ -109,7 +115,7 @@ describe("HomeFeed", () => {
   });
 
   it("scrolls the paged feed to the following post when the active card requests it", async () => {
-    mockGetFeed.mockResolvedValue(posts);
+    mockGetFeed.mockResolvedValue(page(posts));
     const scrollToIndex = jest
       .spyOn(FlatList.prototype, "scrollToIndex")
       .mockImplementation(() => undefined);
@@ -133,10 +139,10 @@ describe("HomeFeed", () => {
 
   it("loads video posts by default and reloads from page one when the type changes", async () => {
     mockGetFeed.mockImplementation(
-      (_page: number, _size: number, type?: "VIDEO" | "ARTICLE") => {
-        if (type === "VIDEO") return Promise.resolve([videoPost]);
-        if (type === "ARTICLE") return Promise.resolve([posts[0]]);
-        return Promise.resolve([posts[0], videoPost]);
+      (_cursor: string | null, _size: number, type?: "VIDEO" | "ARTICLE") => {
+        if (type === "VIDEO") return Promise.resolve(page([videoPost]));
+        if (type === "ARTICLE") return Promise.resolve(page([posts[0]]));
+        return Promise.resolve(page([posts[0], videoPost]));
       }
     );
 
@@ -150,7 +156,7 @@ describe("HomeFeed", () => {
     });
 
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith(0, 5, "VIDEO")
+      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "VIDEO")
     );
     expect(screen.getByLabelText("Video posts").props.accessibilityState.selected).toBe(true);
     expect(await screen.findByTestId("mock-post-3")).toBeOnTheScreen();
@@ -158,20 +164,20 @@ describe("HomeFeed", () => {
 
     fireEvent.press(screen.getByLabelText("Article posts"));
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith(0, 5, "ARTICLE")
+      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "ARTICLE")
     );
     expect(await screen.findByTestId("mock-post-1")).toBeOnTheScreen();
     expect(screen.queryByTestId("mock-post-3")).toBeNull();
 
     fireEvent.press(screen.getByLabelText("Article posts"));
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith(0, 5, undefined)
+      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, undefined)
     );
     expect(await screen.findByTestId("mock-post-1")).toBeOnTheScreen();
     expect(screen.getByTestId("mock-post-3")).toBeOnTheScreen();
   });
 
-  it("keeps the selected type when loading the next filtered page", async () => {
+  it("sends the previous page's cursor and the selected type when loading more", async () => {
     const firstVideoPage = Array.from({ length: 5 }, (_, index) => ({
       ...videoPost,
       id: 20 + index,
@@ -179,10 +185,14 @@ describe("HomeFeed", () => {
     }));
     const nextVideo = { ...videoPost, id: 30, summary: "Video page two" };
     mockGetFeed.mockImplementation(
-      (page: number, _size: number, type?: "VIDEO" | "ARTICLE") => {
-        if (type === "VIDEO" && page === 0) return Promise.resolve(firstVideoPage);
-        if (type === "VIDEO" && page === 1) return Promise.resolve([nextVideo]);
-        return Promise.resolve(posts);
+      (cursor: string | null, _size: number, type?: "VIDEO" | "ARTICLE") => {
+        if (type === "VIDEO" && cursor === null) {
+          return Promise.resolve(page(firstVideoPage, "cursor-after-24"));
+        }
+        if (type === "VIDEO" && cursor === "cursor-after-24") {
+          return Promise.resolve(page([nextVideo]));
+        }
+        return Promise.resolve(page(posts));
       }
     );
 
@@ -198,8 +208,80 @@ describe("HomeFeed", () => {
     fireEvent(screen.UNSAFE_getByType(FlatList), "onEndReached");
 
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith(1, 5, "VIDEO")
+      expect(mockGetFeed).toHaveBeenLastCalledWith("cursor-after-24", 5, "VIDEO")
     );
     expect(await screen.findByTestId("mock-post-30")).toBeOnTheScreen();
+  });
+
+  it("shows a retry message when the feed request fails", async () => {
+    mockGetFeed.mockRejectedValue(new Error("network down"));
+
+    render(
+      <ThemeProvider>
+        <HomeFeed />
+      </ThemeProvider>
+    );
+    fireEvent(screen.getByTestId("home-feed-viewport"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 700 } },
+    });
+
+    expect(
+      await screen.findByText("We couldn't load the feed. Pull to try again.")
+    ).toBeOnTheScreen();
+  });
+
+  it("pull-to-refresh restarts from the first page and re-enables loading more", async () => {
+    // The reader starts at the end of the feed (null cursor), so this proves refresh genuinely
+    // restarts: it re-requests with no cursor and paging works again from the new cursor.
+    mockGetFeed
+      .mockResolvedValueOnce(page([videoPost]))
+      .mockResolvedValueOnce(page([{ ...videoPost, id: 50 }], "cursor-after-50"))
+      .mockResolvedValueOnce(page([{ ...videoPost, id: 51 }]));
+
+    render(
+      <ThemeProvider>
+        <HomeFeed />
+      </ThemeProvider>
+    );
+    fireEvent(screen.getByTestId("home-feed-viewport"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 700 } },
+    });
+    await screen.findByTestId("mock-post-3");
+
+    fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
+    await screen.findByTestId("mock-post-50");
+    expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "VIDEO");
+
+    fireEvent(screen.UNSAFE_getByType(FlatList), "onEndReached");
+
+    await waitFor(() =>
+      expect(mockGetFeed).toHaveBeenLastCalledWith("cursor-after-50", 5, "VIDEO")
+    );
+    expect(await screen.findByTestId("mock-post-51")).toBeOnTheScreen();
+  });
+
+  it("stops requesting pages once the service reports the end of the feed", async () => {
+    // A full page with a null cursor is the end. Paging on page-length instead would keep asking
+    // and render a spinner the reader never gets past.
+    const fullPage = Array.from({ length: 5 }, (_, index) => ({
+      ...videoPost,
+      id: 40 + index,
+      summary: `Last page ${index}`,
+    }));
+    mockGetFeed.mockResolvedValue(page(fullPage));
+
+    render(
+      <ThemeProvider>
+        <HomeFeed />
+      </ThemeProvider>
+    );
+    fireEvent(screen.getByTestId("home-feed-viewport"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 700 } },
+    });
+    await screen.findByTestId("mock-post-40");
+    fireEvent(screen.UNSAFE_getByType(FlatList), "onEndReached");
+    fireEvent(screen.UNSAFE_getByType(FlatList), "onEndReached");
+
+    await waitFor(() => expect(mockGetFeed).toHaveBeenCalledTimes(1));
   });
 });

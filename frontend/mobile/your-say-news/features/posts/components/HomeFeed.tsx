@@ -32,9 +32,9 @@ const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 80 };
  * The on-screen post is tracked via viewability so its video autoplays. Loads
  * on focus and supports pull-to-refresh; a lime action opens the composer.
  *
- * The feed pages: it fetches the first {@link FEED_PAGE_SIZE} posts, then loads the
- * next page as the reader nears the end (see `onEndReached`). A short page means we've
- * reached the bottom, so we stop asking.
+ * The feed pages by cursor: it fetches the first {@link FEED_PAGE_SIZE} posts, then loads the
+ * next page as the reader nears the end (see `onEndReached`), passing back the `nextCursor` the
+ * service returned. A null `nextCursor` — not a short page — means we've reached the bottom.
  */
 export function HomeFeed() {
   const router = useRouter();
@@ -51,10 +51,11 @@ export function HomeFeed() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [postType, setPostType] = useState<FeedPostType | null>("VIDEO");
 
-  // Paging cursor and end-of-feed flag. A ref guards against overlapping loadMore calls —
-  // onEndReached can fire repeatedly before a request resolves, and React state wouldn't
+  // Paging cursor and end-of-feed flag. The cursor is the opaque token from the last response, so
+  // the next page resumes exactly where this one stopped. A ref guards against overlapping loadMore
+  // calls — onEndReached can fire repeatedly before a request resolves, and React state wouldn't
   // update in time to block the duplicate.
-  const page = useRef(0);
+  const cursor = useRef<string | null>(null);
   const reachedEnd = useRef(false);
   const loadingMoreRef = useRef(false);
   const pendingNextIndex = useRef<number | null>(null);
@@ -65,11 +66,11 @@ export function HomeFeed() {
     const generation = ++feedGeneration.current;
     setError(null);
     try {
-      const first = await getFeed(0, FEED_PAGE_SIZE, postType ?? undefined);
+      const first = await getFeed(null, FEED_PAGE_SIZE, postType ?? undefined);
       if (generation !== feedGeneration.current) return;
-      setPosts(first);
-      page.current = 0;
-      reachedEnd.current = first.length < FEED_PAGE_SIZE;
+      setPosts(first.posts);
+      cursor.current = first.nextCursor;
+      reachedEnd.current = first.nextCursor === null;
     } catch {
       if (generation === feedGeneration.current) {
         setError("We couldn't load the feed. Pull to try again.");
@@ -88,19 +89,18 @@ export function HomeFeed() {
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const next = page.current + 1;
-      const more = await getFeed(next, FEED_PAGE_SIZE, postType ?? undefined);
+      const more = await getFeed(cursor.current, FEED_PAGE_SIZE, postType ?? undefined);
       if (generation !== feedGeneration.current) return;
-      if (more.length > 0) {
-        // Guard against a page that overlaps what we already hold (e.g. a post added between
-        // fetches shifting the window) so keys stay unique.
+      if (more.posts.length > 0) {
+        // The cursor makes overlapping pages impossible, but keep the id guard so a duplicate key
+        // can never crash the list if the service contract ever regresses.
         setPosts((prev) => {
           const seen = new Set(prev.map((p) => p.id));
-          return [...prev, ...more.filter((p) => !seen.has(p.id))];
+          return [...prev, ...more.posts.filter((p) => !seen.has(p.id))];
         });
-        page.current = next;
       }
-      if (more.length < FEED_PAGE_SIZE) reachedEnd.current = true;
+      cursor.current = more.nextCursor;
+      reachedEnd.current = more.nextCursor === null;
     } catch {
       // Leave the flags as they are so a later scroll retries the same page.
     } finally {
@@ -126,6 +126,7 @@ export function HomeFeed() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
+    cursor.current = null;
     reachedEnd.current = false;
     loadFirst();
   }, [loadFirst]);
@@ -151,7 +152,7 @@ export function HomeFeed() {
     setLoadingMore(false);
     setActiveIndex(0);
     pendingNextIndex.current = null;
-    page.current = 0;
+    cursor.current = null;
     reachedEnd.current = false;
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
   };

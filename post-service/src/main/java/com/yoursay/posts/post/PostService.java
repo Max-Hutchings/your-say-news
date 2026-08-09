@@ -8,6 +8,8 @@ import com.yoursay.posts.dto.CreatePostRequest;
 
 import com.yoursay.posts.dto.PostDto;
 
+import com.yoursay.posts.dto.PostPageRequest;
+
 import io.smallrye.mutiny.Uni;
 
 import java.util.List;
@@ -35,4 +37,11 @@ public interface PostService {
 
     /** A page of recent posts across all authors, newest first (interim feed). */
     Uni<List<PostDto>> getRecent(int page, int size);
+
+    /**
+     * A keyset-paged page of the post stream, newest first. Unlike {@link #getRecent(int, int)} the
+     * cost does not grow with how deep the reader has scrolled, and a post published mid-scroll
+     * cannot shift the page boundary past an unseen post. See {@code ADR-042}.
+     */
+    Uni<List<PostDto>> findPage(PostPageRequest request);
 }

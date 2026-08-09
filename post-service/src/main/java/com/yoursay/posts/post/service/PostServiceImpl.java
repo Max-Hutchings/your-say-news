@@ -12,6 +12,8 @@ import com.yoursay.posts.dto.PostDto;
 
 import com.yoursay.posts.dto.PostMediaDto;
 
+import com.yoursay.posts.dto.PostPageRequest;
+
 import com.yoursay.posts.*;
 import com.yoursay.posts.client.UserServiceClient;
 import com.yoursay.posts.error.PostApiException;
@@ -35,7 +37,9 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class PostServiceImpl implements PostService {
@@ -147,16 +151,38 @@ public class PostServiceImpl implements PostService {
         return postRepository.getRecent(safePage, safeSize).flatMap(this::mapPostsWithOptions);
     }
 
+    @Override
+    @WithSession
+    public Uni<List<PostDto>> findPage(PostPageRequest request) {
+        // The feed asks for one row beyond its page to detect the end of the feed, so the ceiling
+        // here is one above the page cap rather than equal to it.
+        int safeLimit = request.limit() <= 0
+                ? DEFAULT_PAGE_SIZE
+                : Math.min(request.limit(), MAX_PAGE_SIZE + 1);
+        PostMediaFilter mediaFilter = request.mediaFilter() == null
+                ? PostMediaFilter.ANY
+                : request.mediaFilter();
+        return postRepository
+                .findPageAfter(request.cursorCreatedAt(), request.cursorId(), mediaFilter, safeLimit)
+                .flatMap(this::mapPostsWithOptions);
+    }
+
+    /**
+     * Map a page of posts to DTOs, fetching every post's vote options in a single query and grouping
+     * them by post id. Doing this per post made a page cost N+1 round trips.
+     */
     private Uni<List<PostDto>> mapPostsWithOptions(List<Post> posts) {
-        Uni<List<PostDto>> mapped = Uni.createFrom().item(new ArrayList<>());
-        for (Post post : posts) {
-            mapped = mapped.flatMap(result -> optionRepository.listByPostId(post.getId())
-                    .map(options -> {
-                        result.add(toDto(post, options));
-                        return result;
-                    }));
+        if (posts.isEmpty()) {
+            return Uni.createFrom().item(List.of());
         }
-        return mapped.map(List::copyOf);
+        List<Long> ids = posts.stream().map(Post::getId).toList();
+        return optionRepository.listByPostIds(ids).map(options -> {
+            Map<Long, List<PostVoteOption>> byPostId = options.stream()
+                    .collect(Collectors.groupingBy(option -> option.getPost().getId()));
+            return posts.stream()
+                    .map(post -> toDto(post, byPostId.getOrDefault(post.getId(), List.of())))
+                    .toList();
+        });
     }
 
     private PostDto toDto(Post post, List<PostVoteOption> options) {

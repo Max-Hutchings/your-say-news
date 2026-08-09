@@ -1,6 +1,6 @@
 package com.yoursay.feed;
 
-import com.yoursay.posts.dto.PostDto;
+import com.yoursay.feed.dto.FeedPage;
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
@@ -8,8 +8,6 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-
-import java.util.List;
 
 @Path("/feed")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -23,14 +21,19 @@ public class FeedController {
     @Inject
     SecurityIdentity securityIdentity;
 
+    /**
+     * One page of the reader's feed. {@code cursor} is omitted for the first page and otherwise
+     * echoes the previous page's {@code nextCursor}; it is opaque and must not be constructed by a
+     * client. A null {@code nextCursor} in the response is the end of the feed.
+     */
     @GET
-    public Uni<List<PostDto>> feed(@QueryParam("page") @DefaultValue("0") int page,
-                                   @QueryParam("size") @DefaultValue("5") int size,
-                                   @QueryParam("type") FeedPostType postType,
-                                   @HeaderParam("Authorization") String authorization) {
+    public Uni<FeedPage> feed(@QueryParam("cursor") String cursor,
+                              @QueryParam("size") @DefaultValue("5") int size,
+                              @QueryParam("type") FeedPostType postType,
+                              @HeaderParam("Authorization") String authorization) {
         String email = securityIdentity.getPrincipal().getName();
-        Log.infof("Endpoint Called: feed - page %d size %d type %s viewer %s",
-                page, size, postType, email);
-        return feedService.getFeed(email, authorization, page, size, postType);
+        Log.infof("Endpoint Called: feed - cursor %s size %d type %s viewer %s",
+                cursor, size, postType, email);
+        return feedService.getFeed(email, authorization, cursor, size, postType);
     }
 }

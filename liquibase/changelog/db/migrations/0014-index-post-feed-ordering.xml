@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- Every feed and /posts read orders by (created_at desc, id desc), and the keyset cursor
+         introduced by ADR-042 filters on the same tuple. Without a matching index Postgres has to
+         scan and sort the whole post table for each page. The index is declared in the same
+         direction as the query so it serves both the predicate and the ordering. -->
+    <changeSet id="0014-index-post-feed-ordering-1" author="mhutc">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists indexName="idx_post_created_at_id"/>
+            </not>
+        </preConditions>
+        <sql>
+            CREATE INDEX idx_post_created_at_id ON post (created_at DESC, id DESC);
+        </sql>
+        <rollback>
+            DROP INDEX idx_post_created_at_id;
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -11,6 +11,12 @@ type FeedPost = {
   }>;
 };
 
+/** The cursor-paged feed envelope (ADR-042); `nextCursor` is null at the end of the feed. */
+type FeedPageResponse = {
+  posts: FeedPost[];
+  nextCursor: string | null;
+};
+
 export class FeedPage {
   constructor(private readonly page: Page) {}
 
@@ -36,7 +42,7 @@ export class FeedPage {
     feedResponse: Response,
     mediaResponse: Response
   ): Promise<void> {
-    const posts = (await feedResponse.json()) as FeedPost[];
+    const { posts } = (await feedResponse.json()) as FeedPageResponse;
     expect(posts).toHaveLength(5);
     expect(
       posts.every((post) =>
@@ -90,7 +96,7 @@ export class FeedPage {
       .click();
 
     const response = await articleResponse;
-    const posts = (await response.json()) as FeedPost[];
+    const { posts } = (await response.json()) as FeedPageResponse;
     expect(posts).toHaveLength(5);
     expect(
       posts.every((post) =>

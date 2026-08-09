@@ -1,16 +1,18 @@
 package com.yoursay.feed;
 
-import com.yoursay.posts.dto.PostDto;
+import com.yoursay.feed.dto.FeedPage;
 import io.smallrye.mutiny.Uni;
-
-import java.util.List;
 
 public interface FeedService {
 
-    Uni<List<PostDto>> getFeed(String viewerEmail, String authorization, int page, int size,
-                               FeedPostType postType);
+    /**
+     * One page of the viewer's feed. {@code cursor} is null for the first page and otherwise the
+     * {@code nextCursor} of the previous page; {@code size} is normalised and capped server-side.
+     */
+    Uni<FeedPage> getFeed(String viewerEmail, String authorization, String cursor, int size,
+                          FeedPostType postType);
 
-    default Uni<List<PostDto>> getFeed(String viewerEmail, String authorization, int page, int size) {
-        return getFeed(viewerEmail, authorization, page, size, null);
+    default Uni<FeedPage> getFeed(String viewerEmail, String authorization, String cursor, int size) {
+        return getFeed(viewerEmail, authorization, cursor, size, null);
     }
 }
