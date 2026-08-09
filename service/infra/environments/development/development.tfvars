@@ -65,7 +65,7 @@ hcloud_image       = "ubuntu-24.04"
 hcloud_ssh_key_names = [
   "TheoHutchings908-your-say-news-development",
 ]
-hcloud_ipv4_enabled = true # INPUT TO CONFIRM: incurs the primary IPv4 charge
+hcloud_ipv4_enabled = false # IPv6-only host; avoids the paid primary IPv4 charge.
 
 # Aiven project/service options.
 aiven_project_name        = "your-say-news-development"
