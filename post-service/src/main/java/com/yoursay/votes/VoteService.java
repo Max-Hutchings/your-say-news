@@ -1,5 +1,8 @@
 package com.yoursay.votes;
 
+import com.yoursay.votes.dto.CharacteristicSnapshot;
+import com.yoursay.votes.dto.VoteResponseDto;
+
 import java.util.Optional;
 
 /**

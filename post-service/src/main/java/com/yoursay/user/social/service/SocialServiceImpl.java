@@ -1,12 +1,12 @@
 package com.yoursay.user.social.service;
 
-import com.yoursay.user.social.FollowPageDto;
-import com.yoursay.user.social.FollowStatusDto;
-import com.yoursay.user.social.FollowUserDto;
+import com.yoursay.user.social.dto.FollowPageDto;
+import com.yoursay.user.social.dto.FollowStatusDto;
+import com.yoursay.user.social.dto.FollowUserDto;
 import com.yoursay.user.social.SocialService;
 import com.yoursay.user.social.model.SocialFollow;
 import com.yoursay.user.social.model.SocialFollowRepository;
-import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.user.dto.YourSayUserDto;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.user.user.error.UserApiException;
 import jakarta.enterprise.context.ApplicationScoped;

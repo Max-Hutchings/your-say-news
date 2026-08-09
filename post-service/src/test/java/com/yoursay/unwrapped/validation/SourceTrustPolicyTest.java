@@ -1,24 +1,20 @@
 package com.yoursay.unwrapped.validation;
 
 import com.yoursay.unwrapped.SourceClassification;
-import com.yoursay.unwrapped.UnwrappedSourceDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SourceTrustPolicyTest {
     private final SourceTrustPolicy policy = new SourceTrustPolicy();
 
     @Test
-    void rejectsAProviderSelfLabellingMediaAsOfficial() {
+    void classificationQualityDoesNotDependOnAHostAllowlist() {
         UnwrappedSourceDraftV1 source = new UnwrappedSourceDraftV1(
                 "source-1", "https://www.bbc.com/news", "BBC", "Report",
                 SourceClassification.OFFICIAL);
 
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> policy.validate(source));
-
-        assertEquals("UNWRAPPED_SOURCE_CLASSIFICATION_INVALID", error.getMessage());
+        assertTrue(policy.isHighQuality(source));
     }
 }

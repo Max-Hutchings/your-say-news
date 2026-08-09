@@ -1,6 +1,6 @@
 package com.yoursay.votes.model;
 
-import com.yoursay.votes.CharacteristicSnapshot;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;

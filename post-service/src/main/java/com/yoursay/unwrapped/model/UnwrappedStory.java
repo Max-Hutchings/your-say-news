@@ -1,7 +1,6 @@
 package com.yoursay.unwrapped.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yoursay.unwrapped.UnwrappedMode;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,19 +17,20 @@ import java.util.UUID;
 @Entity
 @Table(name = "unwrapped_story")
 public class UnwrappedStory extends PanacheEntityBase {
+    public static final String STORY_SCHEMA_VERSION = "unwrapped-story-v2";
+    public static final String ANALYSIS_VERSION = "unwrapped-analysis-v2";
+    public static final String PROMPT_VERSION = "unwrapped-cohort-causal-v2";
     @Id
     UUID id;
     @Column(name = "job_id", nullable = false)
     UUID jobId;
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    UnwrappedMode mode;
     @Column(name = "post_id", nullable = false)
     Long postId;
+    @Column(nullable = false)
     Integer milestone;
     @Column(name = "canonical_vote_count", nullable = false)
     long canonicalVoteCount;
-    @Column(name = "aggregate_version")
+    @Column(name = "aggregate_version", nullable = false)
     String aggregateVersion;
     @Column(name = "story_schema_version", nullable = false)
     String storySchemaVersion;
@@ -63,14 +63,13 @@ public class UnwrappedStory extends PanacheEntityBase {
     public UnwrappedStory(UnwrappedAnalysisJob job, JsonNode storyJson, String model) {
         this.id = UUID.randomUUID();
         this.jobId = job.getId();
-        this.mode = job.getMode();
         this.postId = job.getPostId();
         this.milestone = job.getMilestone();
         this.canonicalVoteCount = job.getCanonicalVoteCount() == null ? 0 : job.getCanonicalVoteCount();
         this.aggregateVersion = job.getAggregateVersion();
-        this.storySchemaVersion = "unwrapped-story-v1";
+        this.storySchemaVersion = STORY_SCHEMA_VERSION;
         this.analysisVersion = job.getAnalysisVersion();
-        this.promptVersion = "unwrapped-case-v1";
+        this.promptVersion = PROMPT_VERSION;
         this.ruleSetVersion = "cohort-rules-v1";
         this.model = model;
         this.storyJson = storyJson;
@@ -79,11 +78,11 @@ public class UnwrappedStory extends PanacheEntityBase {
     }
 
     public UUID getId() { return id; }
-    public UnwrappedMode getMode() { return mode; }
     public Long getPostId() { return postId; }
     public Integer getMilestone() { return milestone; }
     public long getCanonicalVoteCount() { return canonicalVoteCount; }
     public String getAggregateVersion() { return aggregateVersion; }
+    public String getStorySchemaVersion() { return storySchemaVersion; }
     public JsonNode getStoryJson() { return storyJson; }
     public UnwrappedReviewStatus getReviewStatus() { return reviewStatus; }
     public Instant getGeneratedAt() { return generatedAt; }

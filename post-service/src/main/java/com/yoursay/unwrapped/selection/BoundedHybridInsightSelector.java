@@ -1,14 +1,9 @@
 package com.yoursay.unwrapped.selection;
 
-import com.yoursay.unwrapped.CandidateRole;
-import com.yoursay.unwrapped.InsightSelectionService;
-import com.yoursay.unwrapped.OptionBriefV1;
-import com.yoursay.unwrapped.SelectedCohortV1;
-import com.yoursay.unwrapped.UnwrappedAnalysisBriefV1;
-import com.yoursay.votes.CohortAggregateV1;
-import com.yoursay.votes.OptionStatisticV1;
-import com.yoursay.votes.OverallOptionStatisticV1;
-import com.yoursay.votes.PostAnalysisAggregateV1;
+import com.yoursay.votes.dto.CohortAggregateV1;
+import com.yoursay.votes.dto.OptionStatisticV1;
+import com.yoursay.votes.dto.OverallOptionStatisticV1;
+import com.yoursay.votes.dto.PostAnalysisAggregateV1;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
@@ -23,11 +18,11 @@ public class BoundedHybridInsightSelector implements InsightSelectionService {
             "ageRange", "gender", "politicalPersuasion", "country", "region", "urbanRural",
             "personalIncomeRange", "householdIncomeRange", "education", "occupation",
             "employmentSector");
-    private static final List<String> PROHIBITED = List.of(
-            "Do not claim that a demographic characteristic caused a vote.",
+    private static final List<String> NARRATIVE_INSTRUCTIONS = List.of(
+            "Explain why a selected cohort is likely to favour the option using researched context.",
+            "Do not claim direct knowledge of every individual voter's private motivation.",
             "Do not claim this self-selected audience represents a jurisdiction's population.",
-            "Do not introduce a cohort absent from this shortlist.",
-            "Distinguish observed vote data, external context, and interpretation.");
+            "Do not introduce a cohort absent from this shortlist.");
 
     @Override
     public UnwrappedAnalysisBriefV1 select(PostAnalysisAggregateV1 aggregate) {
@@ -42,8 +37,7 @@ public class BoundedHybridInsightSelector implements InsightSelectionService {
                     ? "No reliable demographic concentration passes the versioned narration rules."
                     : null;
             return new OptionBriefV1(option, overall.count(), overall.percentage(), selected,
-                    researchQuestions(aggregate.question(), option.label(), selected),
-                    PROHIBITED, insufficient);
+                    NARRATIVE_INSTRUCTIONS, insufficient);
         }).toList();
         return new UnwrappedAnalysisBriefV1("unwrapped-analysis-brief-v1", aggregate.postId(),
                 aggregate.summary(), aggregate.question(), aggregate.jurisdiction(), aggregate.canonicalVoteCount(),
@@ -135,17 +129,6 @@ public class BoundedHybridInsightSelector implements InsightSelectionService {
                 stat.differenceFromRestPercentagePoints(), stat.wilson95Low(), stat.wilson95High(),
                 stat.adjustedQValue()));
         used.add(cohort.cohortId());
-    }
-
-    private static List<String> researchQuestions(String question, String option,
-                                                  List<SelectedCohortV1> selected) {
-        List<String> result = new ArrayList<>();
-        result.add("What current official data supports the strongest responsible case for '"
-                + option + "' on: " + question);
-        selected.forEach(cohort -> result.add(
-                "What credible evidence may contextualise " + cohort.cohortId()
-                        + " without claiming causation?"));
-        return List.copyOf(result);
     }
 
     private record Eligible(CohortAggregateV1 cohort, OptionStatisticV1 stat) {

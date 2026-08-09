@@ -1,38 +1,46 @@
 package com.yoursay.unwrapped.validation;
 
-import com.yoursay.unwrapped.OptionBriefV1;
-import com.yoursay.unwrapped.UnwrappedArgumentDraftV1;
-import com.yoursay.unwrapped.UnwrappedClaimDraftV1;
-import com.yoursay.unwrapped.UnwrappedMode;
-import com.yoursay.unwrapped.UnwrappedResearchDraftV1;
-import com.yoursay.unwrapped.UnwrappedResearchRequest;
-import com.yoursay.unwrapped.UnwrappedSourceDraftV1;
+import com.yoursay.unwrapped.agent.UnwrappedResearchRequest;
+import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
+import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
+import com.yoursay.unwrapped.selection.OptionBriefV1;
+import com.yoursay.unwrapped.selection.SelectedCohortV1;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class UnwrappedDraftValidator {
+    private static final String REQUIRED_CAVEAT =
+            "This analysis describes patterns among people who voted on this post; "
+                    + "it cannot know every individual's reason.";
+    private static final Pattern GENERIC_HEADLINE = Pattern.compile(
+            "\\b(agreements?|disagreements?)\\b",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern POPULATION_LANGUAGE = Pattern.compile(
+            "(representative of|represents|mirrors|reflects).{0,60}"
+                    + "(the )?(population|national opinion|public opinion|everyone)"
+                    + "|generali[sz](?:e|es|ed).{0,40}(population|public|national)");
+    private static final Pattern EXPLANATORY_LANGUAGE = Pattern.compile(
+            "\\b(because|reason|reasons|driven|motivated|prompted|shaped|explains?|"
+                    + "stems? from|due to)\\b",
+            Pattern.CASE_INSENSITIVE);
+
     private final SourceUrlPolicy urlPolicy;
-    private final SourceEvidenceChecker sourceEvidenceChecker;
-    private final SourceTrustPolicy sourceTrustPolicy;
 
     @Inject
-    public UnwrappedDraftValidator(SourceUrlPolicy urlPolicy,
-                                   SourceEvidenceChecker sourceEvidenceChecker,
-                                   SourceTrustPolicy sourceTrustPolicy) {
+    public UnwrappedDraftValidator(SourceUrlPolicy urlPolicy) {
         this.urlPolicy = urlPolicy;
-        this.sourceEvidenceChecker = sourceEvidenceChecker;
-        this.sourceTrustPolicy = sourceTrustPolicy;
     }
 
     public void validate(UnwrappedResearchRequest request, UnwrappedResearchDraftV1 draft,
@@ -40,157 +48,98 @@ public class UnwrappedDraftValidator {
         require(draft != null, "UNWRAPPED_DRAFT_MISSING");
         require(draft.pages() != null && draft.pages().size() == request.options().size(),
                 "UNWRAPPED_OPTION_PAGE_COUNT");
-        for (int index = 0; index < request.options().size(); index++) {
-            OptionBriefV1 brief = request.options().get(index);
-            UnwrappedArgumentDraftV1 page = draft.pages().get(index);
-            require(page != null && brief.option().id().equals(page.optionId()),
-                    "UNWRAPPED_OPTION_ORDER");
-            require(length(page.headline(), 8, 140) && length(page.synthesis(), 40, 1400)
-                            && length(page.caveat(), 10, 320),
-                    "UNWRAPPED_PAGE_LENGTH");
-            validateLanguage(page.headline());
-            validateLanguage(page.synthesis());
-            validateLanguage(page.caveat());
-            require(page.contextClaims() != null && !page.contextClaims().isEmpty(),
-                    "UNWRAPPED_PAGE_UNSOURCED");
-            require(page.usedCohortIds() != null, "UNWRAPPED_COHORTS_MISSING");
-            require(page.predictedCohorts() != null, "UNWRAPPED_PREDICTIONS_MISSING");
-            List<String> used = page.usedCohortIds();
-            List<String> predicted = page.predictedCohorts();
-            require(used.size() <= 2 && new HashSet<>(used).size() == used.size(),
-                    "UNWRAPPED_TOO_MANY_COHORTS");
-            require(predicted.size() <= 2 && new HashSet<>(predicted).size() == predicted.size(),
-                    "UNWRAPPED_TOO_MANY_PREDICTIONS");
-            require(predicted.stream().allMatch(value -> length(value, 8, 240)),
-                    "UNWRAPPED_PREDICTION_LENGTH");
-            predicted.forEach(UnwrappedDraftValidator::validateLanguage);
-            Set<String> allowed = brief.candidates().stream()
-                    .map(candidate -> candidate.cohortId()).collect(Collectors.toSet());
-            require(allowed.containsAll(used), "UNWRAPPED_INVENTED_COHORT");
-            if (request.mode() == UnwrappedMode.PREDICTION) {
-                require(used.isEmpty(), "UNWRAPPED_PREDICTION_USED_OBSERVED_COHORT");
-                require(containsAny(page.caveat(), "prediction", "tentative", "may", "might"),
-                        "UNWRAPPED_PREDICTION_CAVEAT");
-            } else {
-                require(page.predictedCohorts() == null || page.predictedCohorts().isEmpty(),
-                        "UNWRAPPED_OBSERVED_CONTAINS_PREDICTION");
-                require(containsAny(page.caveat(), "association", "sample", "voters on this post")
-                                && containsAny(page.caveat(), "does not", "cannot", "not prove"),
-                        "UNWRAPPED_OBSERVED_CAVEAT");
-            }
-        }
+        Map<String, UnwrappedSourceDraftV1> sources = uniqueSources(draft.sources());
+        sources.values().forEach(this::validateSource);
 
-        List<UnwrappedSourceDraftV1> sources = draft.sources() == null ? List.of() : draft.sources();
-        require(!sources.isEmpty(), "UNWRAPPED_SOURCES_MISSING");
-        Map<String, UnwrappedSourceDraftV1> byId = uniqueSources(sources);
-        Set<String> citations = providerCitations == null ? Set.of() : Set.copyOf(providerCitations);
-        for (UnwrappedSourceDraftV1 source : sources) {
-            require(length(source.publisher(), 2, 256) && length(source.title(), 4, 512)
-                            && source.classification() != null,
-                    "UNWRAPPED_SOURCE_METADATA");
-            urlPolicy.validate(source.url());
-            sourceTrustPolicy.validate(source);
-            require(citations.contains(source.url()), "UNWRAPPED_SOURCE_NOT_PROVIDER_CITED");
-            sourceEvidenceChecker.verify(source);
+        for (int index = 0; index < request.options().size(); index++) {
+            validatePage(request.options().get(index), draft.pages().get(index), sources);
         }
-        for (UnwrappedArgumentDraftV1 page : draft.pages()) {
-            for (UnwrappedClaimDraftV1 claim :
-                    page.contextClaims() == null ? List.<UnwrappedClaimDraftV1>of() : page.contextClaims()) {
-                require(length(claim.statement(), 8, 700), "UNWRAPPED_CLAIM_LENGTH");
-                validateLanguage(claim.statement());
-                require(claim.sourceIds() != null && !claim.sourceIds().isEmpty()
-                                && claim.sourceIds().stream().allMatch(byId::containsKey),
-                        "UNWRAPPED_CLAIM_UNSOURCED");
-                if (claim.statement().matches(".*\\d.*")) {
-                    require(claim.sourceIds().stream()
-                                    .map(byId::get).anyMatch(sourceTrustPolicy::isHighQuality),
-                            "UNWRAPPED_NUMERIC_CLAIM_SOURCE_QUALITY");
-                }
-            }
-            boolean hasHighQualitySource = page.contextClaims().stream()
-                    .flatMap(claim -> claim.sourceIds().stream())
-                    .map(byId::get)
-                    .anyMatch(sourceTrustPolicy::isHighQuality);
-            require(hasHighQualitySource
-                            || containsAny(page.caveat(), "no official source",
-                            "non-official evidence", "official evidence was unavailable"),
-                    "UNWRAPPED_NON_OFFICIAL_DISCLOSURE");
-        }
-        validateBalancedLengths(draft.pages());
     }
 
-    private static Map<String, UnwrappedSourceDraftV1> uniqueSources(List<UnwrappedSourceDraftV1> sources) {
+    private void validatePage(OptionBriefV1 brief, UnwrappedArgumentDraftV1 page,
+                              Map<String, UnwrappedSourceDraftV1> sources) {
+        require(page != null && brief.option().id().equals(page.optionId()),
+                "UNWRAPPED_OPTION_ORDER");
+        require(page.headline() != null && !GENERIC_HEADLINE.matcher(page.headline()).find(),
+                "UNWRAPPED_HEADLINE_GENERIC");
+        require(wordCount(page.headline()) >= 6 && wordCount(page.headline()) <= 10,
+                "UNWRAPPED_HEADLINE_WORDS");
+        require(page.selectedCohortIds() != null, "UNWRAPPED_COHORTS_MISSING");
+        require(page.selectedCohortIds().size() <= 2
+                        && new HashSet<>(page.selectedCohortIds()).size()
+                        == page.selectedCohortIds().size(),
+                "UNWRAPPED_TOO_MANY_COHORTS");
+        Map<String, SelectedCohortV1> allowed = brief.candidates().stream()
+                .collect(Collectors.toMap(SelectedCohortV1::cohortId, Function.identity()));
+        require(allowed.keySet().containsAll(page.selectedCohortIds()),
+                "UNWRAPPED_INVENTED_COHORT");
+        if (allowed.isEmpty()) {
+            require(page.selectedCohortIds().isEmpty(), "UNWRAPPED_INVENTED_COHORT");
+        } else {
+            require(!page.selectedCohortIds().isEmpty(), "UNWRAPPED_COHORT_REQUIRED");
+            String normalizedHeadline = normalize(page.headline());
+            require(page.selectedCohortIds().stream()
+                            .map(allowed::get)
+                            .anyMatch(cohort -> normalizedHeadline.contains(normalize(cohort.displayName()))),
+                    "UNWRAPPED_HEADLINE_COHORT");
+        }
+
+        require(page.paragraphs() != null
+                        && page.paragraphs().size() >= 2 && page.paragraphs().size() <= 3,
+                "UNWRAPPED_PARAGRAPH_COUNT");
+        int words = page.paragraphs().stream()
+                .map(UnwrappedArticleParagraphDraftV2::text).mapToInt(UnwrappedDraftValidator::wordCount)
+                .sum();
+        require(words >= 50 && words <= 100, "UNWRAPPED_ARTICLE_WORDS");
+        String article = page.paragraphs().stream()
+                .map(UnwrappedArticleParagraphDraftV2::text)
+                .filter(text -> text != null && !text.isBlank())
+                .collect(Collectors.joining(" "));
+        require(EXPLANATORY_LANGUAGE.matcher(article).find(), "UNWRAPPED_EXPLANATION_MISSING");
+        for (UnwrappedArticleParagraphDraftV2 paragraph : page.paragraphs()) {
+            require(paragraph != null && paragraph.text() != null && !paragraph.text().isBlank(),
+                    "UNWRAPPED_PARAGRAPH_MISSING");
+            require(paragraph.sourceIds() != null && !paragraph.sourceIds().isEmpty()
+                            && paragraph.sourceIds().stream().allMatch(sources::containsKey),
+                    "UNWRAPPED_PARAGRAPH_UNSOURCED");
+            require(!POPULATION_LANGUAGE.matcher(paragraph.text().toLowerCase(Locale.ROOT)).find(),
+                    "UNWRAPPED_POPULATION_INFERENCE");
+        }
+        require(REQUIRED_CAVEAT.equals(page.caveat()), "UNWRAPPED_OBSERVED_CAVEAT");
+    }
+
+    private void validateSource(UnwrappedSourceDraftV1 source) {
+        require(length(source.publisher(), 2, 256) && length(source.title(), 4, 512)
+                        && source.classification() != null,
+                "UNWRAPPED_SOURCE_METADATA");
+        urlPolicy.validate(source.url());
+    }
+
+    private static Map<String, UnwrappedSourceDraftV1> uniqueSources(
+            List<UnwrappedSourceDraftV1> sources) {
+        require(sources != null && !sources.isEmpty(), "UNWRAPPED_SOURCES_MISSING");
         require(sources.stream().allMatch(source -> source != null && source.id() != null
                 && !source.id().isBlank()), "UNWRAPPED_SOURCE_ID");
-        Map<String, UnwrappedSourceDraftV1> result = sources.stream().collect(Collectors.toMap(
+        return Map.copyOf(sources.stream().collect(Collectors.toMap(
                 UnwrappedSourceDraftV1::id, Function.identity(), (left, right) -> {
                     throw new IllegalArgumentException("UNWRAPPED_DUPLICATE_SOURCE_ID");
-                }));
-        return Map.copyOf(result);
+                })));
     }
 
-    private static void validateBalancedLengths(List<UnwrappedArgumentDraftV1> pages) {
-        if (pages.size() < 2) return;
-        int shortest = pages.stream().mapToInt(UnwrappedDraftValidator::contentLength).min().orElse(1);
-        int longest = pages.stream().mapToInt(UnwrappedDraftValidator::contentLength).max().orElse(1);
-        require(shortest > 0 && longest <= shortest * 2.5, "UNWRAPPED_UNBALANCED_PAGES");
+    private static int wordCount(String value) {
+        if (value == null || value.isBlank()) return 0;
+        return value.trim().split("\\s+").length;
     }
 
-    private static int contentLength(UnwrappedArgumentDraftV1 page) {
-        int claims = page.contextClaims() == null ? 0 : page.contextClaims().stream()
-                .map(UnwrappedClaimDraftV1::statement).filter(value -> value != null)
-                .mapToInt(String::length).sum();
-        return safeLength(page.headline()) + safeLength(page.synthesis())
-                + safeLength(page.caveat()) + claims;
+    private static String normalize(String value) {
+        return value.toLowerCase(Locale.ROOT)
+                .replace('–', '-')
+                .replaceAll("[^a-z0-9]+", " ")
+                .trim();
     }
 
     private static boolean length(String value, int minimum, int maximum) {
         return value != null && value.trim().length() >= minimum && value.trim().length() <= maximum;
-    }
-
-    private static int safeLength(String value) {
-        return value == null ? 0 : value.length();
-    }
-
-    private static void validateLanguage(String value) {
-        if (value == null) return;
-        String normalized = value.toLowerCase(java.util.Locale.ROOT);
-        boolean causal = containsUnqualifiedCausalClaim(normalized);
-        boolean representative = POPULATION_LANGUAGE.matcher(normalized).find();
-        require(!causal, "UNWRAPPED_CAUSAL_INFERENCE");
-        require(!representative, "UNWRAPPED_POPULATION_INFERENCE");
-    }
-
-    private static boolean containsUnqualifiedCausalClaim(String normalized) {
-        for (String clause : normalized.split("\\b(?:but|however|although)\\b|[,.;]")) {
-            Matcher matcher = CAUSAL_LANGUAGE.matcher(clause);
-            while (matcher.find()) {
-                String prefix = clause.substring(0, matcher.start()).stripTrailing();
-                boolean negated = prefix.endsWith("does not")
-                        || prefix.endsWith("doesn't")
-                        || prefix.endsWith("cannot")
-                        || prefix.endsWith("can't")
-                        || prefix.endsWith("is not evidence that");
-                if (!negated) return true;
-            }
-        }
-        return false;
-    }
-
-    private static final Pattern CAUSAL_LANGUAGE = Pattern.compile(
-            "(caus(?:e|ed|es)|prov(?:e|ed|es)|made|drove|led|because)"
-                    + ".{0,100}(vote|voted|chose|choice|support|oppose)"
-                    + "|(men|women|people|voters|group|cohort|demographic|audience|gender)"
-                    + ".{0,100}(because|therefore|caus(?:e|ed|es)|made|drove|led|chose|voted)");
-    private static final Pattern POPULATION_LANGUAGE = Pattern.compile(
-            "(representative of|represents|mirrors|reflects).{0,60}"
-                    + "(the )?(population|national opinion|public opinion|everyone)"
-                    + "|generali[sz](?:e|es|ed).{0,40}(population|public|national)");
-
-    private static boolean containsAny(String value, String... phrases) {
-        if (value == null) return false;
-        String normalized = value.toLowerCase(java.util.Locale.ROOT);
-        return Arrays.stream(phrases).anyMatch(normalized::contains);
     }
 
     private static void require(boolean condition, String code) {

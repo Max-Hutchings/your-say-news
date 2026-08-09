@@ -157,9 +157,68 @@
         "offline_access",
         "microprofile-jwt"
       ]
+    },
+    {
+      "clientId": "admin-client",
+      "name": "Admin Web UI",
+      "description": "Public browser client for the administration workspace with PKCE",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "http://localhost:8082/admin/*",
+        "http://localhost:8083/admin/*",
+        "http://localhost:58083/admin/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8082",
+        "http://localhost:8083",
+        "http://localhost:58083"
+      ],
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "publicClient": true,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300",
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
     }
   ],
   "users": [
+    {
+      "username": "yoursay.admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "YourSay",
+      "lastName": "Admin",
+      "email": "admin@yoursay.com",
+      "createdTimestamp": 1717718400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "admin", "offline_access"]
+    },
     {
       "username": "john.doe",
       "enabled": true,

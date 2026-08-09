@@ -1,8 +1,8 @@
 package com.yoursay.feed.service;
 
-import com.yoursay.feed.FeedContext;
+import com.yoursay.feed.dto.FeedContext;
 import com.yoursay.feed.FeedRanker;
-import com.yoursay.feed.RankablePost;
+import com.yoursay.feed.dto.RankablePost;
 import com.yoursay.observability.DomainMetrics;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

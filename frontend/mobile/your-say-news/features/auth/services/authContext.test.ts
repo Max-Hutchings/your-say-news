@@ -40,7 +40,7 @@ beforeEach(() => {
         isLoggedIn: false,
         hasOnboarded: false,
         hasCharacteristics: false,
-        accountType: "STANDARD",
+        accountType: "USER",
         publisherStatus: "NONE",
         canPublish: false,
         accessToken: null,
@@ -67,6 +67,16 @@ describe("accessTokenExpired", () => {
     it("treats a token inside the 30s skew window as expired", () => {
         useAuthStore.setState({ accessToken: "tok", accessTokenExpiresAt: Date.now() + 10_000 });
         expect(useAuthStore.getState().accessTokenExpired()).toBe(true);
+    });
+
+    it("expires exactly at the 30s skew boundary but not one millisecond before", () => {
+        jest.spyOn(Date, "now").mockReturnValue(1_000_000);
+        useAuthStore.setState({ accessToken: "tok", accessTokenExpiresAt: 1_030_001 });
+        expect(useAuthStore.getState().accessTokenExpired()).toBe(false);
+
+        useAuthStore.setState({ accessTokenExpiresAt: 1_030_000 });
+        expect(useAuthStore.getState().accessTokenExpired()).toBe(true);
+        jest.restoreAllMocks();
     });
 });
 
@@ -132,26 +142,26 @@ describe("login", () => {
             firstName: "John",
             lastName: "Doe",
             dateOfBirth: "1990-05-15",
-            consentedAt: null,
-            accountType: "STANDARD",
+            consentedAt: "2026-06-01T00:00:00Z",
+            accountType: "USER",
             publisherStatus: "NONE",
             canPublish: false,
         });
-        // John has a saved profile but has never consented — the server reports him not onboarded.
+        // Consent alone is not enough when the characteristic profile is still missing.
         mockGetOnboardingStatus.mockResolvedValue({
-            consented: false,
-            hasCharacteristics: true,
+            consented: true,
+            hasCharacteristics: false,
             onboarded: false,
         });
 
         await useAuthStore.getState().login();
         const state = useAuthStore.getState();
 
-        expect(state.hasCharacteristics).toBe(true);
+        expect(state.hasCharacteristics).toBe(false);
         expect(state.hasOnboarded).toBe(false);
     });
 
-    it("falls back to the consent flag when the onboarding status call fails", async () => {
+    it("fails closed when onboarding status is unavailable even if the user has consented", async () => {
         mockLogin.mockResolvedValue({
             accessToken: "access-1",
             refreshToken: "refresh-1",
@@ -165,7 +175,7 @@ describe("login", () => {
             lastName: "Lovelace",
             dateOfBirth: "1990-05-21",
             consentedAt: "2026-06-01T00:00:00Z",
-            accountType: "STANDARD",
+            accountType: "USER",
             publisherStatus: "NONE",
             canPublish: false,
         });
@@ -175,7 +185,7 @@ describe("login", () => {
         const state = useAuthStore.getState();
 
         expect(state.hasCharacteristics).toBe(false);
-        expect(state.hasOnboarded).toBe(true); // fell back to consentedAt
+        expect(state.hasOnboarded).toBe(false);
     });
 
     it("returns false and stays logged out when the user cancels", async () => {
@@ -223,7 +233,7 @@ describe("login", () => {
         expect(useAuthStore.getState().lastName).toBeNull();
         expect(useAuthStore.getState().dateOfBirth).toBeNull();
         expect(useAuthStore.getState().consentedAt).toBeNull();
-        expect(useAuthStore.getState().accountType).toBe("STANDARD");
+        expect(useAuthStore.getState().accountType).toBe("USER");
         expect(useAuthStore.getState().publisherStatus).toBe("NONE");
         expect(useAuthStore.getState().canPublish).toBe(false);
         expect(useAuthStore.getState().hasOnboarded).toBe(false);
@@ -294,7 +304,7 @@ describe("logout", () => {
         expect(mockRevoke).toHaveBeenCalledWith("refresh-1");
         expect(state.isLoggedIn).toBe(false);
         expect(state.hasOnboarded).toBe(false);
-        expect(state.accountType).toBe("STANDARD");
+        expect(state.accountType).toBe("USER");
         expect(state.publisherStatus).toBe("NONE");
         expect(state.canPublish).toBe(false);
         expect(state.id).toBeNull();
@@ -315,6 +325,28 @@ describe("logout", () => {
         await useAuthStore.getState().logout();
 
         // clearStorage() removes the persisted store key from the device (SecureStore on native).
+        expect(mockDeleteItem).toHaveBeenCalledWith("auth-store");
+    });
+
+    it("clears the local session even when token revocation fails", async () => {
+        useAuthStore.setState({
+            id: 7,
+            email: "ada@example.com",
+            isLoggedIn: true,
+            hasOnboarded: true,
+            accessToken: "access-1",
+            refreshToken: "refresh-1",
+        });
+        mockRevoke.mockRejectedValue(new Error("identity service unavailable"));
+
+        await expect(useAuthStore.getState().logout()).resolves.toBeUndefined();
+
+        const state = useAuthStore.getState();
+        expect(state.isLoggedIn).toBe(false);
+        expect(state.id).toBeNull();
+        expect(state.email).toBeNull();
+        expect(state.accessToken).toBeNull();
+        expect(state.refreshToken).toBeNull();
         expect(mockDeleteItem).toHaveBeenCalledWith("auth-store");
     });
 });

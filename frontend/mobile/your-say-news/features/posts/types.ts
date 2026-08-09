@@ -56,6 +56,16 @@ export interface Post {
 }
 
 /**
+ * One page of the ranked feed (`FeedPage`). `nextCursor` is an opaque token fetching the page after
+ * this one, and `null` when this is the end of the feed. Never build a cursor client-side, and never
+ * treat a short page as the end — the service fills a page whenever matching posts remain.
+ */
+export interface FeedPage {
+  posts: Post[];
+  nextCursor: string | null;
+}
+
+/**
  * A media reference sent up when creating a post — the bytes are already in S3
  * (via presign + PUT), so we send only the key and its descriptors.
  */

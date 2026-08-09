@@ -1,5 +1,6 @@
-package com.yoursay.agents.postagent.generator;
+package com.yoursay.posts.postagent.generator;
 
+import com.yoursay.posts.postagent.generator.GrokModelCustomizer;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;

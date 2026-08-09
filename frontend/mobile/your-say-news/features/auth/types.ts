@@ -7,7 +7,7 @@ export type User = {
     dateOfBirth: string | null;
     // ISO-8601 timestamp of privacy-promise consent, or null if they have not consented yet.
     consentedAt: string | null;
-    accountType: "STANDARD" | "OFFICIAL";
+    accountType: "USER" | "OFFICIAL" | "ADMIN";
     publisherStatus: "NONE" | "ACTIVE" | "SUSPENDED";
     canPublish: boolean;
 };

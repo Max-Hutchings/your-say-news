@@ -1,0 +1,50 @@
+databaseChangeLog:
+  # Keep the established publisher fixture and the administration fixture separate. This
+  # forward-only correction works for databases where 0007 has already run and for fresh installs.
+  - changeSet:
+      id: 0008-seed-dedicated-admin-account
+      author: codex
+      logicalFilePath: db/seeding/0008-seed-dedicated-admin-account.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - update:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: account_type
+                  value: OFFICIAL
+              - column:
+                  name: publisher_status
+                  value: ACTIVE
+            where: email = 'john.doe@example.com'
+        - insert:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: email
+                  value: admin@yoursay.com
+              - column:
+                  name: first_name
+                  value: YourSay
+              - column:
+                  name: last_name
+                  value: Admin
+              - column:
+                  name: display_name
+                  value: YourSay Admin
+              - column:
+                  name: handle
+                  value: yoursay.admin
+              - column:
+                  name: created_date
+                  value: "2024-06-07"
+              - column:
+                  name: active
+                  valueBoolean: true
+              - column:
+                  name: account_type
+                  value: ADMIN
+              - column:
+                  name: publisher_status
+                  value: NONE

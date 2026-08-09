@@ -1,11 +1,15 @@
 package com.yoursay.user.user.service;
 
 import com.yoursay.observability.DomainMetrics;
-import com.yoursay.user.user.UserAccessDto;
-import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.user.AccountType;
+import com.yoursay.user.user.dto.AdminUserDto;
+import com.yoursay.user.user.dto.AdminUserUpdateDto;
+import com.yoursay.user.user.dto.UserAccessDto;
+import com.yoursay.user.user.dto.YourSayUserDto;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.user.user.error.UserApiException;
 import com.yoursay.user.user.model.YourSayUser;
+import com.yoursay.user.user.model.AccountActivationRepository;
 import com.yoursay.user.user.model.YourSayUserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -22,6 +26,9 @@ public class YourSayUserServiceImpl implements YourSayUserService {
 
     @Inject
     YourSayUserRepository yourSayUserRepository;
+
+    @Inject
+    AccountActivationRepository accountActivationRepository;
 
     @Inject
     DomainMetrics metrics;
@@ -79,6 +86,35 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     }
 
     @Override
+    public List<AdminUserDto> listForAdmin(String administratorEmail) {
+        requireActiveAdmin(administratorEmail);
+        return yourSayUserRepository.listForAdministration().stream()
+                .map(YourSayUserServiceImpl::toAdminDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public AdminUserDto updateForAdmin(String administratorEmail, long userId, AdminUserUpdateDto update) {
+        requireActiveAdmin(administratorEmail);
+        YourSayUser user = yourSayUserRepository.findYourSayUserById(userId);
+        if (user == null) {
+            throw UserApiException.notFound(userId);
+        }
+
+        if (user.getAccountType() != update.accountType()) {
+            user.setAccountType(update.accountType());
+        }
+        user.setActive(update.active());
+        return toAdminDto(user);
+    }
+
+    @Override
+    public boolean isInactive(String email) {
+        return Boolean.FALSE.equals(accountActivationRepository.findActiveByEmail(email));
+    }
+
+    @Override
     public UserAccessDto getAccessByEmail(String email) {
         YourSayUser user = yourSayUserRepository.findByEmail(email);
         if (user == null) {
@@ -113,6 +149,28 @@ public class YourSayUserServiceImpl implements YourSayUserService {
         if (metrics != null) {
             metrics.recordOperation("user", operation, success);
         }
+    }
+
+    private void requireActiveAdmin(String email) {
+        YourSayUser administrator = yourSayUserRepository.findByEmail(email);
+        if (administrator == null
+                || !administrator.isActive()
+                || administrator.getAccountType() != AccountType.ADMIN) {
+            throw UserApiException.adminAccessRequired(email);
+        }
+    }
+
+    private static AdminUserDto toAdminDto(YourSayUser user) {
+        return new AdminUserDto(
+                user.getId(),
+                user.getEmail(),
+                user.getfirstName(),
+                user.getlastName(),
+                user.getDisplayName(),
+                user.getCreatedDate(),
+                user.isActive(),
+                user.getAccountType()
+        );
     }
 
     private static YourSayUserDto toDto(YourSayUser user) {

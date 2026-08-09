@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Seed reset — runs FIRST (lexicographic includeAll order) so a reseed starts from a clean slate.
+<!-- Seed reset — included FIRST by the default changelog so a reseed starts from a clean slate.
      Only ever executed by the seeding container (context "seed"); the app's migrate-at-start never
      includes seeding/, so this can never truncate a real environment. RESTART IDENTITY resets the
      serial sequences; CASCADE clears post_media via its FK to post. -->

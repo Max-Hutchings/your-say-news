@@ -1,5 +1,6 @@
 package com.yoursay.unwrapped.agent;
 
+import dev.langchain4j.model.chat.request.ToolChoice;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -22,5 +23,6 @@ class UnwrappedModelCustomizerTest {
         ArgumentCaptor<List<Map<String, Object>>> tools = ArgumentCaptor.forClass(List.class);
         Mockito.verify(builder).serverTools(tools.capture());
         assertEquals(List.of(Map.of("type", "web_search")), tools.getValue());
+        Mockito.verify(builder).toolChoice(ToolChoice.REQUIRED);
     }
 }

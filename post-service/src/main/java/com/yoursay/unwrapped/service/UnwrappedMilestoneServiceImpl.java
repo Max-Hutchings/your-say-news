@@ -11,6 +11,15 @@ public class UnwrappedMilestoneServiceImpl implements UnwrappedMilestoneService 
     @Inject
     EntityManager entityManager;
 
+    /**
+     * Marks an administrator-selected post dirty for asynchronous reconciliation.
+     *
+     * <p>This deliberately uses a native {@code INSERT ... ON CONFLICT} rather than a Panache
+     * find-then-persist/update sequence. Repeated administrator requests can target the same post,
+     * so the marker remains an atomic, idempotent upsert; modelling it as a Panache entity would
+     * still require native SQL to avoid a duplicate-key race. Vote casting never calls this
+     * service.</p>
+     */
     @Override
     @Transactional
     public void markForReconciliation(Long postId) {

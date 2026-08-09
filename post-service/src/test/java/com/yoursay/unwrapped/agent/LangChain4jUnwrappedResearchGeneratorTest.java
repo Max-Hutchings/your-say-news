@@ -1,0 +1,307 @@
+package com.yoursay.unwrapped.agent;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yoursay.posts.dto.VoteOptionDto;
+import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
+import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
+import com.yoursay.unwrapped.selection.CandidateRole;
+import com.yoursay.unwrapped.selection.OptionBriefV1;
+import com.yoursay.unwrapped.selection.SelectedCohortV1;
+import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
+import com.yoursay.votes.dto.CohortDimensionV1;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.http.client.SuccessfulHttpResponse;
+import dev.langchain4j.model.ModelProvider;
+import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
+import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
+import jakarta.enterprise.context.control.ActivateRequestContext;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.util.HashMap;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+class LangChain4jUnwrappedResearchGeneratorTest {
+    @Test
+    void declaresRequestContextActivationForCdiCalls() {
+        assertNotNull(LangChain4jUnwrappedResearchGenerator.class
+                .getAnnotation(ActivateRequestContext.class));
+    }
+
+    @Test
+    void developmentStubReturnsFixedDraftWithoutCallingTheProvider() {
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        OptionBriefV1 option = mock(OptionBriefV1.class);
+        UnwrappedResearchRequest request = mock(UnwrappedResearchRequest.class);
+        when(option.option()).thenReturn(new VoteOptionDto(15L, "Agree", 0, "AGREE"));
+        when(option.overallVoteCount()).thenReturn(377L);
+        when(option.overallVotePercentage()).thenReturn(62.83);
+        when(option.candidates()).thenReturn(List.of(cohort()));
+        when(request.postId()).thenReturn(2005L);
+        when(request.options()).thenReturn(List.of(option));
+
+        LangChain4jUnwrappedResearchGenerator generator =
+                new LangChain4jUnwrappedResearchGenerator();
+        generator.aiService = aiService;
+        generator.stubbed = true;
+
+        UnwrappedResearchResult result = generator.generate(request);
+
+        assertEquals("stubbed-unwrapped", result.model());
+        assertEquals("stub-post-2005", result.providerResponseId());
+        assertEquals(List.of(15L), result.draft().pages().stream()
+                .map(page -> page.optionId()).toList());
+        assertEquals("Why men favour the development option",
+                result.draft().pages().getFirst().headline());
+        assertEquals(List.of("https://www.ons.gov.uk/"), result.providerCitations());
+        assertEquals(List.of("stub-source"), result.draft().sources().stream()
+                .map(source -> source.id()).toList());
+        assertEquals(List.of("stub-source"), result.draft().pages().getFirst()
+                .paragraphs().getFirst().sourceIds());
+        assertEquals(List.of("gender=MAN"), result.draft().pages().getFirst()
+                .selectedCohortIds());
+        verifyNoInteractions(aiService);
+    }
+
+    @Test
+    void appendsRequiredOutputToTheProductionSystemPromptAndSendsOnlyInputAsUserMessage()
+            throws Exception {
+        UnwrappedResearchDraftV1 draft = mock(UnwrappedResearchDraftV1.class);
+        UnwrappedResearchRequest request = representativeRequest();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = responseWithCitation("https://www.ons.gov.uk/source");
+        ObjectMapper objectMapper = new ObjectMapper();
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return draft;
+        });
+
+        LangChain4jUnwrappedResearchGenerator generator =
+                new LangChain4jUnwrappedResearchGenerator();
+        generator.aiService = aiService;
+        generator.responseCapture = capture;
+        generator.objectMapper = objectMapper;
+        generator.validator = validator;
+        generator.apiKey = "test-key";
+        generator.configuredModel = "configured-fallback-model";
+
+        UnwrappedResearchResult result = generator.generate(request);
+
+        assertSame(draft, result.draft());
+        assertEquals(List.of("https://www.ons.gov.uk/source"), result.providerCitations());
+        assertEquals("provider-grok-4.5", result.model());
+        assertEquals("response-42", result.providerResponseId());
+        verify(validator).validate(request, draft, List.of("https://www.ons.gov.uk/source"));
+        ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> outputInstructions = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> input = ArgumentCaptor.forClass(String.class);
+        verify(aiService).research(
+                systemPrompt.capture(), outputInstructions.capture(), input.capture());
+        assertEquals(UnwrappedSystemPrompt.DEFAULT, systemPrompt.getValue());
+        assertTrue(systemPrompt.getValue().startsWith("# Post Unwrapped editorial brief\n\n"));
+        assertTrue(!systemPrompt.getValue().contains("Do not use these causal words anywhere"));
+        assertEquals(expectedOutputInstructions(), outputInstructions.getValue());
+        assertTrue(!outputInstructions.getValue().contains("{{pageCount}}"));
+        assertTrue(!outputInstructions.getValue().contains("{{optionIds}}"));
+
+        assertTrue(!input.getValue().contains("Required output contract"));
+        assertTrue(!input.getValue().contains("You must call web search"));
+        assertEquals("INPUT JSON:\n" + objectMapper.writeValueAsString(request) + "\n",
+                input.getValue());
+    }
+
+    @Test
+    void appendsRequiredOutputAfterTheEditableBenchmarkSystemPrompt() {
+        UnwrappedResearchDraftV1 draft = mock(UnwrappedResearchDraftV1.class);
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return draft;
+        });
+
+        LangChain4jUnwrappedResearchGenerator generator =
+                new LangChain4jUnwrappedResearchGenerator();
+        generator.aiService = aiService;
+        generator.responseCapture = capture;
+        generator.objectMapper = new ObjectMapper();
+        generator.validator = validator;
+        generator.apiKey = "test-key";
+        generator.configuredModel = "grok-test";
+
+        generator.generate(request, "Use a deliberately terse editorial voice.");
+
+        ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> outputInstructions = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> input = ArgumentCaptor.forClass(String.class);
+        verify(aiService).research(
+                systemPrompt.capture(), outputInstructions.capture(), input.capture());
+        verifyNoMoreInteractions(aiService);
+        assertEquals("Use a deliberately terse editorial voice.", systemPrompt.getValue());
+        assertEquals(expectedOutputInstructions(), outputInstructions.getValue());
+        assertTrue(!input.getValue().contains("Required output contract"));
+        assertTrue(input.getValue().contains("\"candidates\":[]"));
+        verify(validator).validate(request, draft, List.of("https://www.ons.gov.uk/benchmark"));
+    }
+
+    @Test
+    void classifiesANullStructuredDraftAsRetryableDraftFailure() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return null;
+        });
+
+        LangChain4jUnwrappedResearchGenerator generator =
+                new LangChain4jUnwrappedResearchGenerator();
+        generator.aiService = aiService;
+        generator.responseCapture = capture;
+        generator.objectMapper = new ObjectMapper();
+        generator.validator = validator;
+        generator.apiKey = "test-key";
+        generator.configuredModel = "configured-fallback-model";
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> generator.generate(request, "Write a concise researched comparison."));
+
+        assertEquals("UNWRAPPED_DRAFT_MISSING", failure.getMessage());
+        verifyNoInteractions(validator);
+        verify(aiService).research(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void bindsTheCompletedPromptAsTheDynamicSystemMessage() throws Exception {
+        var method = UnwrappedResearchAiService.class
+                .getDeclaredMethod("research", String.class, String.class, String.class);
+        SystemMessage systemMessage = method.getAnnotation(SystemMessage.class);
+        V systemPromptVariable = method.getParameters()[0].getAnnotation(V.class);
+        V outputInstructionsVariable = method.getParameters()[1].getAnnotation(V.class);
+        UserMessage userMessage = method.getParameters()[2].getAnnotation(UserMessage.class);
+
+        assertArrayEquals(new String[]{"{{systemPrompt}}\n\n{{outputInstructions}}\n"},
+                systemMessage.value());
+        assertEquals("systemPrompt", systemPromptVariable.value());
+        assertEquals("outputInstructions", outputInstructionsVariable.value());
+        assertNotNull(userMessage);
+    }
+
+    private static SelectedCohortV1 cohort() {
+        return new SelectedCohortV1("gender=MAN",
+                List.of(new CohortDimensionV1("gender", "MAN")),
+                CandidateRole.CORE_ANCHOR, "Broad core group", 60, 60,
+                45, 75, 75, 15, 30, 62, 84, 0.001, "Men");
+    }
+
+    private static UnwrappedResearchRequest representativeRequest() {
+        OptionBriefV1 agree = new OptionBriefV1(
+                new VoteOptionDto(71L, "Agree", 0, "AGREE"), 120, 60.0,
+                List.of(cohort()), List.of("Explain the observed pattern."), null);
+        OptionBriefV1 disagree = new OptionBriefV1(
+                new VoteOptionDto(72L, "Disagree", 1, "DISAGREE"), 80, 40.0,
+                List.of(cohort()), List.of("Explain the observed pattern."), null);
+        return new UnwrappedResearchRequest(
+                42L,
+                "A city is considering a workplace parking levy.",
+                "Should the city introduce a workplace parking levy?",
+                "UNITED_KINGDOM",
+                200,
+                "aggregate-v1",
+                List.of(agree, disagree));
+    }
+
+    private static UnwrappedResearchRequest requestWithoutCohorts() {
+        OptionBriefV1 agree = new OptionBriefV1(
+                new VoteOptionDto(71L, "Agree", 0, "AGREE"), 120, 60.0,
+                List.of(), List.of("Write a general option argument."),
+                "No reliable demographic concentration passes the narration rules.");
+        OptionBriefV1 disagree = new OptionBriefV1(
+                new VoteOptionDto(72L, "Disagree", 1, "DISAGREE"), 80, 40.0,
+                List.of(), List.of("Write a general option argument."),
+                "No reliable demographic concentration passes the narration rules.");
+        return new UnwrappedResearchRequest(
+                42L,
+                "A city is considering a workplace parking levy.",
+                "Should the city introduce a workplace parking levy?",
+                "UNITED_KINGDOM",
+                200,
+                "aggregate-v1",
+                List.of(agree, disagree));
+    }
+
+    private static ChatResponse responseWithCitation(String citation) {
+        SuccessfulHttpResponse rawResponse = SuccessfulHttpResponse.builder()
+                .statusCode(200)
+                .body("""
+                        {"output":[{"content":[{"annotations":[
+                          {"type":"url_citation","url":"%s"}
+                        ]}]}]}
+                        """.formatted(citation))
+                .build();
+        OpenAiResponsesChatResponseMetadata metadata =
+                OpenAiResponsesChatResponseMetadata.builder()
+                        .id("response-42")
+                        .modelName("provider-grok-4.5")
+                        .rawHttpResponse(rawResponse)
+                        .build();
+        return ChatResponse.builder()
+                .aiMessage(AiMessage.from("{}"))
+                .metadata(metadata)
+                .build();
+    }
+
+    private static String expectedOutputInstructions() {
+        return """
+                # Required output contract
+
+                - Return exactly 2 pages.
+                - Return pages in this exact `optionId` order: [71, 72].
+                - Include every `optionId` exactly once; do not merge or omit options.
+                - When an option supplies cohort candidates, select one or two of their IDs and name a
+                  selected cohort in the headline using its supplied `displayName`.
+                - When an option supplies no cohort candidates, return an empty `selectedCohortIds` list,
+                  write the strongest general researched case for that option, and do not invent a cohort.
+                - Headlines must be catchy, 6 to 10 words, and must not use agreement or disagreement.
+                - Write two or three paragraphs totalling 50 to 100 words for every page.
+                - In those paragraphs, explain why the selected cohort, or voters choosing the option
+                  when no cohort is supplied, are likely to favour that option.
+                - Direct explanations using words such as because, led or drove are allowed.
+                - Do not claim direct knowledge of every individual voter's private motivation.
+                - You must call web search before drafting any page.
+                - Give every paragraph one or more `sourceIds`; empty `sourceIds` are forbidden.
+                - Include every referenced source exactly once in `sources`; empty `sources` are forbidden.
+                - Copy each source URL exactly from a URL returned by web search in this same call.
+                - Do not include a source unless it directly supports context used in a paragraph.
+                - Every caveat must be exactly: This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.
+                """.strip();
+    }
+}

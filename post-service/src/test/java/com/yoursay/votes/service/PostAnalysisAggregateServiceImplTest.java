@@ -1,9 +1,9 @@
 package com.yoursay.votes.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.posts.PostVotingConfigurationDto;
+import com.yoursay.posts.dto.PostVotingConfigurationDto;
 import com.yoursay.posts.PostVotingConfigurationService;
-import com.yoursay.posts.VoteOptionDto;
+import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.posts.VotingType;
 import com.yoursay.votes.model.VoteRepository;
 import jakarta.persistence.EntityManager;

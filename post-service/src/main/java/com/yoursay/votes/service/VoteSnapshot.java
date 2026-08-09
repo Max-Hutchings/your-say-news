@@ -1,6 +1,6 @@
 package com.yoursay.votes.service;
 
-import com.yoursay.votes.CharacteristicSnapshot;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
 
 /**
  * Internal aggregation input: a single vote reduced to just what aggregation needs — the yes/no

@@ -1,5 +1,8 @@
 package com.yoursay.votes;
 
+import com.yoursay.votes.dto.CharacteristicSnapshot;
+import com.yoursay.votes.dto.SentimentBreakdownDto;
+
 /**
  * Public contract for aggregated, anonymised vote sentiment — the heart of the product.
  *

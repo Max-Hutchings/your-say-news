@@ -1,6 +1,6 @@
 package com.yoursay.agents.postagent;
 
-import com.yoursay.agents.postagent.client.AgentUserClient;
+import com.yoursay.posts.postagent.client.AgentUserClient;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -41,7 +41,7 @@ class AgentControllerTest {
                         EDITOR_ID, "OFFICIAL", "ACTIVE", true));
         Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(OTHER_AUTH)))
                 .thenReturn(new AgentUserClient.UserAccess(
-                        OTHER_USER_ID, "STANDARD", "NONE", false));
+                        OTHER_USER_ID, "USER", "NONE", false));
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("delete from agent_generation_job")) {
             statement.executeUpdate();
@@ -160,7 +160,7 @@ class AgentControllerTest {
     void contradictoryAccessDataCannotBypassAgentPublishingRule() throws Exception {
         Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
                 .thenReturn(new AgentUserClient.UserAccess(
-                        EDITOR_ID, "STANDARD", "NONE", true));
+                        EDITOR_ID, "USER", "NONE", true));
 
         given()
                 .header("Authorization", EDITOR_AUTH)

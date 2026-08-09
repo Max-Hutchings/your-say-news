@@ -2,6 +2,19 @@
 
 Date: 2026-07-25
 
+> **Amended by [ADR-035](ADR-035-2026-07-28-defer-unwrapped-prediction-stories.md):**
+> prediction stories are removed for now. The active lifecycle generates observed stories only
+> after the first safe vote milestone; human review, versioning and follow-up isolation remain.
+
+> **Amended by [ADR-038](ADR-038-2026-08-03-cohort-causal-persuasive-narrative.md):**
+> each option now presents one cohort-led, two-or-three-paragraph persuasive analysis of 50–100
+> words rather than separate observed, context and synthesis sections. The admin proof must match
+> the voter-facing article exactly.
+
+> **Amended by [ADR-039](ADR-039-2026-08-03-admin-only-unwrapped-generation.md):**
+> reaching a vote milestone no longer queues generation. Only an explicit administrator action may
+> create reconciliation work or a provider-backed analysis job.
+
 ## Situation
 
 After a canonical vote, users currently reach raw aggregate diagrams. MVP1 instead needs Post
@@ -142,6 +155,13 @@ requires an explicit limitation on the page.
 
 Pages remain concise. Full data-source references are always available from each page rather than
 being hidden in a separate raw response.
+
+The immutable research draft keeps one story-level source catalogue so validation and persistence
+can deduplicate metadata and allow a source to support claims on more than one argument. The
+voter-facing response resolves that catalogue into each argument page: every page contains only
+the distinct sources cited by its claims, ordered by first citation. The public story object has no
+separate source list, so a delivered argument is self-contained and cannot expose unrelated
+sources.
 
 ### Review and immutable versions
 

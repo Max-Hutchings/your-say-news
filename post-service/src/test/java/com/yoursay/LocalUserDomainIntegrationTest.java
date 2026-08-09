@@ -3,7 +3,7 @@ package com.yoursay;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.user.usercharacteristic.model.Enums.AgeRange;
-import com.yoursay.votes.CharacteristicSnapshot;
+import com.yoursay.votes.dto.CharacteristicSnapshot;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -63,7 +63,7 @@ class LocalUserDomainIntegrationTest {
                     .when().get("/feed?size=50")
                     .then()
                     .statusCode(200)
-                    .body("find { it.id == %d }.userId".formatted(postId), is(1));
+                    .body("posts.find { it.id == %d }.userId".formatted(postId), is(1));
 
             Response vote = given()
                     .contentType("application/json")

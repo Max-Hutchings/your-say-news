@@ -1,17 +1,14 @@
 package com.yoursay.unwrapped.selection;
 
-import com.yoursay.posts.VoteOptionDto;
+import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.posts.VotingType;
-import com.yoursay.unwrapped.CandidateRole;
-import com.yoursay.unwrapped.OptionBriefV1;
-import com.yoursay.unwrapped.UnwrappedAnalysisBriefV1;
-import com.yoursay.votes.AggregationMetadataV1;
-import com.yoursay.votes.CohortAggregateV1;
-import com.yoursay.votes.CohortDimensionV1;
-import com.yoursay.votes.MembershipSemantics;
-import com.yoursay.votes.OptionStatisticV1;
-import com.yoursay.votes.OverallOptionStatisticV1;
-import com.yoursay.votes.PostAnalysisAggregateV1;
+import com.yoursay.votes.dto.AggregationMetadataV1;
+import com.yoursay.votes.dto.CohortAggregateV1;
+import com.yoursay.votes.dto.CohortDimensionV1;
+import com.yoursay.votes.dto.MembershipSemantics;
+import com.yoursay.votes.dto.OptionStatisticV1;
+import com.yoursay.votes.dto.OverallOptionStatisticV1;
+import com.yoursay.votes.dto.PostAnalysisAggregateV1;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -42,13 +39,16 @@ class BoundedHybridInsightSelectorTest {
         assertEquals(List.of(CandidateRole.CORE_ANCHOR, CandidateRole.CORE_DIFFERENTIATOR,
                         CandidateRole.INTERSECTION_DISCOVERY),
                 support.candidates().stream().map(value -> value.role()).toList());
+        assertEquals(List.of("Employed workers", "25–34-year-olds",
+                        "25–34-year-olds and men"),
+                support.candidates().stream().map(SelectedCohortV1::displayName).toList());
         assertNull(support.insufficientEvidence());
         assertEquals(List.of(
-                "Do not claim that a demographic characteristic caused a vote.",
+                "Explain why a selected cohort is likely to favour the option using researched context.",
+                "Do not claim direct knowledge of every individual voter's private motivation.",
                 "Do not claim this self-selected audience represents a jurisdiction's population.",
-                "Do not introduce a cohort absent from this shortlist.",
-                "Distinguish observed vote data, external context, and interpretation."),
-                support.prohibitedInferences());
+                "Do not introduce a cohort absent from this shortlist."),
+                support.narrativeInstructions());
         OptionBriefV1 oppose = brief.options().get(1);
         assertEquals(125, oppose.overallVoteCount());
         assertEquals(50.0, oppose.overallVotePercentage());
@@ -95,6 +95,19 @@ class BoundedHybridInsightSelectorTest {
                 "gender=MAN", List.of(new CohortDimensionV1("gender", "MAN")),
                 MembershipSemantics.EXCLUSIVE, 40, 4.99, statistics(40, 10, 0.05));
         assertEquals(0, selectedCount(belowShare));
+    }
+
+    @Test
+    void turnsStoredBucketsIntoNaturalHeadlineReadyCohortNames() {
+        assertEquals("Centre-left voters", name("politicalPersuasion", "CENTRE_LEFT"));
+        assertEquals("Full-time workers", name("occupation", "EMPLOYED_FULL_TIME"));
+        assertEquals("People with bachelor's degrees", name("education", "BACHELORS"));
+        assertEquals("IT and technology workers", name("employmentSector", "IT_TECHNOLOGY"));
+        assertEquals("People in personal income tier 3", name("personalIncomeRange", "V2_TIER_3"));
+    }
+
+    private static String name(String axis, String bucket) {
+        return CohortDisplayNames.describe(List.of(new CohortDimensionV1(axis, bucket)));
     }
 
     private int selectedCount(CohortAggregateV1 cohort) {

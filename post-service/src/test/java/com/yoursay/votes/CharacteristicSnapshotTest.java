@@ -1,5 +1,6 @@
 package com.yoursay.votes;
 
+import com.yoursay.votes.dto.CharacteristicSnapshot;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -1,5 +1,9 @@
 # Post Unwrapped agent architecture
 
+> **Current scope:** [ADR-035](../../wiki/ADR-035-2026-07-28-defer-unwrapped-prediction-stories.md)
+> removes prediction stories for now. Prediction sections below are retained as historical design
+> context, not active implementation requirements. Observed generation and human review remain.
+
 Status: implementation architecture agreed
 Scope: completion-checklist points 2 and 4
 Primary domain: `post-service/com.yoursay.unwrapped`
@@ -47,9 +51,9 @@ cohorts unsafe.
 flowchart LR
     PB["Post ready for publication"] --> PJ["Prediction generation + admin approval"]
     PJ --> PP["Approved prediction story"]
-    V["Canonical vote"] --> R["Durable milestone reconciliation"]
-    R --> A["Votes aggregate snapshot"]
-    A --> S["Deterministic insight selector"]
+    AC["Administrator clicks Run analysis"] --> R["Durable milestone reconciliation"]
+    R --> AG["Votes aggregate snapshot"]
+    AG --> S["Deterministic insight selector"]
     S --> J["Unwrapped generation job"]
     PP --> U["Option pages + reconsideration"]
     J --> C["One LangChain4j research call for all options"]
@@ -67,22 +71,18 @@ flowchart LR
 
 Pages appear in the post's immutable option order. Each page contains:
 
-- a clear argument headline;
-- for an observed story, `Observed here`: one or two statistically safe cohort findings from this
-  post's canonical votes;
-- for a prediction story, `Pepper's prediction`: a clearly labelled forecast of which groups may
-  favour this option, based only on cited external evidence;
-- `Wider context`: externally researched figures with claim-level citations;
-- a persuasive synthesis explaining why the evidence may matter to people choosing that option;
-- a short caveat that the observed association does not establish why an individual voted.
+- a catchy 6–10-word headline naming the deterministically selected cohort;
+- one unified, persuasive analysis of two or three paragraphs totalling 50–100 words;
+- a direct, researched explanation of why that cohort is likely to have chosen the option;
+- paragraph-level citations to the external evidence used in that explanation; and
+- no generic voter-sample or population-representativeness disclaimer in rendered UI copy.
 
 Every option has the same source standard and approximate content budget. “Equally persuasive”
 means equal research effort and charitable presentation. It does not mean inventing a demographic
 difference or pretending the external evidence is equally strong.
 
-If an option has no statistically safe over-indexing cohort, its observed page should say the audience
-does not yet show a reliable demographic concentration and make its case from the overall result
-and sourced external context.
+If an option has no statistically safe over-indexing cohort, generation stops with insufficient
+demographic evidence. It must not substitute a generic argument or invent an audience explanation.
 
 ### Final page — reconsider the choice
 
@@ -436,8 +436,8 @@ For each option:
 - `observations`: exact Your Say aggregate statements;
 - `candidates`: each cohort's composition, propensity, over-index, sample, interval, q-value,
   relevance reason and candidate role;
-- `researchQuestions`: topics worth researching, derived from the post and selected cohorts;
-- `prohibitedInferences`: causation, representativeness and stereotypes the writer must avoid;
+- `narrativeInstructions`: direct explanatory guidance and limits on claims of private knowledge or
+  population representativeness;
 - `insufficientEvidence`: explicit reason when no demographic claim is safe.
 
 Tests should pin the selected cohort IDs and exact statistics for deterministic fixtures. They
@@ -509,75 +509,55 @@ Reference material checked for this plan:
 
 ## Story output contract
 
-The server assembles `UnwrappedStoryV1` from the validated ordered option drafts and the
+The server assembles `UnwrappedStoryV2` from the validated ordered option drafts and the
 deterministic reconsideration page:
 
 ```json
 {
-  "schemaVersion": "unwrapped-story-v1",
+  "schemaVersion": "unwrapped-story-v2",
   "storyId": "uuid",
   "postId": 42,
-  "mode": "OBSERVED",
-  "analysisVersion": "unwrapped-analysis-v1",
   "milestone": 250,
   "canonicalVoteCount": 263,
   "aggregateVersion": "sha256:...",
   "generatedAt": "2026-07-24T12:03:00Z",
   "model": "configured-model-name",
-  "promptVersion": "unwrapped-case-v1",
-  "ruleSetVersion": "cohort-rules-v1",
-  "approvalStatus": "APPROVED",
-  "approvedAt": "2026-07-24T13:00:00Z",
-  "pages": [
+  "argumentPages": [
     {
-      "type": "ARGUMENT",
-      "option": { "id": 101, "label": "Agree" },
-      "headline": "The case for keeping more of what people earn",
-      "observations": [],
-      "contextClaims": [],
-      "synthesis": "...",
-      "caveat": "This pattern describes this vote; it does not prove why any person chose it."
+      "optionId": 101,
+      "headline": "Why younger workers favour keeping more income",
+      "selectedCohortIds": ["ageRange=AGE_25_34&occupation=EMPLOYED"],
+      "paragraphs": [
+        { "text": "...", "sourceIds": ["source-1"] },
+        { "text": "...", "sourceIds": ["source-1", "source-2"] }
+      ],
+      "caveat": "This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.",
+      "sources": []
     },
     {
-      "type": "ARGUMENT",
-      "option": { "id": 102, "label": "Disagree" },
-      "headline": "The case for the services taxes fund",
-      "observations": [],
-      "contextClaims": [],
-      "synthesis": "...",
-      "caveat": "..."
-    },
-    {
-      "type": "RECONSIDERATION",
-      "question": "Has seeing the context for every option changed your view?",
-      "options": []
+      "optionId": 102,
+      "headline": "Why parents favour keeping public services funded",
+      "selectedCohortIds": ["parentalStatus=PARENT"],
+      "paragraphs": [
+        { "text": "...", "sourceIds": ["source-3"] },
+        { "text": "...", "sourceIds": ["source-3", "source-4"] }
+      ],
+      "caveat": "This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.",
+      "sources": []
     }
   ],
-  "sources": [],
-  "methodology": {
-    "suppressionThreshold": 0,
-    "minimumCohortSample": 30,
-    "multipleComparisonMethod": "BENJAMINI_HOCHBERG",
-    "falseDiscoveryRate": 0.05
-  }
+  "reconsiderationQuestion": "Has seeing the context for every option changed your view?",
+  "reconsiderationOptions": []
 }
 ```
 
-For `PREDICTION`, `milestone` and `aggregateVersion` are null, `canonicalVoteCount` is zero, and
-argument pages contain `predictedCohorts` rather than `observations`. The mode and prediction notice
-are required fields, not optional copy the model can omit.
+`UnwrappedStoryV2` is the observed-story presentation contract. Prediction content requires a
+separately versioned contract rather than silently changing the meaning of these fields.
 
-Every observed item contains typed option/cohort/count/percentage fields and server-written display
-copy. Every external claim contains:
-
-- a stable claim ID;
-- statement;
-- optional typed figure (`value`, `unit`, `period`, `geography`);
-- one or more citation IDs;
-- `claimType: CONTEXT`;
-- an interpretation label when it is a hypothesis rather than a sourced fact.
-
-The client displays only known enum page/block types. Unknown future blocks are ignored safely.
+Each paragraph preserves its source IDs, while the response assembler scopes and orders the full
+source metadata for that option page. Mobile and admin clients render the same option label,
+headline, paragraphs, citation markers and source order from this presentation model. Compatibility
+`notice` and `caveat` values are not rendered.
 
 ## Source validation and content guardrails
 
@@ -621,21 +601,19 @@ in place.
 
 ### Observed generation
 
-Do not rely only on an after-commit event from `castVote`; a process crash or two simultaneous votes
-can miss a threshold.
-
-In the canonical vote transaction, upsert the post into a small durable reconciliation queue.
-A worker then:
+Vote casting, seed loading, application startup and scheduled scans never enqueue analysis. An
+authenticated administrator must click `Run analysis` for one post, which upserts that post into a
+small durable reconciliation queue. A worker then:
 
 1. claims a dirty post with `SKIP LOCKED`;
 2. reads its committed canonical count;
-3. inserts every newly crossed milestone job;
+3. inserts the highest eligible milestone job;
 4. relies on a unique `(post_id, milestone, analysis_version)` constraint;
 5. removes or advances the dirty marker.
 
-A periodic sweep reconciles posts as defence in depth. The worker creates the aggregate snapshot
-once, persists it, performs one external model call outside a transaction, validates output, then
-stores an immutable review draft transactionally.
+There is no periodic milestone sweep or vote-triggered marker. The worker creates the aggregate
+snapshot once, persists it, performs one external model call outside a transaction, validates
+output, then stores an immutable review draft transactionally.
 
 Initial demographic milestones are `100, 250, 500, 1,000`, followed by a configurable growth rule.
 Only approved stories are eligible for users. Serve the newest approved story at or below the
@@ -759,10 +737,10 @@ Flow changes:
 - returning voters can replay Unwrapped from the post;
 - argument pages use a fixed horizontal pager with dynamic progress (`1 of 3` through `1 of 6`),
   explicit Next/Back controls and reduced-motion support;
-- long research is expressed as concise evidence cards with an expandable evidence/citation drawer,
-  rather than an unreadable wall of text;
+- each argument is a unified two-or-three-paragraph analysis of 50–100 words with inline citation
+  markers, rather than separate evidence and synthesis blocks;
 - every argument page always exposes its cited data sources;
-- screen-reader order follows headline → observed data → context → synthesis → caveat → sources;
+- screen-reader order follows option label → headline → paragraphs and citations → sources;
 - the final page requires one selection, handles an existing response, and then opens the current
   result diagrams;
 - building, insufficient, failed, offline and stale-story states all provide a route to factual
@@ -806,8 +784,8 @@ opens after the story instead of becoming an additional story page.
 - agent input contains aggregates but no identity or individual rows;
 - prediction input contains no vote data and its copy cannot be mistaken for observed results;
 - exact fixture produces exact selected and omitted insights;
-- concurrent threshold crossing creates one milestone job;
-- a missed event is recovered by durable reconciliation;
+- voting, seed loading, startup and version changes create no milestone job;
+- one authenticated administrator click creates one current-milestone job;
 - approved prediction/previous story remains available during generation and admin review;
 - an unapproved story is never returned to a voter;
 - approval and rejection require the site-administrator capability and create audit events;
@@ -844,7 +822,7 @@ repository `test-audit` skill after test changes.
 - canonical vote routes to Unwrapped;
 - binary renders three pages and five-option multiple choice renders six, in option order;
 - prediction and observed modes have unmistakably different labels;
-- citations and caveats are reachable;
+- citations are reachable and compatibility notice/caveat copy is absent from rendered UIs;
 - Back/Next, swipe, replay and reduced-motion behaviour;
 - follow-up same-choice and changed-choice submission;
 - no continue-to-results action is enabled until the follow-up is submitted;

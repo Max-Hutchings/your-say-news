@@ -1,5 +1,7 @@
 package com.yoursay.feed;
 
+import com.yoursay.feed.dto.FeedContext;
+import com.yoursay.feed.dto.RankablePost;
 import com.yoursay.feed.service.ChronologicalFollowBoostRanker;
 import org.junit.jupiter.api.Test;
 

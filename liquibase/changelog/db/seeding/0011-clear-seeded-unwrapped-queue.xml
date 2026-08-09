@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="0011-clear-seeded-unwrapped-queue" author="codex" context="seed">
+        <comment>Curated posts remain idle until a real vote or administrator requests analysis.</comment>
+        <delete tableName="unwrapped_analysis_job">
+            <where>post_id BETWEEN 2000 AND 2006</where>
+        </delete>
+        <delete tableName="unwrapped_reconciliation">
+            <where>post_id BETWEEN 2000 AND 2006</where>
+        </delete>
+    </changeSet>
+</databaseChangeLog>

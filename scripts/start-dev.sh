@@ -31,4 +31,15 @@ EOF
   exit 1
 fi
 
+if [[ -z "${YOUR_SAY_NEWS_GROK_API_KEY:-}" ]]; then
+  cat >&2 <<'EOF'
+The Grok API key is not configured.
+
+Export it before starting the development stack, then run:
+  export YOUR_SAY_NEWS_GROK_API_KEY="your-api-key"
+  bun run dev
+EOF
+  exit 1
+fi
+
 exec mprocs "$@"

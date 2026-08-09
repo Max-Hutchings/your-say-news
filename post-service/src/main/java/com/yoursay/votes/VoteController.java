@@ -1,5 +1,12 @@
 package com.yoursay.votes;
 
+import com.yoursay.votes.dto.CharacteristicSnapshot;
+import com.yoursay.votes.dto.VoteResponseDto;
+
+import com.yoursay.votes.dto.SentimentBreakdownDto;
+
+import com.yoursay.votes.dto.VoteRequestDto;
+
 import com.yoursay.votes.error.VoteApiException;
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;

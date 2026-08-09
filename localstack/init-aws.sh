@@ -67,6 +67,15 @@ put_post_image() {
   put_image "posts/seed-${post_id}-image.jpg" "ysn-${post_id}-image" "${width}" "${height}"
 }
 
+# Default curated feed media. Post 2006 is intentionally text-only.
+put_post_video 2000 "${VIDEO_CLIP_4}" PORTRAIT
+put_post_video 2001 "${VIDEO_CLIP_1}" LANDSCAPE
+put_post_video 2002 "${VIDEO_CLIP_2}" PORTRAIT
+put_post_video 2003 "${VIDEO_CLIP_3}" LANDSCAPE
+put_post_image 2004 PORTRAIT
+put_post_image 2005 LANDSCAPE
+
+# The remaining assets support the optional extended seed changelog.
 # Post 1000 — five-image landscape carousel
 put_image "posts/seed-1-img-1.jpg" "ysn-work-1"
 put_image "posts/seed-1-img-2.jpg" "ysn-work-2"

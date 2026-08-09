@@ -1,7 +1,7 @@
 package com.yoursay.user.social;
 
-import com.yoursay.user.social.FollowPageDto;
-import com.yoursay.user.social.FollowStatusDto;
+import com.yoursay.user.social.dto.FollowPageDto;
+import com.yoursay.user.social.dto.FollowStatusDto;
 
 import java.util.Set;
 

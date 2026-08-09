@@ -1,0 +1,20 @@
+databaseChangeLog:
+  # Initial bootstrap used the established John fixture. The forward-only 0008 change separates
+  # administration from publishing while preserving this already-applied changeset.
+  - changeSet:
+      id: 0007-seed-admin-account
+      author: codex
+      logicalFilePath: db/seeding/0007-seed-admin-account.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - update:
+            tableName: your_say_user
+            columns:
+              - column:
+                  name: account_type
+                  value: ADMIN
+              - column:
+                  name: publisher_status
+                  value: NONE
+            where: email = 'john.doe@example.com'

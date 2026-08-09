@@ -1,5 +1,11 @@
 package com.yoursay.user.usercharacteristic.service;
 
+import com.yoursay.user.usercharacteristic.dto.UserCharacteristicDto;
+
+import com.yoursay.user.usercharacteristic.dto.IncomeProfileDto;
+
+import com.yoursay.user.usercharacteristic.dto.IncomeAnswerDto;
+
 import com.yoursay.observability.DomainMetrics;
 import com.yoursay.user.usercharacteristic.*;
 import com.yoursay.user.usercharacteristic.error.UserCharacteristicApiException;

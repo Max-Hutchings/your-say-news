@@ -1,7 +1,11 @@
 package com.yoursay.user.user;
 
-import com.yoursay.user.user.UserAccessDto;
-import com.yoursay.user.user.YourSayUserDto;
+import com.yoursay.user.user.dto.AdminUserDto;
+
+import com.yoursay.user.user.dto.AdminUserUpdateDto;
+
+import com.yoursay.user.user.dto.UserAccessDto;
+import com.yoursay.user.user.dto.YourSayUserDto;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -26,6 +30,15 @@ public interface YourSayUserService {
     List<YourSayUserDto> getByIds(List<Long> ids);
 
     YourSayUserDto getByEmail(String email);
+
+    /** Complete account list, available only to an active database administrator. */
+    List<AdminUserDto> listForAdmin(String administratorEmail);
+
+    /** Change account type and active state as an active database administrator. */
+    AdminUserDto updateForAdmin(String administratorEmail, long userId, AdminUserUpdateDto update);
+
+    /** Whether an authenticated subject has an existing, inactive application account. */
+    boolean isInactive(String email);
 
     /** PII-free account classification and publishing capability for the authenticated subject. */
     UserAccessDto getAccessByEmail(String email);

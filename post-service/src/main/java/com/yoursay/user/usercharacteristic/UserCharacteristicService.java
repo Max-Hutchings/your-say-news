@@ -1,5 +1,7 @@
 package com.yoursay.user.usercharacteristic;
 
+import com.yoursay.user.usercharacteristic.dto.UserCharacteristicDto;
+
 /**
  * Public contract for the user-characteristic domain.
  */

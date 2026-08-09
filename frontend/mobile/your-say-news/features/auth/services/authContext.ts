@@ -22,7 +22,7 @@ export const useAuthStore = create(
             lastName: null,
             dateOfBirth: null,
             consentedAt: null,
-            accountType: "STANDARD",
+            accountType: "USER",
             publisherStatus: "NONE",
             canPublish: false,
             accessToken: null,
@@ -124,7 +124,7 @@ async function completeLogin(tokens: {
             lastName: null,
             dateOfBirth: null,
             consentedAt: null,
-            accountType: "STANDARD",
+            accountType: "USER",
             publisherStatus: "NONE",
             canPublish: false,
             accessToken: null,
@@ -138,9 +138,8 @@ async function completeLogin(tokens: {
     }
 
 
-    // Ask the server how far along onboarding they are (consent + characteristic profile). Routing
-    // keys off this so a returning user who already has a profile skips the wizard. Fall back to the
-    // consent flag on the user record if the status call fails.
+    // Ask the server how far along onboarding they are (consent + characteristic profile). If the
+    // status request fails, fail closed: consent alone cannot prove the characteristic profile exists.
     const status = await getOnboardingStatus();
 
     useAuthStore.setState({
@@ -154,7 +153,7 @@ async function completeLogin(tokens: {
         publisherStatus: user.publisherStatus,
         canPublish: user.canPublish,
         hasCharacteristics: status?.hasCharacteristics ?? false,
-        hasOnboarded: status?.onboarded ?? !!user.consentedAt,
+        hasOnboarded: status?.onboarded ?? false,
         isLoggedIn: true,
 
     });
@@ -177,7 +176,11 @@ async function logout(): Promise<void> {
     // Best-effort server-side revocation before we drop the token locally.
     const { refreshToken } = useAuthStore.getState();
     if (refreshToken) {
-        await revokeTokens(refreshToken);
+        try {
+            await revokeTokens(refreshToken);
+        } catch {
+            // Revocation is best-effort. Local credentials must still be removed.
+        }
     }
 
     useAuthStore.setState({
@@ -187,7 +190,7 @@ async function logout(): Promise<void> {
         lastName: null,
         dateOfBirth: null,
         consentedAt: null,
-        accountType: "STANDARD",
+        accountType: "USER",
         publisherStatus: "NONE",
         canPublish: false,
         accessToken: null,

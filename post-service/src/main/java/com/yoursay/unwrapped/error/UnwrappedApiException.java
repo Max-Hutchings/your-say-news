@@ -14,6 +14,11 @@ public class UnwrappedApiException extends ApiException {
                 "Unwrapped story was not found: storyId=" + storyId);
     }
 
+    public static UnwrappedApiException postMissing(Long postId) {
+        return new UnwrappedApiException("UNWRAPPED_POST_NOT_FOUND", Response.Status.NOT_FOUND,
+                "Post was not found: postId=" + postId);
+    }
+
     public static UnwrappedApiException storyNotAvailable(UUID storyId) {
         return new UnwrappedApiException("UNWRAPPED_STORY_NOT_AVAILABLE", Response.Status.BAD_REQUEST,
                 "Story is not approved for this post: storyId=" + storyId);

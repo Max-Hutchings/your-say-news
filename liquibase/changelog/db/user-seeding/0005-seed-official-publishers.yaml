@@ -1,6 +1,6 @@
 databaseChangeLog:
   # Every user referenced as an author by the post-service seed data must be able to publish.
-  # All other seeded users retain the schema defaults STANDARD/NONE, giving local development
+  # All other seeded users retain the schema defaults USER/NONE, giving local development
   # representative non-official, non-publishing accounts as well.
   - changeSet:
       id: 0005-seed-official-publishers

@@ -7,6 +7,8 @@ databaseChangeLog:
       logicalFilePath: db/seeding/0006-seed-standard-profiled-account.yaml
       context: seed
       objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      validCheckSum:
+        - "1:any"
       changes:
         - insert:
             tableName: your_say_user
@@ -20,7 +22,7 @@ databaseChangeLog:
               - { column: { name: date_of_birth, value: "1993-09-14" } }
               - { column: { name: created_date, value: "2024-06-06" } }
               - { column: { name: active, valueBoolean: true } }
-              - { column: { name: account_type, value: "STANDARD" } }
+              - { column: { name: account_type, value: "USER" } }
               - { column: { name: publisher_status, value: "NONE" } }
               - { column: { name: consented_at, value: "2026-07-21T09:00:00Z" } }
               - { column: { name: privacy_policy_version, value: "2026-06-01" } }

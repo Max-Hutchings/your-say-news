@@ -1,7 +1,6 @@
 package com.yoursay.unwrapped.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yoursay.unwrapped.UnwrappedMode;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,20 +20,14 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
     @Id
     UUID id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    UnwrappedMode mode;
-
     @Column(name = "post_id", nullable = false)
     Long postId;
 
+    @Column(nullable = false)
     Integer milestone;
 
     @Column(name = "analysis_version", nullable = false)
     String analysisVersion;
-
-    @Column(name = "prediction_version")
-    String predictionVersion;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -79,20 +72,16 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
     protected UnwrappedAnalysisJob() {
     }
 
-    public UnwrappedAnalysisJob(UnwrappedMode mode, Long postId, Integer milestone,
-                                String analysisVersion, String predictionVersion) {
+    public UnwrappedAnalysisJob(Long postId, Integer milestone, String analysisVersion) {
         this.id = UUID.randomUUID();
-        this.mode = mode;
         this.postId = postId;
         this.milestone = milestone;
         this.analysisVersion = analysisVersion;
-        this.predictionVersion = predictionVersion;
         this.status = UnwrappedJobStatus.PENDING;
         this.createdAt = Instant.now();
     }
 
     public UUID getId() { return id; }
-    public UnwrappedMode getMode() { return mode; }
     public Long getPostId() { return postId; }
     public Integer getMilestone() { return milestone; }
     public String getAnalysisVersion() { return analysisVersion; }
@@ -101,11 +90,36 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
     public Long getCanonicalVoteCount() { return canonicalVoteCount; }
     public JsonNode getAggregateJson() { return aggregateJson; }
     public String getAggregateVersion() { return aggregateVersion; }
+    public String getErrorCode() { return errorCode; }
+    public String getErrorMessage() { return errorMessage; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getStartedAt() { return startedAt; }
+    public Instant getCompletedAt() { return completedAt; }
+
+    public Instant lastActivityAt() {
+        if (completedAt != null) return completedAt;
+        if (nextAttemptAt != null) return nextAttemptAt;
+        if (startedAt != null) return startedAt;
+        return createdAt;
+    }
 
     public void claim() {
         status = UnwrappedJobStatus.GENERATING;
         attemptCount++;
         startedAt = Instant.now();
+        completedAt = null;
+        nextAttemptAt = null;
+        errorCode = null;
+        errorMessage = null;
+    }
+
+    public void retryManually() {
+        if (status != UnwrappedJobStatus.FAILED) {
+            throw new IllegalStateException("Only failed Unwrapped jobs can be manually retried");
+        }
+        status = UnwrappedJobStatus.PENDING;
+        nextAttemptAt = Instant.now();
+        completedAt = null;
         errorCode = null;
         errorMessage = null;
     }
@@ -135,8 +149,8 @@ public class UnwrappedAnalysisJob extends PanacheEntityBase {
         }
     }
 
-    public void recoverStaleClaim() {
+    public void recoverStaleClaim(boolean retry) {
         fail("UNWRAPPED_CLAIM_EXPIRED",
-                "A generation worker stopped before completing this job.", true);
+                "A generation worker stopped before completing this job.", retry);
     }
 }

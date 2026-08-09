@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { YsnHttpClient } from "@/features/auth";
-import type { CreatePostInput, FeedPostType, Post } from "../types";
+import type { CreatePostInput, FeedPage, FeedPostType, Post } from "../types";
 
 /**
  * Talks to post-service for post CRUD over the shared authenticated HTTP
@@ -49,15 +49,25 @@ export async function getRecent(page = 0, size = FEED_PAGE_SIZE): Promise<Post[]
   return data ?? [];
 }
 
-/** Main social feed: recent posts ranked with the viewer's follow graph. */
+/**
+ * Main social feed: recent posts ranked with the viewer's follow graph, paged by cursor.
+ *
+ * Pass `null` for the first page, then the previous page's `nextCursor`. The cursor is opaque —
+ * it encodes the service's scan position, so paging never skips or repeats a post even while new
+ * ones are published. A `null` `nextCursor` in the response is the end of the feed.
+ */
 export async function getFeed(
-  page = 0,
+  cursor: string | null = null,
   size = FEED_PAGE_SIZE,
   postType?: FeedPostType
-): Promise<Post[]> {
+): Promise<FeedPage> {
   const feedUrl = `${extra.POST_SERVICE_HOST}${extra.POST_SERVICE_PORT}/feed`;
-  const { data } = await YsnHttpClient.getSecure().get<Post[]>(feedUrl, {
-    params: { page, size, ...(postType ? { type: postType } : {}) },
+  const { data } = await YsnHttpClient.getSecure().get<FeedPage>(feedUrl, {
+    params: {
+      size,
+      ...(cursor ? { cursor } : {}),
+      ...(postType ? { type: postType } : {}),
+    },
   });
-  return data ?? [];
+  return { posts: data?.posts ?? [], nextCursor: data?.nextCursor ?? null };
 }

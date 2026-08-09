@@ -1,0 +1,19 @@
+package com.yoursay.posts.dto;
+
+import com.yoursay.posts.MediaType;
+import com.yoursay.posts.Orientation;
+
+/**
+ * A media item on a post. {@code url} and {@code posterUrl} are short-lived presigned GET URLs
+ * minted at read time; the persisted state is the {@code s3Key}/{@code posterS3Key} references.
+ */
+public record PostMediaDto(
+        MediaType mediaType,
+        Orientation orientation,
+        String s3Key,
+        String contentType,
+        String posterS3Key,
+        String url,
+        String posterUrl
+) {
+}

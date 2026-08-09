@@ -2,16 +2,18 @@ package com.yoursay.unwrapped.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.unwrapped.UnwrappedResearchDraftV1;
-import com.yoursay.unwrapped.UnwrappedResearchGenerator;
-import com.yoursay.unwrapped.UnwrappedResearchRequest;
-import com.yoursay.unwrapped.UnwrappedResearchResult;
+import com.yoursay.unwrapped.SourceClassification;
+import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
+import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
-import dev.langchain4j.service.Result;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
+import io.quarkus.logging.Log;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.ArrayList;
@@ -19,11 +21,15 @@ import java.util.List;
 
 /** LangChain4j implementation kept behind the provider-neutral Unwrapped domain interface. */
 @ApplicationScoped
+@ActivateRequestContext
 public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchGenerator {
     private static final String NOT_CONFIGURED = "__not_configured__";
 
     @Inject
     UnwrappedResearchAiService aiService;
+
+    @Inject
+    UnwrappedChatResponseCapture responseCapture;
 
     @Inject
     ObjectMapper objectMapper;
@@ -37,27 +43,126 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     @ConfigProperty(name = "unwrapped.agent.model", defaultValue = "configured-model")
     String configuredModel;
 
+    @ConfigProperty(name = "unwrapped.agent.stubbed", defaultValue = "false")
+    boolean stubbed;
+
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request) {
+        return generate(request, null);
+    }
+
+    @Override
+    public UnwrappedResearchResult generate(UnwrappedResearchRequest request, String systemPrompt) {
+        if (stubbed) return stubbedResult(request);
         if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_NOT_CONFIGURED");
         }
+        responseCapture.begin();
         try {
-            Result<UnwrappedResearchDraftV1> result =
-                    aiService.research(objectMapper.writeValueAsString(request));
-            ChatResponse response = result.finalResponse();
-            if (response == null || result.content() == null) {
+            List<Long> optionIds = request.options().stream()
+                    .map(option -> option.option().id())
+                    .toList();
+            String editorialPrompt = systemPrompt == null
+                    ? UnwrappedSystemPrompt.DEFAULT
+                    : systemPrompt;
+            UnwrappedResearchDraftV1 draft = aiService.research(
+                    editorialPrompt,
+                    UnwrappedSystemPrompt.outputInstructions(optionIds),
+                    inputPrompt(request));
+            ChatResponse response = responseCapture.take();
+            if (response == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
             }
+            if (draft == null) throw new IllegalArgumentException("UNWRAPPED_DRAFT_MISSING");
             List<String> citations = citations(response);
-            validator.validate(request, result.content(), citations);
-            return new UnwrappedResearchResult(result.content(), citations,
+            Log.infof("Unwrapped provider draft received: postId=%d expectedOptions=%s returnedOptions=%s citations=%d",
+                    request.postId(), request.options().stream().map(option -> option.option().id()).toList(),
+                    draft.pages() == null ? null : draft.pages().stream()
+                            .map(page -> page == null ? null : page.optionId()).toList(), citations.size());
+            try {
+                validator.validate(request, draft, citations);
+            } catch (IllegalArgumentException validationFailure) {
+                Log.warnf(
+                        "Unwrapped draft rejected: postId=%d code=%s pageDiagnostics=%s sourceDiagnostics=%s providerCitationCount=%d",
+                        request.postId(), validationFailure.getMessage(), pageDiagnostics(draft),
+                        sourceDiagnostics(draft), citations.size());
+                throw validationFailure;
+            }
+            return new UnwrappedResearchResult(draft, citations,
                     valueOr(response.modelName(), configuredModel), response.id());
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_FAILURE", e);
+        } finally {
+            responseCapture.clear();
         }
+    }
+
+    private static List<String> pageDiagnostics(UnwrappedResearchDraftV1 draft) {
+        if (draft.pages() == null) return List.of("pages=null");
+        return draft.pages().stream()
+                .map(page -> page == null ? "page=null" : "optionId=" + page.optionId()
+                        + ",cohorts=" + size(page.selectedCohortIds())
+                        + ",paragraphs=" + size(page.paragraphs()))
+                .toList();
+    }
+
+    private static List<String> sourceDiagnostics(UnwrappedResearchDraftV1 draft) {
+        if (draft.sources() == null) return List.of("sources=null");
+        return draft.sources().stream()
+                .map(source -> source == null ? "source=null" : source.id() + "=" + source.url()
+                        + "(" + source.classification() + ")")
+                .toList();
+    }
+
+    private static int size(List<?> values) {
+        return values == null ? -1 : values.size();
+    }
+
+    private UnwrappedResearchResult stubbedResult(UnwrappedResearchRequest request) {
+        UnwrappedSourceDraftV1 source = new UnwrappedSourceDraftV1(
+                "stub-source", "https://www.ons.gov.uk/", "Office for National Statistics",
+                "Deterministic Unwrapped integration-test source", SourceClassification.OFFICIAL);
+        List<UnwrappedArgumentDraftV1> pages = request.options().stream()
+                .map(option -> {
+                    boolean hasCohort = !option.candidates().isEmpty();
+                    String audience = hasCohort
+                            ? option.candidates().getFirst().displayName()
+                            : "People choosing " + option.option().label();
+                    return new UnwrappedArgumentDraftV1(
+                        option.option().id(), "Why " + audience.toLowerCase(java.util.Locale.ROOT)
+                                + " favour the development option",
+                        hasCohort
+                                ? option.candidates().stream().limit(2)
+                                        .map(candidate -> candidate.cohortId()).toList()
+                                : List.of(),
+                        List.of(
+                                new UnwrappedArticleParagraphDraftV2(
+                                        audience + " are likely to favour this option because its immediate effects "
+                                                + "fit the pressures represented by this deterministic development fixture. "
+                                                + "The observed pattern is carried into the preview without inventing another audience.",
+                                        List.of(source.id())),
+                                new UnwrappedArticleParagraphDraftV2(
+                                        "The fixed source provides stable context while the preview records "
+                                                + option.overallVoteCount() + " votes, or "
+                                                + option.overallVotePercentage() + " percent, for this option. "
+                                                + "This keeps integration tests repeatable without calling an external model.",
+                                        List.of(source.id()))),
+                        "This analysis describes patterns among people who voted on this post; "
+                                + "it cannot know every individual's reason.");
+                })
+                .toList();
+        return new UnwrappedResearchResult(
+                new UnwrappedResearchDraftV1(pages, List.of(source)),
+                List.of(source.url()), "stubbed-unwrapped", "stub-post-" + request.postId());
+    }
+
+    private String inputPrompt(UnwrappedResearchRequest request) throws Exception {
+        return """
+                INPUT JSON:
+                %s
+                """.formatted(objectMapper.writeValueAsString(request));
     }
 
     private List<String> citations(ChatResponse response) {
@@ -66,14 +171,24 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
             throw new IllegalStateException("UNWRAPPED_PROVIDER_CITATIONS_MISSING");
         }
         try {
-            JsonNode array = objectMapper.readTree(metadata.rawHttpResponse().body()).path("citations");
+            JsonNode root = objectMapper.readTree(metadata.rawHttpResponse().body());
             List<String> values = new ArrayList<>();
+            JsonNode array = root.path("citations");
             if (array.isArray()) {
                 array.forEach(item -> {
                     if (item.isTextual()) values.add(item.asText());
                 });
             }
-            return List.copyOf(values);
+            root.findValues("annotations").stream()
+                    .filter(JsonNode::isArray)
+                    .forEach(annotations -> annotations.forEach(annotation -> {
+                        JsonNode url = annotation.path("url");
+                        if (url.isTextual()) values.add(url.asText());
+                    }));
+            return values.stream()
+                    .filter(value -> value.startsWith("https://"))
+                    .distinct()
+                    .toList();
         } catch (Exception e) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_CITATIONS_INVALID", e);
         }

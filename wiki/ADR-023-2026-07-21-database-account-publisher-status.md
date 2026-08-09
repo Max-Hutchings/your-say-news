@@ -44,8 +44,9 @@ Persist the following string-backed enums on `your_say_user`:
 
 ```java
 public enum AccountType {
-    STANDARD,
-    OFFICIAL
+    USER,
+    OFFICIAL,
+    ADMIN
 }
 
 public enum PublisherStatus {
@@ -61,13 +62,14 @@ The authoritative publishing rule is:
 canPublish = accountActive && accountType == OFFICIAL && publisherStatus == ACTIVE
 ```
 
-All three conditions are mandatory. An inactive account cannot publish. A `STANDARD` account cannot publish even if invalid data assigns it
+All three conditions are mandatory. An inactive account cannot publish. A `USER` or `ADMIN`
+account cannot publish even if invalid data assigns it
 `ACTIVE`. An `OFFICIAL` account with `NONE` or `SUSPENDED` remains identifiable as official but
 cannot publish.
 
-New public registrations default to `STANDARD` and `NONE`. An official account provisioned for
-publishing defaults to `OFFICIAL` and `ACTIVE`. Changing an official account back to `STANDARD`
-must also reset publisher status to `NONE`.
+New public registrations default to `USER` and `NONE`. An official account provisioned for
+publishing defaults to `OFFICIAL` and `ACTIVE`. Changing an official account to `USER` or `ADMIN`
+must also reset publisher status to `NONE`. `ADMIN` was added by ADR-034.
 
 The database stores enum names, never ordinal numbers. Schema constraints restrict values and
 prevent a standard account from carrying an active or suspended publisher status.
@@ -75,8 +77,9 @@ prevent a standard account from carrying an active or suspended publisher status
 For MVP1, account type and publisher status are changed only through controlled migrations,
 seeding or internal operations. There is no public promotion or status-management endpoint.
 
-Existing seeded accounts that author posts become `OFFICIAL` / `ACTIVE`. Seeded accounts without
-posts remain `STANDARD` / `NONE`, ensuring both account paths are represented locally and in tests.
+Existing seeded accounts that author posts become `OFFICIAL` / `ACTIVE`, except for the designated
+bootstrap administrator. Seeded reader accounts remain `USER` / `NONE`, ensuring the account paths
+are represented locally and in tests.
 
 Backend enforcement applies to every posting write entry point, including:
 
@@ -117,10 +120,9 @@ administration without forcing admin permissions into a mutually exclusive accou
 - Add Liquibase migration and seed changes for both columns, constraints and existing accounts.
 - Add a user-domain access contract and enforce it on all current posting write endpoints.
 - Add integration tests covering `OFFICIAL/ACTIVE`, `OFFICIAL/SUSPENDED`, `OFFICIAL/NONE` and
-  `STANDARD/NONE` posting attempts.
+  `USER/NONE` posting attempts.
 - Hide the frontend create-post control when `canPublish` is false and test both visible and hidden
   states.
-- A later ADR must define site-administration permissions and the audited UI/workflow used to grant,
-  suspend or revoke publishing. Admin permissions may coexist with either account type.
+- ADR-034 defines the first site-administration permission and account-management workflow.
 - Keycloak realm-role cleanup is separate work. This ADR prevents realm roles from becoming the
   source of truth for official identity or publishing ability.

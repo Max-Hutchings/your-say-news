@@ -1,8 +1,10 @@
-package com.yoursay.agents.postagent.service;
+package com.yoursay.posts.postagent.service;
 
-import com.yoursay.agents.postagent.generator.GenerationException;
-import com.yoursay.agents.postagent.generator.GenerationResult;
-import com.yoursay.agents.postagent.generator.UnbiasedPostGenerator;
+import com.yoursay.posts.postagent.generator.GenerationException;
+import com.yoursay.posts.postagent.generator.GenerationResult;
+import com.yoursay.posts.postagent.generator.UnbiasedPostGenerator;
+import com.yoursay.posts.postagent.service.AgentJobProcessor;
+import com.yoursay.posts.postagent.service.AgentJobWorker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;

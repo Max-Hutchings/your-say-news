@@ -6,7 +6,6 @@ export type UnwrappedAvailabilityState =
   | "REFRESHING"
   | "INSUFFICIENT_EVIDENCE"
   | "FAILED";
-export type UnwrappedMode = "PREDICTION" | "OBSERVED";
 export type SourceClassification = "OFFICIAL" | "ACADEMIC" | "REPUTABLE_MEDIA" | "OTHER";
 
 export interface UnwrappedSource {
@@ -17,35 +16,30 @@ export interface UnwrappedSource {
   classification: SourceClassification;
 }
 
-export interface UnwrappedClaim {
-  id: string;
-  statement: string;
+export interface UnwrappedArticleParagraph {
+  text: string;
   sourceIds: string[];
-  interpretation: boolean;
 }
 
 export interface UnwrappedArgumentPage {
   optionId: number;
   headline: string;
-  usedCohortIds: string[];
-  predictedCohorts: string[];
-  contextClaims: UnwrappedClaim[];
-  synthesis: string;
+  selectedCohortIds: string[];
+  paragraphs: UnwrappedArticleParagraph[];
   caveat: string;
+  sources: UnwrappedSource[];
 }
 
 export interface UnwrappedStory {
-  schemaVersion: "unwrapped-story-v1";
+  schemaVersion: "unwrapped-story-v2";
   storyId: string;
   postId: number;
-  mode: UnwrappedMode;
-  milestone: number | null;
+  milestone: number;
   canonicalVoteCount: number;
-  aggregateVersion: string | null;
+  aggregateVersion: string;
   generatedAt: string;
   model: string;
   argumentPages: UnwrappedArgumentPage[];
-  sources: UnwrappedSource[];
   reconsiderationQuestion: string;
   reconsiderationOptions: VoteOption[];
 }

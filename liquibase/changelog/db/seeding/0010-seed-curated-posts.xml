@@ -1,0 +1,509 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <!-- The default feed is intentionally small but covers every important presentation path:
+         binary and multiple-choice video in both orientations, then portrait-image,
+         landscape-image, and text-only articles. Vote snapshots mirror every field and derived
+         representation emitted by CharacteristicSnapshotMapper. -->
+    <changeSet id="0010-seed-curated-posts" author="codex" context="seed">
+        <sql splitStatements="false"><![CDATA[
+INSERT INTO post
+    (id, user_id, summary, support_question, case_for, case_against, is_unbiased,
+     voting_type, created_at, updated_at)
+VALUES
+    (2000, 1,
+     'Every Friday at dusk, a crowd gathers around a street musician in the market square. Traders value the extra footfall, while residents living above the shops say two hours of amplified music can make their homes unusable.
+
+The council is considering permits that would cap performance hours and rotate the busiest pitches. Performers argue that auditions and paperwork would remove the spontaneity that makes public music worth stopping for.',
+     'Should street performers need a licence to play in busy public spaces?',
+     'Licensing can limit noise, protect residents and keep popular pitches fairly shared.',
+     'Permits and auditions risk removing the spontaneity that makes street performance valuable.',
+     false, 'BINARY', '2026-07-20T09:00:00Z', '2026-07-20T09:00:00Z'),
+    (2001, 2,
+     'At sunrise throughout winter, swimmers enter the harbour from an unofficial slipway. The group credits the ritual with improving fitness, anxiety and social connection, but the route has no lifeguard, lighting or regular water-quality checks.
+
+The council could create a marked swimming area with safety equipment and testing. Opponents say doing so would encourage a risky activity and leave taxpayers responsible when conditions turn dangerous.',
+     'Should councils provide maintained open-water swimming areas?',
+     'Managed access, water testing and rescue equipment make an existing activity safer.',
+     'Formal provision creates costs and liability for an activity people undertake at their own risk.',
+     false, 'BINARY', '2026-07-20T10:00:00Z', '2026-07-20T10:00:00Z'),
+    (2002, 4,
+     'Universities are debating how to price courses delivered mostly online. Students point to reduced access to laboratories, libraries and campus facilities; institutions say teaching quality, academic support and staff costs do not disappear with the lecture room.
+
+A national review has proposed several models, ranging from a modest discount to making core online courses free. Each would shift costs differently between students, universities and public funding.',
+     'How should tuition fees for mostly-online university courses be set?',
+     'Lower prices could reflect reduced access to physical facilities and widen participation.',
+     'Deep discounts could reduce teaching quality or move the same costs onto taxpayers.',
+     false, 'MULTIPLE_CHOICE', '2026-07-20T11:00:00Z', '2026-07-20T11:00:00Z'),
+    (2003, 7,
+     'A city trial has cut every bus journey to a flat two-pound fare. Passenger numbers rose sharply, but the subsidy costs more than forecast and the busiest routes now need additional vehicles just as several outer routes face cuts.
+
+The council must decide whether to preserve the simple universal cap, target help at lower-income passengers, or put the money into service frequency instead.',
+     'What should the city prioritise when the bus-fare trial ends?',
+     'Simple low fares are easy to understand and can persuade more drivers to use public transport.',
+     'A universal cap can subsidise passengers who could pay while leaving less money for reliable routes.',
+     false, 'MULTIPLE_CHOICE', '2026-07-20T12:00:00Z', '2026-07-20T12:00:00Z'),
+    (2004, 8,
+     'A volunteer-led project has mapped thousands of street trees, recording their species, size and condition. Residents now use the open map to challenge unnecessary felling and identify neighbourhoods with too little shade during heatwaves.
+
+The council wants to adopt the work officially, but doing so would require inspections and continuous maintenance. Some officers argue that an incomplete public map could create false confidence and new liabilities.',
+     'Should councils maintain a public map of every street tree?',
+     'Open data helps residents protect mature trees and target new planting where shade is needed.',
+     'Keeping a complete and reliable inventory creates an ongoing cost councils may struggle to fund.',
+     false, 'BINARY', '2026-07-20T13:00:00Z', '2026-07-20T13:00:00Z'),
+    (2005, 1,
+     'Independent bookshops are opening again after years of decline. Many of the new shops combine bookselling with cafés, evening events and reading groups, becoming small community venues as well as retailers.
+
+Owners say customers are choosing a slower, human recommendation over another algorithm. Margins remain fragile, however, and proposals for discounted business rates would ask other local firms to carry more of the tax burden.',
+     'Should independent bookshops receive discounted business rates?',
+     'Bookshops provide cultural and community value that is not captured by sales alone.',
+     'Public support should not favour one nostalgic retail model over other struggling local businesses.',
+     false, 'BINARY', '2026-07-20T14:00:00Z', '2026-07-20T14:00:00Z'),
+    (2006, 2,
+     'A growing number of schools give pupils access to an AI tutor that adapts explanations, answers questions outside school hours and can provide extra practice without embarrassment. Early trials report faster progress for some pupils who had fallen behind.
+
+Teachers also report pupils trusting confident wrong answers and becoming less likely to ask for help in class. Schools must decide whether access should be universal, targeted, controlled by teachers, or avoided altogether.',
+     'How should schools make AI tutoring available to pupils?',
+     'Carefully supervised access could give every pupil patient, individual support.',
+     'AI tutors can be confidently wrong, weaken human interaction and collect sensitive learning data.',
+     false, 'MULTIPLE_CHOICE', '2026-07-20T15:00:00Z', '2026-07-20T15:00:00Z');
+
+INSERT INTO post_media
+    (id, post_id, media_type, orientation, s3_key, content_type, poster_s3_key, ordinal, created_at)
+VALUES
+    (3000, 2000, 'VIDEO', 'PORTRAIT', 'posts/seed-2000-video.mp4', 'video/mp4',
+     'posts/seed-2000-poster.jpg', 0, '2026-07-20T09:00:00Z'),
+    (3001, 2001, 'VIDEO', 'LANDSCAPE', 'posts/seed-2001-video.mp4', 'video/mp4',
+     'posts/seed-2001-poster.jpg', 0, '2026-07-20T10:00:00Z'),
+    (3002, 2002, 'VIDEO', 'PORTRAIT', 'posts/seed-2002-video.mp4', 'video/mp4',
+     'posts/seed-2002-poster.jpg', 0, '2026-07-20T11:00:00Z'),
+    (3003, 2003, 'VIDEO', 'LANDSCAPE', 'posts/seed-2003-video.mp4', 'video/mp4',
+     'posts/seed-2003-poster.jpg', 0, '2026-07-20T12:00:00Z'),
+    (3004, 2004, 'IMAGE', 'PORTRAIT', 'posts/seed-2004-image.jpg', 'image/jpeg',
+     NULL, 0, '2026-07-20T13:00:00Z'),
+    (3005, 2005, 'IMAGE', 'LANDSCAPE', 'posts/seed-2005-image.jpg', 'image/jpeg',
+     NULL, 0, '2026-07-20T14:00:00Z');
+
+INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
+VALUES
+    (2000, 'Agree', 0, 'AGREE'),
+    (2000, 'Disagree', 1, 'DISAGREE'),
+    (2001, 'Agree', 0, 'AGREE'),
+    (2001, 'Disagree', 1, 'DISAGREE'),
+    (2002, 'Charge the same fee', 0, NULL),
+    (2002, 'Reduce fees by 25%', 1, NULL),
+    (2002, 'Reduce fees by 50%', 2, NULL),
+    (2002, 'Make core online courses free', 3, NULL),
+    (2003, 'Keep the flat £2 cap', 0, NULL),
+    (2003, 'Target discounts by income', 1, NULL),
+    (2003, 'Fund more frequent routes first', 2, NULL),
+    (2003, 'Return to operator-set fares', 3, NULL),
+    (2004, 'Agree', 0, 'AGREE'),
+    (2004, 'Disagree', 1, 'DISAGREE'),
+    (2005, 'Agree', 0, 'AGREE'),
+    (2005, 'Disagree', 1, 'DISAGREE'),
+    (2006, 'Give every pupil access', 0, NULL),
+    (2006, 'Target pupils who need extra support', 1, NULL),
+    (2006, 'Let teachers approve use case by case', 2, NULL),
+    (2006, 'Do not provide AI tutors', 3, NULL);
+
+WITH post_specs(post_id, vote_count, base_support) AS (
+    VALUES
+        (2000::BIGINT, 640, 58),
+        (2001::BIGINT, 720, 66),
+        (2002::BIGINT, 680, 50),
+        (2003::BIGINT, 760, 50),
+        (2004::BIGINT, 560, 71),
+        (2005::BIGINT, 600, 61),
+        (2006::BIGINT, 520, 50)
+),
+profiles AS (
+    SELECT
+        spec.post_id,
+        (400000 + ((spec.post_id - 2000) * 1000) + series.n)::BIGINT AS user_id,
+        series.n,
+        spec.base_support,
+        CASE series.n % 7
+            WHEN 0 THEN 'LEFT'
+            WHEN 1 THEN 'CENTRE_LEFT'
+            WHEN 2 THEN 'CENTRE'
+            WHEN 3 THEN 'CENTRE_RIGHT'
+            WHEN 4 THEN 'RIGHT'
+            WHEN 5 THEN 'NOT_POLITICAL'
+            ELSE 'NOT_SURE'
+        END AS political_persuasion,
+        CASE series.n % 8
+            WHEN 0 THEN 'AGE_18_19'
+            WHEN 1 THEN 'AGE_20_24'
+            WHEN 2 THEN 'AGE_25_34'
+            WHEN 3 THEN 'AGE_35_44'
+            WHEN 4 THEN 'AGE_45_54'
+            WHEN 5 THEN 'AGE_55_64'
+            WHEN 6 THEN 'AGE_65_74'
+            ELSE 'AGE_75_84'
+        END AS age_range,
+        CASE series.n % 5
+            WHEN 0 THEN 'WOMAN'
+            WHEN 1 THEN 'MAN'
+            WHEN 2 THEN 'NON_BINARY'
+            WHEN 3 THEN 'WOMAN'
+            ELSE 'MAN'
+        END AS gender,
+        CASE series.n % 2
+            WHEN 0 THEN 'FEMALE'
+            ELSE 'MALE'
+        END AS sex_at_birth,
+        CASE series.n % 7
+            WHEN 0 THEN 'STRAIGHT_HETEROSEXUAL'
+            WHEN 1 THEN 'GAY_LESBIAN'
+            WHEN 2 THEN 'BISEXUAL'
+            WHEN 3 THEN 'PANSEXUAL'
+            WHEN 4 THEN 'ASEXUAL'
+            WHEN 5 THEN 'QUEER'
+            ELSE 'QUESTIONING'
+        END AS sexual_orientation,
+        CASE series.n % 8
+            WHEN 0 THEN 'SINGLE'
+            WHEN 1 THEN 'IN_RELATIONSHIP'
+            WHEN 2 THEN 'COHABITING'
+            WHEN 3 THEN 'MARRIED'
+            WHEN 4 THEN 'CIVIL_PARTNERSHIP'
+            WHEN 5 THEN 'SEPARATED'
+            WHEN 6 THEN 'DIVORCED_OR_DISSOLVED'
+            ELSE 'WIDOWED_OR_SURVIVING_PARTNER'
+        END AS marital_status,
+        CASE series.n % 10
+            WHEN 0 THEN 'SOUTH_ASIAN'
+            WHEN 1 THEN 'BLACK_AFRICAN'
+            WHEN 2 THEN 'EAST_ASIAN'
+            WHEN 3 THEN 'EAST_ASIAN+WHITE_EUROPEAN'
+            WHEN 4 THEN 'MIDDLE_EASTERN_NORTH_AFRICAN'
+            ELSE 'WHITE_EUROPEAN'
+        END AS race,
+        CASE series.n % 8
+            WHEN 0 THEN 'London'
+            WHEN 1 THEN 'Birmingham'
+            WHEN 2 THEN 'Manchester'
+            WHEN 3 THEN 'Leeds'
+            WHEN 4 THEN 'Bristol'
+            WHEN 5 THEN 'Glasgow'
+            WHEN 6 THEN 'Cardiff'
+            ELSE 'Newcastle'
+        END AS region,
+        CASE series.n % 8
+            WHEN 0 THEN 'GREATER_LONDON'
+            WHEN 1 THEN 'WEST_MIDLANDS'
+            WHEN 2 THEN 'GREATER_MANCHESTER'
+            WHEN 3 THEN 'WEST_YORKSHIRE'
+            WHEN 4 THEN 'BRISTOL'
+            WHEN 5 THEN 'LANARKSHIRE'
+            WHEN 6 THEN 'CARDIFF'
+            ELSE 'TYNE_AND_WEAR'
+        END AS uk_county,
+        CASE series.n % 4
+            WHEN 0 THEN 'URBAN'
+            WHEN 1 THEN 'URBAN'
+            WHEN 2 THEN 'SUBURBAN'
+            ELSE 'RURAL'
+        END AS urban_rural,
+        CASE series.n % 8
+            WHEN 0 THEN 'UNITED_KINGDOM'
+            WHEN 1 THEN 'INDIA'
+            WHEN 2 THEN 'NIGERIA'
+            WHEN 3 THEN 'POLAND'
+            WHEN 4 THEN 'PAKISTAN'
+            WHEN 5 THEN 'IRELAND'
+            WHEN 6 THEN 'UNITED_STATES'
+            ELSE 'AUSTRALIA'
+        END AS country_of_birth,
+        CASE series.n % 8
+            WHEN 1 THEN 'BRITISH+INDIA'
+            WHEN 3 THEN 'BRITISH+POLAND'
+            WHEN 5 THEN 'BRITISH+IRELAND'
+            ELSE 'BRITISH'
+        END AS citizenship,
+        CASE series.n % 8
+            WHEN 0 THEN 'NO_RELIGION'
+            WHEN 1 THEN 'CHRISTIANITY'
+            WHEN 2 THEN 'ISLAM'
+            WHEN 3 THEN 'HINDUISM'
+            WHEN 4 THEN 'BUDDHISM'
+            WHEN 5 THEN 'JUDAISM'
+            WHEN 6 THEN 'SIKHISM'
+            ELSE 'OTHER_RELIGION'
+        END AS religion,
+        CASE series.n % 8
+            WHEN 0 THEN 'NOT_RELIGIOUS'
+            WHEN 1 THEN 'SLIGHTLY_RELIGIOUS'
+            WHEN 2 THEN 'MODERATELY_RELIGIOUS'
+            WHEN 3 THEN 'VERY_RELIGIOUS'
+            WHEN 4 THEN 'SLIGHTLY_RELIGIOUS'
+            WHEN 5 THEN 'MODERATELY_RELIGIOUS'
+            WHEN 6 THEN 'VERY_RELIGIOUS'
+            ELSE 'MODERATELY_RELIGIOUS'
+        END AS religiosity,
+        CASE series.n % 8
+            WHEN 0 THEN 'NO_FORMAL_QUALIFICATIONS'
+            WHEN 1 THEN 'SECONDARY_SCHOOL'
+            WHEN 2 THEN 'VOCATIONAL_TECHNICAL'
+            WHEN 3 THEN 'HIGHER_EDUCATION_BELOW_DEGREE'
+            WHEN 4 THEN 'BACHELORS'
+            WHEN 5 THEN 'MASTERS'
+            WHEN 6 THEN 'DOCTORATE'
+            ELSE 'OTHER'
+        END AS education,
+        CASE series.n % 8
+            WHEN 0 THEN 'STUDENT'
+            WHEN 1 THEN 'EMPLOYED_FULL_TIME'
+            WHEN 2 THEN 'EMPLOYED_PART_TIME'
+            WHEN 3 THEN 'SELF_EMPLOYED'
+            WHEN 4 THEN 'CASUAL_GIG_TEMP'
+            WHEN 5 THEN 'UNEMPLOYED_LOOKING'
+            WHEN 6 THEN 'CARER_HOMEMAKER'
+            ELSE 'RETIRED'
+        END AS occupation,
+        CASE series.n % 8
+            WHEN 0 THEN 'NOT_APPLICABLE'
+            WHEN 1 THEN 'IT_TECHNOLOGY'
+            WHEN 2 THEN 'HEALTHCARE'
+            WHEN 3 THEN 'PROFESSIONAL_SERVICES'
+            WHEN 4 THEN 'HOSPITALITY'
+            WHEN 5 THEN 'NOT_APPLICABLE'
+            WHEN 6 THEN 'SOCIAL_CARE'
+            ELSE 'NOT_APPLICABLE'
+        END AS employment_sector,
+        CASE series.n % 8
+            WHEN 3 THEN 'SOCIOLOGY'
+            WHEN 4 THEN 'COMPUTER_SCIENCE'
+            WHEN 5 THEN 'BUSINESS'
+            WHEN 6 THEN 'MEDICINE'
+            ELSE NULL
+        END AS university_subject,
+        'V2_TIER_' || ((series.n % 7) + 1) AS personal_income_range,
+        'V2_TIER_' || (((series.n + 2) % 7) + 1) AS household_income_range,
+        CASE series.n % 8
+            WHEN 0 THEN 'FEET_4_10_TO_5_0'
+            WHEN 1 THEN 'FEET_5_1_TO_5_3'
+            WHEN 2 THEN 'FEET_5_4_TO_5_6'
+            WHEN 3 THEN 'FEET_5_7_TO_5_9'
+            WHEN 4 THEN 'FEET_5_10_TO_6_0'
+            WHEN 5 THEN 'FEET_6_1_TO_6_3'
+            WHEN 6 THEN 'FEET_6_4_TO_6_6'
+            ELSE 'FEET_6_7_TO_6_9'
+        END AS height,
+        CASE series.n % 8
+            WHEN 0 THEN 'KG_40_49'
+            WHEN 1 THEN 'KG_50_59'
+            WHEN 2 THEN 'KG_60_69'
+            WHEN 3 THEN 'KG_70_79'
+            WHEN 4 THEN 'KG_80_89'
+            WHEN 5 THEN 'KG_90_99'
+            WHEN 6 THEN 'KG_100_109'
+            ELSE 'KG_110_119'
+        END AS weight_range,
+        CASE series.n % 8
+            WHEN 0 THEN 'BROWN'
+            WHEN 1 THEN 'BLUE'
+            WHEN 2 THEN 'GREEN'
+            WHEN 3 THEN 'HAZEL'
+            WHEN 4 THEN 'AMBER'
+            WHEN 5 THEN 'GRAY'
+            WHEN 6 THEN 'BLACK_DARK_BROWN'
+            ELSE 'OTHER_UNSURE'
+        END AS eye_color,
+        CASE series.n % 4
+            WHEN 0 THEN 'NOT_PARENT_CAREGIVER'
+            WHEN 1 THEN 'PARENT_CAREGIVER_UNDER_18'
+            WHEN 2 THEN 'PARENT_CAREGIVER_ADULT_ONLY'
+            ELSE 'EXPECTING'
+        END AS parent,
+        CASE series.n % 4
+            WHEN 0 THEN '0_2'
+            WHEN 1 THEN '3_5'
+            WHEN 2 THEN '6_8'
+            ELSE '9_10'
+        END AS news_frequency,
+        CASE WHEN series.n % 3 = 0 THEN 'false' ELSE 'true' END AS has_pet,
+        CASE series.n % 6
+            WHEN 0 THEN NULL
+            WHEN 1 THEN 'CAT'
+            WHEN 2 THEN 'DOG'
+            WHEN 3 THEN NULL
+            WHEN 4 THEN 'CAT+DOG'
+            ELSE 'FISH'
+        END AS pet_type,
+        CASE series.n % 3
+            WHEN 0 THEN 'MORNING_LARK'
+            WHEN 1 THEN 'NIGHT_OWL'
+            ELSE 'IN_BETWEEN'
+        END AS chronotype,
+        CASE series.n % 4
+            WHEN 0 THEN 'OPTIMIST'
+            WHEN 1 THEN 'PESSIMIST'
+            WHEN 2 THEN 'DEPENDS'
+            ELSE 'UNSURE'
+        END AS outlook,
+        CASE WHEN series.n % 4 = 0 THEN 'true' ELSE 'false' END AS neurodivergent,
+        CASE series.n % 8
+            WHEN 0 THEN 'ADHD'
+            WHEN 4 THEN 'AUTISM+DYSLEXIA'
+            ELSE NULL
+        END AS neurodivergence_type,
+        CASE WHEN series.n % 5 = 0 THEN 'true' ELSE 'false' END AS has_disability,
+        CASE series.n % 10
+            WHEN 0 THEN 'PHYSICAL_MOBILITY'
+            WHEN 5 THEN 'CHRONIC_ILLNESS+HEARING'
+            ELSE NULL
+        END AS disability_type,
+        CASE series.n % 6
+            WHEN 0 THEN 'PRIVATE_RENT'
+            WHEN 1 THEN 'SOCIAL_RENT'
+            WHEN 2 THEN 'OWN_MORTGAGE'
+            WHEN 3 THEN 'OWN_OUTRIGHT'
+            WHEN 4 THEN 'LIVE_WITH_FAMILY'
+            ELSE 'SHARED_OWNERSHIP'
+        END AS housing_status,
+        CASE series.n % 6
+            WHEN 0 THEN 'DETACHED'
+            WHEN 1 THEN 'SEMI_DETACHED'
+            WHEN 2 THEN 'TERRACED'
+            WHEN 3 THEN 'FLAT_APARTMENT'
+            WHEN 4 THEN 'ROOM_SHARED_HOUSE'
+            ELSE 'OTHER_UNKNOWN'
+        END AS property_type,
+        CASE WHEN series.n % 2 = 0 THEN 'true' ELSE 'false' END AS balanced_news_viewpoint,
+        CASE series.n % 5
+            WHEN 0 THEN '0_24'
+            WHEN 1 THEN '25_49'
+            WHEN 2 THEN '50'
+            WHEN 3 THEN '51_75'
+            ELSE '76_100'
+        END AS mainstream_news_percent
+    FROM post_specs spec
+    CROSS JOIN LATERAL generate_series(0, spec.vote_count - 1) AS series(n)
+),
+selected_options AS (
+    SELECT
+        profiles.*,
+        CASE
+            WHEN post_id IN (2000, 2001, 2004, 2005) THEN
+                CASE
+                    WHEN ((n * 73 + post_id) % 100) <
+                         LEAST(90, GREATEST(15,
+                             base_support
+                             + CASE political_persuasion
+                                 WHEN 'LEFT' THEN 8
+                                 WHEN 'CENTRE_LEFT' THEN 5
+                                 WHEN 'CENTRE_RIGHT' THEN -4
+                                 WHEN 'RIGHT' THEN -8
+                                 ELSE 0
+                               END
+                             + CASE age_range
+                                 WHEN 'AGE_18_19' THEN 4
+                                 WHEN 'AGE_20_24' THEN 4
+                                 WHEN 'AGE_65_74' THEN -3
+                                 WHEN 'AGE_75_84' THEN -5
+                                 ELSE 0
+                               END
+                             + CASE urban_rural
+                                 WHEN 'URBAN' THEN 3
+                                 WHEN 'RURAL' THEN -3
+                                 ELSE 0
+                               END
+                         ))
+                    THEN 0 ELSE 1
+                END
+            WHEN post_id = 2002 THEN
+                CASE
+                    WHEN ((n * 41 + 7) % 100) < 24 THEN 0
+                    WHEN ((n * 41 + 7) % 100) < 53 THEN 1
+                    WHEN ((n * 41 + 7) % 100) < 81 THEN 2
+                    ELSE 3
+                END
+            WHEN post_id = 2003 THEN
+                CASE
+                    WHEN ((n * 37 + 11) % 100) < 32 THEN 0
+                    WHEN ((n * 37 + 11) % 100) < 57 THEN 1
+                    WHEN ((n * 37 + 11) % 100) < 88 THEN 2
+                    ELSE 3
+                END
+            ELSE
+                CASE
+                    WHEN ((n * 43 + 13) % 100) < 31 THEN 0
+                    WHEN ((n * 43 + 13) % 100) < 59 THEN 1
+                    WHEN ((n * 43 + 13) % 100) < 86 THEN 2
+                    ELSE 3
+                END
+        END AS option_ordinal
+    FROM profiles
+)
+INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot)
+SELECT
+    selected_options.post_id,
+    selected_options.user_id,
+    (SELECT option.id
+       FROM post_vote_option option
+      WHERE option.post_id = selected_options.post_id
+        AND option.ordinal = selected_options.option_ordinal),
+    jsonb_build_object(
+        'politicalPersuasion', political_persuasion,
+        'ageRange', age_range,
+        'gender', gender,
+        'sexAtBirth', sex_at_birth,
+        'sexualOrientation', sexual_orientation,
+        'maritalStatus', marital_status,
+        'race', race,
+        'country', 'United Kingdom',
+        'region', region,
+        'urbanRural', urban_rural,
+        'ukCounty', uk_county,
+        'countryOfBirth', country_of_birth,
+        'citizenship', citizenship,
+        'religion', religion,
+        'religiosity', religiosity,
+        'education', education,
+        'occupation', occupation,
+        'employmentSector', employment_sector,
+        'universitySubject', university_subject,
+        'personalIncomeRange', personal_income_range,
+        'householdIncomeRange', household_income_range,
+        'height', height,
+        'weightRange', weight_range,
+        'eyeColor', eye_color,
+        'parent', parent,
+        'newsFrequency', news_frequency,
+        'hasPet', has_pet,
+        'petType', pet_type,
+        'chronotype', chronotype,
+        'outlook', outlook,
+        'neurodivergent', neurodivergent,
+        'neurodivergenceType', neurodivergence_type,
+        'hasDisability', has_disability,
+        'disabilityType', disability_type,
+        'housingStatus', housing_status,
+        'propertyType', property_type,
+        'raceMemberships', to_jsonb(string_to_array(race, '+')),
+        'citizenshipMemberships', to_jsonb(string_to_array(citizenship, '+')),
+        'petTypeMemberships',
+            COALESCE(to_jsonb(string_to_array(pet_type, '+')), '[]'::jsonb),
+        'neurodivergenceTypeMemberships',
+            COALESCE(to_jsonb(string_to_array(neurodivergence_type, '+')), '[]'::jsonb),
+        'disabilityTypeMemberships',
+            COALESCE(to_jsonb(string_to_array(disability_type, '+')), '[]'::jsonb),
+        'balancedNewsViewpoint', balanced_news_viewpoint,
+        'mainstreamNewsPercent', mainstream_news_percent
+    )
+FROM selected_options
+ORDER BY post_id, user_id;
+
+SELECT setval(pg_get_serial_sequence('post', 'id'), (SELECT MAX(id) FROM post));
+SELECT setval(pg_get_serial_sequence('post_media', 'id'), (SELECT MAX(id) FROM post_media));
+SELECT setval(pg_get_serial_sequence('post_vote_option', 'id'), (SELECT MAX(id) FROM post_vote_option));
+SELECT setval(pg_get_serial_sequence('votes', 'id'), (SELECT MAX(id) FROM votes));
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

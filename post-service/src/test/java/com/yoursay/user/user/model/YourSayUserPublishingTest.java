@@ -12,14 +12,12 @@ class YourSayUserPublishingTest {
     void onlyAnActiveOfficialCanPublish() {
         YourSayUser account = new YourSayUser("editor@yoursay.example", "Editorial", "Desk");
 
-        assertEquals(AccountType.STANDARD, account.getAccountType());
+        assertEquals(AccountType.USER, account.getAccountType());
         assertEquals(PublisherStatus.NONE, account.getPublisherStatus());
         assertFalse(account.canPublish());
 
         account.setAccountType(AccountType.OFFICIAL);
-        assertFalse(account.canPublish());
-
-        account.setPublisherStatus(PublisherStatus.ACTIVE);
+        assertEquals(PublisherStatus.ACTIVE, account.getPublisherStatus());
         assertTrue(account.canPublish());
 
         account.setActive(false);
@@ -30,15 +28,17 @@ class YourSayUserPublishingTest {
 
         account.setPublisherStatus(PublisherStatus.SUSPENDED);
         assertFalse(account.canPublish());
+
+        account.setPublisherStatus(PublisherStatus.NONE);
+        assertFalse(account.canPublish());
     }
 
     @Test
-    void returningToStandardClearsPublishingStateAndRejectsPublisherStatuses() {
+    void nonOfficialAccountTypesClearPublishingStateAndRejectPublisherStatuses() {
         YourSayUser account = new YourSayUser("former.editor@yoursay.example", "Former", "Editor");
         account.setAccountType(AccountType.OFFICIAL);
-        account.setPublisherStatus(PublisherStatus.ACTIVE);
 
-        account.setAccountType(AccountType.STANDARD);
+        account.setAccountType(AccountType.USER);
 
         assertEquals(PublisherStatus.NONE, account.getPublisherStatus());
         assertFalse(account.canPublish());
@@ -46,5 +46,13 @@ class YourSayUserPublishingTest {
                 () -> account.setPublisherStatus(PublisherStatus.ACTIVE));
         assertThrows(IllegalArgumentException.class,
                 () -> account.setPublisherStatus(PublisherStatus.SUSPENDED));
+
+        account.setAccountType(AccountType.OFFICIAL);
+        account.setAccountType(AccountType.ADMIN);
+
+        assertEquals(PublisherStatus.NONE, account.getPublisherStatus());
+        assertFalse(account.canPublish());
+        assertThrows(IllegalArgumentException.class,
+                () -> account.setPublisherStatus(PublisherStatus.ACTIVE));
     }
 }

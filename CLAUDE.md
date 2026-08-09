@@ -67,16 +67,17 @@ bun run test                          # backend Testcontainers + frontend Jest, 
 Compose with `--build`, `post-service` (:8082) and the Expo frontend (:5173), each in its own pane.
 Rebuilding on startup ensures the Liquibase migration and seed images always contain the current
 changelog files. Its startup script first verifies that Docker Desktop's daemon and Docker Compose
-are available. The application panes wait for Compose to become ready. When the Compose process is
+are available and that `YOUR_SAY_NEWS_GROK_API_KEY` is present. The application panes wait for
+Compose to become ready. When the Compose process is
 selected, `r` runs `docker compose down` and brings the stack back up with a rebuild; on other
 selected processes, `r` retains mprocs' normal focused-process restart behavior. `q` quits all
 processes and brings the Compose stack down. Docker volumes are preserved by both operations.
 Before each application pane starts, mprocs terminates any existing listener on its assigned port
 (`8082` or `5173`) so stale local dev processes do not block startup.
 
-`bun run test` uses the separate `mprocs.test.yaml` config to run `post-service` and frontend tests
-in independent panes. Backend tests use Testcontainers and random Quarkus HTTP ports; the test
-runner does not invoke Docker Compose. Select a pane and press `r` to rerun only that suite.
+`bun run test` uses the separate `mprocs.test.yaml` config to run `post-service`, Expo frontend and
+admin frontend tests in independent panes. Backend tests use Testcontainers and random Quarkus HTTP
+ports; the test runner does not invoke Docker Compose. Select a pane and press `r` to rerun only that suite.
 Completed panes remain open with an explicit PASS/FAIL result; `bun run tests` is supported as an
 alias.
 
@@ -112,8 +113,9 @@ Clear structure is non-negotiable. The package layout encodes the architecture.
 ```
 com.yoursay.<domain>/                 <- top-level package = a DOMAIN (e.g. user, post, vote)
   <Domain>Controller.java             <- REST controllers          ┐ the domain's PUBLIC face,
-  <Domain>Service.java (interface)     <- public service interfaces ├ sit at the TOP LEVEL — the
-  <Domain>Dto.java                     <- DTOs crossing boundaries  ┘ ONLY things other domains touch
+  <Domain>Service.java (interface)     <- public service interfaces ┘ sit at the TOP LEVEL
+  dto/                                <- DTOs crossing boundaries — also PUBLIC
+    <Domain>Dto.java
   model/                              <- entities, repositories                ── internal sub-package
   service/                            <- service implementations, business logic ── internal sub-package
   ...                                 <- other tech-driven sub-packages, all internal
@@ -122,16 +124,21 @@ com.yoursay.<domain>/                 <- top-level package = a DOMAIN (e.g. user
 Rules:
 
 1. **Each top-level package is a domain.** (`user`, `usercharacteristic`, `post`, `vote`, …)
-2. The domain's **public face sits directly at the top level of the domain package**: REST
-   controllers, the public Java **interfaces** (e.g. service contracts), and the **DTOs** that
-   cross domain boundaries. These are the only things other domains may touch. Do **not** nest
-   them in an `interfaces/` sub-package.
-3. **Everything else goes in sub-packages and must never be referenced from outside the domain
-   package.** Entities, repositories, service *implementations*, mappers, etc. are private to the
-   domain. Cross domains only through the top-level controllers / interfaces / DTOs, never by
-   reaching into another domain's `model` or `service`.
+2. The domain's **public face** consists of its top-level package and its `dto` sub-package.
+   REST controllers and public Java **interfaces** (e.g. service contracts) sit directly at the
+   top level. DTOs sit in `dto/` so the domain's chain of events is immediately visible without
+   DTO declarations obscuring it. Do **not** nest controllers or public interfaces in an
+   `interfaces/` sub-package.
+3. **Every sub-package except `dto` is internal and must never be referenced from outside the
+   domain package.** Entities, repositories, service *implementations*, mappers, etc. are private
+   to the domain. Cross domains only through top-level controllers/interfaces or types in `dto`,
+   never by reaching into another domain's `model`, `service`, or other internal package.
 4. Below the top level, organise sub-packages by **technical concern** (`model`, `service`, etc.)
    — tech-driven design inside the domain, domain-driven design at the top.
+5. **REST controller methods must not return the generic JAX-RS `Response` type.** Declare the
+   concrete DTO response contract (including collection or asynchronous wrappers where needed) and
+   express HTTP status codes with annotations such as `@ResponseStatus`. Returning `Response`
+   weakens the public Java/API contract and is prohibited.
 
 The deliberate exception is `com.yoursay.agents`: it is a namespace for role-specific official
 publishing agent subdomains. `postagent` and the planned `ysnagent` are separate domain boundaries
@@ -140,8 +147,8 @@ beneath it, and each follows the public-face/internal-subpackage rules above ind
 technical package, not another domain.
 
 > Current code is mid-migration toward this. When you touch a domain, move it toward the structure
-> above — controllers, public interfaces and DTOs flattened to the domain's top level, everything
-> else pushed down into `model/`, `service/`, etc. — rather than adding to the old shape.
+> above — controllers and public interfaces at the domain's top level, DTOs in `dto/`, and
+> everything else pushed down into `model/`, `service/`, etc. — rather than adding to the old shape.
 
 ### Testing philosophy (applies to both backend and frontend)
 
@@ -150,7 +157,7 @@ that has logic worth each. Optimise for **signal, not coverage** — a handful o
 pin core logic and the edge cases where bugs live beats a wall of weak ones. Every test must be
 **concise and clear**: representative data, assertions that pin **expected values** (never just
 "not null" / "size > 0"), and it must actually fail if the code breaks. Do not add tests to chase a
-coverage number. After writing tests, run the `test-audit` skill.
+coverage number. After writing tests, run the `test-audit-for-after-changing-tests` skill.
 
 - **Unit tests** — pure domain logic and algorithms in isolation, no framework boot, no
   datastore. Fast and focused (e.g. `SentimentTallyTest`, `FeedRankerTest`, `CharacteristicSnapshotTest`
@@ -316,14 +323,14 @@ the repo-root one (which is tuned for the Quarkus jar build).
 
 ## Skills
 
-- `test-audit` — audits whether tests give real signal.
+- `test-audit-for-after-changing-tests` — audits whether tests give real signal.
 - `commit-message` — commit message conventions.
 
 Side note: Don't do work on a new branch unless instructed by a user or a designated skill
 
 ---
 
-**After writing tests for a feature, run the `test-audit` skill** to confirm the tests actually
+**After writing tests for a feature, run the `test-audit-for-after-changing-tests` skill** to confirm the tests actually
 provide signal (representative data, assertions that pin expected values, and a suite that would
 genuinely fail if the code broke).
 
