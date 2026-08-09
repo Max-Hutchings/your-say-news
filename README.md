@@ -59,3 +59,6 @@ docker compose version
 ```shell
 bun run dev
 ```
+
+Remote development-environment infrastructure and deployment operations live under
+[`service/`](./service/).

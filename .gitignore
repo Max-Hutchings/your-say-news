@@ -1,5 +1,7 @@
 # Build outputs
 build/
+!.github/templates/application/build/
+!.github/templates/application/build/**
 out/
 dist/
 .gradle/
@@ -64,6 +66,17 @@ nb-configuration.xml
 .env.*
 !.env.example
 *.local
+service/deploy/runtime.env
+
+# Terraform working data and local backend configuration
+**/.terraform/
+.terraform.d/
+credentials.tfrc.json
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars.local
+service/infra/**/*.backend.hcl
 
 # Plugin directory
 /.quarkus/cli/plugins/

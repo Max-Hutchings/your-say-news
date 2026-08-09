@@ -1,0 +1,204 @@
+name: Application Development
+run-name: Application development · ${{ github.ref_name }} · ${{ github.sha }}
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - .github/workflows/dev-app.yml
+      - .github/templates/application/**
+      - build.gradle.kts
+      - gradle.properties
+      - settings.gradle.kts
+      - gradle/**
+      - gradlew
+      - liquibase/**
+      - post-service/**
+      - service/deploy/**
+  workflow_dispatch:
+    inputs:
+      snapshot_run_id:
+        description: Run ID of the successful commit snapshot workflow
+        required: true
+        type: string
+      commit_sha:
+        description: Full 40-character SHA shown in that snapshot summary
+        required: true
+        type: string
+      confirmation:
+        description: Type "deploy development" after reviewing the snapshots and bundle
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  packages: read
+
+concurrency:
+  group: application-development
+  cancel-in-progress: false
+
+env:
+  POST_SERVICE_SNAPSHOT_IMAGE: ghcr.io/max-hutchings/your-say-news-post-service-snapshot
+  MIGRATION_SNAPSHOT_IMAGE: ghcr.io/max-hutchings/your-say-news-migrations-snapshot
+  ALLOY_IMAGE: grafana/alloy@sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308
+  DEPLOYMENT_ROOT: /opt/your-say-news
+  SSH_HOSTNAME: ssh-dev.yoursaynews.com
+  PUBLIC_HEALTH_URL: https://dev.yoursaynews.com/api/live
+  CLOUDFLARED_VERSION: 2026.7.3
+  CLOUDFLARED_SHA256: 9d71c677db00134c1bd4144b7783486b654ad281b1ea62b4972098d19f770f17
+
+jobs:
+  test:
+    name: Test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    outputs:
+      short-sha: ${{ steps.test.outputs.short-sha }}
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Set up GraalVM 25
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test the commit snapshot
+        id: test
+        uses: ./.github/templates/application/test
+
+  build-post-service-image:
+    name: Build · Post-service image
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Set up GraalVM 25
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the post-service image
+        uses: ./.github/templates/application/build/post-service
+        with:
+          image-artifact: post-service-snapshot-image-${{ needs.test.outputs.short-sha }}
+          image-name: ${{ env.POST_SERVICE_SNAPSHOT_IMAGE }}
+          short-sha: ${{ needs.test.outputs.short-sha }}
+
+  build-migration-image:
+    name: Build · Migration image
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Build the migration image
+        uses: ./.github/templates/application/build/migration
+        with:
+          image-artifact: migration-snapshot-image-${{ needs.test.outputs.short-sha }}
+          image-name: ${{ env.MIGRATION_SNAPSHOT_IMAGE }}
+          short-sha: ${{ needs.test.outputs.short-sha }}
+
+  publish:
+    name: Publish · Commit snapshot
+    needs:
+      - test
+      - build-post-service-image
+      - build-migration-image
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Publish and seal the commit snapshot
+        uses: ./.github/templates/application/publish
+        with:
+          environment-name: development
+          post-service-image-artifact: post-service-snapshot-image-${{ needs.test.outputs.short-sha }}
+          migration-image-artifact: migration-snapshot-image-${{ needs.test.outputs.short-sha }}
+          post-service-image: ${{ env.POST_SERVICE_SNAPSHOT_IMAGE }}
+          migration-image: ${{ env.MIGRATION_SNAPSHOT_IMAGE }}
+          short-sha: ${{ needs.test.outputs.short-sha }}
+          deployment-artifact: application-development-snapshot-${{ needs.test.outputs.short-sha }}
+          alloy-image: ${{ env.ALLOY_IMAGE }}
+
+  deploy:
+    name: Deploy · Explicit manual deployment
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_ID }}
+      TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CLOUDFLARE_ACCESS_CLIENT_SECRET }}
+      SSH_PRIVATE_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
+      DB_URL: ${{ secrets.DEV_DB_JDBC_URL }}
+      DB_REACTIVE_URL: ${{ secrets.DEV_DB_REACTIVE_URL }}
+      MIGRATION_DB_USERNAME: ${{ secrets.DEV_DB_MIGRATION_USERNAME }}
+      MIGRATION_DB_PASSWORD: ${{ secrets.DEV_DB_MIGRATION_PASSWORD }}
+      DB_USERNAME: ${{ secrets.DEV_DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DEV_DB_PASSWORD }}
+      OIDC_AUTH_SERVER_URL: ${{ secrets.DEV_OIDC_AUTH_SERVER_URL }}
+      OIDC_CLIENT_ID: ${{ secrets.DEV_OIDC_CLIENT_ID }}
+      S3_ACCESS_KEY_ID: ${{ secrets.DEV_R2_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.DEV_R2_SECRET_ACCESS_KEY }}
+      XAI_API_KEY: ${{ secrets.DEV_XAI_API_KEY }}
+      UNWRAPPED_API_KEY: ${{ secrets.DEV_UNWRAPPED_API_KEY }}
+      GRAFANA_CLOUD_OTLP_ENDPOINT: ${{ secrets.DEV_GRAFANA_CLOUD_OTLP_ENDPOINT }}
+      GRAFANA_CLOUD_OTLP_AUTHORIZATION: ${{ secrets.DEV_GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
+      S3_ENDPOINT: https://9538d45e127bdb7d6b1bf1ecf9020146.eu.r2.cloudflarestorage.com
+      S3_REGION: auto
+      POSTS_MEDIA_BUCKET: your-say-news-media-development
+      VOTE_SUPPRESSION_THRESHOLD: "5"
+    steps:
+      - name: Check out the selected workflow revision
+        uses: actions/checkout@v6
+
+      - name: Authorize the reviewed development snapshot
+        uses: ./.github/templates/application/authorize-deploy
+        with:
+          environment-name: development
+          snapshot-run-id: ${{ inputs.snapshot_run_id }}
+          expected-commit: ${{ inputs.commit_sha }}
+          confirmation: ${{ inputs.confirmation }}
+          confirmation-phrase: deploy development
+          expected-workflow-path: .github/workflows/dev-app.yml
+          github-token: ${{ github.token }}
+
+      - name: Deploy the reviewed development snapshot
+        uses: ./.github/templates/application/deploy
+        with:
+          environment-name: development
+          snapshot-run-id: ${{ inputs.snapshot_run_id }}
+          commit-sha: ${{ inputs.commit_sha }}
+          artifact-prefix: application-development-snapshot
+          github-token: ${{ github.token }}
+          deployment-root: ${{ env.DEPLOYMENT_ROOT }}
+          ssh-hostname: ${{ env.SSH_HOSTNAME }}
+          public-health-url: ${{ env.PUBLIC_HEALTH_URL }}
+          cloudflared-version: ${{ env.CLOUDFLARED_VERSION }}
+          cloudflared-sha256: ${{ env.CLOUDFLARED_SHA256 }}

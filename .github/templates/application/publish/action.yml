@@ -1,0 +1,168 @@
+name: Publish application snapshot
+description: Publish both built image archives and seal their digests into a deployment snapshot.
+
+inputs:
+  environment-name:
+    description: Environment represented by this snapshot.
+    required: true
+  post-service-image-artifact:
+    description: Built post-service image archive artifact.
+    required: true
+  migration-image-artifact:
+    description: Built migration image archive artifact.
+    required: true
+  post-service-image:
+    description: Post-service snapshot package name.
+    required: true
+  migration-image:
+    description: Migration snapshot package name.
+    required: true
+  short-sha:
+    description: Seven-character source commit SHA used in image tags and snapshot names.
+    required: true
+  deployment-artifact:
+    description: Name of the sealed deployment snapshot artifact.
+    required: true
+  alloy-image:
+    description: Immutable Alloy image reference.
+    required: true
+
+outputs:
+  post-service-digest:
+    description: Published post-service digest.
+    value: ${{ steps.publish.outputs.post-service-digest }}
+  migration-digest:
+    description: Published migration digest.
+    value: ${{ steps.publish.outputs.migration-digest }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download the post-service image archive
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.post-service-image-artifact }}
+        path: ${{ runner.temp }}/snapshot-images/post-service
+
+    - name: Download the migration image archive
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.migration-image-artifact }}
+        path: ${{ runner.temp }}/snapshot-images/migration
+
+    - name: Log in to the private snapshot registry
+      uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Publish both commit snapshots
+      id: publish
+      shell: bash
+      env:
+        POST_SERVICE_TAG: ${{ inputs.post-service-image }}:sha-${{ inputs.short-sha }}
+        MIGRATION_TAG: ${{ inputs.migration-image }}:sha-${{ inputs.short-sha }}
+      run: |
+        set -euo pipefail
+
+        if [[ ! '${{ inputs.short-sha }}' =~ ^[0-9a-f]{7}$ ]]; then
+          echo "::error title=Invalid snapshot revision::Expected a seven-character hexadecimal commit SHA"
+          exit 1
+        fi
+
+        docker load --input "$RUNNER_TEMP/snapshot-images/post-service/post-service-image.tar"
+        docker load --input "$RUNNER_TEMP/snapshot-images/migration/migration-image.tar"
+        docker image inspect "$POST_SERVICE_TAG" >/dev/null
+        docker image inspect "$MIGRATION_TAG" >/dev/null
+
+        publish_image() {
+          local image_tag=$1
+          local push_output
+          local digest
+
+          push_output=$(docker push "$image_tag")
+          printf '%s\n' "$push_output" >&2
+          digest=$(printf '%s\n' "$push_output" \
+            | sed -n 's/^.*digest: \(sha256:[0-9a-f]\{64\}\).*$/\1/p' \
+            | tail -n 1)
+
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error title=Snapshot publication failed::No immutable digest was returned for $image_tag"
+            exit 1
+          fi
+
+          printf '%s\n' "$digest"
+        }
+
+        post_service_digest=$(publish_image "$POST_SERVICE_TAG" | tail -n 1)
+        migration_digest=$(publish_image "$MIGRATION_TAG" | tail -n 1)
+
+        echo "post-service-digest=$post_service_digest" >> "$GITHUB_OUTPUT"
+        echo "migration-digest=$migration_digest" >> "$GITHUB_OUTPUT"
+        echo "::notice title=Commit snapshots published::Both tested image archives were published by immutable digest"
+
+    - name: Seal the deployment snapshot
+      shell: bash
+      env:
+        POST_SERVICE_DIGEST: ${{ steps.publish.outputs.post-service-digest }}
+        MIGRATION_DIGEST: ${{ steps.publish.outputs.migration-digest }}
+      run: |
+        set -euo pipefail
+        bundle_directory="$RUNNER_TEMP/application-${{ inputs.environment-name }}"
+        mkdir -p "$bundle_directory"
+
+        tar \
+          --create \
+          --gzip \
+          --file "$bundle_directory/deployment.tar.gz" \
+          --directory service/deploy \
+          alloy compose.yaml scripts
+
+        printf '%s  %s\n' \
+          "$(sha256sum "$bundle_directory/deployment.tar.gz" | cut -d ' ' -f 1)" \
+          deployment.tar.gz > "$bundle_directory/deployment.tar.gz.sha256"
+
+        {
+          printf 'SOURCE_COMMIT=%s\n' "$GITHUB_SHA"
+          printf 'SOURCE_SHORT_COMMIT=%s\n' '${{ inputs.short-sha }}'
+          printf 'SOURCE_RUN_ID=%s\n' "$GITHUB_RUN_ID"
+          printf 'POST_SERVICE_IMAGE=%s@%s\n' '${{ inputs.post-service-image }}' "$POST_SERVICE_DIGEST"
+          printf 'MIGRATION_IMAGE=%s@%s\n' '${{ inputs.migration-image }}' "$MIGRATION_DIGEST"
+          printf 'ALLOY_IMAGE=%s\n' '${{ inputs.alloy-image }}'
+        } > "$bundle_directory/deployment-metadata.env"
+
+        printf '%s  %s\n' \
+          "$(sha256sum "$bundle_directory/deployment-metadata.env" | cut -d ' ' -f 1)" \
+          deployment-metadata.env > "$bundle_directory/deployment-metadata.env.sha256"
+
+        {
+          echo "## ${{ inputs.environment-name }} commit snapshot"
+          echo
+          echo "- Tests: passed"
+          echo "- Java runtime: GraalVM 25"
+          echo "- Post-service snapshot: \`${{ inputs.post-service-image }}@$POST_SERVICE_DIGEST\`"
+          echo "- Migration snapshot: \`${{ inputs.migration-image }}@$MIGRATION_DIGEST\`"
+          echo "- Deployment bundle: checksum sealed"
+          echo
+          echo "### Manual deployment reference"
+          echo
+          echo "- Snapshot run ID: \`$GITHUB_RUN_ID\`"
+          echo "- Short commit SHA: \`${{ inputs.short-sha }}\`"
+          echo "- Full commit SHA: \`$GITHUB_SHA\`"
+          echo "- Confirmation phrase: \`deploy ${{ inputs.environment-name }}\`"
+          echo
+          echo "Use these values with **Run workflow** after reviewing both snapshot digests."
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload the sealed deployment snapshot
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.deployment-artifact }}
+        path: |
+          ${{ runner.temp }}/application-${{ inputs.environment-name }}/deployment.tar.gz
+          ${{ runner.temp }}/application-${{ inputs.environment-name }}/deployment.tar.gz.sha256
+          ${{ runner.temp }}/application-${{ inputs.environment-name }}/deployment-metadata.env
+          ${{ runner.temp }}/application-${{ inputs.environment-name }}/deployment-metadata.env.sha256
+        if-no-files-found: error
+        retention-days: 1

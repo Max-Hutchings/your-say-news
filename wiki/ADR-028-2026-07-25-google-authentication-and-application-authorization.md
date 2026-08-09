@@ -2,9 +2,11 @@
 
 ## Status
 
-Proposed.
+Accepted on 2026-07-27.
 
-This ADR requires approval before the Keycloak implementation is removed.
+The application-owned authorisation boundary is accepted, with Firebase Authentication selected as
+the managed Google-compatible identity and session broker. Keycloak may be removed from the remote
+implementation after migration tests pass.
 
 ## Situation
 
@@ -46,23 +48,35 @@ The Android client authenticates with Google. The backend validates a Google ass
 user through the immutable Google `sub`, checks the application invitation and establishes a
 short-lived application session. PostgreSQL remains authoritative for access and permissions.
 
-## Proposed decision
+### 4. Use Firebase for Google identity/sessions and the application for admission and permissions
 
-Choose option 3.
+The Android client authenticates with Google through Firebase Authentication. Firebase owns
+identity-token issuance, refresh sessions, signing-key rotation and identity-session revocation.
+The backend validates the Firebase assertion and checks the application invitation, activity and
+permissions in PostgreSQL on protected operations.
 
-Google is the only external identity provider for this stage. The native Android flow must use an
-authorization-code/PKCE-compatible Google flow supported by the chosen Android library. The
-backend must validate, at minimum:
+This avoids an application-built token issuer while retaining the domain-authorisation boundary
+needed for future broker or cloud migration.
 
-- token signature against Google's published keys;
-- issuer;
-- audience/authorised presenter for the configured Android/backend clients;
+## Decision
+
+Choose option 4.
+
+Google is the only external identity provider for this stage. The native Android flow uses the
+supported Firebase Authentication and Credential Manager integration. The backend must validate,
+at minimum:
+
+- the Firebase ID-token signature against the broker's published keys;
+- issuer and Firebase project;
+- audience for the configured environment;
 - expiry;
-- nonce and code-verifier properties where the selected flow requires them; and
+- revocation for security-sensitive operations where immediate identity-session revocation is
+  required; and
 - `email_verified` when email is displayed or used to contact the tester.
 
-The application links identity using Google's case-sensitive `sub`. Email is profile/contact data,
-not a primary key or sole authorisation check.
+The application links identity using the case-sensitive Firebase UID carried in `sub` and retains
+the external issuer/subject mapping required for a future broker migration. Email is
+profile/contact data, not a primary key or sole authorisation check.
 
 An authenticated Google account is admitted only when it matches an active application invitation
 or existing active application identity. Account activity, application permission, `AccountType`
@@ -87,24 +101,12 @@ canPublish = accountActive
 `POST /admin/ysn-agent/posts` from ADR-027 must require application `ADMIN` rather than a Keycloak
 realm role. The fixed `ysn` application account and publisher checks remain unchanged.
 
-The backend should exchange the verified Google sign-in result for short-lived application access
-and rotating refresh sessions so that API authorisation is stable and revocable. Before
-implementation, a security design must specify:
+Firebase owns access-token signing, key rotation, refresh sessions and broker revocation. The
+implementation must still validate native Android storage, logout and lost-device behaviour,
+replay protections and audience separation between local, development and future production
+projects. It must not add a second application-issued JWT or refresh-token layer.
 
-- token signing/key rotation and public-key discovery;
-- access/refresh lifetimes;
-- refresh rotation, reuse detection and revocation;
-- secure Android storage;
-- logout and lost-device behaviour;
-- audience separation between environments;
-- CSRF/replay protections for every flow; and
-- migration to a managed broker such as AWS Cognito if operating an issuer is no longer justified.
-
-This ADR does not authorise an improvised custom JWT implementation. If the team cannot meet those
-requirements safely, use a reviewed managed Google-compatible token broker for the development
-environment while preserving the same application-owned invitation/permission model.
-
-Bootstrap the first `ADMIN` by immutable Google `sub` through a one-time audited migration or
+Bootstrap the first `ADMIN` by immutable broker `sub` through a one-time audited migration or
 privileged operational command. Do not commit the subject, email, access token or refresh token to
 Git, Terraform variables or Terraform state.
 
@@ -124,29 +126,32 @@ This removes two unnecessary development workloads without making product permis
 Google administration. It follows ADR-023's existing separation: the identity provider proves who
 the caller is, while the application decides what that caller may do.
 
-Using `sub` prevents account linking from breaking when an email changes. Short-lived application
-sessions allow immediate invitation/permission revocation and present a stable bearer-token
-boundary to the Quarkus API. That boundary can later be implemented behind AWS Cognito or another
-managed issuer without rewriting the domain authorisation model.
+Using `sub` prevents account linking from breaking when an email changes. Managed Firebase ID and
+refresh tokens avoid operating a security-sensitive issuer. Checking application activity and
+permissions in PostgreSQL keeps invitation, permission and publisher revocation under application
+control. The broker boundary can later move to AWS Cognito or another managed issuer without
+rewriting the domain authorisation model.
 
 ## Consequences and follow-up work
 
 - Remove Keycloak and its PostgreSQL container from the remote deployment after migration tests
   pass. Retaining Keycloak in local Compose during the transition is temporary.
-- Replace Keycloak realm/client configuration in Quarkus and Expo.
-- Add invitation, external-identity, application-permission, session/revocation and audit schema.
+- Replace Keycloak realm/client configuration in Quarkus and Expo with Firebase Authentication and
+  Google Sign-In.
+- Add invitation, external-identity, application-permission, broker-revocation metadata and audit
+  schema; do not build application refresh-token tables.
 - Add one-time admin bootstrap tooling and a recovery/runbook requiring both developers.
 - Add an admin-page roadmap item for invite/revoke, application permissions, official account and
   publisher status. The first remote release may use audited operational tooling instead.
 - Add integration tests for invalid signature/issuer/audience/expiry/nonce, uninvited account,
   revoked account, `USER`, `ADMIN` and publisher combinations.
 - Add tests proving a newly revoked admin cannot start the YSN agent.
-- Keep authentication tokens, emails and Google subjects out of metrics and ordinary logs.
-- Register separate Google client IDs/audiences for local and remote environments.
+- Keep authentication tokens, emails and broker/external subjects out of metrics and ordinary logs.
+- Register separate Firebase projects/audiences and Google client IDs for local, development and
+  future production environments.
 - Review consent screen, privacy policy, data processing and account deletion requirements before
   admitting real testers.
 - Update ADR-023 implementation notes that still describe a cross-service `user-service`; ADR-025
   now places the user domains in `post-service`.
-- If this ADR is accepted, it supersedes only the Keycloak-authentication and Keycloak-admin-role
-  portions of ADR-023 and ADR-027. Their application-domain decisions remain accepted.
-
+- This ADR supersedes only the Keycloak-authentication and Keycloak-admin-role portions of ADR-023
+  and ADR-027. Their application-domain decisions remain accepted.

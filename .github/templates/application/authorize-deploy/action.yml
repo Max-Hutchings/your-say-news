@@ -1,0 +1,105 @@
+name: Application snapshot deployment authorization
+description: Verify explicit approval and the provenance of a successful commit snapshot run.
+
+inputs:
+  environment-name:
+    description: Environment being deployed.
+    required: true
+  snapshot-run-id:
+    description: GitHub Actions run ID that published the reviewed commit snapshots and bundle.
+    required: true
+  expected-commit:
+    description: Full source commit SHA recorded by the snapshot run.
+    required: true
+  confirmation:
+    description: Exact manual confirmation supplied by the operator.
+    required: true
+  confirmation-phrase:
+    description: Required environment-specific confirmation phrase.
+    required: true
+  expected-workflow-path:
+    description: Workflow file that must have produced the snapshot run.
+    required: true
+  github-token:
+    description: GitHub token used only to inspect workflow-run metadata.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify the explicit deployment confirmation
+      shell: bash
+      env:
+        MANUAL_CONFIRMATION: ${{ inputs.confirmation }}
+        REQUIRED_CONFIRMATION: ${{ inputs.confirmation-phrase }}
+      run: |
+        if [[ "$MANUAL_CONFIRMATION" != "$REQUIRED_CONFIRMATION" ]]; then
+          echo "::error title=Manual confirmation rejected::Enter the exact phrase: $REQUIRED_CONFIRMATION"
+          exit 1
+        fi
+
+        echo "::notice title=Manual confirmation accepted::The operator explicitly approved this application deployment"
+
+    - name: Verify the successful application snapshot run
+      uses: actions/github-script@v8
+      env:
+        SNAPSHOT_RUN_ID: ${{ inputs.snapshot-run-id }}
+        EXPECTED_COMMIT: ${{ inputs.expected-commit }}
+        EXPECTED_WORKFLOW_PATH: ${{ inputs.expected-workflow-path }}
+        ENVIRONMENT_NAME: ${{ inputs.environment-name }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const runIdText = process.env.SNAPSHOT_RUN_ID;
+          const expectedCommit = process.env.EXPECTED_COMMIT.toLowerCase();
+
+          if (!/^[1-9][0-9]*$/.test(runIdText)) {
+            throw new Error("The snapshot run ID must be a positive integer.");
+          }
+
+          if (!/^[0-9a-f]{40}$/.test(expectedCommit)) {
+            throw new Error("The expected commit must be a full 40-character SHA.");
+          }
+
+          if (context.sha.toLowerCase() !== expectedCommit) {
+            throw new Error(
+              `The selected workflow ref resolves to ${context.sha}, not the built commit ${expectedCommit}. ` +
+              "Dispatch this deployment from the branch at the reviewed snapshot commit."
+            );
+          }
+
+          const runId = Number(runIdText);
+          if (!Number.isSafeInteger(runId)) {
+            throw new Error("The snapshot run ID is outside JavaScript's safe integer range.");
+          }
+
+          const { data: sourceRun } = await github.rest.actions.getWorkflowRun({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            run_id: runId,
+          });
+
+          if (sourceRun.path !== process.env.EXPECTED_WORKFLOW_PATH) {
+            throw new Error(
+              `Run ${runId} came from ${sourceRun.path}, not ${process.env.EXPECTED_WORKFLOW_PATH}.`
+            );
+          }
+
+          if (sourceRun.event !== "push") {
+            throw new Error(`Run ${runId} was triggered by ${sourceRun.event}, not a push.`);
+          }
+
+          if (sourceRun.status !== "completed" || sourceRun.conclusion !== "success") {
+            throw new Error(
+              `Run ${runId} is ${sourceRun.status} with conclusion ${sourceRun.conclusion}.`
+            );
+          }
+
+          if (sourceRun.head_sha.toLowerCase() !== expectedCommit) {
+            throw new Error(`Run ${runId} built ${sourceRun.head_sha}, not ${expectedCommit}.`);
+          }
+
+          core.notice(
+            `Authorized ${process.env.ENVIRONMENT_NAME} deployment from successful snapshot run ` +
+            `${runId} at ${expectedCommit}.`
+          );

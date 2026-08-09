@@ -1,0 +1,62 @@
+name: Terraform initialise
+description: Initialise Terraform with either no backend or the configured HCP remote backend.
+
+inputs:
+  working-directory:
+    description: Terraform environment root.
+    required: true
+  backend-mode:
+    description: Use validation for no backend or remote for HCP Terraform.
+    required: false
+    default: validation
+  backend-config:
+    description: Backend configuration file relative to the working directory.
+    required: false
+    default: development.backend.hcl.example
+
+runs:
+  using: composite
+  steps:
+    - name: Check the dependency lock file
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        test -f .terraform.lock.hcl
+        echo "::notice title=Provider lock::Using the committed Terraform provider lock file"
+
+    - name: Initialise without remote state
+      if: inputs.backend-mode == 'validation'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::Initialising Terraform for static validation"
+        terraform init -backend=false -input=false -lockfile=readonly
+        echo "::endgroup::"
+        {
+          echo "## Terraform initialise"
+          echo
+          echo "- Backend: disabled for static validation"
+          echo "- Provider lock: read only"
+          echo "- Result: passed"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Initialise the HCP Terraform backend
+      if: inputs.backend-mode == 'remote'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::Connecting to HCP Terraform remote state"
+        terraform init \
+          -reconfigure \
+          -input=false \
+          -lockfile=readonly \
+          -backend-config="${{ inputs.backend-config }}"
+        echo "::endgroup::"
+        {
+          echo "## Terraform remote state"
+          echo
+          echo "- Backend: HCP Terraform"
+          echo "- Configuration: \`${{ inputs.backend-config }}\`"
+          echo "- Provider lock: read only"
+          echo "- Result: connected"
+        } >> "$GITHUB_STEP_SUMMARY"
