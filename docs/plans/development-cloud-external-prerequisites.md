@@ -422,16 +422,24 @@ Until this gate is complete, use synthetic data only.
 
 Start this work early because verification/testing requirements can introduce calendar delays.
 
+Implementation owner: **Max Hutchings**. Theo's responsibility is limited to running the reviewed
+development infrastructure pipeline and granting Max Developer access to the shared Expo
+Organization. Mobile delivery CI is deliberately deferred until the EAS project, Firebase Android
+application and Google Play application have been linked and one manual build succeeds.
+
 - [ ] Register the Google Play personal developer account and pay the one-off fee.
 - [ ] Complete Google's current identity and device-verification requirements.
 - [ ] Complete the current testing requirements for a new personal developer account.
-- [ ] Create the Play application.
-- [ ] Confirm the final Android package/application ID.
+- [ ] Create the Play application with testing title `Your Say News Dev`.
+- [x] Confirm the final Android package/application ID: `com.yoursaynews.app`.
 - [ ] Configure Play App Signing and protect signing ownership/recovery.
 - [ ] Create the internal tester list.
 - [ ] Create the closed tester list when promotion is desired.
 - [ ] Create a narrowly scoped Play submission service account.
-- [ ] Create/configure the Expo/EAS account and project if EAS is used.
+- [ ] Create a shared Expo Organization, invite Max with Developer access, and link the repository
+      mobile app to its EAS project.
+- [ ] Create mobile delivery CI only after Expo/EAS, Firebase Android and Play are linked and a
+      manual signed build succeeds.
 - [ ] Decide whether GitHub's Android toolchain is the fallback when EAS quota is insufficient.
 
 ### Operational readiness

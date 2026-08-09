@@ -10,3 +10,7 @@ feature (e.g. `vote-on-post.md`).
 
 - [Production-like development cloud infrastructure](development-cloud-infrastructure.md)
 - [External prerequisites and account checklist](development-cloud-external-prerequisites.md)
+
+## Authentication migration
+
+- [Firebase Google authentication migration](firebase-google-authentication-migration.md)

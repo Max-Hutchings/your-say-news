@@ -8,12 +8,11 @@
 enable_hcloud_host       = true
 enable_aiven_postgresql  = true
 enable_r2_buckets        = true
-enable_cloudflare_tunnel = false
+enable_cloudflare_tunnel = true
 
 # Cloudflare dashboard -> account/zone overview.
 cloudflare_account_id = "9538d45e127bdb7d6b1bf1ecf9020146"
-cloudflare_zone_id    = "" # REQUIRED: copy the Zone ID from the active yoursaynews.com overview.
-cloudflare_zone_name  = "yoursaynews.com"
+cloudflare_zone_id    = "9d9a9700dea3507c8af078cf7ff839c5"
 
 api_hostname             = "dev.yoursaynews.com"
 ssh_hostname             = "ssh-dev.yoursaynews.com"
