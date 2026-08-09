@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -98,6 +98,24 @@ function failedBenchmarkResponse(systemPrompt: string, errorMessage: string) {
   };
 }
 
+function benchmarkResponseForPrompts(
+  systemPrompts: string[],
+  headlines = [
+    "Drivers reconsider the daily cost of congestion",
+    "Employers weigh parking costs against cleaner air",
+    "Bus passengers compare reliability with road delays",
+  ],
+) {
+  const response = benchmarkResponse(systemPrompts[0]);
+  return {
+    ...response,
+    variants: systemPrompts.map((systemPrompt, index) => ({
+      ...benchmarkResponse(systemPrompt, headlines[index]).variants[0],
+      position: index + 1,
+    })),
+  };
+}
+
 describe("UnwrappedBenchmarkPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -186,6 +204,114 @@ describe("UnwrappedBenchmarkPage", () => {
     expect(onBack).toHaveBeenCalledOnce();
   });
 
+  it("submits all three prompts in one request and assigns each returned variant to its lane", async () => {
+    const user = userEvent.setup();
+    let resolveBenchmark!: (value: ReturnType<typeof benchmarkResponseForPrompts>) => void;
+    vi.mocked(generateUnwrappedBenchmark).mockReturnValueOnce(new Promise((resolve) => {
+      resolveBenchmark = resolve;
+    }));
+    render(<UnwrappedBenchmarkPage post={post} onBack={vi.fn()} />);
+
+    const editors = await screen.findAllByDisplayValue("Production system prompt");
+    const systemPrompts = ["Prompt A", "Prompt B", "Prompt C"];
+    for (const [index, systemPrompt] of systemPrompts.entries()) {
+      await user.clear(editors[index]);
+      await user.type(editors[index], systemPrompt);
+    }
+
+    await user.click(screen.getByRole("button", { name: "Generate all three" }));
+
+    expect(generateUnwrappedBenchmark).toHaveBeenCalledOnce();
+    expect(generateUnwrappedBenchmark).toHaveBeenCalledWith(42, systemPrompts);
+    expect(screen.getByRole("button", { name: "Generating all three…" })).toBeDisabled();
+    expect(screen.getAllByText(/Generating comparison [ABC]…/)).toHaveLength(3);
+    for (const editor of editors) expect(editor).toBeDisabled();
+    for (const lane of ["A", "B", "C"]) {
+      expect(screen.getByRole("button", { name: `Generating prompt ${lane}…` })).toBeDisabled();
+    }
+
+    await act(async () => resolveBenchmark(benchmarkResponseForPrompts(systemPrompts)));
+
+    const resultA = screen.getByLabelText("Result A");
+    const resultB = screen.getByLabelText("Result B");
+    const resultC = screen.getByLabelText("Result C");
+    expect(await within(resultA).findByRole("heading", {
+      name: "Drivers reconsider the daily cost of congestion",
+    })).toBeInTheDocument();
+    expect(within(resultB).getByRole("heading", {
+      name: "Employers weigh parking costs against cleaner air",
+    })).toBeInTheDocument();
+    expect(within(resultC).getByRole("heading", {
+      name: "Bus passengers compare reliability with road delays",
+    })).toBeInTheDocument();
+    expect(within(resultA).getByText("Support the levy")).toBeInTheDocument();
+    expect(screen.getByText("3 of 3 comparisons generated")).toBeInTheDocument();
+    expect(screen.queryByText(/Generating comparison [ABC]…/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate all three" })).toBeEnabled();
+    for (const editor of editors) expect(editor).toBeEnabled();
+    for (const lane of ["A", "B", "C"]) {
+      expect(screen.getByRole("button", { name: `Generate prompt ${lane}` })).toBeEnabled();
+    }
+  });
+
+  it("isolates mixed generate-all failures and preserves results after request errors", async () => {
+    const user = userEvent.setup();
+    const systemPrompts = ["Prompt A", "Prompt B", "Prompt C"];
+    vi.mocked(generateUnwrappedBenchmark).mockResolvedValueOnce(
+      benchmarkResponseForPrompts(systemPrompts),
+    );
+    render(<UnwrappedBenchmarkPage post={post} onBack={vi.fn()} />);
+
+    const editors = await screen.findAllByDisplayValue("Production system prompt");
+    for (const [index, systemPrompt] of systemPrompts.entries()) {
+      await user.clear(editors[index]);
+      await user.type(editors[index], systemPrompt);
+    }
+    await user.click(screen.getByRole("button", { name: "Generate all three" }));
+    expect(await within(screen.getByLabelText("Result B")).findByRole("heading", {
+      name: "Employers weigh parking costs against cleaner air",
+    })).toBeInTheDocument();
+
+    vi.mocked(generateUnwrappedBenchmark).mockResolvedValueOnce({
+      ...benchmarkResponseForPrompts(systemPrompts),
+      variants: [
+        benchmarkResponse("Prompt A", "Drivers see a stronger case after revision").variants[0],
+        { ...failedBenchmarkResponse("Prompt B", "Prompt B returned an invalid draft.").variants[0], position: 2 },
+        benchmarkResponse("Prompt C", "Passengers see a stronger case after revision").variants[0],
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: "Generate all three" }));
+
+    expect(await within(screen.getByLabelText("Result A")).findByRole("heading", {
+      name: "Drivers see a stronger case after revision",
+    })).toBeInTheDocument();
+    const resultB = screen.getByLabelText("Result B");
+    expect(within(resultB).getByRole("heading", {
+      name: "Employers weigh parking costs against cleaner air",
+    })).toBeInTheDocument();
+    expect(within(resultB).getByRole("alert")).toHaveTextContent(
+      "Prompt B returned an invalid draft.",
+    );
+    expect(within(screen.getByLabelText("Result C")).getByRole("heading", {
+      name: "Passengers see a stronger case after revision",
+    })).toBeInTheDocument();
+    expect(screen.getByText("3 of 3 comparisons generated")).toBeInTheDocument();
+
+    vi.mocked(generateUnwrappedBenchmark).mockRejectedValueOnce(
+      new Error("The combined benchmark request timed out."),
+    );
+    await user.click(screen.getByRole("button", { name: "Generate all three" }));
+
+    for (const lane of ["A", "B", "C"]) {
+      const result = screen.getByLabelText(`Result ${lane}`);
+      expect(within(result).getByRole("alert")).toHaveTextContent(
+        "The combined benchmark request timed out.",
+      );
+      expect(within(result).getByRole("heading")).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Generate all three" })).toBeEnabled();
+  });
+
   it("keeps editors disabled while the production prompt is loading", () => {
     vi.mocked(getUnwrappedBenchmarkPrompt).mockReturnValue(new Promise(() => undefined));
 
@@ -198,6 +324,7 @@ describe("UnwrappedBenchmarkPage", () => {
     expect(screen.getByRole("button", { name: "Generate prompt A" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Generate prompt B" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Generate prompt C" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate all three" })).toBeDisabled();
   });
 
   it("shows the effective repair prompt when a lane needs multiple attempts", async () => {
@@ -241,10 +368,12 @@ describe("UnwrappedBenchmarkPage", () => {
     await user.type(editors[1], "   ");
     expect(screen.getByRole("button", { name: "Generate prompt B" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Generate prompt A" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Generate all three" })).toBeDisabled();
     expect(generateUnwrappedBenchmark).not.toHaveBeenCalled();
 
     await user.clear(editors[1]);
     await user.type(editors[1], "Valid replacement prompt");
+    expect(screen.getByRole("button", { name: "Generate all three" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Generate prompt B" }));
     expect(generateUnwrappedBenchmark).toHaveBeenCalledWith(42, ["Valid replacement prompt"]);
     expect(await screen.findByRole("alert")).toHaveTextContent("The provider timed out.");

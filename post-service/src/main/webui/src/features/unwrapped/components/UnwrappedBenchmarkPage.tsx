@@ -23,6 +23,7 @@ export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageP
   const [prompts, setPrompts] = useState(["", "", ""]);
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [running, setRunning] = useState([false, false, false]);
+  const [runningAll, setRunningAll] = useState(false);
   const [error, setError] = useState<UnwrappedReviewError | null>(null);
   const [laneErrors, setLaneErrors] = useState<(string | null)[]>([null, null, null]);
   const [variants, setVariants] = useState<(UnwrappedBenchmarkVariant | null)[]>(
@@ -88,6 +89,33 @@ export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageP
       setLaneErrors((current) => replaceAt(current, index, toBenchmarkError(reason).message));
     } finally {
       setRunning((current) => replaceAt(current, index, false));
+    }
+  };
+
+  const generateAll = async () => {
+    if (prompts.some((prompt) => !prompt.trim()) || running.some(Boolean)) return;
+    setRunningAll(true);
+    setRunning([true, true, true]);
+    setLaneErrors([null, null, null]);
+    try {
+      const benchmark = await generateUnwrappedBenchmark(post.postId, prompts);
+      setResultOptions(benchmark.options);
+      setLaneErrors(benchmark.variants.map((next, index) => (
+        next.status === "FAILED" && variants[index]?.status === "SUCCEEDED"
+          ? next.errorMessage ?? "This prompt did not produce a valid Unwrapped draft."
+          : null
+      )));
+      setVariants((current) => benchmark.variants.map((next, index) => (
+        next.status === "FAILED" && current[index]?.status === "SUCCEEDED"
+          ? current[index]
+          : next
+      )));
+    } catch (reason) {
+      const message = toBenchmarkError(reason).message;
+      setLaneErrors([message, message, message]);
+    } finally {
+      setRunningAll(false);
+      setRunning([false, false, false]);
     }
   };
 
@@ -249,8 +277,15 @@ export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageP
         <div className="benchmark-runbar">
           <div>
             <strong>{variants.filter(Boolean).length} of 3 comparisons generated</strong>
-            <span>Run lanes independently. Nothing from this page enters the publication queue.</span>
+            <span>Run lanes independently or submit all three together. Nothing enters the publication queue.</span>
           </div>
+          <button
+            type="button"
+            disabled={loadingPrompt || running.some(Boolean) || prompts.some((prompt) => !prompt.trim())}
+            onClick={() => void generateAll()}
+          >
+            {runningAll ? "Generating all three…" : "Generate all three"}
+          </button>
         </div>
       </section>
     </main>
