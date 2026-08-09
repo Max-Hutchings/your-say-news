@@ -26,6 +26,8 @@ import com.yoursay.posts.model.PostVoteOption;
 import com.yoursay.posts.model.PostVoteOptionRepository;
 import com.yoursay.posts.model.VotingOptionRules;
 import com.yoursay.observability.DomainMetrics;
+import com.yoursay.topics.TopicService;
+import com.yoursay.topics.dto.TopicDto;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.logging.Log;
@@ -64,6 +66,9 @@ public class PostServiceImpl implements PostService {
 
     @Inject
     UserServiceClient userServiceClient;
+
+    @Inject
+    TopicService topicService;
 
     @Override
     @WithTransaction
@@ -122,7 +127,13 @@ public class PostServiceImpl implements PostService {
                             post.addMedia(new PostMedia(post, m.mediaType(), m.orientation(), m.s3Key(),
                                     m.contentType(), emptyToNull(m.posterS3Key()), 0));
                         }
-                        return postRepository.savePost(post).map(saved -> toDto(saved, saved.getVoteOptions()));
+                        // Topics are validated and attached after the post exists, because the
+                        // assignment rows need its generated id. A bad topic id fails the whole
+                        // transaction, so a post is never published with a selection silently
+                        // dropped.
+                        return postRepository.savePost(post).flatMap(saved -> topicService
+                                .assignToPost(saved.getId(), request.topicIds())
+                                .map(topics -> toDto(saved, saved.getVoteOptions()).withTopics(topics)));
                     });
                 })
                 .invoke(() -> recordMetric("create", true))
@@ -134,7 +145,10 @@ public class PostServiceImpl implements PostService {
     public Uni<PostDto> getById(Long id) {
         return postRepository.getPostById(id).flatMap(post -> post == null
                 ? Uni.createFrom().nullItem()
-                : optionRepository.listByPostId(id).map(options -> toDto(post, options)));
+                : optionRepository.listByPostId(id)
+                        .map(options -> toDto(post, options))
+                        .flatMap(dto -> topicService.topicsForPosts(List.of(id))
+                                .map(byPostId -> dto.withTopics(byPostId.getOrDefault(id, List.of())))));
     }
 
     @Override
@@ -163,25 +177,27 @@ public class PostServiceImpl implements PostService {
                 ? PostMediaFilter.ANY
                 : request.mediaFilter();
         return postRepository
-                .findPageAfter(request.cursorCreatedAt(), request.cursorId(), mediaFilter, safeLimit)
+                .findPageAfter(request.cursorCreatedAt(), request.cursorId(), mediaFilter,
+                        request.topicId(), safeLimit)
                 .flatMap(this::mapPostsWithOptions);
     }
 
     /**
-     * Map a page of posts to DTOs, fetching every post's vote options in a single query and grouping
-     * them by post id. Doing this per post made a page cost N+1 round trips.
+     * Map a page of posts to DTOs, fetching every post's vote options and topics in a single query
+     * each and grouping them by post id. Doing either per post made a page cost N+1 round trips.
      */
     private Uni<List<PostDto>> mapPostsWithOptions(List<Post> posts) {
         if (posts.isEmpty()) {
             return Uni.createFrom().item(List.of());
         }
         List<Long> ids = posts.stream().map(Post::getId).toList();
-        return optionRepository.listByPostIds(ids).map(options -> {
-            Map<Long, List<PostVoteOption>> byPostId = options.stream()
+        return optionRepository.listByPostIds(ids).flatMap(options -> {
+            Map<Long, List<PostVoteOption>> optionsByPostId = options.stream()
                     .collect(Collectors.groupingBy(option -> option.getPost().getId()));
-            return posts.stream()
-                    .map(post -> toDto(post, byPostId.getOrDefault(post.getId(), List.of())))
-                    .toList();
+            return topicService.topicsForPosts(ids).map(topicsByPostId -> posts.stream()
+                    .map(post -> toDto(post, optionsByPostId.getOrDefault(post.getId(), List.of()))
+                            .withTopics(topicsByPostId.getOrDefault(post.getId(), List.of())))
+                    .toList());
         });
     }
 
@@ -209,7 +225,9 @@ public class PostServiceImpl implements PostService {
                         .toList(),
                 post.isUnbiased(),
                 post.getCreatedAt(),
-                media
+                media,
+                // Decorated by the caller: a single post via getById, a page via mapPostsWithOptions.
+                List.of()
         );
     }
 

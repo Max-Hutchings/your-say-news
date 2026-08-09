@@ -24,6 +24,7 @@ export interface CreatePostFields {
   caseAgainst?: string;
   votingType?: VotingType;
   voteOptions?: string[];
+  topicIds?: string[];
 }
 
 /** Trimmed-empty checks for the two required fields; keys with errors map to a message. */
@@ -155,6 +156,7 @@ export function useCreatePost() {
             ? (fields.voteOptions ?? []).map((label) => ({ label: label.trim() }))
             : [],
           media,
+          topicIds: fields.topicIds ?? [],
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not publish your post.");

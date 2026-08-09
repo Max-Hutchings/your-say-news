@@ -1,0 +1,85 @@
+import React, { useMemo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { EditorialFont, getEditorial, useTheme } from "@/constants/theme";
+import { useTopics } from "../hooks/use-topics";
+
+type TopicPickerProps = {
+  value: string[];
+  onChange: (topicIds: string[]) => void;
+  max?: number;
+};
+
+/** Grouped optional picker used by post authors. */
+export function TopicPicker({ value, onChange, max = 3 }: TopicPickerProps) {
+  const { isDark } = useTheme();
+  const e = getEditorial(isDark);
+  const { topics, error } = useTopics();
+  const groups = useMemo(() => {
+    const result = new Map<string, typeof topics>();
+    topics.forEach((topic) => result.set(topic.displayGroup, [...(result.get(topic.displayGroup) ?? []), topic]));
+    return [...result.entries()];
+  }, [topics]);
+
+  const toggle = (topicId: string) => {
+    if (value.includes(topicId)) {
+      onChange(value.filter((id) => id !== topicId));
+    } else if (value.length < max) {
+      onChange([...value, topicId]);
+    }
+  };
+
+  return (
+    <View style={styles.picker}>
+      <View style={styles.heading}>
+        <Text style={[styles.title, { color: e.ink }]}>Topics</Text>
+        <Text style={[styles.count, { color: e.muted }]}>{value.length} / {max}</Text>
+      </View>
+      <Text style={[styles.help, { color: e.muted }]}>Choose up to three. This helps readers find the story.</Text>
+      {groups.map(([group, grouped]) => (
+        <View key={group} style={styles.group}>
+          <Text style={[styles.groupTitle, { color: e.muted }]}>{group}</Text>
+          <View style={styles.chips}>
+            {grouped.map((topic) => {
+              const selected = value.includes(topic.id);
+              const disabled = !selected && value.length >= max;
+              return (
+                <Pressable
+                  key={topic.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Topic ${topic.label}`}
+                  accessibilityState={{ selected, disabled }}
+                  disabled={disabled}
+                  onPress={() => toggle(topic.id)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: selected ? e.lime : "transparent",
+                      borderColor: selected ? e.lime : e.border,
+                      opacity: disabled ? 0.45 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.chipText, { color: selected ? e.onLime : e.secondary }]}>{topic.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+      {error ? <Text style={[styles.help, { color: e.coral }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  picker: { marginTop: 18, gap: 10 },
+  heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+  title: { fontFamily: EditorialFont.sansBold, fontWeight: "700", fontSize: 15 },
+  count: { fontFamily: EditorialFont.mono, fontSize: 10, letterSpacing: 0.5 },
+  help: { fontFamily: EditorialFont.sans, fontSize: 11 },
+  group: { gap: 7, marginTop: 4 },
+  groupTitle: { fontFamily: EditorialFont.mono, fontSize: 9, letterSpacing: 0.7, textTransform: "uppercase" },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  chip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 6 },
+  chipText: { fontFamily: EditorialFont.mono, fontSize: 10 },
+});

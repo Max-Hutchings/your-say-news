@@ -25,6 +25,30 @@ jest.mock("../hooks/use-create-post", () => ({
   }),
 }));
 
+jest.mock("@/features/topics", () => {
+  const React = jest.requireActual("react");
+  const { Pressable, Text, View } = jest.requireActual("react-native");
+  return {
+    TopicPicker: ({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) =>
+      React.createElement(View, null,
+        React.createElement(Text, null, `${value.length} / 3`),
+        ["politics", "housing", "health", "education"].map((id) => React.createElement(
+          Pressable,
+          {
+            key: id,
+            accessibilityRole: "button",
+            accessibilityLabel: `Topic ${id}`,
+            disabled: !value.includes(id) && value.length >= 3,
+            onPress: () => value.includes(id)
+              ? onChange(value.filter((selected) => selected !== id))
+              : value.length < 3 && onChange([...value, id]),
+          },
+          React.createElement(Text, null, id),
+        )),
+      ),
+  };
+});
+
 describe("CreatePostScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -74,8 +98,25 @@ describe("CreatePostScreen", () => {
         voteOptions: ["", ""],
         caseFor: "",
         caseAgainst: "",
+        topicIds: [],
       })
     );
+  });
+
+  it("submits up to three selected topic ids and blocks a fourth", async () => {
+    render(<ThemeProvider><CreatePostScreen /></ThemeProvider>);
+
+    fireEvent.press(screen.getByLabelText("Topic politics"));
+    fireEvent.press(screen.getByLabelText("Topic housing"));
+    fireEvent.press(screen.getByLabelText("Topic health"));
+    expect(screen.getByText("3 / 3")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Topic education").props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getByLabelText("Topic education"));
+    fireEvent.press(screen.getByText("Post"));
+
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      topicIds: ["politics", "housing", "health"],
+    })));
   });
 
   it("keeps multiple-choice text while toggled away and submits the visible accessible order", async () => {

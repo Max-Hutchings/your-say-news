@@ -18,6 +18,8 @@ vi.mock("../../features/unwrapped/hooks/useUnwrappedReviews", () => ({
   useUnwrappedReviews: vi.fn(),
 }));
 
+vi.mock("../topics", () => ({ TopicsPage: () => <h1>Topics desk</h1> }));
+
 const accounts = [
   {
     id: 1,
@@ -222,6 +224,16 @@ describe("UsersPage", () => {
     expect(screen.getByRole("heading", { name: unwrappedPost.question })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Change the voice. Keep the evidence." }))
       .not.toBeInTheDocument();
+  });
+
+  it("switches to the topic catalogue without losing the admin masthead", async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+
+    await user.click(screen.getByRole("tab", { name: /Topics/ }));
+    expect(screen.getByRole("tab", { name: /Topics/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Topics desk" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Your Say News")).toBeInTheDocument();
   });
 
   it("shows a restricted state when the database account is not an active admin", () => {

@@ -70,6 +70,9 @@ const basePost: Post = {
       posterUrl: null,
     },
   ],
+  topics: [
+    { id: "transport", label: "Transport", displayGroup: "Transport & places", displayOrder: 18, active: true },
+  ],
 };
 
 const portraitPost: Post = {
@@ -112,6 +115,14 @@ describe("PostCard", () => {
     renderWithTheme(<PostCard post={basePost} />);
     fireEvent.press(screen.getByLabelText("Open author profile"));
     expect(mockPush).toHaveBeenCalledWith("/profiles/3");
+  });
+
+  it("renders topic chips and sends the canonical id when one is selected", () => {
+    const onSelectTopic = jest.fn();
+    renderWithTheme(<PostCard post={basePost} onSelectTopic={onSelectTopic} />);
+
+    fireEvent.press(screen.getByLabelText("Show Transport stories"));
+    expect(onSelectTopic).toHaveBeenCalledWith("transport");
   });
 
   it("keeps the support question and case cards after voting (voting doesn't disrupt the story)", async () => {

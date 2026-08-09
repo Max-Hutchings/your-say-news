@@ -33,7 +33,14 @@ public record CreatePostRequest(
         @Size(max = 5)
         List<@NotNull @Valid VoteOption> voteOptions,
         @Size(max = 8)
-        List<@NotNull @Valid Media> media
+        List<@NotNull @Valid Media> media,
+        /**
+         * Optional canonical topic ids, at most three (ADR-043). Ids only — there is no
+         * arbitrary-label path. An unknown or retired id fails the request rather than being
+         * dropped, so an author never publishes believing a topic was applied.
+         */
+        @Size(max = 3)
+        List<@NotBlank @Size(max = 64) String> topicIds
 ) {
     public record VoteOption(@NotBlank @Size(max = 120) String label) {
     }

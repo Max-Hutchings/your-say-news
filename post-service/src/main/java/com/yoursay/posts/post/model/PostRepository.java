@@ -20,6 +20,16 @@ public class PostRepository implements PanacheRepository<Post> {
     private static final String HAS_VIDEO =
             "exists (select 1 from PostMedia m where m.post = p and m.mediaType = :videoType)";
 
+    /**
+     * True when the post carries the selected topic — the SQL form of the category feed's filter
+     * (ADR-043), served by {@code idx_post_topic_topic}.
+     *
+     * <p>{@code PostTopic} belongs to the topics domain and is named here only as an HQL entity, not
+     * imported: the join is by post id, matching how this domain already references users.
+     */
+    private static final String HAS_TOPIC =
+            "exists (select 1 from PostTopic pt where pt.postId = p.id and pt.topicId = :topicId)";
+
     public Uni<Post> savePost(Post post) {
         return persist(post).replaceWith(post);
     }
@@ -56,7 +66,7 @@ public class PostRepository implements PanacheRepository<Post> {
      * whenever matching posts remain and the reader never sees a false end of feed.
      */
     public Uni<List<Post>> findPageAfter(Instant cursorCreatedAt, Long cursorId,
-                                         PostMediaFilter mediaFilter, int limit) {
+                                         PostMediaFilter mediaFilter, String topicId, int limit) {
         List<String> conditions = new ArrayList<>();
         Parameters parameters = new Parameters();
 
@@ -68,6 +78,10 @@ public class PostRepository implements PanacheRepository<Post> {
         if (mediaFilter == PostMediaFilter.WITH_VIDEO || mediaFilter == PostMediaFilter.WITHOUT_VIDEO) {
             conditions.add(mediaFilter == PostMediaFilter.WITH_VIDEO ? HAS_VIDEO : "not " + HAS_VIDEO);
             parameters.and("videoType", MediaType.VIDEO);
+        }
+        if (topicId != null && !topicId.isBlank()) {
+            conditions.add(HAS_TOPIC);
+            parameters.and("topicId", topicId);
         }
 
         String where = conditions.isEmpty() ? "" : " where " + String.join(" and ", conditions);

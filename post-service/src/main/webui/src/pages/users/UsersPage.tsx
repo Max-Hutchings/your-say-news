@@ -8,11 +8,12 @@ import {
 } from "../../features/unwrapped";
 import { AccountLedger, useAdminUsers, type AccountType } from "../../features/users";
 import { Masthead } from "../../shared/components/Masthead";
+import { TopicsPage } from "../topics";
 import "./users-page.css";
 
 type TypeFilter = "ALL" | AccountType;
 type ActivityFilter = "ALL" | "ACTIVE" | "INACTIVE";
-type AdminSection = "ACCOUNTS" | "UNWRAPPED";
+type AdminSection = "ACCOUNTS" | "TOPICS" | "UNWRAPPED";
 
 export function UsersPage() {
   const { identity, logout } = useAdminAuth();
@@ -72,6 +73,18 @@ export function UsersPage() {
         >
           <span>Accounts</span>
           <small>People &amp; permissions</small>
+        </button>
+        <button
+          type="button"
+          id="topics-tab"
+          role="tab"
+          aria-controls="topics-panel"
+          aria-selected={section === "TOPICS"}
+          className={section === "TOPICS" ? "admin-tab admin-tab--active" : "admin-tab"}
+          onClick={() => setSection("TOPICS")}
+        >
+          <span>Topics</span>
+          <small>Discovery catalogue</small>
         </button>
         <button
           type="button"
@@ -169,7 +182,11 @@ export function UsersPage() {
             />
           </>
         )}
-      </main> : benchmarkPost ? (
+      </main> : section === "TOPICS" ? (
+        <div id="topics-panel" role="tabpanel" aria-labelledby="topics-tab">
+          <TopicsPage />
+        </div>
+      ) : benchmarkPost ? (
         <UnwrappedBenchmarkPage
           post={benchmarkPost}
           onBack={() => setBenchmarkPost(null)}

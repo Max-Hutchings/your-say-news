@@ -40,11 +40,13 @@ export function PostCard({
   isActive = false,
   height,
   onNextPost,
+  onSelectTopic,
 }: {
   post: Post;
   isActive?: boolean;
   height?: number;
   onNextPost?: () => void;
+  onSelectTopic?: (topicId: string) => void;
 }) {
   const router = useRouter();
   const { isDark } = useTheme();
@@ -107,6 +109,22 @@ export function PostCard({
       </Text>
     </View>
   );
+  const topicChips = post.topics.length > 0 ? (
+    <View style={styles.topicChips}>
+      {post.topics.map((topic) => (
+        <Pressable
+          key={topic.id}
+          accessibilityRole="button"
+          accessibilityLabel={`Show ${topic.label} stories`}
+          onPress={() => onSelectTopic?.(topic.id)}
+          disabled={!onSelectTopic}
+          style={[styles.topicChip, { borderColor: e.border, backgroundColor: e.surface }]}
+        >
+          <Text style={[styles.topicChipText, { color: e.secondary }]}>{topic.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  ) : null;
 
   // The vote — always visible. The votes domain owns the interaction, locked state and errors.
   const voteRow = <VoteControls postId={post.id} votingType={post.votingType}
@@ -227,6 +245,7 @@ export function PostCard({
 
         {/* Fixed under the media — only the support question and vote, leaving more height for media. */}
         <View testID="post-card-body" style={styles.immersiveBody}>
+          {topicChips}
           {motionBox}
           {voteRow}
         </View>
@@ -264,6 +283,7 @@ export function PostCard({
           </View>
         )}
 
+        {topicChips}
         {motionBox}
         {!hasMedia && authorLink()}
 
@@ -414,6 +434,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
+  topicChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  topicChip: { borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4 },
+  topicChipText: { fontFamily: EditorialFont.mono, fontSize: 9, letterSpacing: 0.3 },
   motionQuote: {
     fontFamily: EditorialFont.serif,
     fontSize: 34,

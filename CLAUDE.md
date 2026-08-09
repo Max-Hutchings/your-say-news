@@ -274,7 +274,8 @@ directly. When you add a domain, follow the same shape and keep `app/` thin (rou
 Migrations and seed data are **separate concerns with separate delivery**:
 
 - Keep the changelog outside application services under `liquibase/changelog/db/`:
-  - **`migrations/`** — schema changes (DDL). The real, production-bound migrations.
+  - **`migrations/`** — schema changes (DDL), plus **reference data** (see below). The real,
+    production-bound migrations.
   - **`seeding/`** — test/seed data inserts only.
 - User-domain migrations and fixtures live in the sibling `user-migrations/` and
   `user-seeding/` folders in the same central tree.
@@ -283,6 +284,13 @@ Migrations and seed data are **separate concerns with separate delivery**:
 - **Seeding runs via its own dedicated container** (separate Dockerfile) and executes
   **automatically on `docker compose up`** so local/test environments come up with data.
 - Never mix seed-data inserts into a schema changeSet.
+- **Reference data is not seed data.** Rows the application is broken without in *every* environment
+  — a controlled catalogue such as the topic taxonomy, effectively an enum held in a table — belong
+  in `migrations/`, because that is the changelog both `migrate-at-start` and the `liquibase-migrate`
+  container run everywhere. `seeding/` only ever reaches developer machines. Give reference data its
+  own changeSet next to the DDL changeSet that creates its table, never inside it. Seed data (sample
+  posts, test votes, fixture users) still goes to `seeding/` and nowhere else. See
+  `ADR-043` for the decision.
 
 Layout now in place:
 

@@ -12,6 +12,7 @@ import com.yoursay.posts.PostService;
 import com.yoursay.posts.dto.PostDto;
 import com.yoursay.posts.dto.PostPageRequest;
 import com.yoursay.posts.error.PostApiException;
+import com.yoursay.topics.TopicService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -50,12 +51,16 @@ public class FeedServiceImpl implements FeedService {
     @Inject
     SocialClient socialClient;
 
+    @Inject
+    TopicService topicService;
+
     @Override
     public Uni<FeedPage> getFeed(String viewerEmail, String authorization, String cursor, int size,
-                                 FeedPostType postType) {
+                                 FeedPostType postType, String topicId) {
         int pageSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
         // Decoded up front so a bad token fails with 400 before any query runs.
         FeedCursor position = FeedCursor.decode(cursor);
+        String topic = topicId == null || topicId.isBlank() ? null : topicId.trim();
 
         // One row beyond the page: its presence is what tells us more of the feed exists. A short
         // page can no longer mean "the end", because the type filter runs in SQL and fills pages.
@@ -63,12 +68,19 @@ public class FeedServiceImpl implements FeedService {
                 position == null ? null : position.createdAt(),
                 position == null ? null : position.postId(),
                 FeedPostType.mediaFilterFor(postType),
+                topic,
                 pageSize + 1);
+
+        // An unknown topic is a client bug, so it fails before the scan rather than returning an
+        // empty page that a reader would read as a dead category.
+        Uni<Void> topicCheck = topic == null
+                ? Uni.createFrom().voidItem()
+                : topicService.requireExists(topic);
 
         Uni<FeedUserClient.UserRef> viewer = userClient.getUserByEmail(viewerEmail, authorization)
                 .onItem().ifNull().failWith(() -> PostApiException.unknownAuthor(viewerEmail));
         Uni<SocialClient.FollowingRef> following = socialClient.getFollowing(authorization);
-        Uni<List<PostDto>> candidates = postService.findPage(candidateRequest);
+        Uni<List<PostDto>> candidates = topicCheck.chain(() -> postService.findPage(candidateRequest));
 
         return Uni.combine().all().unis(viewer, following, candidates).asTuple()
                 .map(tuple -> {

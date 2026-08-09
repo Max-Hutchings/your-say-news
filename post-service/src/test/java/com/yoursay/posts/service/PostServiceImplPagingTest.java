@@ -26,7 +26,7 @@ class PostServiceImplPagingTest {
         CapturingPostRepository repository = new CapturingPostRepository();
         PostServiceImpl service = serviceWith(repository);
 
-        service.findPage(new PostPageRequest(null, null, PostMediaFilter.ANY,
+        service.findPage(new PostPageRequest(null, null, PostMediaFilter.ANY, null,
                 PostServiceImpl.MAX_PAGE_SIZE + 1)).await().indefinitely();
 
         assertEquals(PostServiceImpl.MAX_PAGE_SIZE + 1, repository.limit);
@@ -37,9 +37,9 @@ class PostServiceImplPagingTest {
         CapturingPostRepository oversized = new CapturingPostRepository();
         CapturingPostRepository absent = new CapturingPostRepository();
 
-        serviceWith(oversized).findPage(new PostPageRequest(null, null, PostMediaFilter.ANY, 5000))
+        serviceWith(oversized).findPage(new PostPageRequest(null, null, PostMediaFilter.ANY, null, 5000))
                 .await().indefinitely();
-        serviceWith(absent).findPage(new PostPageRequest(null, null, PostMediaFilter.ANY, 0))
+        serviceWith(absent).findPage(new PostPageRequest(null, null, PostMediaFilter.ANY, null, 0))
                 .await().indefinitely();
 
         assertEquals(PostServiceImpl.MAX_PAGE_SIZE + 1, oversized.limit);
@@ -47,17 +47,20 @@ class PostServiceImplPagingTest {
     }
 
     @Test
-    void passesTheCursorThroughAndDefaultsAnAbsentMediaFilter() {
+    void passesTheCursorAndTopicThroughAndDefaultsAnAbsentMediaFilter() {
         CapturingPostRepository repository = new CapturingPostRepository();
         Instant cursorCreatedAt = Instant.parse("2026-07-09T11:22:33.123456789Z");
 
         serviceWith(repository)
-                .findPage(new PostPageRequest(cursorCreatedAt, 4242L, null, 5))
+                .findPage(new PostPageRequest(cursorCreatedAt, 4242L, null, "housing", 5))
                 .await().indefinitely();
 
         assertEquals(cursorCreatedAt, repository.cursorCreatedAt);
         assertEquals(4242L, repository.cursorId);
         assertEquals(PostMediaFilter.ANY, repository.mediaFilter);
+        // The topic reaches the query unmodified: normalisation is the feed's job, and a service
+        // that quietly dropped it would turn a category feed into the full feed.
+        assertEquals("housing", repository.topicId);
     }
 
     @Test
@@ -83,14 +86,16 @@ class PostServiceImplPagingTest {
         private Instant cursorCreatedAt;
         private Long cursorId;
         private PostMediaFilter mediaFilter;
+        private String topicId;
         private int limit = -1;
 
         @Override
         public Uni<List<Post>> findPageAfter(Instant cursorCreatedAt, Long cursorId,
-                                             PostMediaFilter mediaFilter, int limit) {
+                                             PostMediaFilter mediaFilter, String topicId, int limit) {
             this.cursorCreatedAt = cursorCreatedAt;
             this.cursorId = cursorId;
             this.mediaFilter = mediaFilter;
+            this.topicId = topicId;
             this.limit = limit;
             return Uni.createFrom().item(List.of());
         }

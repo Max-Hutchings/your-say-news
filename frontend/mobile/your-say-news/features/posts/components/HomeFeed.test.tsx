@@ -45,7 +45,15 @@ jest.mock("./PostCard", () => {
 });
 
 jest.mock("./Masthead", () => ({ Masthead: () => null }));
-jest.mock("./FeedTabs", () => ({ FeedTabs: () => null }));
+jest.mock("./FeedTabs", () => {
+  const React = jest.requireActual("react");
+  const { Pressable, Text } = jest.requireActual("react-native");
+  return {
+    FeedTabs: ({ onChange }: { onChange: (topicId: string | null) => void }) =>
+      React.createElement(Pressable, { accessibilityLabel: "Choose Housing", onPress: () => onChange("housing") },
+        React.createElement(Text, null, "Housing")),
+  };
+});
 
 const mockGetFeed = getFeed as jest.Mock;
 
@@ -64,6 +72,7 @@ const posts: Post[] = [1, 2].map((id) => ({
   isUnbiased: false,
   createdAt: "2026-07-13T12:00:00Z",
   media: [],
+  topics: [],
 }));
 
 const videoPost: Post = {
@@ -156,7 +165,7 @@ describe("HomeFeed", () => {
     });
 
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "VIDEO")
+      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "VIDEO", undefined)
     );
     expect(screen.getByLabelText("Video posts").props.accessibilityState.selected).toBe(true);
     expect(await screen.findByTestId("mock-post-3")).toBeOnTheScreen();
@@ -164,14 +173,14 @@ describe("HomeFeed", () => {
 
     fireEvent.press(screen.getByLabelText("Article posts"));
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "ARTICLE")
+      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "ARTICLE", undefined)
     );
     expect(await screen.findByTestId("mock-post-1")).toBeOnTheScreen();
     expect(screen.queryByTestId("mock-post-3")).toBeNull();
 
     fireEvent.press(screen.getByLabelText("Article posts"));
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, undefined)
+      expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, undefined, undefined)
     );
     expect(await screen.findByTestId("mock-post-1")).toBeOnTheScreen();
     expect(screen.getByTestId("mock-post-3")).toBeOnTheScreen();
@@ -208,7 +217,7 @@ describe("HomeFeed", () => {
     fireEvent(screen.UNSAFE_getByType(FlatList), "onEndReached");
 
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith("cursor-after-24", 5, "VIDEO")
+      expect(mockGetFeed).toHaveBeenLastCalledWith("cursor-after-24", 5, "VIDEO", undefined)
     );
     expect(await screen.findByTestId("mock-post-30")).toBeOnTheScreen();
   });
@@ -250,14 +259,35 @@ describe("HomeFeed", () => {
 
     fireEvent(screen.UNSAFE_getByType(RefreshControl), "refresh");
     await screen.findByTestId("mock-post-50");
-    expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "VIDEO");
+    expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "VIDEO", undefined);
 
     fireEvent(screen.UNSAFE_getByType(FlatList), "onEndReached");
 
     await waitFor(() =>
-      expect(mockGetFeed).toHaveBeenLastCalledWith("cursor-after-50", 5, "VIDEO")
+      expect(mockGetFeed).toHaveBeenLastCalledWith("cursor-after-50", 5, "VIDEO", undefined)
     );
     expect(await screen.findByTestId("mock-post-51")).toBeOnTheScreen();
+  });
+
+  it("resets the cursor and refetches when a topic is selected", async () => {
+    mockGetFeed
+      .mockResolvedValueOnce(page([videoPost], "cursor-before-topic"))
+      .mockResolvedValueOnce(page([{ ...videoPost, id: 70, topics: [{ id: "housing", label: "Housing", displayGroup: "Society", displayOrder: 6, active: true }] }], "cursor-in-housing"))
+      .mockResolvedValueOnce(page([{ ...videoPost, id: 71, topics: [{ id: "housing", label: "Housing", displayGroup: "Society", displayOrder: 6, active: true }] }]));
+
+    render(<ThemeProvider><HomeFeed /></ThemeProvider>);
+    fireEvent(screen.getByTestId("home-feed-viewport"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 700 } },
+    });
+    await screen.findByTestId("mock-post-3");
+    fireEvent.press(screen.getByLabelText("Choose Housing"));
+
+    await waitFor(() => expect(mockGetFeed).toHaveBeenLastCalledWith(null, 5, "VIDEO", "housing"));
+    expect(await screen.findByTestId("mock-post-70")).toBeOnTheScreen();
+
+    fireEvent(screen.UNSAFE_getByType(FlatList), "onEndReached");
+    await waitFor(() => expect(mockGetFeed).toHaveBeenLastCalledWith("cursor-in-housing", 5, "VIDEO", "housing"));
+    expect(await screen.findByTestId("mock-post-71")).toBeOnTheScreen();
   });
 
   it("stops requesting pages once the service reports the end of the feed", async () => {

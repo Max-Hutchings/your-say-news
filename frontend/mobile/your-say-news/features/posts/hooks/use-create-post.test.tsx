@@ -81,6 +81,7 @@ describe("useCreatePost submit", () => {
       votingType: "BINARY",
       voteOptions: [],
       media: [],
+      topicIds: [],
     });
     expect(created).toBe(post);
     expect(result.current.error).toBeNull();
@@ -136,6 +137,7 @@ describe("useCreatePost submit", () => {
         { mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/a.png", contentType: "image/png", posterS3Key: null },
         { mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/b.png", contentType: "image/png", posterS3Key: null },
       ],
+      topicIds: [],
     });
   });
 
@@ -150,6 +152,7 @@ describe("useCreatePost submit", () => {
         voteOptions: [" More frequent buses ", "Protected cycle lanes", " Lower parking charges "],
         caseFor: " Better access ",
         caseAgainst: " Higher operating cost ",
+        topicIds: ["transport", "housing"],
       });
     });
 
@@ -165,6 +168,7 @@ describe("useCreatePost submit", () => {
         { label: "Lower parking charges" },
       ],
       media: [],
+      topicIds: ["transport", "housing"],
     });
   });
 

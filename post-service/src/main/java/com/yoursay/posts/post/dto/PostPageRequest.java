@@ -15,10 +15,16 @@ public record PostPageRequest(
         Instant cursorCreatedAt,
         Long cursorId,
         PostMediaFilter mediaFilter,
+        /**
+         * Restrict the page to posts carrying this canonical topic, or null for every topic
+         * (ADR-043). Like the media filter this is a SQL predicate on the same scan, so the cursor
+         * still names a row in {@code createdAt desc, id desc} and paging stays gap-free.
+         */
+        String topicId,
         int limit
 ) {
     /** The first page of the stream, unfiltered. */
     public static PostPageRequest first(int limit) {
-        return new PostPageRequest(null, null, PostMediaFilter.ANY, limit);
+        return new PostPageRequest(null, null, PostMediaFilter.ANY, null, limit);
     }
 }

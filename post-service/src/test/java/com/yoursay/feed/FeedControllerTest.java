@@ -34,21 +34,22 @@ class FeedControllerTest {
     SecurityIdentity securityIdentity;
 
     @Test
-    void bindsAndForwardsTheCursorSizeAndTypeQueryParameters() throws NoSuchMethodException {
+    void bindsAndForwardsTheCursorSizeTypeAndTopicQueryParameters() throws NoSuchMethodException {
         FeedController controller = controller();
         FeedPage expected = new FeedPage(List.of(), "next-cursor-token");
         when(feedService.getFeed("reader@example.com", "Bearer token", "cursor-token", 7,
-                FeedPostType.VIDEO)).thenReturn(Uni.createFrom().item(expected));
+                FeedPostType.VIDEO, "housing")).thenReturn(Uni.createFrom().item(expected));
 
-        FeedPage result = controller.feed("cursor-token", 7, FeedPostType.VIDEO, "Bearer token")
+        FeedPage result = controller.feed("cursor-token", 7, FeedPostType.VIDEO, "housing", "Bearer token")
                 .await().indefinitely();
 
         assertEquals(expected, result);
         verify(feedService).getFeed(
-                "reader@example.com", "Bearer token", "cursor-token", 7, FeedPostType.VIDEO);
+                "reader@example.com", "Bearer token", "cursor-token", 7, FeedPostType.VIDEO, "housing");
         assertEquals("cursor", parameter(0).getAnnotation(QueryParam.class).value());
         assertEquals("size", parameter(1).getAnnotation(QueryParam.class).value());
         assertEquals("type", parameter(2).getAnnotation(QueryParam.class).value());
+        assertEquals("topic", parameter(3).getAnnotation(QueryParam.class).value());
     }
 
     @Test
@@ -61,16 +62,18 @@ class FeedControllerTest {
     }
 
     @Test
-    void aFirstPageRequestSendsNoCursorAndReturnsTheEndOfFeedMarker() {
+    void aFirstPageRequestSendsNoCursorOrTopicAndReturnsTheEndOfFeedMarker() {
         FeedController controller = controller();
-        when(feedService.getFeed("reader@example.com", "Bearer token", null, 5, null))
+        when(feedService.getFeed("reader@example.com", "Bearer token", null, 5, null, null))
                 .thenReturn(Uni.createFrom().item(new FeedPage(List.of(), null)));
 
-        FeedPage result = controller.feed(null, 5, null, "Bearer token").await().indefinitely();
+        FeedPage result = controller.feed(null, 5, null, null, "Bearer token").await().indefinitely();
 
         assertEquals(List.of(), result.posts());
         assertEquals(null, result.nextCursor());
-        verify(feedService).getFeed("reader@example.com", "Bearer token", null, 5, null);
+        // An absent topic must reach the service as null, not "": a blank filter that leaked into
+        // the query would match no post and empty the default feed.
+        verify(feedService).getFeed("reader@example.com", "Bearer token", null, 5, null, null);
     }
 
     private FeedController controller() {
@@ -84,7 +87,7 @@ class FeedControllerTest {
 
     private static Parameter parameter(int index) throws NoSuchMethodException {
         Method feedMethod = FeedController.class.getMethod(
-                "feed", String.class, int.class, FeedPostType.class, String.class);
+                "feed", String.class, int.class, FeedPostType.class, String.class, String.class);
         return feedMethod.getParameters()[index];
     }
 }

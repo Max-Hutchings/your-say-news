@@ -6,6 +6,7 @@ import {
   listByUser,
   FEED_PAGE_SIZE,
 } from "./PostService";
+import type { CreatePostInput } from "../types";
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -69,10 +70,10 @@ describe("getFeed", () => {
       data: { posts: [{ id: 8 }], nextCursor: "cursor-two" },
     });
 
-    const page = await getFeed("cursor-one", FEED_PAGE_SIZE, "VIDEO");
+    const page = await getFeed("cursor-one", FEED_PAGE_SIZE, "VIDEO", "housing");
 
     expect(mockGet).toHaveBeenCalledWith("http://posts.local:8082/feed", {
-      params: { size: FEED_PAGE_SIZE, cursor: "cursor-one", type: "VIDEO" },
+      params: { size: FEED_PAGE_SIZE, cursor: "cursor-one", type: "VIDEO", topic: "housing" },
     });
     expect(page).toEqual({ posts: [{ id: 8 }], nextCursor: "cursor-two" });
   });
@@ -96,15 +97,20 @@ describe("getFeed", () => {
 
 describe("post creation and lookup", () => {
   it("creates a post without adding a client-controlled author id", async () => {
-    const input = {
-      title: "Four-day weeks and productivity",
+    const input: CreatePostInput = {
       summary: "A review of the latest workplace trials.",
-      type: "TEXT" as const,
+      supportQuestion: "Should employers adopt a four-day week?",
+      caseFor: null,
+      caseAgainst: null,
+      votingType: "BINARY",
+      voteOptions: [],
+      media: [],
+      topicIds: ["jobs-work", "business"],
     };
     const created = { id: 44, ...input, authorId: 7 };
     mockPost.mockResolvedValue({ data: created });
 
-    await expect(createPost(input as never)).resolves.toEqual(created);
+    await expect(createPost(input)).resolves.toEqual(created);
     expect(mockPost).toHaveBeenCalledWith("http://posts.local:8082/posts", input);
     expect(mockPost.mock.calls[0][1]).not.toHaveProperty("authorId");
   });

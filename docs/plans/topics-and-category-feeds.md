@@ -47,12 +47,12 @@ Canonical IDs reuse ADR-020's spelling so expanding to its full 80+ list later i
 
 ## Schema and migration
 
-`liquibase/changelog/db/migrations/0014-add-topics.xml` — **two changeSets in one file**, so the DDL
+`liquibase/changelog/db/migrations/0015-add-topics.xml` — **two changeSets in one file**, so the DDL
 and the catalogue rows stay separable but ship together.
 
 ```
-0014-create-topic-tables   (DDL)
-0014-seed-canonical-topics (the 20 rows)
+0015-create-topic-tables   (DDL)
+0015-seed-canonical-topics (the 20 rows)
 ```
 
 ### Why the rows go in `migrations/`, not `seeding/`
@@ -121,9 +121,10 @@ com.yoursay.topics/
   service/TopicServiceImpl.java
 ```
 
-`@RunOnVirtualThread`, imperative - matching `AdminUserController`, not the reactive feed path.
-Create rejects a duplicate ID with `409` and assigns `display_order = max + 1`, so a new topic lands
-in the dropdown rather than jumping into the tab strip.
+Reactive Hibernate/Panache, because topic validation and decoration run inside the existing reactive
+post/feed pipelines. Create rejects a duplicate ID with `409` and assigns
+`display_order = max + 1`, so a new topic lands in the dropdown rather than jumping into the tab
+strip.
 
 ### `posts` changes
 
@@ -225,7 +226,7 @@ Following TDD - tests first, then the code, then the `test-audit` skill.
 ## Delivery order
 
 1. ADR-043 + the CLAUDE.md reference-data line.
-2. Migration `0014` (DDL + catalogue) and the `topics` domain with its public read endpoint.
+2. Migration `0015` (DDL + catalogue) and the `topics` domain with its public read endpoint.
 3. `post_topic` writes: `CreatePostRequest.topicIds`, `PostDto.topics`, batched decoration.
 4. Feed filter: `PostPageRequest.topicId`, repository condition, `?topic=` param.
 5. Mobile: `FeedTabs` + More sheet, `getFeed` topic param, post-card chips.
