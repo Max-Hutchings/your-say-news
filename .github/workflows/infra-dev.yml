@@ -92,9 +92,6 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    environment:
-      name: development
-      deployment: false
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}
@@ -133,8 +130,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment:
-      name: development-infrastructure
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}

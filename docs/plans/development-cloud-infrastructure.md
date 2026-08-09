@@ -2,7 +2,7 @@
 
 **Status:** Approved for implementation; external provisioning gates remain<br>
 **Date:** 2026-07-25  
-**Decision update:** 2026-07-27<br>
+**Decision updates:** 2026-07-27 and 2026-08-09<br>
 **Scope:** The always-on, production-like development environment only  
 **Budget:** £20/month for compute, database, object storage and their network costs  
 **Excluded from the budget:** AI API usage, the one-off Google Play registration fee and future
@@ -595,7 +595,9 @@ Manage these resources in Terraform where the provider supports them safely:
 - Cloudflare zone records, redirects, R2 buckets/CORS/lifecycle, Tunnel, Access policies and the
   private SSH application;
 - Grafana Cloud stack/service-account configuration where useful;
-- non-secret GitHub Environment variables and environment protection configuration where safe.
+- non-secret GitHub workflow configuration where safe. Private GitHub Free does not expose
+  Environment secrets or approval rules, so it uses repository secrets plus explicit manual
+  workflow dispatch.
 
 Do not put these in Terraform state:
 
@@ -615,7 +617,8 @@ Use one HCP Terraform organisation and a workspace per environment, initially
 HCP for remote state, locking, history and team access, but keep execution in GitHub Actions so the
 plan/apply approval path stays visible in the repository.
 
-- Store a narrowly scoped HCP token in the GitHub `development` Environment secret.
+- Store a narrowly scoped HCP token in GitHub Actions repository secrets while this private
+  repository remains on GitHub Free.
 - Require MFA for both developers and remove unused tokens.
 - Never use local state in CI or upload state as an Actions artifact.
 - Save the binary plan in the same trusted workflow run that later applies it.
@@ -685,9 +688,9 @@ Backend changes:
 2. Build API and migration artifacts once.
 3. Generate SBOM, scan and sign.
 4. Push immutable images to GHCR.
-5. Enter the protected GitHub `development` deployment environment.
+5. Enter the repository's explicit manual deployment workflow.
 6. Authenticate to the dedicated Cloudflare SSH Access application with the scoped CI service
-   token stored in the protected Environment.
+   token stored in GitHub Actions repository secrets.
 7. SSH through `cloudflared` to the unprivileged deploy user; the VM exposes no public SSH port.
 8. Pull the exact digest, run the one-shot Liquibase migration, then run Compose.
 9. Check readiness through both localhost/private path and the public Cloudflare hostname.
@@ -733,8 +736,8 @@ publish the Android update, wait for adoption, then remove old behaviour in a la
 ### Terraform plan and manual apply
 
 Any change under `service/infra/**` automatically creates and uploads a plan for the exact
-commit. Applying is a separate GitHub Actions job protected by the `development-infrastructure`
-Environment:
+commit. Applying is a separate, explicit `workflow_dispatch` run because private GitHub Free does
+not provide protected Environments:
 
 - require a manual approval/button after the plan is read; self-approval is permitted;
 - apply only the saved binary plan, not a newly generated unreviewed plan;
@@ -744,14 +747,14 @@ Environment:
 - serialize plans/applies with workflow concurrency; and
 - publish apply outputs and audit links without secrets.
 
-No independent reviewer is required for this trusted two-developer environment. If the repository
-plan cannot express self-approved protected Environments, retain a manual `workflow_dispatch`
-apply step with an explicit confirmation input and the same saved-plan checks rather than adding a
-review rule the team did not choose.
+No independent reviewer is required for this trusted two-developer environment. The manual
+`workflow_dispatch` apply requires the source plan run ID, exact commit SHA and environment-specific
+confirmation phrase, with the same saved-plan checks.
 
 ### Secrets and variables
 
-Use GitHub Environments, not repository `.env` files.
+Use GitHub Actions repository secrets while this private repository remains on GitHub Free; never
+use repository `.env` files. Reassess Environment secrets if the repository plan changes.
 
 Non-secret environment variables include:
 
@@ -827,7 +830,7 @@ This design deliberately uses portable contracts:
 | One-shot migration container | ECS one-off task in the deployment workflow |
 | Aiven PostgreSQL | RDS PostgreSQL |
 | R2 S3-compatible API | S3 |
-| GitHub Environment secrets | AWS Secrets Manager + task IAM role |
+| GitHub Actions repository secrets | AWS Secrets Manager + task IAM role |
 | Cloudflare Tunnel/DNS | ALB/API ingress; Cloudflare can stay or Route 53/CloudFront/WAF can replace it |
 | Grafana Cloud | Keep Grafana Cloud or connect CloudWatch/managed Grafana |
 | HCP Terraform state | Encrypted/versioned S3 backend with locking |
@@ -883,7 +886,7 @@ credentials and Max-owned GoDaddy/xAI tasks remain before provisioning/deploymen
   protection.
 - Add reusable Compose behaviour under `service/deploy/templates` only where the concrete
   development deployment proves it is shared.
-- Create HCP Europe organisation/workspace and GitHub Environments.
+- Create the HCP organisation/workspace and GitHub Actions repository secrets.
 - Add `service/infra/environments/development`.
 
 **Gate:** automated plan is readable, contains no secret values and destructive changes are

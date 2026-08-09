@@ -49,7 +49,7 @@ Every branch push starts two independent environment pipelines:
   planning and apply. Once configured, production can validate and plan on branch pushes, but a
   manual apply can use only a successful `main`-branch plan.
 
-The format and validation/test jobs run in parallel within their own environment. Plans are bound
+The format and validation/test jobs run in parallel within their own pipeline. Plans are bound
 to the workflow commit, backend configuration and provider lock file; apply consumes that exact
 one-day artifact. An automatic push run has no apply job: applying requires **Run workflow**, the
 successful plan run ID, its full commit SHA and the exact `apply development` or `apply production`
@@ -58,21 +58,22 @@ the older plan. Production additionally requires selecting `main`.
 
 GitHub displays **Run workflow** only after the workflow file exists on the default branch. Open the
 environment workflow's latest successful push run, review its plan summary, then copy the displayed
-run ID and SHA into the manual form. Required-review Environment protection is optional additional
-defence; manual dispatch is the baseline approval mechanism and does not depend on that paid-plan
-feature.
+run ID and SHA into the manual form.
 
-Configure these GitHub Environment secrets when repository settings become available:
+This private repository uses GitHub Free, which does not provide Environment secrets or protected
+Environment approval rules. Configure these GitHub Actions repository secrets instead:
 
-| Environment | Required secrets |
+| Repository secret | Required when |
 | --- | --- |
-| `development` | `TF_API_TOKEN`, `AIVEN_TOKEN`, `HCLOUD_TOKEN` |
-| `development-infrastructure` | `TF_API_TOKEN`, `AIVEN_TOKEN`, `HCLOUD_TOKEN` |
-| `production` | `TF_API_TOKEN`, `AIVEN_TOKEN`, `HCLOUD_TOKEN` |
-| `production-infrastructure` | `TF_API_TOKEN`, `AIVEN_TOKEN`, `HCLOUD_TOKEN` |
+| `TF_API_TOKEN` | Every authenticated plan and apply |
+| `AIVEN_TOKEN` | Every authenticated plan and apply |
+| `HCLOUD_TOKEN` | Every authenticated plan and apply |
+| `CLOUDFLARE_API_TOKEN` | R2 or Cloudflare Tunnel resources are enabled |
+| `GRAFANA_AUTH` | Grafana resources are implemented and enabled |
 
-Add `CLOUDFLARE_API_TOKEN` and `GRAFANA_AUTH` to the relevant plan and apply Environments before
-their corresponding resources are enabled. The HCP token is exposed to Terraform only as
+Repository secrets are available to every trusted workflow in this repository, so only trusted
+developers may push workflow changes and all provider tokens must remain narrowly scoped. The HCP
+token is exposed to Terraform only as
 `TF_TOKEN_app_terraform_io`. Saved plans are checksum-bound to the commit, lock file and backend
 configuration, retained for one day, and rejected if their source run or commit does not match the
 manual approval. They are also rejected if they delete or replace a protected database, bucket,
@@ -85,7 +86,7 @@ Environment-specific values belong only in the environment root:
 ```text
 environments/development/variables.tf       declares the environment contract
 environments/development/development.tfvars supplies non-secret development values
-GitHub Environment secrets                  supply provider/runtime credentials
+GitHub Actions repository secrets           supply provider credentials on private GitHub Free
 ```
 
 Never commit credentials, API tokens, generated passwords, tunnel tokens or private keys.

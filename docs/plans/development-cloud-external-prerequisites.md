@@ -20,7 +20,7 @@ Not every item blocks coding:
 
 Do not commit credentials, Google/Firebase subjects, tester emails, rendered environment files or
 other personal/secret values to this document. Record secret material directly in the approved
-provider or GitHub Environment secret store.
+provider or approved GitHub Actions secret store.
 
 ## Gate A — decisions needed before choices-dependent implementation
 
@@ -205,7 +205,9 @@ required for this environment.
 
 ### Provider eligibility and plan checks
 
-- [ ] Confirm the GitHub plan's Actions, package-storage and protected Environment limits.
+- [x] Confirm GitHub plan limits: this is a private repository on GitHub Free, so Environment
+      secrets and protected Environment approval rules are unavailable. Use narrowly scoped
+      repository secrets and the explicit `workflow_dispatch` apply confirmation.
 - [x] Confirm HCP Terraform placement: the existing Free organisation is on global
       `app.terraform.io`; HCP Europe requires a separate account/contract, so the approved
       other-processors residency standard permits the global service for development state.
@@ -273,11 +275,12 @@ Suggested naming shape:
 
 #### GitHub
 
-- [ ] Repository owner
-- [ ] `development` deployment Environment
-- [ ] `development-infrastructure` apply Environment
-- [x] Required reviewers for both Environments: none; manual self-approval uses the explicit
-      `workflow_dispatch` confirmation fallback from the approved infrastructure plan
+- [x] Repository owner: `Max-Hutchings`
+- [x] Deployment Environments are not used because private GitHub Free does not expose their
+      secrets or approval rules
+- [x] Provider credentials use narrowly scoped Actions repository secrets
+- [x] Manual self-approval uses the explicit `workflow_dispatch` confirmation fallback from the
+      approved infrastructure plan
 - [ ] GHCR package names for the API and migration images
 
 #### Google Cloud
@@ -293,8 +296,9 @@ Suggested naming shape:
 
 ### Secret inventory
 
-Create secrets directly in provider stores or protected GitHub Environments. Do not paste their
-values into issues, documentation, Terraform tfvars, chat or Docker build arguments.
+Create secrets directly in provider stores or GitHub Actions repository secrets. Do not paste their
+values into issues, documentation, Terraform tfvars, chat or Docker build arguments. Repository
+secrets are the accepted fallback for this trusted two-developer private GitHub Free repository.
 
 | Secret | Required scope/location |
 | --- | --- |

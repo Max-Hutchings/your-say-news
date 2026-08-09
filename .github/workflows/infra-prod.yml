@@ -158,9 +158,6 @@ jobs:
       && needs.terraform-validate.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    environment:
-      name: production
-      deployment: false
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}
@@ -203,8 +200,6 @@ jobs:
       && needs.production-readiness.outputs.configured == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment:
-      name: production-infrastructure
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
       AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}

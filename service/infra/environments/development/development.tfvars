@@ -5,9 +5,9 @@
 #
 # Never put API tokens, passwords, R2 access keys or connector tokens in this file.
 
-enable_hcloud_host       = false
-enable_aiven_postgresql  = false
-enable_r2_buckets        = false
+enable_hcloud_host       = true
+enable_aiven_postgresql  = true
+enable_r2_buckets        = true
 enable_cloudflare_tunnel = false
 
 # Cloudflare dashboard -> account/zone overview.
