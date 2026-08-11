@@ -30,28 +30,34 @@ public class YourSayUserControllerTest {
 
     @Test
     @TestSecurity(user="max@gmail.com", roles={"user"}, attributes = {@SecurityAttribute(key = "given_name", value="max"), @SecurityAttribute(key="family_name", value="rax")})
-    public void saveUser() {
+    public void saveUser() throws Exception {
         String body = """
                 {
                   "birthDate": "2001-03-17"
                 }
                 """;
 
-        given()
-                .contentType(ContentType.JSON)
-                .body(body)
-                .when()
-                .post(BASE_URL + "/save")
-                .then()
-                .statusCode(201)
-                .body("email", equalTo("max@gmail.com"))
-                .body("firstName", equalTo("max"))
-                .body("lastName", equalTo("rax"))
-                .body("dateOfBirth", equalTo("2001-03-17"))
-                .body("active", equalTo(true))
-                .body("accountType", equalTo("USER"))
-                .body("publisherStatus", equalTo("NONE"))
-                .body("canPublish", equalTo(false));
+        try {
+            given()
+                    .contentType(ContentType.JSON)
+                    .body(body)
+                    .when()
+                    .post(BASE_URL + "/save")
+                    .then()
+                    .statusCode(201)
+                    .body("email", equalTo("max@gmail.com"))
+                    .body("firstName", equalTo("max"))
+                    .body("lastName", equalTo("rax"))
+                    .body("dateOfBirth", equalTo("2001-03-17"))
+                    .body("active", equalTo(true))
+                    .body("accountType", equalTo("USER"))
+                    .body("publisherStatus", equalTo("NONE"))
+                    .body("canPublish", equalTo(false));
+        } finally {
+            // your_say_user is shared by every test in the JVM, so the account this test creates
+            // has to go back out again — otherwise whichever test runs next sees an extra row.
+            deleteUserByEmail("max@gmail.com");
+        }
     }
 
     @Test
@@ -241,6 +247,15 @@ public class YourSayUserControllerTest {
                 .body("consented", equalTo(true))
                 .body("hasCharacteristics", equalTo(true))
                 .body("onboarded", equalTo(true));
+    }
+
+    private void deleteUserByEmail(String email) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "delete from your_say_user where email = ?")) {
+            statement.setString(1, email);
+            statement.executeUpdate();
+        }
     }
 
     private void setUserActive(long userId, boolean active) throws Exception {

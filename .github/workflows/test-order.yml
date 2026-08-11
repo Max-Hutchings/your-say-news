@@ -1,0 +1,77 @@
+name: Test order
+
+# An order-dependent test — one that only passes because another test left data or session state
+# behind — passes on a developer's machine and fails on CI, because JUnit's default class order
+# follows classpath discovery order and that differs between APFS and ext4. This job shuffles the
+# order deliberately so those tests fail here, on a schedule, instead of intermittently on a PR.
+#
+# Deliberately NOT on the pull_request path: it must never slow the CI that gates merges.
+on:
+  schedule:
+    # 03:00 UTC daily.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: 'Reproduce one reported failure by its seed (blank = rotate automatically)'
+        required: false
+        type: string
+
+concurrency:
+  group: test-order-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shuffled:
+    name: shuffled backend (leg ${{ matrix.leg }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Every leg must report: one leg's order failing tells us nothing about the others.
+      fail-fast: false
+      matrix:
+        # Three orders per night, in parallel, so coverage triples without tripling wall time.
+        leg: [1, 2, 3]
+    env:
+      QUARKUS_HTTP_TEST_PORT: 0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up GraalVM 25
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Choose seed
+        id: seed
+        run: |
+          # A dispatch seed reproduces a specific reported failure exactly; otherwise rotate off the
+          # run number so each night exercises orders earlier nights did not.
+          if [ -n "${{ inputs.seed }}" ]; then
+            echo "value=${{ inputs.seed }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(( ${{ github.run_number }} * 10 + ${{ matrix.leg }} ))" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Only `test` — no jar assembly, and coverage is already gated by the CI workflow, so skip its
+      # verification here. This job exists to shake out ordering, not to re-check the build.
+      - name: Test with shuffled class order
+        env:
+          TEST_ORDER_SEED: ${{ steps.seed.outputs.value }}
+        run: |
+          echo "Reproduce locally with: TEST_ORDER_SEED=$TEST_ORDER_SEED ./gradlew :post-service:test"
+          ./gradlew :post-service:test -x jacocoTestCoverageVerification
+
+      - name: Upload test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-seed-${{ steps.seed.outputs.value }}
+          path: post-service/build/reports/tests/
+          if-no-files-found: ignore

@@ -27,19 +27,26 @@ class AdminUserControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "user")
-    void activeDatabaseAdminCanListEveryAccountWithoutSensitiveProfileData() {
+    void activeDatabaseAdminCanListEveryAccountWithoutSensitiveProfileData() throws Exception {
         List<Map<String, Object>> users = given()
                 .when().get(BASE_URL)
                 .then()
                 .statusCode(200)
                 .extract().jsonPath().getList("$");
 
-        org.junit.jupiter.api.Assertions.assertEquals(11, users.size());
+        // "Every account" is pinned against the table itself rather than a hard-coded 11, so an
+        // account another test legitimately creates cannot turn this into a false failure while a
+        // genuinely omitted account still does.
+        org.junit.jupiter.api.Assertions.assertEquals(countAccounts(), users.size());
         Set<String> exactKeys = Set.of(
                 "id", "email", "firstName", "lastName", "displayName",
                 "createdDate", "active", "accountType"
         );
         users.forEach(user -> org.junit.jupiter.api.Assertions.assertEquals(exactKeys, user.keySet()));
+        // The repository promises newest first (createdDate desc, id desc). Asserting the ordering
+        // itself keeps that contract pinned without depending on which row happens to sit at an
+        // index — a newly created account sorts to the front.
+        assertOrderedNewestFirst(users);
         org.junit.jupiter.api.Assertions.assertEquals(Map.of(
                 "id", 11,
                 "email", "admin@yoursay.com",
@@ -49,15 +56,39 @@ class AdminUserControllerTest {
                 "createdDate", "2024-06-07",
                 "active", true,
                 "accountType", "ADMIN"
-        ), users.getFirst());
-        org.junit.jupiter.api.Assertions.assertEquals("john.doe@example.com", users.getLast().get("email"));
-        org.junit.jupiter.api.Assertions.assertEquals("OFFICIAL", users.getLast().get("accountType"));
+        ), account(users, "admin@yoursay.com"));
+        org.junit.jupiter.api.Assertions.assertEquals("OFFICIAL",
+                account(users, "john.doe@example.com").get("accountType"));
         org.junit.jupiter.api.Assertions.assertEquals(false,
-                users.stream()
-                        .filter(user -> user.get("email").equals("bob.johnson@example.com"))
-                        .findFirst()
-                        .orElseThrow()
-                        .get("active"));
+                account(users, "bob.johnson@example.com").get("active"));
+    }
+
+    private static Map<String, Object> account(List<Map<String, Object>> users, String email) {
+        return users.stream()
+                .filter(user -> email.equals(user.get("email")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No account listed for " + email));
+    }
+
+    private static void assertOrderedNewestFirst(List<Map<String, Object>> users) {
+        List<String> sortKeys = users.stream()
+                .map(user -> user.get("createdDate") + "|" + String.format("%010d",
+                        ((Number) user.get("id")).longValue()))
+                .toList();
+        org.junit.jupiter.api.Assertions.assertEquals(
+                sortKeys.stream().sorted(java.util.Comparator.reverseOrder()).toList(),
+                sortKeys,
+                "Accounts must be listed newest first by createdDate then id");
+    }
+
+    private long countAccounts() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement("select count(*) from your_say_user");
+             ResultSet result = statement.executeQuery()) {
+            result.next();
+            return result.getLong(1);
+        }
     }
 
     @Test

@@ -61,6 +61,19 @@ tasks.test {
     systemProperty("quarkus.jacoco.data-file", jacocoDataFile.get().asFile.absolutePath)
     systemProperty("quarkus.jacoco.report-location", jacocoReportDirectory.get().asFile.absolutePath)
 
+    // Opt-in shuffle: `TEST_ORDER_SEED=<n> ./gradlew :post-service:test` reorders the test classes,
+    // so a test that only passes because of data or session state another test left behind fails
+    // here instead of intermittently on CI. Quarkus owns the primary orderer (it groups classes by
+    // test profile so the application is not torn down mid-group), so this drives the secondary
+    // hook it exposes rather than replacing it.
+    System.getenv("TEST_ORDER_SEED")?.let { seed ->
+        systemProperty(
+            "junit.quarkus.orderer.secondary-orderer",
+            "org.junit.jupiter.api.ClassOrderer\$Random"
+        )
+        systemProperty("junit.jupiter.execution.order.random.seed", seed)
+    }
+
     extensions.configure<JacocoTaskExtension> {
         excludeClassLoaders = listOf("*QuarkusClassLoader")
         destinationFile = jacocoDataFile.get().asFile
