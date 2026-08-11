@@ -92,51 +92,82 @@ public class PostServiceImpl implements PostService {
     @WithTransaction
     public Uni<PostDto> create(String authorEmail, String authorization, CreatePostRequest request) {
         Log.infof("Creating post for author %s", authorEmail);
-        List<CreatePostRequest.Media> media = request.media() == null ? List.of() : request.media();
+        List<CreatePostRequest.Media> media = requestedMedia(request);
+        List<VotingOptionRules.Definition> optionDefinitions = normalizeVotingOptions(request);
+        validateMedia(media);
+
+        return resolveAuthor(authorEmail, authorization)
+                .flatMap(author -> consumeUploads(media, author.userId())
+                        .chain(() -> saveWithTopicTags(
+                                assemblePost(author.userId(), request, media, optionDefinitions),
+                                request.topicTagIds())))
+                .invoke(() -> recordMetric("create", true))
+                .onFailure().invoke(() -> recordMetric("create", false));
+    }
+
+    private static List<CreatePostRequest.Media> requestedMedia(CreatePostRequest request) {
+        return request.media() == null ? List.of() : request.media();
+    }
+
+    /** Fills in the option set the voting type implies when the author supplied none. */
+    private static List<VotingOptionRules.Definition> normalizeVotingOptions(CreatePostRequest request) {
         List<String> requestedLabels = request.voteOptions() == null
                 ? List.of()
                 : request.voteOptions().stream().map(CreatePostRequest.VoteOption::label).toList();
-        List<VotingOptionRules.Definition> optionDefinitions =
-                VotingOptionRules.normalize(request.votingType(), requestedLabels);
-        VotingType votingType = request.votingType() == null ? VotingType.BINARY : request.votingType();
+        return VotingOptionRules.normalize(request.votingType(), requestedLabels);
+    }
+
+    private static void validateMedia(List<CreatePostRequest.Media> media) {
         validateMediaKeysAreUnique(media);
         validateMediaCounts(media);
-        media.forEach(m -> validateContentType(m.mediaType(), m.contentType()));
+        media.forEach(item -> validateContentType(item.mediaType(), item.contentType()));
+    }
 
-        return resolveAuthor(authorEmail, authorization)
-                .flatMap(author -> {
-                    Uni<Void> validation = Uni.createFrom().voidItem();
-                    for (CreatePostRequest.Media item : media) {
-                        validation = validation.chain(() -> consumeUpload(
-                                item.s3Key(), author.userId(), item.mediaType(), item.contentType()));
-                        if (item.posterS3Key() != null && !item.posterS3Key().isBlank()) {
-                            validation = validation.chain(() -> consumeUpload(
-                                    item.posterS3Key(), author.userId(), MediaType.IMAGE, null));
-                        }
-                    }
-                    return validation.chain(() -> {
-                        // Author from the token; body userId (if any) and isUnbiased are ignored/forced.
-                        Post post = new Post(author.userId(), request.summary().trim(),
-                                request.supportQuestion().trim(), false);
-                        post.setCaseFor(emptyToNull(request.caseFor()));
-                        post.setCaseAgainst(emptyToNull(request.caseAgainst()));
-                        post.setJurisdiction(normalizeJurisdiction(request.jurisdiction()));
-                        post.configureVoting(votingType, optionDefinitions);
-                        for (CreatePostRequest.Media m : media) {
-                            post.addMedia(new PostMedia(post, m.mediaType(), m.orientation(), m.s3Key(),
-                                    m.contentType(), emptyToNull(m.posterS3Key()), 0));
-                        }
-                        // Topic tags are validated and attached after the post exists, because the
-                        // assignment rows need its generated id. A bad topic id fails the whole
-                        // transaction, so a post is never published with a selection silently
-                        // dropped.
-                        return postRepository.savePost(post).flatMap(saved -> topicService
-                                .assignCreatorTags(saved.getId(), request.topicTagIds())
-                                .map(tags -> toDto(saved, saved.getVoteOptions()).withTopicTags(tags)));
-                    });
-                })
-                .invoke(() -> recordMetric("create", true))
-                .onFailure().invoke(() -> recordMetric("create", false));
+    /**
+     * Claims every presigned upload the request references, the video poster included, so an
+     * attachment can never be reused or stolen from another author.
+     */
+    private Uni<Void> consumeUploads(List<CreatePostRequest.Media> media, Long authorId) {
+        Uni<Void> claims = Uni.createFrom().voidItem();
+        for (CreatePostRequest.Media item : media) {
+            claims = claims.chain(() -> consumeUpload(
+                    item.s3Key(), authorId, item.mediaType(), item.contentType()));
+            if (item.posterS3Key() != null && !item.posterS3Key().isBlank()) {
+                claims = claims.chain(() -> consumeUpload(
+                        item.posterS3Key(), authorId, MediaType.IMAGE, null));
+            }
+        }
+        return claims;
+    }
+
+    /** Author comes from the token; body userId (if any) and isUnbiased are ignored/forced. */
+    private static Post assemblePost(Long authorId, CreatePostRequest request,
+                                     List<CreatePostRequest.Media> media,
+                                     List<VotingOptionRules.Definition> optionDefinitions) {
+        Post post = new Post(authorId, request.summary().trim(),
+                request.supportQuestion().trim(), false);
+        post.setCaseFor(emptyToNull(request.caseFor()));
+        post.setCaseAgainst(emptyToNull(request.caseAgainst()));
+        post.setJurisdiction(normalizeJurisdiction(request.jurisdiction()));
+        post.configureVoting(
+                request.votingType() == null ? VotingType.BINARY : request.votingType(),
+                optionDefinitions);
+        for (CreatePostRequest.Media item : media) {
+            post.addMedia(new PostMedia(post, item.mediaType(), item.orientation(), item.s3Key(),
+                    item.contentType(), emptyToNull(item.posterS3Key()), 0));
+        }
+        return post;
+    }
+
+    /**
+     * Topic tags are validated and attached after the post exists, because the assignment rows need
+     * its generated id. A bad topic id fails the whole transaction, so a post is never published
+     * with a selection silently dropped.
+     */
+    private Uni<PostDto> saveWithTopicTags(Post post, List<String> topicTagIds) {
+        return postRepository.savePost(post).flatMap(saved -> topicService
+                .assignCreatorTags(saved.getId(), topicTagIds)
+                .map(tags -> toDto(saved, saved.getVoteOptions()).withTopicTags(tags)));
     }
 
     @Override

@@ -18,6 +18,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.Response;
 
 import java.util.Optional;
+import java.util.function.Predicate;
 
 @ApplicationScoped
 public class VoteServiceImpl implements VoteService {
@@ -54,38 +55,12 @@ public class VoteServiceImpl implements VoteService {
     public VoteResponseDto castVote(Long postId, Long optionId, String callerEmail, String authorization) {
         try {
             assertVotableSelection(postId, optionId);
-            // 1. Resolve the numeric user id through the local user-domain adapter.
             Long userId = resolveUserId(callerEmail, authorization);
-
-            // 2. Enforce one-vote-per-user: 409 if already voted.
-            if (voteRepository.existsByPostAndUser(postId, userId)) {
-                Log.infof("Duplicate vote rejected: user %d already voted on post %d", userId, postId);
-                throw VoteApiException.duplicateVote(postId, userId);
-            }
-
-            // 3. Capture a point-in-time characteristic snapshot (null-safe: empty snapshot if no profile).
+            assertHasNotVoted(postId, userId);
+            // A point-in-time characteristic snapshot is what makes the vote aggregatable later.
             CharacteristicSnapshot snapshot = fetchSnapshot(authorization);
 
-            // 4. Persist and return the PII-safe response.
-            Vote vote = new Vote(postId, userId, optionId, snapshot);
-            try {
-                voteRepository.persist(vote);
-                // Flush now so a foreign-key (unknown post) or unique (duplicate) violation is
-                // thrown here — inside this try — rather than later at commit, where it would
-                // escape as a generic 500 instead of the precise 404/409 below.
-                voteRepository.flush();
-            } catch (RuntimeException e) {
-                if (isInvalidOptionPersistenceFailure(e)) {
-                    throw VoteApiException.optionNotAvailable(postId, optionId);
-                }
-                if (isMissingPostPersistenceFailure(e)) {
-                    throw VoteApiException.postMissing(postId);
-                }
-                if (isDuplicateVotePersistenceFailure(e)) {
-                    throw VoteApiException.duplicateVote(postId, userId);
-                }
-                throw e;
-            }
+            Vote vote = persistVote(new Vote(postId, userId, optionId, snapshot));
             Log.infof("Canonical vote persisted: id=%s postId=%d", vote.getId(), postId);
             recordMetric("castVote", true);
             return toResponse(vote);
@@ -93,6 +68,42 @@ public class VoteServiceImpl implements VoteService {
             recordMetric("castVote", false);
             throw e;
         }
+    }
+
+    /** One vote per user per post: a second attempt is a 409 rather than a silent overwrite. */
+    private void assertHasNotVoted(Long postId, Long userId) {
+        if (voteRepository.existsByPostAndUser(postId, userId)) {
+            Log.infof("Duplicate vote rejected: user %d already voted on post %d", userId, postId);
+            throw VoteApiException.duplicateVote(postId, userId);
+        }
+    }
+
+    /**
+     * Persist and flush together so a foreign-key (unknown post/option) or unique (duplicate)
+     * violation is raised here and translated into the precise 404/409, rather than escaping at
+     * commit time as a generic 500.
+     */
+    private Vote persistVote(Vote vote) {
+        try {
+            voteRepository.persist(vote);
+            voteRepository.flush();
+            return vote;
+        } catch (RuntimeException e) {
+            throw translatePersistenceFailure(e, vote);
+        }
+    }
+
+    private static RuntimeException translatePersistenceFailure(RuntimeException failure, Vote vote) {
+        if (causeChainMentions(failure, "fk_votes_option_post")) {
+            return VoteApiException.optionNotAvailable(vote.getPostId(), vote.getOptionId());
+        }
+        if (isMissingPostPersistenceFailure(failure)) {
+            return VoteApiException.postMissing(vote.getPostId());
+        }
+        if (isDuplicateVotePersistenceFailure(failure)) {
+            return VoteApiException.duplicateVote(vote.getPostId(), vote.getUserId());
+        }
+        return failure;
     }
 
     @Override
@@ -169,43 +180,30 @@ public class VoteServiceImpl implements VoteService {
     }
 
     private static boolean isMissingPostPersistenceFailure(Throwable error) {
-        Throwable current = error;
-        while (current != null) {
-            String message = current.getMessage();
-            String className = current.getClass().getName();
-            String combined = ((message == null ? "" : message) + " " + className).toLowerCase();
-            if (combined.contains("fk_votes_post")
-                    || (combined.contains("foreign key") && combined.contains("post"))) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
+        return anyCauseMatches(error, description -> description.contains("fk_votes_post")
+                || (description.contains("foreign key") && description.contains("post")));
     }
 
     private static boolean isDuplicateVotePersistenceFailure(Throwable error) {
-        Throwable current = error;
-        while (current != null) {
-            String message = current.getMessage();
-            String className = current.getClass().getName();
-            String combined = ((message == null ? "" : message) + " " + className).toLowerCase();
-            if (combined.contains("uk_votes_post_user")
-                    || (combined.contains("duplicate") && combined.contains("vote"))
-                    || (combined.contains("unique") && combined.contains("vote"))) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
+        return anyCauseMatches(error, description -> description.contains("uk_votes_post_user")
+                || (description.contains("duplicate") && description.contains("vote"))
+                || (description.contains("unique") && description.contains("vote")));
     }
 
-    private static boolean isInvalidOptionPersistenceFailure(Throwable error) {
-        Throwable current = error;
-        while (current != null) {
-            String combined = ((current.getMessage() == null ? "" : current.getMessage()) + " "
-                    + current.getClass().getName()).toLowerCase();
-            if (combined.contains("fk_votes_option_post")) return true;
-            current = current.getCause();
+    private static boolean causeChainMentions(Throwable error, String marker) {
+        return anyCauseMatches(error, description -> description.contains(marker));
+    }
+
+    /**
+     * The driver reports constraint violations only in the exception text, so the whole cause chain
+     * is searched by its lower-cased message and type name.
+     */
+    private static boolean anyCauseMatches(Throwable error, Predicate<String> matcher) {
+        for (Throwable current = error; current != null; current = current.getCause()) {
+            String message = current.getMessage() == null ? "" : current.getMessage();
+            if (matcher.test((message + " " + current.getClass().getName()).toLowerCase())) {
+                return true;
+            }
         }
         return false;
     }

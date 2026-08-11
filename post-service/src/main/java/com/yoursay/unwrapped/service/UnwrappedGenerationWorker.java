@@ -45,13 +45,13 @@ public class UnwrappedGenerationWorker {
             UnwrappedResearchRequest request = request(job);
             UnwrappedResearchResult result = generator.generate(request);
             processor.complete(job.id(), result);
-            metrics.recordOperation("unwrapped", "generation", true);
+            metrics.recordJob("unwrapped", "generation", true, System.nanoTime() - started);
             Log.infof("Unwrapped draft ready: jobId=%s postId=%d milestone=%d attempt=%d model=%s durationMs=%d",
                     job.id(), job.postId(), job.milestone(), job.attempt(), result.model(),
                     elapsedMillis(started));
         } catch (RuntimeException failure) {
             UnwrappedJobProcessor.FailureResult result = processor.fail(job.id(), failure);
-            metrics.recordOperation("unwrapped", "generation", false);
+            metrics.recordJob("unwrapped", "generation", false, System.nanoTime() - started);
             metrics.recordError("unwrapped", "generation", result.code(), 500);
             Log.warnf(failure,
                     "Unwrapped generation failed: jobId=%s postId=%d milestone=%d attempt=%d code=%s status=%s retryScheduled=%s causeType=%s causeMessage=%s durationMs=%d",

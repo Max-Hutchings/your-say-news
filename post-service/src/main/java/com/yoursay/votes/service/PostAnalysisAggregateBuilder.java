@@ -49,17 +49,54 @@ public class PostAnalysisAggregateBuilder {
 
     public PostAnalysisAggregateV1 build(PostVotingConfigurationDto post, List<VoteSnapshot> votes,
                                          int suppressBelow, Instant capturedAt) {
-        List<VoteOptionDto> options = post.options().stream()
+        long total = votes.size();
+        List<VoteOptionDto> options = sortOptionsByOrdinal(post.options());
+        Map<Long, Long> overallCounts = countsByOption(votes);
+        List<OverallOptionStatisticV1> overall = buildOverallStatistics(options, overallCounts, total);
+
+        List<CohortWork> family = buildCohortFamily(votes);
+        List<CohortWork> surfaced = selectCohortsAtOrAboveSuppressionFloor(family, suppressBelow);
+        long suppressed = family.size() - surfaced.size();
+
+        List<RawComparison> comparisons =
+                compareCohortsAgainstRest(surfaced, votes, options, overallCounts, total);
+        Map<String, List<OptionStatisticV1>> statisticsByCohort =
+                adjustSignificanceAndGroupByCohort(comparisons);
+
+        List<CohortAggregateV1> cohorts =
+                createCohortAggregates(surfaced, statisticsByCohort, total);
+        AggregationMetadataV1 metadata = new AggregationMetadataV1(
+                RULE_SET_VERSION, suppressBelow, 100, 30, 40, 5.0, 10.0, 0.05,
+                suppressed, comparisons.size());
+        return new PostAnalysisAggregateV1(SCHEMA_VERSION, post.postId(), post.votingType(),
+                post.summary(), post.question(), post.jurisdiction(), options, total, null, capturedAt, overall,
+                cohorts, metadata);
+    }
+
+    private static List<VoteOptionDto> sortOptionsByOrdinal(List<VoteOptionDto> options) {
+        return options.stream()
                 .sorted(Comparator.comparingInt(VoteOptionDto::ordinal))
                 .toList();
-        Map<Long, Long> overallCounts = countsByOption(votes);
-        long total = votes.size();
-        List<OverallOptionStatisticV1> overall = options.stream()
+    }
+
+    private static List<OverallOptionStatisticV1> buildOverallStatistics(
+            List<VoteOptionDto> options,
+            Map<Long, Long> overallCounts,
+            long total
+    ) {
+        return options.stream()
                 .map(option -> new OverallOptionStatisticV1(option.id(),
                         overallCounts.getOrDefault(option.id(), 0L),
                         percentage(overallCounts.getOrDefault(option.id(), 0L), total)))
                 .toList();
+    }
 
+    /**
+     * Every cohort the rules define — one per bucket of each reportable axis, plus the allowlisted
+     * two-axis intersections — ordered by cohort id so the aggregate is byte-stable for a given
+     * vote set.
+     */
+    private static List<CohortWork> buildCohortFamily(List<VoteSnapshot> votes) {
         List<CohortWork> family = new ArrayList<>();
         for (String axis : REPORTABLE_AXES) {
             family.addAll(singleAxis(axis, votes));
@@ -68,34 +105,77 @@ public class PostAnalysisAggregateBuilder {
             family.addAll(intersection(axes, votes));
         }
         family.sort(Comparator.comparing(CohortWork::cohortId));
+        return family;
+    }
 
-        long suppressed = family.stream().filter(item -> item.votes().size() < suppressBelow).count();
-        List<CohortWork> surfaced = family.stream()
-                .filter(item -> item.votes().size() >= suppressBelow)
+    /** Privacy floor: a cohort smaller than the threshold is dropped before anything is reported. */
+    private static List<CohortWork> selectCohortsAtOrAboveSuppressionFloor(
+            List<CohortWork> family,
+            int suppressBelow
+    ) {
+        return family.stream()
+                .filter(cohort -> cohort.votes().size() >= suppressBelow)
                 .toList();
+    }
 
+    private static List<RawComparison> compareCohortsAgainstRest(
+            List<CohortWork> surfaced,
+            List<VoteSnapshot> votes,
+            List<VoteOptionDto> options,
+            Map<Long, Long> overallCounts,
+            long total
+    ) {
         List<RawComparison> comparisons = new ArrayList<>();
         for (CohortWork cohort : surfaced) {
-            Set<VoteSnapshot> members = new LinkedHashSet<>(cohort.votes());
-            List<VoteSnapshot> rest = votes.stream().filter(vote -> !members.contains(vote)).toList();
+            List<VoteSnapshot> rest = votesOutsideCohort(votes, cohort);
             Map<Long, Long> cohortCounts = countsByOption(cohort.votes());
             Map<Long, Long> restCounts = countsByOption(rest);
             for (VoteOptionDto option : options) {
-                long cohortCount = cohortCounts.getOrDefault(option.id(), 0L);
-                long restCount = restCounts.getOrDefault(option.id(), 0L);
-                PostAnalysisStatistics.TestResult test = PostAnalysisStatistics.compare(
-                        cohortCount, cohort.votes().size(), restCount, rest.size());
-                double[] interval = PostAnalysisStatistics.wilson95(cohortCount, cohort.votes().size());
-                comparisons.add(new RawComparison(cohort.cohortId(), option.id(), cohortCount,
-                        percentage(cohortCount, cohort.votes().size()),
-                        percentage(cohortCount, overallCounts.getOrDefault(option.id(), 0L)),
-                        percentage(cohortCount, cohort.votes().size())
-                                - percentage(overallCounts.getOrDefault(option.id(), 0L), total),
-                        percentage(cohortCount, cohort.votes().size())
-                                - percentage(restCount, rest.size()),
-                        interval[0], interval[1], test.pValue(), test.method()));
+                comparisons.add(compareOption(cohort, option, cohortCounts, restCounts,
+                        rest.size(), overallCounts, total));
             }
         }
+        return comparisons;
+    }
+
+    private static List<VoteSnapshot> votesOutsideCohort(List<VoteSnapshot> votes, CohortWork cohort) {
+        Set<VoteSnapshot> members = new LinkedHashSet<>(cohort.votes());
+        return votes.stream().filter(vote -> !members.contains(vote)).toList();
+    }
+
+    private static RawComparison compareOption(
+            CohortWork cohort,
+            VoteOptionDto option,
+            Map<Long, Long> cohortCounts,
+            Map<Long, Long> restCounts,
+            long restSize,
+            Map<Long, Long> overallCounts,
+            long total
+    ) {
+        long cohortSize = cohort.votes().size();
+        long cohortCount = cohortCounts.getOrDefault(option.id(), 0L);
+        long restCount = restCounts.getOrDefault(option.id(), 0L);
+        long overallCount = overallCounts.getOrDefault(option.id(), 0L);
+        PostAnalysisStatistics.TestResult test =
+                PostAnalysisStatistics.compare(cohortCount, cohortSize, restCount, restSize);
+        double[] interval = PostAnalysisStatistics.wilson95(cohortCount, cohortSize);
+        double cohortPercentage = percentage(cohortCount, cohortSize);
+        return new RawComparison(cohort.cohortId(), option.id(), cohortCount,
+                cohortPercentage,
+                percentage(cohortCount, overallCount),
+                cohortPercentage - percentage(overallCount, total),
+                cohortPercentage - percentage(restCount, restSize),
+                interval[0], interval[1], test.pValue(), test.method());
+    }
+
+    /**
+     * Apply the Benjamini-Hochberg correction across every comparison at once — the false discovery
+     * rate is controlled over the whole family, not per cohort — then group the corrected
+     * statistics under their cohort.
+     */
+    private static Map<String, List<OptionStatisticV1>> adjustSignificanceAndGroupByCohort(
+            List<RawComparison> comparisons
+    ) {
         double[] qValues = PostAnalysisStatistics.benjaminiHochberg(
                 comparisons.stream().map(RawComparison::pValue).toList());
         Map<String, List<OptionStatisticV1>> statisticsByCohort = new LinkedHashMap<>();
@@ -107,19 +187,20 @@ public class PostAnalysisAggregateBuilder {
                             value.wilsonLow(), value.wilsonHigh(), value.pValue(), qValues[i],
                             value.testMethod()));
         }
+        return statisticsByCohort;
+    }
 
-        List<CohortAggregateV1> cohorts = surfaced.stream()
+    private static List<CohortAggregateV1> createCohortAggregates(
+            List<CohortWork> surfaced,
+            Map<String, List<OptionStatisticV1>> statisticsByCohort,
+            long total
+    ) {
+        return surfaced.stream()
                 .map(cohort -> new CohortAggregateV1(cohort.cohortId(), cohort.dimensions(),
                         cohort.membershipSemantics(), cohort.votes().size(),
                         percentage(cohort.votes().size(), total),
                         List.copyOf(statisticsByCohort.getOrDefault(cohort.cohortId(), List.of()))))
                 .toList();
-        AggregationMetadataV1 metadata = new AggregationMetadataV1(
-                RULE_SET_VERSION, suppressBelow, 100, 30, 40, 5.0, 10.0, 0.05,
-                suppressed, comparisons.size());
-        return new PostAnalysisAggregateV1(SCHEMA_VERSION, post.postId(), post.votingType(),
-                post.summary(), post.question(), post.jurisdiction(), options, total, null, capturedAt, overall,
-                cohorts, metadata);
     }
 
     private static List<CohortWork> singleAxis(String axis, List<VoteSnapshot> votes) {

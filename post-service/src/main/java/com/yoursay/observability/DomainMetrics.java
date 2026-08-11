@@ -9,8 +9,19 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Custom domain-level telemetry. Every tag here must stay low cardinality: domain, operation and
+ * outcome are fixed vocabularies, and no identifier, email or raw error message is ever a tag.
+ */
 @ApplicationScoped
 public class DomainMetrics {
+
+    private static final String SUCCESS = "success";
+    private static final String EXPECTED_REJECTION = "expected_rejection";
+    private static final String UNEXPECTED_CLIENT_ERROR = "unexpected_client_error";
+    private static final String SERVER_ERROR = "server_error";
+    private static final String SERVICE_ERROR = "service_error";
+    private static final String JOB_ERROR = "job_error";
 
     @Inject
     MeterRegistry registry;
@@ -50,13 +61,30 @@ public class DomainMetrics {
                 .record(durationNanos, TimeUnit.NANOSECONDS);
     }
 
+    /** Traffic and failures of an internal domain operation that has no public API of its own. */
     public void recordOperation(String domain, String operation, boolean success) {
+        countOutcome(domain, operation, success, SERVICE_ERROR);
+    }
+
+    /**
+     * A background job run. Its duration is recorded as well as its outcome, because a job that
+     * silently slows down is invisible in a counter alone.
+     */
+    public void recordJob(String domain, String operation, boolean success, long durationNanos) {
+        Tags tags = countOutcome(domain, operation, success, JOB_ERROR);
+        Timer.builder("yoursay.domain.job.duration")
+                .tags(tags)
+                .register(registry)
+                .record(durationNanos, TimeUnit.NANOSECONDS);
+    }
+
+    private Tags countOutcome(String domain, String operation, boolean success, String errorOutcome) {
         Tags tags = Tags.of(
                 "domain", domain,
                 "operation", operation,
-                "outcome", success ? "success" : "service_error",
+                "outcome", success ? SUCCESS : errorOutcome,
                 "error_type", success ? "none" : "internal",
-                "error_code", success ? "none" : "operation_failed",
+                "error_code", success ? "none" : errorCodeFor(errorOutcome),
                 "environment", environment
         );
         registry.counter("yoursay.domain.operations.total", tags).increment();
@@ -64,6 +92,7 @@ public class DomainMetrics {
         if (!success) {
             registry.counter("yoursay.domain.errors.total", tags).increment();
         }
+        return tags;
     }
 
     public void recordOperation(
@@ -94,6 +123,7 @@ public class DomainMetrics {
                 .record(durationNanos, TimeUnit.NANOSECONDS);
     }
 
+    /** Top-10 error panels group by this stable code, never by a raw message or stack trace. */
     public void recordError(String domain, String operation, String errorCode, int status) {
         registry.counter("yoursay.domain.errors.by_code.total", Tags.of(
                 "domain", domain,
@@ -108,12 +138,12 @@ public class DomainMetrics {
 
     private static String requestOutcome(int status, boolean expectedRejection) {
         if (status >= 500) {
-            return "server_error";
+            return SERVER_ERROR;
         }
         if (status >= 400) {
-            return expectedRejection ? "expected_rejection" : "unexpected_client_error";
+            return expectedRejection ? EXPECTED_REJECTION : UNEXPECTED_CLIENT_ERROR;
         }
-        return "success";
+        return SUCCESS;
     }
 
     private static String requestErrorType(int status) {
@@ -124,6 +154,10 @@ public class DomainMetrics {
     }
 
     private static boolean isFailure(String outcome) {
-        return !"success".equals(outcome) && !"expected_rejection".equals(outcome);
+        return !SUCCESS.equals(outcome) && !EXPECTED_REJECTION.equals(outcome);
+    }
+
+    private static String errorCodeFor(String errorOutcome) {
+        return JOB_ERROR.equals(errorOutcome) ? "job_failed" : "operation_failed";
     }
 }
