@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 class UnwrappedAdminControllerTest {
@@ -504,6 +505,122 @@ class UnwrappedAdminControllerTest {
                 .then()
                 .statusCode(400)
                 .body("code", equalTo("VALIDATION_FAILED"));
+    }
+
+    /**
+     * The identity of a real voter must never reach the model. The aggregate is built from
+     * {@code (optionId, characteristicSnapshot)} pairs and structurally has nowhere to put a name,
+     * so this guards the boundary staying that way: a genuine account with a realistic name, email
+     * and date of birth casts a counted vote, and none of those literal values may appear in the
+     * payload sent to the provider. Asserting the values, not the field names, is the point —
+     * "jane.whitfield@example.com" contains no substring "email".
+     */
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void modelInputCarriesNoVoterIdentityEvenWhenTheVoterHasFullProfileData() throws Exception {
+        TestPost post = createPost();
+        long voterId = 0;
+        try {
+            insertVotesWithCharacteristic(post.id(), post.agreeOptionId(), 60, 0,
+                    "{\"gender\":\"MAN\"}");
+            insertVotesWithCharacteristic(post.id(), post.disagreeOptionId(), 40, 10_000,
+                    "{\"gender\":\"WOMAN\"}");
+            voterId = insertIdentifiableUser();
+            insertVoteFor(post.id(), post.agreeOptionId(), voterId, "{\"gender\":\"WOMAN\"}");
+
+            Map<String, Object> input = given()
+                    .when().get("/api/admin/unwrapped/posts/" + post.id() + "/benchmark/context")
+                    .then()
+                    .statusCode(200)
+                    // The vote counted, so this voter really is inside the aggregate below.
+                    .body("input.canonicalVoteCount", equalTo(101))
+                    .extract().path("input");
+            String modelInput = input.toString();
+            // Positive control. Every other assertion here checks for absence, and absence passes
+            // just as happily against an empty map or a mistyped extraction path, so first prove
+            // this really is the populated payload.
+            assertTrue(modelInput.contains("Forced generation summary"),
+                    () -> "Scanned the wrong payload: " + modelInput);
+
+            // The handle is public profile data rather than PII, but tying it to how someone voted
+            // is the same disclosure, so it is forbidden here for the same reason.
+            for (String identity : List.of(
+                    "Jane", "Whitfield", "Jane Whitfield", "jane-whitfield",
+                    "jane.whitfield@example.com", "1987-04-23")) {
+                assertFalse(modelInput.contains(identity),
+                        () -> "Voter identity '" + identity + "' reached the model input: "
+                                + modelInput);
+            }
+            // A bare numeric id cannot be searched for as text — "12" occurs inside hashes, ids and
+            // counts — so pin the shape instead: no field anywhere in the payload may carry a
+            // per-person identifier, which is what would make a vote traceable to an account.
+            Set<String> identityKeys = new java.util.TreeSet<>();
+            collectKeys(input, identityKeys);
+            // Not displayName — that is the cohort's label ("Men"), and a person's display name is
+            // already covered by the value check above.
+            identityKeys.removeIf(key -> !key.toLowerCase(java.util.Locale.ROOT)
+                    .matches(".*(userid|user_id|voterid|voter_id|accountid|account_id"
+                            + "|email|handle|firstname|lastname|dateofbirth|birth).*"));
+            assertEquals(Set.of(), identityKeys,
+                    () -> "Model input exposes per-person fields: " + identityKeys);
+        } finally {
+            deletePost(post.id());
+            if (voterId != 0) {
+                deleteUser(voterId);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void collectKeys(Object node, Set<String> into) {
+        if (node instanceof Map<?, ?> map) {
+            map.forEach((key, value) -> {
+                into.add(String.valueOf(key));
+                collectKeys(value, into);
+            });
+        } else if (node instanceof Iterable<?> items) {
+            items.forEach(item -> collectKeys(item, into));
+        }
+    }
+
+    private long insertIdentifiableUser() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into your_say_user(
+                         email, first_name, last_name, display_name, handle, date_of_birth,
+                         created_date, active)
+                     values ('jane.whitfield@example.com', 'Jane', 'Whitfield', 'Jane Whitfield',
+                         'jane-whitfield', date '1987-04-23', now(), true)
+                     returning id
+                     """);
+             ResultSet result = statement.executeQuery()) {
+            result.next();
+            return result.getLong(1);
+        }
+    }
+
+    private void insertVoteFor(long postId, long optionId, long userId, String snapshot)
+            throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into votes(post_id, user_id, option_id, characteristic_snapshot)
+                     values (?, ?, ?, ?::jsonb)
+                     """)) {
+            statement.setLong(1, postId);
+            statement.setLong(2, userId);
+            statement.setLong(3, optionId);
+            statement.setString(4, snapshot);
+            assertEquals(1, statement.executeUpdate());
+        }
+    }
+
+    private void deleteUser(long userId) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "delete from your_say_user where id = ?")) {
+            statement.setLong(1, userId);
+            statement.executeUpdate();
+        }
     }
 
     private TestPost createPost() throws Exception {
