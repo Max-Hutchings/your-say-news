@@ -70,7 +70,7 @@ const basePost: Post = {
       posterUrl: null,
     },
   ],
-  topics: [
+  topicTags: [
     { id: "transport", label: "Transport", displayGroup: "Transport & places", displayOrder: 18, active: true },
   ],
 };

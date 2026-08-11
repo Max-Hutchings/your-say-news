@@ -72,7 +72,7 @@ const posts: Post[] = [1, 2].map((id) => ({
   isUnbiased: false,
   createdAt: "2026-07-13T12:00:00Z",
   media: [],
-  topics: [],
+  topicTags: [],
 }));
 
 const videoPost: Post = {
@@ -272,8 +272,8 @@ describe("HomeFeed", () => {
   it("resets the cursor and refetches when a topic is selected", async () => {
     mockGetFeed
       .mockResolvedValueOnce(page([videoPost], "cursor-before-topic"))
-      .mockResolvedValueOnce(page([{ ...videoPost, id: 70, topics: [{ id: "housing", label: "Housing", displayGroup: "Society", displayOrder: 6, active: true }] }], "cursor-in-housing"))
-      .mockResolvedValueOnce(page([{ ...videoPost, id: 71, topics: [{ id: "housing", label: "Housing", displayGroup: "Society", displayOrder: 6, active: true }] }]));
+      .mockResolvedValueOnce(page([{ ...videoPost, id: 70, topicTags: [{ id: "housing", label: "Housing", displayGroup: "Society", displayOrder: 6, active: true }] }], "cursor-in-housing"))
+      .mockResolvedValueOnce(page([{ ...videoPost, id: 71, topicTags: [{ id: "housing", label: "Housing", displayGroup: "Society", displayOrder: 6, active: true }] }]));
 
     render(<ThemeProvider><HomeFeed /></ThemeProvider>);
     fireEvent(screen.getByTestId("home-feed-viewport"), "layout", {

@@ -35,12 +35,12 @@ public record CreatePostRequest(
         @Size(max = 8)
         List<@NotNull @Valid Media> media,
         /**
-         * Optional canonical topic ids, at most three (ADR-043). Ids only — there is no
+         * Optional governed topic tag IDs, at most three. IDs only: there is no
          * arbitrary-label path. An unknown or retired id fails the request rather than being
          * dropped, so an author never publishes believing a topic was applied.
          */
         @Size(max = 3)
-        List<@NotBlank @Size(max = 64) String> topicIds
+        List<@NotBlank @Size(max = 64) String> topicTagIds
 ) {
     public record VoteOption(@NotBlank @Size(max = 120) String label) {
     }

@@ -1,5 +1,10 @@
 # ADR-043: Admin-managed topic catalogue and topic-filtered feeds
 
+Terminology amendment (2026-08-11): ADR-020 now names the reusable governed concept a topic tag.
+References below to `topic` and `post_topic` describe the original implementation. The current
+tables are `topic_tag`, `post_topic_tag_assignment` and `effective_post_topic_tag`; the catalogue
+governance decision in this ADR is unchanged.
+
 Date: 2026-08-09
 
 ## Situation

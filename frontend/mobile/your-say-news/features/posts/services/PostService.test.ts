@@ -73,7 +73,7 @@ describe("getFeed", () => {
     const page = await getFeed("cursor-one", FEED_PAGE_SIZE, "VIDEO", "housing");
 
     expect(mockGet).toHaveBeenCalledWith("http://posts.local:8082/feed", {
-      params: { size: FEED_PAGE_SIZE, cursor: "cursor-one", type: "VIDEO", topic: "housing" },
+      params: { size: FEED_PAGE_SIZE, cursor: "cursor-one", type: "VIDEO", topicTag: "housing" },
     });
     expect(page).toEqual({ posts: [{ id: 8 }], nextCursor: "cursor-two" });
   });
@@ -105,7 +105,7 @@ describe("post creation and lookup", () => {
       votingType: "BINARY",
       voteOptions: [],
       media: [],
-      topicIds: ["jobs-work", "business"],
+      topicTagIds: ["jobs-work", "business"],
     };
     const created = { id: 44, ...input, authorId: 7 };
     mockPost.mockResolvedValue({ data: created });

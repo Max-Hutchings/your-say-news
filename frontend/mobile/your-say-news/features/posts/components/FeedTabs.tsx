@@ -1,29 +1,29 @@
 import React, { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { EditorialFont, getEditorial, useTheme } from "@/constants/theme";
-import { useTopics, type Topic } from "@/features/topics";
+import { useTopicTags, type TopicTag } from "@/features/topics";
 
 type FeedTabsProps = {
   value: string | null;
-  onChange: (topicId: string | null) => void;
+  onChange: (topicTagId: string | null) => void;
 };
 
 /** Functional category strip. Four curated topics stay visible; More opens the full catalogue. */
 export function FeedTabs({ value, onChange }: FeedTabsProps) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
-  const { topics } = useTopics();
+  const { topicTags } = useTopicTags();
   const [moreOpen, setMoreOpen] = useState(false);
-  const selected = topics.find((topic) => topic.id === value);
+  const selected = topicTags.find((topicTag) => topicTag.id === value);
   const visibleTopics = useMemo(() => {
-    const first = topics.slice(0, 4);
-    if (!selected || first.some((topic) => topic.id === selected.id)) return first;
+    const first = topicTags.slice(0, 4);
+    if (!selected || first.some((topicTag) => topicTag.id === selected.id)) return first;
     return [...first.slice(0, 3), selected];
-  }, [selected, topics]);
-  const groups = useMemo(() => groupTopics(topics), [topics]);
+  }, [selected, topicTags]);
+  const groups = useMemo(() => groupTopicTags(topicTags), [topicTags]);
 
-  const choose = (topicId: string | null) => {
-    onChange(topicId);
+  const choose = (topicTagId: string | null) => {
+    onChange(topicTagId);
     setMoreOpen(false);
   };
 
@@ -31,12 +31,12 @@ export function FeedTabs({ value, onChange }: FeedTabsProps) {
     <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         <Tab label="For you" active={value === null} onPress={() => choose(null)} />
-        {visibleTopics.map((topic) => (
+        {visibleTopics.map((topicTag) => (
           <Tab
-            key={topic.id}
-            label={topic.label}
-            active={value === topic.id}
-            onPress={() => choose(topic.id)}
+            key={topicTag.id}
+            label={topicTag.label}
+            active={value === topicTag.id}
+            onPress={() => choose(topicTag.id)}
           />
         ))}
         <Tab label="More ▾" active={false} onPress={() => setMoreOpen(true)} />
@@ -49,7 +49,7 @@ export function FeedTabs({ value, onChange }: FeedTabsProps) {
         onRequestClose={() => setMoreOpen(false)}
       >
         <Pressable
-          accessibilityLabel="Close topic list"
+          accessibilityLabel="Close topic tag list"
           style={[styles.backdrop, { backgroundColor: e.mediaScrim }]}
           onPress={() => setMoreOpen(false)}
         >
@@ -59,7 +59,7 @@ export function FeedTabs({ value, onChange }: FeedTabsProps) {
             onPress={(event) => event.stopPropagation()}
           >
             <View style={[styles.sheetHeader, { borderBottomColor: e.ink }]}>
-              <Text style={[styles.sheetEyebrow, { color: e.muted }]}>ALL TOPICS</Text>
+              <Text style={[styles.sheetEyebrow, { color: e.muted }]}>ALL TOPIC TAGS</Text>
               <Pressable accessibilityRole="button" onPress={() => setMoreOpen(false)}>
                 <Text style={[styles.close, { color: e.ink }]}>Close</Text>
               </Pressable>
@@ -69,12 +69,12 @@ export function FeedTabs({ value, onChange }: FeedTabsProps) {
                 <View key={group} style={styles.group}>
                   <Text style={[styles.groupTitle, { color: e.muted }]}>{group}</Text>
                   <View style={styles.groupTopics}>
-                    {groupedTopics.map((topic) => (
+                    {groupedTopics.map((topicTag) => (
                       <Tab
-                        key={topic.id}
-                        label={topic.label}
-                        active={value === topic.id}
-                        onPress={() => choose(topic.id)}
+                        key={topicTag.id}
+                        label={topicTag.label}
+                        active={value === topicTag.id}
+                        onPress={() => choose(topicTag.id)}
                       />
                     ))}
                   </View>
@@ -110,9 +110,10 @@ function Tab({ label, active, onPress }: { label: string; active: boolean; onPre
   );
 }
 
-function groupTopics(topics: Topic[]): [string, Topic[]][] {
-  const groups = new Map<string, Topic[]>();
-  topics.forEach((topic) => groups.set(topic.displayGroup, [...(groups.get(topic.displayGroup) ?? []), topic]));
+function groupTopicTags(topicTags: TopicTag[]): [string, TopicTag[]][] {
+  const groups = new Map<string, TopicTag[]>();
+  topicTags.forEach((topicTag) => groups.set(topicTag.displayGroup,
+    [...(groups.get(topicTag.displayGroup) ?? []), topicTag]));
   return [...groups.entries()];
 }
 

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <changeSet id="0016-evolve-topics-to-topic-tags" author="mhutc">
+        <renameTable oldTableName="topic" newTableName="topic_tag"/>
+
+        <createTable tableName="post_topic_tag_assignment">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_post_topic_tag_assignment"
+                             nullable="false"/>
+            </column>
+            <column name="post_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="topic_tag_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="confidence" type="numeric(5,4)"/>
+            <column name="classifier_version" type="varchar(128)"/>
+            <column name="review_state" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="post_topic_tag_assignment" baseColumnNames="post_id"
+                                 constraintName="fk_topic_tag_assignment_post"
+                                 referencedTableName="post" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="post_topic_tag_assignment"
+                                 baseColumnNames="topic_tag_id"
+                                 constraintName="fk_topic_tag_assignment_tag"
+                                 referencedTableName="topic_tag" referencedColumnNames="id"/>
+
+        <createIndex tableName="post_topic_tag_assignment"
+                     indexName="idx_topic_tag_assignment_post">
+            <column name="post_id"/>
+            <column name="topic_tag_id"/>
+        </createIndex>
+
+        <createTable tableName="effective_post_topic_tag">
+            <column name="post_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="topic_tag_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="effective_source" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="effective_post_topic_tag"
+                       columnNames="post_id, topic_tag_id"
+                       constraintName="pk_effective_post_topic_tag"/>
+        <addForeignKeyConstraint baseTableName="effective_post_topic_tag" baseColumnNames="post_id"
+                                 constraintName="fk_effective_topic_tag_post"
+                                 referencedTableName="post" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="effective_post_topic_tag"
+                                 baseColumnNames="topic_tag_id"
+                                 constraintName="fk_effective_topic_tag_tag"
+                                 referencedTableName="topic_tag" referencedColumnNames="id"/>
+        <createIndex tableName="effective_post_topic_tag"
+                     indexName="idx_effective_topic_tag_feed">
+            <column name="topic_tag_id"/>
+            <column name="post_id"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE post_topic_tag_assignment
+                ADD CONSTRAINT ck_topic_tag_assignment_source
+                    CHECK (source IN ('CREATOR', 'CLASSIFIER', 'ADMIN')),
+                ADD CONSTRAINT ck_topic_tag_assignment_review
+                    CHECK (review_state IN ('UNREVIEWED', 'ACCEPTED', 'REJECTED')),
+                ADD CONSTRAINT ck_topic_tag_assignment_confidence
+                    CHECK (confidence IS NULL OR (confidence &gt;= 0 AND confidence &lt;= 1)),
+                ADD CONSTRAINT ck_topic_tag_assignment_metadata
+                    CHECK (
+                        (source = 'CLASSIFIER' AND confidence IS NOT NULL
+                            AND classifier_version IS NOT NULL
+                            AND btrim(classifier_version) &lt;&gt; '')
+                        OR
+                        (source &lt;&gt; 'CLASSIFIER' AND confidence IS NULL
+                            AND classifier_version IS NULL)
+                    );
+
+            ALTER TABLE effective_post_topic_tag
+                ADD CONSTRAINT ck_effective_topic_tag_source
+                    CHECK (effective_source IN ('CREATOR', 'CLASSIFIER', 'ADMIN'));
+
+            CREATE UNIQUE INDEX uq_creator_topic_tag_assignment
+                ON post_topic_tag_assignment (post_id, topic_tag_id)
+                WHERE source = 'CREATOR';
+
+            CREATE UNIQUE INDEX uq_classifier_topic_tag_assignment
+                ON post_topic_tag_assignment (post_id, topic_tag_id, classifier_version)
+                WHERE source = 'CLASSIFIER';
+
+            INSERT INTO post_topic_tag_assignment
+                (post_id, topic_tag_id, source, review_state, created_at)
+            SELECT post_id, topic_id, 'CREATOR', 'ACCEPTED', created_at
+            FROM post_topic;
+
+            INSERT INTO effective_post_topic_tag
+                (post_id, topic_tag_id, effective_source, updated_at)
+            SELECT post_id, topic_id, 'CREATOR', created_at
+            FROM post_topic;
+        </sql>
+
+        <dropTable tableName="post_topic"/>
+
+        <rollback>
+            <createTable tableName="post_topic">
+                <column name="post_id" type="bigint">
+                    <constraints nullable="false"/>
+                </column>
+                <column name="topic_id" type="varchar(64)">
+                    <constraints nullable="false"/>
+                </column>
+                <column name="created_at" type="timestamp with time zone">
+                    <constraints nullable="false"/>
+                </column>
+            </createTable>
+            <addPrimaryKey tableName="post_topic" columnNames="post_id, topic_id"
+                           constraintName="pk_post_topic"/>
+            <addForeignKeyConstraint baseTableName="post_topic" baseColumnNames="post_id"
+                                     constraintName="fk_post_topic_post"
+                                     referencedTableName="post" referencedColumnNames="id"
+                                     onDelete="CASCADE"/>
+            <addForeignKeyConstraint baseTableName="post_topic" baseColumnNames="topic_id"
+                                     constraintName="fk_post_topic_topic_tag"
+                                     referencedTableName="topic_tag" referencedColumnNames="id"/>
+            <createIndex tableName="post_topic" indexName="idx_post_topic_topic">
+                <column name="topic_id"/>
+                <column name="post_id"/>
+            </createIndex>
+            <sql>
+                INSERT INTO post_topic (post_id, topic_id, created_at)
+                SELECT post_id, topic_tag_id, updated_at
+                FROM effective_post_topic_tag;
+            </sql>
+            <dropTable tableName="effective_post_topic_tag"/>
+            <dropTable tableName="post_topic_tag_assignment"/>
+            <renameTable oldTableName="topic_tag" newTableName="topic"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -29,7 +29,7 @@ jest.mock("@/features/topics", () => {
   const React = jest.requireActual("react");
   const { Pressable, Text, View } = jest.requireActual("react-native");
   return {
-    TopicPicker: ({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) =>
+    TopicTagPicker: ({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) =>
       React.createElement(View, null,
         React.createElement(Text, null, `${value.length} / 3`),
         ["politics", "housing", "health", "education"].map((id) => React.createElement(
@@ -37,7 +37,7 @@ jest.mock("@/features/topics", () => {
           {
             key: id,
             accessibilityRole: "button",
-            accessibilityLabel: `Topic ${id}`,
+            accessibilityLabel: `Topic tag ${id}`,
             disabled: !value.includes(id) && value.length >= 3,
             onPress: () => value.includes(id)
               ? onChange(value.filter((selected) => selected !== id))
@@ -98,7 +98,7 @@ describe("CreatePostScreen", () => {
         voteOptions: ["", ""],
         caseFor: "",
         caseAgainst: "",
-        topicIds: [],
+        topicTagIds: [],
       })
     );
   });
@@ -106,16 +106,16 @@ describe("CreatePostScreen", () => {
   it("submits up to three selected topic ids and blocks a fourth", async () => {
     render(<ThemeProvider><CreatePostScreen /></ThemeProvider>);
 
-    fireEvent.press(screen.getByLabelText("Topic politics"));
-    fireEvent.press(screen.getByLabelText("Topic housing"));
-    fireEvent.press(screen.getByLabelText("Topic health"));
+    fireEvent.press(screen.getByLabelText("Topic tag politics"));
+    fireEvent.press(screen.getByLabelText("Topic tag housing"));
+    fireEvent.press(screen.getByLabelText("Topic tag health"));
     expect(screen.getByText("3 / 3")).toBeOnTheScreen();
-    expect(screen.getByLabelText("Topic education").props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(screen.getByLabelText("Topic education"));
+    expect(screen.getByLabelText("Topic tag education").props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getByLabelText("Topic tag education"));
     fireEvent.press(screen.getByText("Post"));
 
     await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({
-      topicIds: ["politics", "housing", "health"],
+      topicTagIds: ["politics", "housing", "health"],
     })));
   });
 

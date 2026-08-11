@@ -26,18 +26,22 @@ public class FeedController {
      * echoes the previous page's {@code nextCursor}; it is opaque and must not be constructed by a
      * client. A null {@code nextCursor} in the response is the end of the feed.
      *
-     * <p>{@code topic} selects a category feed (ADR-043). An unknown topic is rejected with 400
+     * <p>{@code topicTag} selects a category feed. An unknown tag is rejected with 400
      * rather than returned as an empty page, so a client bug does not read as a dead category.
      */
     @GET
     public Uni<FeedPage> feed(@QueryParam("cursor") String cursor,
                               @QueryParam("size") @DefaultValue("5") int size,
                               @QueryParam("type") FeedPostType postType,
-                              @QueryParam("topic") String topic,
+                              @QueryParam("topicTag") String topicTag,
                               @HeaderParam("Authorization") String authorization) {
         String email = securityIdentity.getPrincipal().getName();
-        Log.infof("Endpoint Called: feed - cursor %s size %d type %s topic %s viewer %s",
-                cursor, size, postType, topic, email);
-        return feedService.getFeed(email, authorization, cursor, size, postType, topic);
+        Log.info(requestLog(size, topicTag != null && !topicTag.isBlank()));
+        return feedService.getFeed(email, authorization, cursor, size, postType, topicTag);
+    }
+
+    static String requestLog(int size, boolean categoryFiltered) {
+        return "Endpoint Called: feed - size %d categoryFiltered %s"
+                .formatted(size, categoryFiltered);
     }
 }

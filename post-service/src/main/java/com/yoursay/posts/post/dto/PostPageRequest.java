@@ -20,7 +20,7 @@ public record PostPageRequest(
          * (ADR-043). Like the media filter this is a SQL predicate on the same scan, so the cursor
          * still names a row in {@code createdAt desc, id desc} and paging stays gap-free.
          */
-        String topicId,
+        String topicTagId,
         int limit
 ) {
     /** The first page of the stream, unfiltered. */

@@ -2,8 +2,8 @@ package com.yoursay.topics.service;
 
 import com.yoursay.observability.ApiException;
 import com.yoursay.topics.dto.CreateTopicRequest;
-import com.yoursay.topics.dto.TopicDto;
-import com.yoursay.topics.model.PostTopicRepository;
+import com.yoursay.topics.dto.TopicTagDto;
+import com.yoursay.topics.model.PostTopicTagRepository;
 import com.yoursay.topics.model.Topic;
 import com.yoursay.topics.model.TopicRepository;
 import io.smallrye.mutiny.Uni;
@@ -28,29 +28,30 @@ class TopicServiceImplTest {
     private static final Topic HOUSING = new Topic("housing", "Housing", "Society", 6);
     private static final Topic HEALTH = new Topic("health", "Health", "Society", 3);
     private static final Topic CRIME = new Topic("crime", "Crime", "Society", 15);
+    private static final Topic POLITICS = new Topic("politics", "Politics", "Politics & government", 1);
 
     @Test
     void attachesEveryValidTopicAndReportsThemBack() {
         StubTopicRepository topics = new StubTopicRepository(List.of(HOUSING, HEALTH));
-        StubPostTopicRepository assignments = new StubPostTopicRepository();
+        StubPostTopicTagRepository assignments = new StubPostTopicTagRepository();
         TopicServiceImpl service = serviceWith(topics, assignments);
 
-        List<TopicDto> result = service.assignToPost(88L, List.of("housing", "health"))
+        List<TopicTagDto> result = service.assignCreatorTags(88L, List.of("housing", "health"))
                 .await().indefinitely();
 
-        assertEquals(List.of("housing", "health"), result.stream().map(TopicDto::id).toList());
+        assertEquals(List.of("housing", "health"), result.stream().map(TopicTagDto::id).toList());
         assertEquals(88L, assignments.postId);
-        assertEquals(List.of("housing", "health"), assignments.topicIds);
+        assertEquals(List.of("housing", "health"), assignments.topicTagIds);
     }
 
     @Test
     void rejectsAFourthTopicWithoutTouchingTheDatabase() {
         StubTopicRepository topics = new StubTopicRepository(List.of(HOUSING, HEALTH, CRIME));
-        StubPostTopicRepository assignments = new StubPostTopicRepository();
+        StubPostTopicTagRepository assignments = new StubPostTopicTagRepository();
         TopicServiceImpl service = serviceWith(topics, assignments);
 
         ApiException failure = assertThrows(ApiException.class, () -> service
-                .assignToPost(88L, List.of("housing", "health", "crime", "politics"))
+                .assignCreatorTags(88L, List.of("housing", "health", "crime", "politics"))
                 .await().indefinitely());
 
         assertEquals("TOPIC_TOO_MANY", failure.errorCode());
@@ -60,14 +61,28 @@ class TopicServiceImplTest {
     }
 
     @Test
+    void acceptsExactlyThreeCreatorTopicTags() {
+        StubTopicRepository topics = new StubTopicRepository(List.of(HOUSING, HEALTH, POLITICS));
+        StubPostTopicTagRepository assignments = new StubPostTopicTagRepository();
+        TopicServiceImpl service = serviceWith(topics, assignments);
+
+        List<TopicTagDto> result = service
+                .assignCreatorTags(88L, List.of("housing", "health", "politics"))
+                .await().indefinitely();
+
+        assertEquals(List.of("housing", "health", "politics"), assignments.topicTagIds);
+        assertEquals(3, result.size());
+    }
+
+    @Test
     void rejectsTheSameTopicTwiceRatherThanSilentlyDeduplicating() {
         // Deduplicating would let a client send three ids and receive two topics with no signal —
         // and the composite primary key would reject the second row anyway, as a 500.
         TopicServiceImpl service = serviceWith(
-                new StubTopicRepository(List.of(HOUSING)), new StubPostTopicRepository());
+                new StubTopicRepository(List.of(HOUSING)), new StubPostTopicTagRepository());
 
         ApiException failure = assertThrows(ApiException.class, () -> service
-                .assignToPost(88L, List.of("housing", "housing")).await().indefinitely());
+                .assignCreatorTags(88L, List.of("housing", "housing")).await().indefinitely());
 
         assertEquals("TOPIC_DUPLICATE_SELECTION", failure.errorCode());
     }
@@ -76,11 +91,11 @@ class TopicServiceImplTest {
     void rejectsTheWholeSelectionWhenOneTopicIsUnknownOrRetired() {
         // listActiveByIds answers with only the active matches, which is exactly how a retired
         // topic presents itself. Naming the missing id matters: the author has to know which one.
-        StubPostTopicRepository assignments = new StubPostTopicRepository();
+        StubPostTopicTagRepository assignments = new StubPostTopicTagRepository();
         TopicServiceImpl service = serviceWith(new StubTopicRepository(List.of(HOUSING)), assignments);
 
         ApiException failure = assertThrows(ApiException.class, () -> service
-                .assignToPost(88L, List.of("housing", "retired-topic")).await().indefinitely());
+                .assignCreatorTags(88L, List.of("housing", "retired-topic")).await().indefinitely());
 
         assertEquals("TOPIC_UNKNOWN", failure.errorCode());
         assertTrue(failure.getMessage().contains("retired-topic"), failure.getMessage());
@@ -91,10 +106,10 @@ class TopicServiceImplTest {
     @Test
     void anEmptySelectionIsValidAndSkipsTheCatalogueLookup() {
         StubTopicRepository topics = new StubTopicRepository(List.of());
-        TopicServiceImpl service = serviceWith(topics, new StubPostTopicRepository());
+        TopicServiceImpl service = serviceWith(topics, new StubPostTopicTagRepository());
 
-        assertEquals(List.of(), service.assignToPost(88L, null).await().indefinitely());
-        assertEquals(List.of(), service.assignToPost(88L, List.of()).await().indefinitely());
+        assertEquals(List.of(), service.assignCreatorTags(88L, null).await().indefinitely());
+        assertEquals(List.of(), service.assignCreatorTags(88L, List.of()).await().indefinitely());
         assertEquals(0, topics.lookups);
     }
 
@@ -102,9 +117,10 @@ class TopicServiceImplTest {
     void createsATopicAtTheEndOfTheCatalogueSoItDoesNotDisplaceACuratedTab() {
         StubTopicRepository topics = new StubTopicRepository(List.of());
         topics.nextOrder = 21;
-        TopicServiceImpl service = serviceWith(topics, new StubPostTopicRepository());
+        TopicServiceImpl service = serviceWith(topics, new StubPostTopicTagRepository());
 
-        TopicDto created = service.create(new CreateTopicRequest("Cost of living", "Money & business"))
+        TopicTagDto created = service.create(
+                        new CreateTopicRequest("Cost of living", "Money & business"))
                 .await().indefinitely();
 
         assertEquals("cost-of-living", created.id());
@@ -119,7 +135,7 @@ class TopicServiceImplTest {
         // than a primary-key violation surfacing as a 500.
         StubTopicRepository topics = new StubTopicRepository(List.of());
         topics.existing = HOUSING;
-        TopicServiceImpl service = serviceWith(topics, new StubPostTopicRepository());
+        TopicServiceImpl service = serviceWith(topics, new StubPostTopicTagRepository());
 
         ApiException failure = assertThrows(ApiException.class, () -> service
                 .create(new CreateTopicRequest("Housing", "Society")).await().indefinitely());
@@ -130,7 +146,7 @@ class TopicServiceImplTest {
     @Test
     void refusesALabelThatCannotProduceACanonicalId() {
         TopicServiceImpl service = serviceWith(
-                new StubTopicRepository(List.of()), new StubPostTopicRepository());
+                new StubTopicRepository(List.of()), new StubPostTopicTagRepository());
 
         ApiException failure = assertThrows(ApiException.class, () -> service
                 .create(new CreateTopicRequest("!!!", "Society")).await().indefinitely());
@@ -142,7 +158,7 @@ class TopicServiceImplTest {
     void theFeedRejectsAnUnknownTopicButAcceptsARetiredOne() {
         StubTopicRepository absent = new StubTopicRepository(List.of());
         ApiException failure = assertThrows(ApiException.class, () -> serviceWith(
-                absent, new StubPostTopicRepository()).requireExists("nope").await().indefinitely());
+                absent, new StubPostTopicTagRepository()).requireExists("nope").await().indefinitely());
 
         assertEquals("TOPIC_FEED_UNKNOWN", failure.errorCode());
 
@@ -151,13 +167,15 @@ class TopicServiceImplTest {
         Topic retiredTopic = new Topic("gaming", "Gaming", "Science & technology", 30);
         retiredTopic.setActive(false);
         retired.existing = retiredTopic;
-        serviceWith(retired, new StubPostTopicRepository()).requireExists("gaming").await().indefinitely();
+        serviceWith(retired, new StubPostTopicTagRepository())
+                .requireExists("gaming").await().indefinitely();
     }
 
-    private static TopicServiceImpl serviceWith(TopicRepository topics, PostTopicRepository assignments) {
+    private static TopicServiceImpl serviceWith(TopicRepository topics,
+                                                PostTopicTagRepository assignments) {
         TopicServiceImpl service = new TopicServiceImpl();
         service.topicRepository = topics;
-        service.postTopicRepository = assignments;
+        service.postTopicTagRepository = assignments;
         return service;
     }
 
@@ -195,14 +213,14 @@ class TopicServiceImplTest {
     }
 
     /** Records what was attached; null postId means nothing was written. */
-    private static final class StubPostTopicRepository extends PostTopicRepository {
+    private static final class StubPostTopicTagRepository extends PostTopicTagRepository {
         private Long postId;
-        private List<String> topicIds;
+        private List<String> topicTagIds;
 
         @Override
-        public Uni<Void> assign(Long postId, List<String> topicIds) {
+        public Uni<Void> assignCreatorTags(Long postId, List<String> topicTagIds) {
             this.postId = postId;
-            this.topicIds = new ArrayList<>(topicIds);
+            this.topicTagIds = new ArrayList<>(topicTagIds);
             return Uni.createFrom().voidItem();
         }
     }

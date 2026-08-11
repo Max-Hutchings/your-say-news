@@ -9,12 +9,12 @@ public interface FeedService {
      * One page of the viewer's feed. {@code cursor} is null for the first page and otherwise the
      * {@code nextCursor} of the previous page; {@code size} is normalised and capped server-side.
      *
-     * <p>{@code topicId} restricts the page to one canonical topic (ADR-043) — the category feed. It
+     * <p>{@code topicTagId} restricts the page to one governed tag for a category feed. It
      * changes only which candidates are considered: ordering, ranking and cursor semantics are
      * identical to the unfiltered feed. Null means every topic.
      */
     Uni<FeedPage> getFeed(String viewerEmail, String authorization, String cursor, int size,
-                          FeedPostType postType, String topicId);
+                          FeedPostType postType, String topicTagId);
 
     default Uni<FeedPage> getFeed(String viewerEmail, String authorization, String cursor, int size,
                                   FeedPostType postType) {

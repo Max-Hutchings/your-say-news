@@ -24,7 +24,7 @@ class AdminTopicControllerTest {
     void addsATopicAtTheEndOfTheCatalogueWithAnIdDerivedFromItsLabel() {
         String label = "Rail and buses " + System.nanoTime();
         String expectedId = label.toLowerCase().replace(" ", "-");
-        List<Integer> existingOrders = given().when().get("/api/admin/topics")
+        List<Integer> existingOrders = given().when().get("/api/admin/topic-tags")
                 .then().statusCode(200).extract().path("displayOrder");
         int expectedOrder = existingOrders.stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
 
@@ -32,7 +32,7 @@ class AdminTopicControllerTest {
                 .body("""
                         { "label": "%s", "displayGroup": "Transport & places" }
                         """.formatted(label))
-                .when().post("/api/admin/topics")
+                .when().post("/api/admin/topic-tags")
                 .then().statusCode(201)
                 .body("id", equalTo(expectedId))
                 .body("label", equalTo(label))
@@ -41,7 +41,7 @@ class AdminTopicControllerTest {
                 .body("displayOrder", equalTo(expectedOrder));
 
         // It is immediately offered to readers, without a deploy — the point of the ADR.
-        List<String> readerIds = given().when().get("/topics")
+        List<String> readerIds = given().when().get("/topic-tags")
                 .then().statusCode(200).extract().path("id");
         assertTrue(readerIds.contains(expectedId), "new topic missing from the reader catalogue");
     }
@@ -53,7 +53,7 @@ class AdminTopicControllerTest {
                 .body("""
                         { "label": "Housing", "displayGroup": "Society" }
                         """)
-                .when().post("/api/admin/topics")
+                .when().post("/api/admin/topic-tags")
                 .then().statusCode(409);
     }
 
@@ -66,7 +66,7 @@ class AdminTopicControllerTest {
                 .body("""
                         { "label": "!!!", "displayGroup": "Society" }
                         """)
-                .when().post("/api/admin/topics")
+                .when().post("/api/admin/topic-tags")
                 .then().statusCode(400);
     }
 
@@ -78,29 +78,29 @@ class AdminTopicControllerTest {
                 .body("""
                         { "label": "%s", "displayGroup": "Society" }
                         """.formatted(label))
-                .when().post("/api/admin/topics")
+                .when().post("/api/admin/topic-tags")
                 .then().statusCode(201).extract().path("id");
 
         given().contentType("application/json")
                 .body("{ \"active\": false }")
-                .when().put("/api/admin/topics/" + id + "/active")
+                .when().put("/api/admin/topic-tags/" + id + "/active")
                 .then().statusCode(200)
                 .body("active", equalTo(false));
 
-        List<String> readerIds = given().when().get("/topics")
+        List<String> readerIds = given().when().get("/topic-tags")
                 .then().statusCode(200).extract().path("id");
         assertTrue(!readerIds.contains(id), "a retired topic must not be offered to readers");
 
         // Retire, never delete: the row survives so posts already filed under it stay intelligible.
-        List<String> adminIds = given().when().get("/api/admin/topics")
+        List<String> adminIds = given().when().get("/api/admin/topic-tags")
                 .then().statusCode(200).extract().path("id");
         assertTrue(adminIds.contains(id), "a retired topic must remain in the admin ledger");
 
         given().contentType("application/json")
                 .body("{ \"active\": true }")
-                .when().put("/api/admin/topics/" + id + "/active")
+                .when().put("/api/admin/topic-tags/" + id + "/active")
                 .then().statusCode(200).body("active", equalTo(true));
-        List<String> restoredReaderIds = given().when().get("/topics")
+        List<String> restoredReaderIds = given().when().get("/topic-tags")
                 .then().statusCode(200).extract().path("id");
         assertTrue(restoredReaderIds.contains(id), "a restored topic must return to the reader catalogue");
     }
@@ -110,7 +110,7 @@ class AdminTopicControllerTest {
     void reportsAMissingTopicRatherThanCreatingOneOnRetire() {
         given().contentType("application/json")
                 .body("{ \"active\": false }")
-                .when().put("/api/admin/topics/no-such-topic/active")
+                .when().put("/api/admin/topic-tags/no-such-topic/active")
                 .then().statusCode(404);
     }
 
@@ -118,42 +118,42 @@ class AdminTopicControllerTest {
     @TestSecurity(user = "reader@yoursay.com", roles = "user")
     void aPlainUserCannotReadOrExtendTheCatalogue() {
         // The catalogue is controlled: a signed-in reader must not be able to add to it.
-        given().when().get("/api/admin/topics").then().statusCode(403);
+        given().when().get("/api/admin/topic-tags").then().statusCode(403);
 
         given().contentType("application/json")
                 .body("""
                         { "label": "Reader invented topic", "displayGroup": "Society" }
                         """)
-                .when().post("/api/admin/topics")
+                .when().post("/api/admin/topic-tags")
                 .then().statusCode(403);
 
         given().contentType("application/json")
                 .body("{ \"active\": false }")
-                .when().put("/api/admin/topics/housing/active")
+                .when().put("/api/admin/topic-tags/housing/active")
                 .then().statusCode(403);
     }
 
     @Test
     void anAnonymousCallerIsRejectedBeforeAnyRoleCheck() {
-        given().when().get("/api/admin/topics").then().statusCode(401);
-        given().when().get("/topics").then().statusCode(401);
+        given().when().get("/api/admin/topic-tags").then().statusCode(401);
+        given().when().get("/topic-tags").then().statusCode(401);
         given().contentType("application/json")
                 .body("""
                         { "label": "Anonymous topic", "displayGroup": "Society" }
                         """)
-                .when().post("/api/admin/topics").then().statusCode(401);
+                .when().post("/api/admin/topic-tags").then().statusCode(401);
     }
 
     @Test
     @TestSecurity(user = "publisher@yoursay.com", roles = "official")
     void aCallerWithoutAReaderOrAdminRoleCannotReadTheCatalogue() {
-        given().when().get("/topics").then().statusCode(403);
+        given().when().get("/topic-tags").then().statusCode(403);
     }
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
     void theAdminLedgerShowsTheShippedCatalogueInTabStripOrder() {
-        List<Integer> orders = given().when().get("/api/admin/topics")
+        List<Integer> orders = given().when().get("/api/admin/topic-tags")
                 .then().statusCode(200).extract().path("displayOrder");
 
         assertTrue(orders.size() >= 20, "expected at least the 20 shipped topics, got " + orders.size());

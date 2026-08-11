@@ -60,7 +60,7 @@ export async function getFeed(
   cursor: string | null = null,
   size = FEED_PAGE_SIZE,
   postType?: FeedPostType,
-  topicId?: string
+  topicTagId?: string
 ): Promise<FeedPage> {
   const feedUrl = `${extra.POST_SERVICE_HOST}${extra.POST_SERVICE_PORT}/feed`;
   const { data } = await YsnHttpClient.getSecure().get<FeedPage>(feedUrl, {
@@ -68,7 +68,7 @@ export async function getFeed(
       size,
       ...(cursor ? { cursor } : {}),
       ...(postType ? { type: postType } : {}),
-      ...(topicId ? { topic: topicId } : {}),
+      ...(topicTagId ? { topicTag: topicTagId } : {}),
     },
   });
   return { posts: data?.posts ?? [], nextCursor: data?.nextCursor ?? null };

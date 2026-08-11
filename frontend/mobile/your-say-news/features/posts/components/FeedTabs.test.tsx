@@ -11,7 +11,9 @@ const topics = [
   { id: "energy", label: "Energy", displayGroup: "Climate & environment", displayOrder: 17, active: true },
 ];
 
-jest.mock("@/features/topics", () => ({ useTopics: () => ({ topics, loading: false, error: null }) }));
+jest.mock("@/features/topics", () => ({
+  useTopicTags: () => ({ topicTags: topics, loading: false, error: null }),
+}));
 
 it("shows four ordered topics and selects a visible category", () => {
   const onChange = jest.fn();

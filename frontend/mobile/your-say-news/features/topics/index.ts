@@ -1,3 +1,3 @@
-export { useTopics } from "./hooks/use-topics";
-export { TopicPicker } from "./components/TopicPicker";
-export type { Topic } from "./types";
+export { useTopicTags } from "./hooks/use-topics";
+export { TopicTagPicker } from "./components/TopicPicker";
+export type { TopicTag } from "./types";

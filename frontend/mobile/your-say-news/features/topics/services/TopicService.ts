@@ -1,12 +1,12 @@
 import Constants from "expo-constants";
 import { YsnHttpClient } from "@/features/auth";
-import type { Topic } from "../types";
+import type { TopicTag } from "../types";
 
 const extra = Constants.expoConfig?.extra ?? {};
-const TOPICS_URL = `${extra.POST_SERVICE_HOST}${extra.POST_SERVICE_PORT}/topics`;
+const TOPIC_TAGS_URL = `${extra.POST_SERVICE_HOST}${extra.POST_SERVICE_PORT}/topic-tags`;
 
 /** Active topics in catalogue order. */
-export async function listTopics(): Promise<Topic[]> {
-  const { data } = await YsnHttpClient.getSecure().get<Topic[]>(TOPICS_URL);
+export async function listTopicTags(): Promise<TopicTag[]> {
+  const { data } = await YsnHttpClient.getSecure().get<TopicTag[]>(TOPIC_TAGS_URL);
   return data ?? [];
 }

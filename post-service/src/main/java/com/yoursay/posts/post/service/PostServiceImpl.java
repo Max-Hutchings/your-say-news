@@ -27,7 +27,6 @@ import com.yoursay.posts.model.PostVoteOptionRepository;
 import com.yoursay.posts.model.VotingOptionRules;
 import com.yoursay.observability.DomainMetrics;
 import com.yoursay.topics.TopicService;
-import com.yoursay.topics.dto.TopicDto;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.logging.Log;
@@ -127,13 +126,13 @@ public class PostServiceImpl implements PostService {
                             post.addMedia(new PostMedia(post, m.mediaType(), m.orientation(), m.s3Key(),
                                     m.contentType(), emptyToNull(m.posterS3Key()), 0));
                         }
-                        // Topics are validated and attached after the post exists, because the
+                        // Topic tags are validated and attached after the post exists, because the
                         // assignment rows need its generated id. A bad topic id fails the whole
                         // transaction, so a post is never published with a selection silently
                         // dropped.
                         return postRepository.savePost(post).flatMap(saved -> topicService
-                                .assignToPost(saved.getId(), request.topicIds())
-                                .map(topics -> toDto(saved, saved.getVoteOptions()).withTopics(topics)));
+                                .assignCreatorTags(saved.getId(), request.topicTagIds())
+                                .map(tags -> toDto(saved, saved.getVoteOptions()).withTopicTags(tags)));
                     });
                 })
                 .invoke(() -> recordMetric("create", true))
@@ -147,8 +146,9 @@ public class PostServiceImpl implements PostService {
                 ? Uni.createFrom().nullItem()
                 : optionRepository.listByPostId(id)
                         .map(options -> toDto(post, options))
-                        .flatMap(dto -> topicService.topicsForPosts(List.of(id))
-                                .map(byPostId -> dto.withTopics(byPostId.getOrDefault(id, List.of())))));
+                        .flatMap(dto -> topicService.effectiveTagsForPosts(List.of(id))
+                                .map(byPostId -> dto.withTopicTags(
+                                        byPostId.getOrDefault(id, List.of())))));
     }
 
     @Override
@@ -178,7 +178,7 @@ public class PostServiceImpl implements PostService {
                 : request.mediaFilter();
         return postRepository
                 .findPageAfter(request.cursorCreatedAt(), request.cursorId(), mediaFilter,
-                        request.topicId(), safeLimit)
+                        request.topicTagId(), safeLimit)
                 .flatMap(this::mapPostsWithOptions);
     }
 
@@ -194,9 +194,9 @@ public class PostServiceImpl implements PostService {
         return optionRepository.listByPostIds(ids).flatMap(options -> {
             Map<Long, List<PostVoteOption>> optionsByPostId = options.stream()
                     .collect(Collectors.groupingBy(option -> option.getPost().getId()));
-            return topicService.topicsForPosts(ids).map(topicsByPostId -> posts.stream()
+            return topicService.effectiveTagsForPosts(ids).map(tagsByPostId -> posts.stream()
                     .map(post -> toDto(post, optionsByPostId.getOrDefault(post.getId(), List.of()))
-                            .withTopics(topicsByPostId.getOrDefault(post.getId(), List.of())))
+                            .withTopicTags(tagsByPostId.getOrDefault(post.getId(), List.of())))
                     .toList());
         });
     }

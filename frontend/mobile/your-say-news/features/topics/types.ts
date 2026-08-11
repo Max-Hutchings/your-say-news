@@ -1,5 +1,5 @@
-/** One entry in the controlled topic catalogue. */
-export interface Topic {
+/** One reusable entry in the governed topic tag catalogue. */
+export interface TopicTag {
   id: string;
   label: string;
   displayGroup: string;

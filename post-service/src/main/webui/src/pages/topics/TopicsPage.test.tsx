@@ -30,16 +30,16 @@ describe("TopicsPage", () => {
     const user = userEvent.setup();
     render(<TopicsPage />);
 
-    expect(screen.getByLabelText("Topic totals")).toHaveTextContent(/Catalogue\s*3\s*Active\s*2\s*Retired\s*1/);
+    expect(screen.getByLabelText("Topic tag totals")).toHaveTextContent(/Catalogue\s*3\s*Active\s*2\s*Retired\s*1/);
     expect(screen.getByText("old-topic")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Label"), "Public transport");
-    expect(screen.getByLabelText("Canonical topic ID")).toHaveTextContent("public-transport");
+    expect(screen.getByLabelText("Topic tag ID")).toHaveTextContent("public-transport");
     await user.selectOptions(screen.getByLabelText("Display group"), "Society");
-    await user.click(screen.getByRole("button", { name: "Add topic" }));
+    await user.click(screen.getByRole("button", { name: "Add topic tag" }));
     expect(add).toHaveBeenCalledWith({ label: "Public transport", displayGroup: "Society" });
 
-    await user.click(screen.getByLabelText("Topic active for Housing"));
+    await user.click(screen.getByLabelText("Topic tag active for Housing"));
     expect(setActive).toHaveBeenCalledWith("housing", false);
   });
 });

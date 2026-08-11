@@ -53,8 +53,8 @@ export interface Post {
   isUnbiased: boolean;
   createdAt: string;
   media: PostMedia[];
-  /** Canonical topics attached by the author, ordered by the catalogue. */
-  topics: import("@/features/topics").Topic[];
+  /** Effective governed topic tags, ordered by the catalogue. */
+  topicTags: import("@/features/topics").TopicTag[];
 }
 
 /**
@@ -89,7 +89,7 @@ export interface CreatePostInput {
   votingType: VotingType;
   voteOptions: { label: string }[];
   media: CreatePostMedia[];
-  topicIds: string[];
+  topicTagIds: string[];
 }
 
 /** `POST /posts/media/presign` request. */

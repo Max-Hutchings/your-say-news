@@ -1,6 +1,6 @@
 package com.yoursay.topics;
 
-import com.yoursay.topics.dto.TopicDto;
+import com.yoursay.topics.dto.TopicTagDto;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -16,7 +16,7 @@ import java.util.List;
  * The reader-facing catalogue. The mobile feed calls this once to build its tab strip and the
  * "More" picker, and the create-post screen uses the same list.
  */
-@Path("/topics")
+@Path("/topic-tags")
 @Produces(MediaType.APPLICATION_JSON)
 @RolesAllowed({"user", "admin"})
 public class TopicController {
@@ -26,8 +26,8 @@ public class TopicController {
 
     /** Active topics in tab-strip order. Retired topics are omitted. */
     @GET
-    public Uni<List<TopicDto>> listTopics() {
-        Log.info("Endpoint Called: listTopics");
+    public Uni<List<TopicTagDto>> listTopicTags() {
+        Log.info("Endpoint Called: listTopicTags");
         return topicService.listActive();
     }
 }

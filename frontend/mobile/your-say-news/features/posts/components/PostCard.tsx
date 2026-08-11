@@ -109,18 +109,18 @@ export function PostCard({
       </Text>
     </View>
   );
-  const topicChips = post.topics.length > 0 ? (
+  const topicChips = post.topicTags.length > 0 ? (
     <View style={styles.topicChips}>
-      {post.topics.map((topic) => (
+      {post.topicTags.map((topicTag) => (
         <Pressable
-          key={topic.id}
+          key={topicTag.id}
           accessibilityRole="button"
-          accessibilityLabel={`Show ${topic.label} stories`}
-          onPress={() => onSelectTopic?.(topic.id)}
+          accessibilityLabel={`Show ${topicTag.label} stories`}
+          onPress={() => onSelectTopic?.(topicTag.id)}
           disabled={!onSelectTopic}
           style={[styles.topicChip, { borderColor: e.border, backgroundColor: e.surface }]}
         >
-          <Text style={[styles.topicChipText, { color: e.secondary }]}>{topic.label}</Text>
+          <Text style={[styles.topicChipText, { color: e.secondary }]}>{topicTag.label}</Text>
         </Pressable>
       ))}
     </View>

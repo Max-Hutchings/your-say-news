@@ -20,24 +20,24 @@ async function topicRequest<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { message?: string } | null;
-    throw new TopicAdminApiError(response.status, body?.message ?? "The topic request failed.");
+    throw new TopicAdminApiError(response.status, body?.message ?? "The topic tag request failed.");
   }
   return response.json() as Promise<T>;
 }
 
 export function getAdminTopics(): Promise<AdminTopic[]> {
-  return topicRequest<AdminTopic[]>("/api/admin/topics");
+  return topicRequest<AdminTopic[]>("/api/admin/topic-tags");
 }
 
 export function createAdminTopic(input: CreateTopicInput): Promise<AdminTopic> {
-  return topicRequest<AdminTopic>("/api/admin/topics", {
+  return topicRequest<AdminTopic>("/api/admin/topic-tags", {
     method: "POST",
     body: JSON.stringify(input),
   });
 }
 
 export function setAdminTopicActive(topicId: string, active: boolean): Promise<AdminTopic> {
-  return topicRequest<AdminTopic>(`/api/admin/topics/${topicId}/active`, {
+  return topicRequest<AdminTopic>(`/api/admin/topic-tags/${topicId}/active`, {
     method: "PUT",
     body: JSON.stringify({ active }),
   });

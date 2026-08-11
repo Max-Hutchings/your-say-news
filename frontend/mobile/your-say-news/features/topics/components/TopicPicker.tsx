@@ -1,37 +1,38 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { EditorialFont, getEditorial, useTheme } from "@/constants/theme";
-import { useTopics } from "../hooks/use-topics";
+import { useTopicTags } from "../hooks/use-topics";
 
-type TopicPickerProps = {
+type TopicTagPickerProps = {
   value: string[];
-  onChange: (topicIds: string[]) => void;
+  onChange: (topicTagIds: string[]) => void;
   max?: number;
 };
 
 /** Grouped optional picker used by post authors. */
-export function TopicPicker({ value, onChange, max = 3 }: TopicPickerProps) {
+export function TopicTagPicker({ value, onChange, max = 3 }: TopicTagPickerProps) {
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
-  const { topics, error } = useTopics();
+  const { topicTags, error } = useTopicTags();
   const groups = useMemo(() => {
-    const result = new Map<string, typeof topics>();
-    topics.forEach((topic) => result.set(topic.displayGroup, [...(result.get(topic.displayGroup) ?? []), topic]));
+    const result = new Map<string, typeof topicTags>();
+    topicTags.forEach((topicTag) => result.set(topicTag.displayGroup,
+      [...(result.get(topicTag.displayGroup) ?? []), topicTag]));
     return [...result.entries()];
-  }, [topics]);
+  }, [topicTags]);
 
-  const toggle = (topicId: string) => {
-    if (value.includes(topicId)) {
-      onChange(value.filter((id) => id !== topicId));
+  const toggle = (topicTagId: string) => {
+    if (value.includes(topicTagId)) {
+      onChange(value.filter((id) => id !== topicTagId));
     } else if (value.length < max) {
-      onChange([...value, topicId]);
+      onChange([...value, topicTagId]);
     }
   };
 
   return (
     <View style={styles.picker}>
       <View style={styles.heading}>
-        <Text style={[styles.title, { color: e.ink }]}>Topics</Text>
+        <Text style={[styles.title, { color: e.ink }]}>Topic tags</Text>
         <Text style={[styles.count, { color: e.muted }]}>{value.length} / {max}</Text>
       </View>
       <Text style={[styles.help, { color: e.muted }]}>Choose up to three. This helps readers find the story.</Text>
@@ -39,17 +40,17 @@ export function TopicPicker({ value, onChange, max = 3 }: TopicPickerProps) {
         <View key={group} style={styles.group}>
           <Text style={[styles.groupTitle, { color: e.muted }]}>{group}</Text>
           <View style={styles.chips}>
-            {grouped.map((topic) => {
-              const selected = value.includes(topic.id);
+            {grouped.map((topicTag) => {
+              const selected = value.includes(topicTag.id);
               const disabled = !selected && value.length >= max;
               return (
                 <Pressable
-                  key={topic.id}
+                  key={topicTag.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`Topic ${topic.label}`}
+                  accessibilityLabel={`Topic tag ${topicTag.label}`}
                   accessibilityState={{ selected, disabled }}
                   disabled={disabled}
-                  onPress={() => toggle(topic.id)}
+                  onPress={() => toggle(topicTag.id)}
                   style={[
                     styles.chip,
                     {
@@ -59,7 +60,7 @@ export function TopicPicker({ value, onChange, max = 3 }: TopicPickerProps) {
                     },
                   ]}
                 >
-                  <Text style={[styles.chipText, { color: selected ? e.onLime : e.secondary }]}>{topic.label}</Text>
+                  <Text style={[styles.chipText, { color: selected ? e.onLime : e.secondary }]}>{topicTag.label}</Text>
                 </Pressable>
               );
             })}

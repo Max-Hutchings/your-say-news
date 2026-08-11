@@ -18,7 +18,7 @@ export function TopicLedger({ topics, savingIds, onSetActive }: TopicLedgerProps
   return (
     <div className="topic-ledger">
       <div className="topic-ledger__heading" aria-hidden="true">
-        <span>Topic</span><span>Group</span><span>Order</span><span>Status</span>
+        <span>Topic tag</span><span>Group</span><span>Order</span><span>Status</span>
       </div>
       <ol>
         {topics.map((topic) => (
@@ -29,7 +29,7 @@ export function TopicLedger({ topics, savingIds, onSetActive }: TopicLedgerProps
             <label className="topic-active">
               <input
                 type="checkbox"
-                aria-label={`Topic active for ${topic.label}`}
+                aria-label={`Topic tag active for ${topic.label}`}
                 checked={topic.active}
                 disabled={savingIds.has(topic.id)}
                 onChange={(event) => void setActive(topic.id, event.target.checked)}

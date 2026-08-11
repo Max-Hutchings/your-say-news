@@ -34,7 +34,7 @@ class FeedControllerTest {
     SecurityIdentity securityIdentity;
 
     @Test
-    void bindsAndForwardsTheCursorSizeTypeAndTopicQueryParameters() throws NoSuchMethodException {
+    void bindsAndForwardsTheCursorSizeTypeAndTopicTagQueryParameters() throws NoSuchMethodException {
         FeedController controller = controller();
         FeedPage expected = new FeedPage(List.of(), "next-cursor-token");
         when(feedService.getFeed("reader@example.com", "Bearer token", "cursor-token", 7,
@@ -49,7 +49,7 @@ class FeedControllerTest {
         assertEquals("cursor", parameter(0).getAnnotation(QueryParam.class).value());
         assertEquals("size", parameter(1).getAnnotation(QueryParam.class).value());
         assertEquals("type", parameter(2).getAnnotation(QueryParam.class).value());
-        assertEquals("topic", parameter(3).getAnnotation(QueryParam.class).value());
+        assertEquals("topicTag", parameter(3).getAnnotation(QueryParam.class).value());
     }
 
     @Test
@@ -62,7 +62,14 @@ class FeedControllerTest {
     }
 
     @Test
-    void aFirstPageRequestSendsNoCursorOrTopicAndReturnsTheEndOfFeedMarker() {
+    void feedLogsRecordOnlyNonIdentifyingRequestShape() {
+        String log = FeedController.requestLog(7, true);
+
+        assertEquals("Endpoint Called: feed - size 7 categoryFiltered true", log);
+    }
+
+    @Test
+    void aFirstPageRequestSendsNoCursorOrTopicTagAndReturnsTheEndOfFeedMarker() {
         FeedController controller = controller();
         when(feedService.getFeed("reader@example.com", "Bearer token", null, 5, null, null))
                 .thenReturn(Uni.createFrom().item(new FeedPage(List.of(), null)));

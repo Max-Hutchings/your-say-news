@@ -21,7 +21,7 @@ import { ComposeMediaField } from "./ComposeMediaField";
 import { PepperCompose } from "./PepperCompose";
 import type { VotingType } from "../types";
 import { OptionReorderHandle } from "./OptionReorderHandle";
-import { TopicPicker } from "@/features/topics";
+import { TopicTagPicker } from "@/features/topics";
 
 /**
  * The create-post experience in the editorial design language (design handoff).
@@ -49,10 +49,12 @@ export function CreatePostScreen() {
   const [showArguments, setShowArguments] = useState(false);
   const [caseFor, setCaseFor] = useState("");
   const [caseAgainst, setCaseAgainst] = useState("");
-  const [topicIds, setTopicIds] = useState<string[]>([]);
+  const [topicTagIds, setTopicTagIds] = useState<string[]>([]);
 
   const handlePublish = async () => {
-    const created = await submit({ summary, supportQuestion, votingType, voteOptions, caseFor, caseAgainst, topicIds });
+    const created = await submit({
+      summary, supportQuestion, votingType, voteOptions, caseFor, caseAgainst, topicTagIds,
+    });
     if (created) router.back();
   };
 
@@ -211,7 +213,7 @@ export function CreatePostScreen() {
                   style={[styles.optionInput, { color: e.ink, borderColor: e.border, backgroundColor: e.surface }]} />
               </View>}
 
-              <TopicPicker value={topicIds} onChange={setTopicIds} />
+              <TopicTagPicker value={topicTagIds} onChange={setTopicTagIds} />
 
               {/* MEDIA */}
               <View style={styles.mediaSpacer}>

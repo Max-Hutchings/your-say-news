@@ -32,9 +32,9 @@ export function AddTopicForm({ topics, adding, onAdd }: AddTopicFormProps) {
       <div className="topic-add__heading">
         <div>
           <p>Catalogue control</p>
-          <h2>Add a topic</h2>
+          <h2>Add a topic tag</h2>
         </div>
-        <span>New topics join the end of the reader menu.</span>
+        <span>New topic tags join the end of the reader menu.</span>
       </div>
       <div className="topic-add__fields">
         <label>
@@ -47,11 +47,11 @@ export function AddTopicForm({ topics, adding, onAdd }: AddTopicFormProps) {
             {groups.map((group) => <option key={group} value={group}>{group}</option>)}
           </select>
         </label>
-        <div className="topic-add__id" aria-label="Canonical topic ID">
+        <div className="topic-add__id" aria-label="Topic tag ID">
           <span>Canonical ID</span>
           <code>{idPreview || "generated-from-label"}</code>
         </div>
-        <button type="submit" disabled={adding || !idPreview || !displayGroup}>{adding ? "Adding…" : "Add topic"}</button>
+        <button type="submit" disabled={adding || !idPreview || !displayGroup}>{adding ? "Adding…" : "Add topic tag"}</button>
       </div>
     </form>
   );

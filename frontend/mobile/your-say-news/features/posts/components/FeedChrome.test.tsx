@@ -7,8 +7,8 @@ import { Masthead } from "./Masthead";
 import { PepperCompose } from "./PepperCompose";
 
 jest.mock("@/features/topics", () => ({
-  useTopics: () => ({
-    topics: [
+  useTopicTags: () => ({
+    topicTags: [
       { id: "politics", label: "Politics", displayGroup: "Politics & government", displayOrder: 1, active: true },
       { id: "economy", label: "Economy", displayGroup: "Money & business", displayOrder: 2, active: true },
       { id: "health", label: "Health", displayGroup: "Society", displayOrder: 3, active: true },

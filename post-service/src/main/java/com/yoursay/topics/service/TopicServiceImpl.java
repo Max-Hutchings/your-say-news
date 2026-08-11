@@ -3,10 +3,10 @@ package com.yoursay.topics.service;
 import com.yoursay.observability.DomainMetrics;
 import com.yoursay.topics.TopicService;
 import com.yoursay.topics.dto.CreateTopicRequest;
-import com.yoursay.topics.dto.TopicDto;
+import com.yoursay.topics.dto.TopicTagDto;
 import com.yoursay.topics.error.TopicApiException;
-import com.yoursay.topics.model.PostTopic;
-import com.yoursay.topics.model.PostTopicRepository;
+import com.yoursay.topics.model.EffectivePostTopicTag;
+import com.yoursay.topics.model.PostTopicTagRepository;
 import com.yoursay.topics.model.Topic;
 import com.yoursay.topics.model.TopicRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
@@ -30,14 +30,14 @@ public class TopicServiceImpl implements TopicService {
     TopicRepository topicRepository;
 
     @Inject
-    PostTopicRepository postTopicRepository;
+    PostTopicTagRepository postTopicTagRepository;
 
     @Inject
     DomainMetrics metrics;
 
     @Override
     @WithSession
-    public Uni<List<TopicDto>> listActive() {
+    public Uni<List<TopicTagDto>> listActive() {
         return topicRepository.listActive().map(TopicServiceImpl::toDtos)
                 .invoke(() -> recordMetric("listActive", true))
                 .onFailure().invoke(() -> recordMetric("listActive", false));
@@ -45,7 +45,7 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     @WithSession
-    public Uni<List<TopicDto>> listAll() {
+    public Uni<List<TopicTagDto>> listAll() {
         return topicRepository.listAll().map(TopicServiceImpl::toDtos)
                 .invoke(() -> recordMetric("listAll", true))
                 .onFailure().invoke(() -> recordMetric("listAll", false));
@@ -53,7 +53,7 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     @WithTransaction
-    public Uni<TopicDto> create(CreateTopicRequest request) {
+    public Uni<TopicTagDto> create(CreateTopicRequest request) {
         String label = request.label().trim();
         String id = TopicSlug.from(label);
         if (id == null) {
@@ -77,9 +77,9 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     @WithTransaction
-    public Uni<TopicDto> setActive(String topicId, boolean active) {
-        return topicRepository.findByIdentifier(topicId)
-                .onItem().ifNull().failWith(() -> TopicApiException.topicNotFound(topicId))
+    public Uni<TopicTagDto> setActive(String topicTagId, boolean active) {
+        return topicRepository.findByIdentifier(topicTagId)
+                .onItem().ifNull().failWith(() -> TopicApiException.topicNotFound(topicTagId))
                 .invoke(topic -> topic.setActive(active))
                 .map(TopicServiceImpl::toDto)
                 .invoke(() -> recordMetric("setActive", true))
@@ -88,17 +88,17 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     @WithTransaction
-    public Uni<List<TopicDto>> assignToPost(Long postId, List<String> topicIds) {
-        List<String> requested = topicIds == null ? List.of() : topicIds.stream()
+    public Uni<List<TopicTagDto>> assignCreatorTags(Long postId, List<String> topicTagIds) {
+        List<String> requested = topicTagIds == null ? List.of() : topicTagIds.stream()
                 .filter(id -> id != null && !id.isBlank())
                 .map(String::trim)
                 .toList();
         if (requested.isEmpty()) {
             return Uni.createFrom().item(List.of());
         }
-        if (requested.size() > MAX_TOPICS_PER_POST) {
+        if (requested.size() > MAX_TOPIC_TAGS_PER_POST) {
             return Uni.createFrom().failure(
-                    TopicApiException.tooManyTopics(requested.size(), MAX_TOPICS_PER_POST));
+                    TopicApiException.tooManyTopics(requested.size(), MAX_TOPIC_TAGS_PER_POST));
         }
         Set<String> unique = new LinkedHashSet<>(requested);
         if (unique.size() != requested.size()) {
@@ -111,24 +111,24 @@ public class TopicServiceImpl implements TopicService {
                 List<String> missing = unique.stream().filter(id -> !known.contains(id)).toList();
                 return Uni.createFrom().failure(TopicApiException.unknownTopics(missing));
             }
-            return postTopicRepository.assign(postId, List.copyOf(unique))
+            return postTopicTagRepository.assignCreatorTags(postId, List.copyOf(unique))
                     .replaceWith(() -> toDtos(found));
         })
-                .invoke(() -> recordMetric("assignToPost", true))
-                .onFailure().invoke(() -> recordMetric("assignToPost", false));
+                .invoke(() -> recordMetric("assignCreatorTags", true))
+                .onFailure().invoke(() -> recordMetric("assignCreatorTags", false));
     }
 
     @Override
     @WithSession
-    public Uni<Map<Long, List<TopicDto>>> topicsForPosts(Collection<Long> postIds) {
+    public Uni<Map<Long, List<TopicTagDto>>> effectiveTagsForPosts(Collection<Long> postIds) {
         if (postIds == null || postIds.isEmpty()) {
             return Uni.createFrom().item(Map.of());
         }
-        return postTopicRepository.listByPostIds(postIds).map(assignments -> {
-            Map<Long, List<TopicDto>> byPostId = new java.util.HashMap<>();
-            for (PostTopic assignment : assignments) {
-                byPostId.computeIfAbsent(assignment.getPostId(), key -> new ArrayList<>())
-                        .add(toDto(assignment.getTopic()));
+        return postTopicTagRepository.listEffectiveByPostIds(postIds).map(effectiveTags -> {
+            Map<Long, List<TopicTagDto>> byPostId = new java.util.HashMap<>();
+            for (EffectivePostTopicTag effectiveTag : effectiveTags) {
+                byPostId.computeIfAbsent(effectiveTag.getPostId(), key -> new ArrayList<>())
+                        .add(toDto(effectiveTag.getTopicTag()));
             }
             return Map.copyOf(byPostId);
         });
@@ -136,19 +136,19 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     @WithSession
-    public Uni<Void> requireExists(String topicId) {
+    public Uni<Void> requireExists(String topicTagId) {
         // Retired topics pass: their feed still serves the posts that already carry them.
-        return topicRepository.findByIdentifier(topicId)
-                .onItem().ifNull().failWith(() -> TopicApiException.unknownFeedTopic(topicId))
+        return topicRepository.findByIdentifier(topicTagId)
+                .onItem().ifNull().failWith(() -> TopicApiException.unknownFeedTopic(topicTagId))
                 .replaceWithVoid();
     }
 
-    private static List<TopicDto> toDtos(List<Topic> topics) {
+    private static List<TopicTagDto> toDtos(List<Topic> topics) {
         return topics.stream().map(TopicServiceImpl::toDto).toList();
     }
 
-    private static TopicDto toDto(Topic topic) {
-        return new TopicDto(topic.getId(), topic.getLabel(), topic.getDisplayGroup(),
+    private static TopicTagDto toDto(Topic topic) {
+        return new TopicTagDto(topic.getId(), topic.getLabel(), topic.getDisplayGroup(),
                 topic.getDisplayOrder(), topic.isActive());
     }
 

@@ -21,14 +21,14 @@ public class PostRepository implements PanacheRepository<Post> {
             "exists (select 1 from PostMedia m where m.post = p and m.mediaType = :videoType)";
 
     /**
-     * True when the post carries the selected topic — the SQL form of the category feed's filter
-     * (ADR-043), served by {@code idx_post_topic_topic}.
+     * True when the post carries the selected effective topic tag.
      *
-     * <p>{@code PostTopic} belongs to the topics domain and is named here only as an HQL entity, not
+     * <p>{@code EffectivePostTopicTag} belongs to the topics domain and is named here only in HQL.
      * imported: the join is by post id, matching how this domain already references users.
      */
-    private static final String HAS_TOPIC =
-            "exists (select 1 from PostTopic pt where pt.postId = p.id and pt.topicId = :topicId)";
+    private static final String HAS_TOPIC_TAG =
+            "exists (select 1 from EffectivePostTopicTag e "
+                    + "where e.postId = p.id and e.topicTagId = :topicTagId)";
 
     public Uni<Post> savePost(Post post) {
         return persist(post).replaceWith(post);
@@ -66,7 +66,7 @@ public class PostRepository implements PanacheRepository<Post> {
      * whenever matching posts remain and the reader never sees a false end of feed.
      */
     public Uni<List<Post>> findPageAfter(Instant cursorCreatedAt, Long cursorId,
-                                         PostMediaFilter mediaFilter, String topicId, int limit) {
+                                         PostMediaFilter mediaFilter, String topicTagId, int limit) {
         List<String> conditions = new ArrayList<>();
         Parameters parameters = new Parameters();
 
@@ -79,9 +79,9 @@ public class PostRepository implements PanacheRepository<Post> {
             conditions.add(mediaFilter == PostMediaFilter.WITH_VIDEO ? HAS_VIDEO : "not " + HAS_VIDEO);
             parameters.and("videoType", MediaType.VIDEO);
         }
-        if (topicId != null && !topicId.isBlank()) {
-            conditions.add(HAS_TOPIC);
-            parameters.and("topicId", topicId);
+        if (topicTagId != null && !topicTagId.isBlank()) {
+            conditions.add(HAS_TOPIC_TAG);
+            parameters.and("topicTagId", topicTagId);
         }
 
         String where = conditions.isEmpty() ? "" : " where " + String.join(" and ", conditions);

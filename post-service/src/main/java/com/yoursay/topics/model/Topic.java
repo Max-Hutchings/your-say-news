@@ -10,16 +10,16 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * One entry in the controlled topic catalogue (ADR-043). The catalogue ships as reference data in
+ * One reusable entry in the governed topic tag catalogue (ADR-020 and ADR-043).
  * migration {@code 0015} and is extended at runtime by admins.
  *
  * <p>The id is the canonical string ({@code housing}, {@code cost-of-living}) and is the primary
- * key: {@code post_topic} rows, feed query parameters and any future classifier output all name a
- * topic by it, so it never changes. A topic is retired by clearing {@link #active} rather than
+ * key: tag assignments, feed query parameters and future classifier output all name a tag by it,
+ * so it never changes. A tag is retired by clearing {@link #active} rather than
  * deleted, which keeps historical assignments intelligible.
  */
 @Entity
-@Table(name = "topic")
+@Table(name = "topic_tag")
 public class Topic extends PanacheEntityBase {
 
     @Id
@@ -84,7 +84,7 @@ public class Topic extends PanacheEntityBase {
         return createdAt;
     }
 
-    /** Retire or restore a topic. Retired topics stay assigned to the posts that already carry them. */
+    /** Retire or restore a tag. Historical assignments remain intact. */
     public void setActive(boolean active) {
         this.active = active;
     }

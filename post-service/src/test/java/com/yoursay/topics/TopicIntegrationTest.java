@@ -3,7 +3,7 @@ package com.yoursay.topics;
 import com.yoursay.feed.client.FeedUserClient;
 import com.yoursay.feed.client.SocialClient;
 import com.yoursay.posts.client.UserServiceClient;
-import com.yoursay.topics.dto.TopicDto;
+import com.yoursay.topics.dto.TopicTagDto;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -41,27 +41,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TopicIntegrationTest {
 
     private static final long AUTHOR_ID = 42L;
-    private static final List<TopicDto> STARTING_TOPICS = List.of(
-            new TopicDto("politics", "Politics", "Politics & government", 1, true),
-            new TopicDto("economy", "Economy", "Money & business", 2, true),
-            new TopicDto("health", "Health", "Society", 3, true),
-            new TopicDto("technology", "Technology", "Science & technology", 4, true),
-            new TopicDto("cost-of-living", "Cost of living", "Money & business", 5, true),
-            new TopicDto("housing", "Housing", "Society", 6, true),
-            new TopicDto("climate-change", "Climate", "Climate & environment", 7, true),
-            new TopicDto("immigration", "Immigration", "Politics & government", 8, true),
-            new TopicDto("elections", "Elections", "Politics & government", 9, true),
-            new TopicDto("international", "World", "World affairs", 10, true),
-            new TopicDto("war-conflict", "War & conflict", "World affairs", 11, true),
-            new TopicDto("business", "Business", "Money & business", 12, true),
-            new TopicDto("jobs-work", "Jobs & work", "Money & business", 13, true),
-            new TopicDto("education", "Education", "Society", 14, true),
-            new TopicDto("crime", "Crime", "Society", 15, true),
-            new TopicDto("artificial-intelligence", "AI", "Science & technology", 16, true),
-            new TopicDto("energy", "Energy", "Climate & environment", 17, true),
-            new TopicDto("transport", "Transport", "Transport & places", 18, true),
-            new TopicDto("arts-culture", "Culture", "Culture & life", 19, true),
-            new TopicDto("sport", "Sport", "Sport", 20, true));
+    private static final List<TopicTagDto> STARTING_TOPICS = List.of(
+            new TopicTagDto("politics", "Politics", "Politics & government", 1, true),
+            new TopicTagDto("economy", "Economy", "Money & business", 2, true),
+            new TopicTagDto("health", "Health", "Society", 3, true),
+            new TopicTagDto("technology", "Technology", "Science & technology", 4, true),
+            new TopicTagDto("cost-of-living", "Cost of living", "Money & business", 5, true),
+            new TopicTagDto("housing", "Housing", "Society", 6, true),
+            new TopicTagDto("climate-change", "Climate", "Climate & environment", 7, true),
+            new TopicTagDto("immigration", "Immigration", "Politics & government", 8, true),
+            new TopicTagDto("elections", "Elections", "Politics & government", 9, true),
+            new TopicTagDto("international", "World", "World affairs", 10, true),
+            new TopicTagDto("war-conflict", "War & conflict", "World affairs", 11, true),
+            new TopicTagDto("business", "Business", "Money & business", 12, true),
+            new TopicTagDto("jobs-work", "Jobs & work", "Money & business", 13, true),
+            new TopicTagDto("education", "Education", "Society", 14, true),
+            new TopicTagDto("crime", "Crime", "Society", 15, true),
+            new TopicTagDto("artificial-intelligence", "AI", "Science & technology", 16, true),
+            new TopicTagDto("energy", "Energy", "Climate & environment", 17, true),
+            new TopicTagDto("transport", "Transport", "Transport & places", 18, true),
+            new TopicTagDto("arts-culture", "Culture", "Culture & life", 19, true),
+            new TopicTagDto("sport", "Sport", "Sport", 20, true));
 
     @InjectMock
     UserServiceClient userServiceClient;
@@ -93,8 +93,8 @@ class TopicIntegrationTest {
     void theCatalogueMigrationShipsTheTwentyStartingTopicsInTabStripOrder() {
         // Reference data in migrations/, not seeding/ — so this passes in every environment, which
         // is the whole point of ADR-043's placement decision.
-        List<TopicDto> catalogue = Arrays.asList(given().when().get("/topics")
-                .then().statusCode(200).extract().as(TopicDto[].class));
+        List<TopicTagDto> catalogue = Arrays.asList(given().when().get("/topic-tags")
+                .then().statusCode(200).extract().as(TopicTagDto[].class));
 
         assertTrue(catalogue.size() >= STARTING_TOPICS.size());
         assertEquals(STARTING_TOPICS, catalogue.subList(0, STARTING_TOPICS.size()));
@@ -107,8 +107,8 @@ class TopicIntegrationTest {
         given().when().get("/posts/" + postId)
                 .then().statusCode(200)
                 // Chips come back in catalogue order (politics is 1, housing is 6), not request order.
-                .body("topics.id", contains("politics", "housing"))
-                .body("topics.label", contains("Politics", "Housing"));
+                .body("topicTags.id", contains("politics", "housing"))
+                .body("topicTags.label", contains("Politics", "Housing"));
     }
 
     @Test
@@ -117,7 +117,7 @@ class TopicIntegrationTest {
 
         given().when().get("/posts/" + postId)
                 .then().statusCode(200)
-                .body("topics", hasSize(0));
+                .body("topicTags", hasSize(0));
     }
 
     @Test
@@ -128,7 +128,8 @@ class TopicIntegrationTest {
                 .body(createBody("Does this file under a made-up subject?",
                         List.of("housing", "not-a-real-topic")))
                 .when().post("/posts")
-                .then().statusCode(400);
+                .then().statusCode(400)
+                .body("code", equalTo("TOPIC_UNKNOWN"));
 
         // The whole create fails: a post must never exist minus a topic its author chose.
         assertEquals(before, countPosts());
@@ -155,17 +156,18 @@ class TopicIntegrationTest {
         int housingPost = createPost("Category filter: housing story", List.of("housing"));
         createPost("Category filter: health story", List.of("health"));
 
-        List<Integer> ids = given().when().get("/feed?topic=housing&type=ARTICLE&size=50")
+        List<Integer> ids = given().when().get("/feed?topicTag=housing&type=ARTICLE&size=50")
                 .then().statusCode(200)
                 .extract().path("posts.id");
 
         assertTrue(ids.contains(housingPost), "housing post missing from its own category feed");
         // Every returned post genuinely carries the topic, rather than the filter being cosmetic.
-        List<List<String>> topicIds = given().when().get("/feed?topic=housing&type=ARTICLE&size=50")
+        List<List<String>> topicTagIds = given().when()
+                .get("/feed?topicTag=housing&type=ARTICLE&size=50")
                 .then().statusCode(200)
-                .extract().path("posts.topics.id");
-        assertTrue(topicIds.stream().allMatch(topics -> topics.contains("housing")),
-                "category feed returned a post without the topic: " + topicIds);
+                .extract().path("posts.topicTags.id");
+        assertTrue(topicTagIds.stream().allMatch(tags -> tags.contains("housing")),
+                "category feed returned a post without the topic tag: " + topicTagIds);
     }
 
     @Test
@@ -180,7 +182,8 @@ class TopicIntegrationTest {
         List<Integer> seen = new java.util.ArrayList<>();
         String cursor = null;
         for (int page = 0; page < 10; page++) {
-            String url = "/feed?topic=energy&size=2" + (cursor == null ? "" : "&cursor=" + cursor);
+            String url = "/feed?topicTag=energy&size=2"
+                    + (cursor == null ? "" : "&cursor=" + cursor);
             io.restassured.path.json.JsonPath body = given().when().get(url)
                     .then().statusCode(200).extract().jsonPath();
             seen.addAll(body.getList("posts.id", Integer.class));
@@ -198,24 +201,28 @@ class TopicIntegrationTest {
 
     @Test
     void anUnknownFeedTopicIsRejectedRatherThanReturnedAsADeadCategory() {
-        given().when().get("/feed?topic=not-a-real-topic")
-                .then().statusCode(400);
+        given().when().get("/feed?topicTag=not-a-real-topic")
+                .then().statusCode(400)
+                .body("code", equalTo("TOPIC_FEED_UNKNOWN"));
     }
 
     @Test
     void anAbsentTopicLeavesTheMainFeedUnfiltered() {
         createPost("Unfiltered feed probe", List.of("sport"));
 
-        // A blank topic must not reach the query as a filter matching nothing.
-        given().when().get("/feed?topic=&size=5")
-                .then().statusCode(200)
-                .body("posts.size()", org.hamcrest.Matchers.greaterThan(0));
+        List<Integer> unfiltered = given().when().get("/feed?size=50")
+                .then().statusCode(200).extract().path("posts.id");
+        List<Integer> blankFilter = given().when().get("/feed?topicTag=&size=50")
+                .then().statusCode(200).extract().path("posts.id");
+
+        assertEquals(unfiltered, blankFilter,
+                "a blank topic tag must behave exactly like an absent filter");
     }
 
-    private static String createBody(String question, List<String> topicIds) {
-        String topics = topicIds == null
+    private static String createBody(String question, List<String> topicTagIds) {
+        String topics = topicTagIds == null
                 ? ""
-                : ", \"topicIds\": [%s]".formatted(topicIds.stream()
+                : ", \"topicTagIds\": [%s]".formatted(topicTagIds.stream()
                         .map("\"%s\""::formatted).reduce((a, b) -> a + ", " + b).orElse(""));
         return """
                 { "summary": "Article context for the vote.", "supportQuestion": "%s",
@@ -223,9 +230,9 @@ class TopicIntegrationTest {
                 """.formatted(question, topics);
     }
 
-    private static int createPost(String question, List<String> topicIds) {
+    private static int createPost(String question, List<String> topicTagIds) {
         return given().contentType("application/json")
-                .body(createBody(question, topicIds))
+                .body(createBody(question, topicTagIds))
                 .when().post("/posts")
                 .then().statusCode(201)
                 .extract().path("id");

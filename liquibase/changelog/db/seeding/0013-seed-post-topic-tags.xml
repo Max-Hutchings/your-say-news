@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="0013-seed-post-topic-tags" author="mhutc" context="seed">
+        <sql>
+            WITH seeded(post_id, topic_tag_id) AS (
+                VALUES (2000, 'arts-culture'),
+                       (2000, 'business'),
+                       (2001, 'health'),
+                       (2002, 'education'),
+                       (2002, 'cost-of-living'),
+                       (2003, 'transport'),
+                       (2003, 'cost-of-living'),
+                       (2004, 'climate-change'),
+                       (2004, 'technology'),
+                       (2005, 'arts-culture'),
+                       (2005, 'business'),
+                       (2006, 'artificial-intelligence'),
+                       (2006, 'education')
+            )
+            INSERT INTO post_topic_tag_assignment
+                (post_id, topic_tag_id, source, review_state, created_at)
+            SELECT post_id, topic_tag_id, 'CREATOR', 'ACCEPTED', now()
+            FROM seeded
+            ON CONFLICT DO NOTHING;
+
+            WITH seeded(post_id, topic_tag_id) AS (
+                VALUES (2000, 'arts-culture'),
+                       (2000, 'business'),
+                       (2001, 'health'),
+                       (2002, 'education'),
+                       (2002, 'cost-of-living'),
+                       (2003, 'transport'),
+                       (2003, 'cost-of-living'),
+                       (2004, 'climate-change'),
+                       (2004, 'technology'),
+                       (2005, 'arts-culture'),
+                       (2005, 'business'),
+                       (2006, 'artificial-intelligence'),
+                       (2006, 'education')
+            )
+            INSERT INTO effective_post_topic_tag
+                (post_id, topic_tag_id, effective_source, updated_at)
+            SELECT post_id, topic_tag_id, 'CREATOR', now()
+            FROM seeded
+            ON CONFLICT (post_id, topic_tag_id) DO NOTHING;
+        </sql>
+        <rollback>
+            <sql>
+                DELETE FROM effective_post_topic_tag WHERE post_id BETWEEN 2000 AND 2006;
+                DELETE FROM post_topic_tag_assignment WHERE post_id BETWEEN 2000 AND 2006;
+            </sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

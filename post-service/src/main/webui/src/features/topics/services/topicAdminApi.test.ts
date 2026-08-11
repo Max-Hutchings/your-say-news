@@ -20,12 +20,12 @@ describe("topicAdminApi", () => {
     await createAdminTopic({ label: "Public transport", displayGroup: "Transport & places" });
     await setAdminTopicActive("housing", false);
 
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/admin/topics", expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/admin/topic-tags", expect.objectContaining({
       method: "POST",
       body: JSON.stringify({ label: "Public transport", displayGroup: "Transport & places" }),
       headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
     }));
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/admin/topics/housing/active", expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/admin/topic-tags/housing/active", expect.objectContaining({
       method: "PUT",
       body: JSON.stringify({ active: false }),
     }));
