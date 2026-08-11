@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -60,7 +61,11 @@ class UnwrappedAdminGenerationIntegrationTest {
             assertEquals("unwrapped-story-v2", storySchemaVersion(post.id()));
             assertEquals("unwrapped-cohort-causal-v2", promptVersion(post.id()));
             assertEquals(2, articleParagraphCount(post.id()));
-            assertEquals(1, selectedCohortCount(post.id()));
+            // Both gender groups are privacy-safe here (ADR-044), so every option gets an anchor
+            // and a differentiator. The two groups are the same size, so each option anchors on
+            // the group that actually chose it and the pair is ordered differently per page.
+            assertEquals(List.of("gender=MAN", "gender=WOMAN"), selectedCohortIds(post.id(), 0));
+            assertEquals(List.of("gender=WOMAN", "gender=MAN"), selectedCohortIds(post.id(), 1));
         } finally {
             deletePost(post.id());
         }
@@ -303,6 +308,34 @@ class UnwrappedAdminGenerationIntegrationTest {
                 result.next();
                 return result.getInt(1);
             }
+        }
+    }
+
+    /**
+     * The cohort ids the stored story names for one page, in order. Pinning the ids rather than
+     * only their count is what makes this track the selector: the stub caps at two candidates, so a
+     * count alone stays 2 however many the selector actually shortlisted.
+     */
+    private List<String> selectedCohortIds(long postId, int pageIndex) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     select cohort.id
+                     from unwrapped_story,
+                          jsonb_array_elements_text(
+                                  story_json->'pages'->?->'selectedCohortIds')
+                                  with ordinality as cohort(id, position)
+                     where post_id = ?
+                     order by cohort.position
+                     """)) {
+            statement.setInt(1, pageIndex);
+            statement.setLong(2, postId);
+            List<String> ids = new ArrayList<>();
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    ids.add(result.getString(1));
+                }
+            }
+            return ids;
         }
     }
 

@@ -54,19 +54,25 @@ class TopicTagMigrationTest {
                 try (Connection verificationConnection = dataSource.getConnection();
                      Statement verification = verificationConnection.createStatement()) {
                     verification.execute("SET search_path TO " + SCHEMA);
-                    assertValue(verification, """
-                            select topic_tag_id || '|' || source || '|' || review_state
-                            from post_topic_tag_assignment where post_id = 42
-                            """, "housing|CREATOR|ACCEPTED");
-                    assertValue(verification, """
-                            select topic_tag_id || '|' || effective_source
-                            from effective_post_topic_tag where post_id = 42
-                            """, "housing|CREATOR");
-                    assertValue(verification, """
-                            select count(*) from information_schema.tables
-                            where table_schema = 'topic_tag_migration_test'
-                              and table_name = 'post_topic'
-                            """, 0L);
+                    try {
+                        assertValue(verification, """
+                                select topic_tag_id || '|' || source || '|' || review_state
+                                from post_topic_tag_assignment where post_id = 42
+                                """, "housing|CREATOR|ACCEPTED");
+                        assertValue(verification, """
+                                select topic_tag_id || '|' || effective_source
+                                from effective_post_topic_tag where post_id = 42
+                                """, "housing|CREATOR");
+                        assertValue(verification, """
+                                select count(*) from information_schema.tables
+                                where table_schema = 'topic_tag_migration_test'
+                                  and table_name = 'post_topic'
+                                """, 0L);
+                    } finally {
+                        // The pool hands this connection to later tests; leaving search_path on a
+                        // schema this test then drops makes every subsequent query fail.
+                        verification.execute("RESET search_path");
+                    }
                 }
             } finally {
                 if (!connection.isClosed()) {

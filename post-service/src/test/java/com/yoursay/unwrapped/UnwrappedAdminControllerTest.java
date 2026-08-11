@@ -388,7 +388,10 @@ class UnwrappedAdminControllerTest {
                     .body("input.options[1].option.label", equalTo("Disagree"))
                     .body("input.options[1].overallVoteCount", equalTo(40))
                     .body("input.options[1].overallVotePercentage", equalTo(40.0F))
-                    .body("input.options[0].candidates.size()", equalTo(1))
+                    // ADR-044: eligibility is privacy-only, so both gender groups reach every
+                    // option. The anchor is the largest privacy-safe group, the differentiator the
+                    // strongest remaining one, which flips their option affinity between options.
+                    .body("input.options[0].candidates.size()", equalTo(2))
                     .body("input.options[0].candidates[0].cohortId", equalTo("gender=MAN"))
                     .body("input.options[0].candidates[0].dimensions[0].axis", equalTo("gender"))
                     .body("input.options[0].candidates[0].dimensions[0].bucket", equalTo("MAN"))
@@ -397,19 +400,35 @@ class UnwrappedAdminControllerTest {
                     .body("input.options[0].candidates[0].sampleSize", equalTo(60))
                     .body("input.options[0].candidates[0].optionVoteCount", equalTo(60))
                     .body("input.options[0].candidates[0].propensityPercentage", equalTo(100.0F))
-                    .body("input.options[1].candidates.size()", equalTo(1))
-                    .body("input.options[1].candidates[0].cohortId", equalTo("gender=WOMAN"))
+                    .body("input.options[0].candidates[1].cohortId", equalTo("gender=WOMAN"))
+                    .body("input.options[0].candidates[1].role", equalTo("CORE_DIFFERENTIATOR"))
+                    .body("input.options[0].candidates[1].displayName", equalTo("Women"))
+                    .body("input.options[0].candidates[1].sampleSize", equalTo(40))
+                    .body("input.options[0].candidates[1].optionVoteCount", equalTo(0))
+                    .body("input.options[0].candidates[1].propensityPercentage", equalTo(0.0F))
+                    .body("input.options[1].candidates.size()", equalTo(2))
+                    .body("input.options[1].candidates[0].cohortId", equalTo("gender=MAN"))
                     .body("input.options[1].candidates[0].role", equalTo("CORE_ANCHOR"))
-                    .body("input.options[1].candidates[0].displayName", equalTo("Women"))
-                    .body("input.options[1].candidates[0].sampleSize", equalTo(40))
-                    .body("input.options[1].candidates[0].optionVoteCount", equalTo(40))
-                    .body("input.options[1].candidates[0].propensityPercentage", equalTo(100.0F))
+                    .body("input.options[1].candidates[0].displayName", equalTo("Men"))
+                    .body("input.options[1].candidates[0].sampleSize", equalTo(60))
+                    .body("input.options[1].candidates[0].optionVoteCount", equalTo(0))
+                    .body("input.options[1].candidates[0].propensityPercentage", equalTo(0.0F))
+                    .body("input.options[1].candidates[1].cohortId", equalTo("gender=WOMAN"))
+                    .body("input.options[1].candidates[1].role", equalTo("CORE_DIFFERENTIATOR"))
+                    .body("input.options[1].candidates[1].displayName", equalTo("Women"))
+                    .body("input.options[1].candidates[1].sampleSize", equalTo(40))
+                    .body("input.options[1].candidates[1].optionVoteCount", equalTo(40))
+                    .body("input.options[1].candidates[1].propensityPercentage", equalTo(100.0F))
                     .body("input.options[0].narrativeInstructions[0]", equalTo(
                             "Explain why a selected cohort is likely to favour the option using researched context."))
-                    .extract().asString();
-            assertFalse(contextJson.contains("userId"));
-            assertFalse(contextJson.contains("email"));
-            assertFalse(contextJson.contains("dateOfBirth"));
+                    .extract().path("input").toString();
+            // Scope the PII guard to the aggregate actually sent to the model. The surrounding
+            // prompt prose legitimately mentions these words to forbid them ("Do not identify
+            // individual voters using personal names, email addresses, ..."), so asserting over
+            // the whole response would fail on the instruction that enforces the rule.
+            assertFalse(contextJson.contains("userId"), contextJson);
+            assertFalse(contextJson.contains("email"), contextJson);
+            assertFalse(contextJson.contains("dateOfBirth"), contextJson);
         } finally {
             deletePost(post.id());
         }
