@@ -37,6 +37,25 @@ const age = {
     { optionId: 31, count: 2, percentage: 100 / 6 }, { optionId: 32, count: 7, percentage: 700 / 12 }, { optionId: 33, count: 3, percentage: 25 },
   ] }],
 };
+const income = {
+  ...political, characteristic: "personalIncomeRange",
+  buckets: [{
+    bucket: "income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_3",
+    label: "GBP 25k to GBP 40k",
+    income: {
+      marketCode: "GB", marketLabel: "United Kingdom", currencyCode: "GBP",
+      measure: "PERSONAL", measureLabel: "Annual personal income before tax",
+      lowerInclusive: 25000, upperExclusive: 40000,
+      relativeLabel: "25th to 50th percentile locally",
+    },
+    total: 12,
+    choices: [
+      { optionId: 31, count: 7, percentage: 700 / 12 },
+      { optionId: 32, count: 3, percentage: 25 },
+      { optionId: 33, count: 2, percentage: 100 / 6 },
+    ],
+  }],
+};
 
 function renderResults(onNextPost?: () => void) {
   return render(<ThemeProvider><SentimentResults postId={3} onNextPost={onNextPost} /></ThemeProvider>);
@@ -44,7 +63,9 @@ function renderResults(onNextPost?: () => void) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockOverall.mockResolvedValue(overall);
-  mockAxis.mockImplementation((_id, axis) => Promise.resolve(axis === "ageRange" ? age : political));
+  mockAxis.mockImplementation((_id, axis) => Promise.resolve(
+    axis === "ageRange" ? age : axis === "personalIncomeRange" ? income : political
+  ));
 });
 
 describe("SentimentResults", () => {
@@ -83,6 +104,21 @@ describe("SentimentResults", () => {
     expect(await screen.findByText("Age 18–24")).toBeOnTheScreen();
     expect(screen.getByText("7")).toBeOnTheScreen();
     expect(screen.queryByText("Left")).toBeNull();
+  });
+
+  it("renders the governed country-specific income range instead of the internal tier", async () => {
+    renderResults();
+    await screen.findByText("Left");
+    fireEvent.press(screen.getByRole("button", { name: "Income" }));
+    await waitFor(() => expect(mockAxis).toHaveBeenCalledWith(3, "personalIncomeRange"));
+    expect(await screen.findByText("GBP 25k to GBP 40k")).toBeOnTheScreen();
+    expect(screen.getByText("Annual personal income before tax in the United Kingdom")).toBeOnTheScreen();
+    expect(screen.queryByText(/Tier 3/i)).toBeNull();
+    for (const mode of ["Bars", "Table", "Columns", "Counts"]) {
+      fireEvent.press(screen.getByRole("button", { name: mode }));
+      expect(screen.getByText("GBP 25k to GBP 40k")).toBeOnTheScreen();
+      expect(screen.queryByText(/Tier 3/i)).toBeNull();
+    }
   });
 
   it("reports suppression and preserves the must-have-voted gate", async () => {

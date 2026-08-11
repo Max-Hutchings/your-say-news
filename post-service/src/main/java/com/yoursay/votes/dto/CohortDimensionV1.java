@@ -1,5 +1,8 @@
 package com.yoursay.votes.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.yoursay.user.usercharacteristic.dto.IncomeRangeDisplayDto;
+
 /**
  * One characteristic value defining membership of an aggregate cohort.
  *
@@ -19,5 +22,14 @@ package com.yoursay.votes.dto;
  * @param axis characteristic being grouped, such as {@code ageRange} or {@code gender}
  * @param bucket grouped value, such as {@code AGE_25_34} or {@code MAN}
  */
-public record CohortDimensionV1(String axis, String bucket) {
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record CohortDimensionV1(
+        String axis,
+        String bucket,
+        String label,
+        IncomeRangeDisplayDto income
+) {
+    public CohortDimensionV1(String axis, String bucket) {
+        this(axis, bucket, null, null);
+    }
 }

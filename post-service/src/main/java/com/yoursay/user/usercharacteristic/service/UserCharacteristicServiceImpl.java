@@ -209,6 +209,9 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         entity.setHouseholdIncomeBandId(resolved.householdBand().id());
         entity.setPersonalIncomeTier(resolved.personalBand().tier());
         entity.setHouseholdIncomeTier(resolved.householdBand().tier());
+        entity.setIncomeRangeProfileRefId(resolved.profileDatabaseId());
+        entity.setPersonalIncomeBandRefId(resolved.personalBandDatabaseId());
+        entity.setHouseholdIncomeBandRefId(resolved.householdBandDatabaseId());
     }
 
     private static void applyLegacyIncome(UserCharacteristic entity, UserCharacteristicDto answers) {
@@ -226,6 +229,9 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         entity.setHouseholdIncomeBandId(null);
         entity.setPersonalIncomeTier(null);
         entity.setHouseholdIncomeTier(null);
+        entity.setIncomeRangeProfileRefId(null);
+        entity.setPersonalIncomeBandRefId(null);
+        entity.setHouseholdIncomeBandRefId(null);
     }
 
     /** Parse a required multi-select enum list: {@code null}/empty or any unknown value is a 400. */

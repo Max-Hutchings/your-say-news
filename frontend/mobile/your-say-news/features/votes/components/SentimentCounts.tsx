@@ -19,7 +19,7 @@ export function SentimentCounts({ buckets, options }: { buckets: BucketSentiment
           <View style={[styles.bar, { height, backgroundColor: optionColor(option, index, e) }]} />
         </View>;
       })}</View>
-      <Text style={[styles.label, { color: e.secondary }]}>{prettifyBucket(bucket.bucket)}</Text>
+      <Text style={[styles.label, { color: e.secondary }]}>{bucket.label ?? prettifyBucket(bucket.bucket)}</Text>
     </View>)}
   </ScrollView>;
 }

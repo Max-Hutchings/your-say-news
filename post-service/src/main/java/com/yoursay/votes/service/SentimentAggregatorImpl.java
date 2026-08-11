@@ -36,6 +36,9 @@ public class SentimentAggregatorImpl implements SentimentAggregator {
     @Inject
     PostVotingConfigurationService votingConfigurationService;
 
+    @Inject
+    IncomeBucketDisplayEnricher incomeDisplays;
+
     /** {@code k}-anonymity threshold. MVP1 default {@code 0} = no suppression (see roadmap risk #1). */
     @ConfigProperty(name = "votes.aggregation.suppress-below", defaultValue = "0")
     int suppressBelow;
@@ -49,8 +52,9 @@ public class SentimentAggregatorImpl implements SentimentAggregator {
     @Override
     public SentimentBreakdownDto sentimentByCharacteristic(Long postId, String characteristic) {
         PostVotingConfigurationDto config = configuration(postId);
-        return tally.byCharacteristic(postId, config.votingType(), config.options(), characteristic,
-                votesForPost(postId), suppressBelow);
+        return incomeDisplays.enrich(tally.byCharacteristic(
+                postId, config.votingType(), config.options(), characteristic,
+                votesForPost(postId), suppressBelow));
     }
 
     private List<VoteSnapshot> votesForPost(Long postId) {

@@ -1,6 +1,7 @@
 package com.yoursay.votes.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.yoursay.user.usercharacteristic.dto.IncomeAnswerDto;
 
 import java.util.List;
 
@@ -50,7 +51,8 @@ public record UserCharacteristicView(
         Boolean balancedNewsViewpoint,
         Integer mainstreamNewsPercent,
         String personalIncomeTier,
-        String householdIncomeTier
+        String householdIncomeTier,
+        IncomeAnswerDto income
 ) {
     /** Compatibility constructor for older local adapters and fixtures. */
     public UserCharacteristicView(
@@ -70,6 +72,6 @@ public record UserCharacteristicView(
                 universitySubject, personalIncomeRange, householdIncomeRange, height, weightRange,
                 eyeColor, parent, newsFrequency, hasPet, petType, chronotype, outlook,
                 neurodivergent, neurodivergenceType, hasDisability, disabilityType, housingStatus,
-                propertyType, null, null, null, null);
+                propertyType, null, null, null, null, null);
     }
 }

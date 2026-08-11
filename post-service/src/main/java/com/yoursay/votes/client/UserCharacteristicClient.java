@@ -83,7 +83,8 @@ public class UserCharacteristicClient {
                 dto.balancedNewsViewpoint(),
                 dto.mainstreamNewsPercent(),
                 dto.personalIncomeTier(),
-                dto.householdIncomeTier());
+                dto.householdIncomeTier(),
+                dto.income());
     }
 
     /** Minimal view of a user — only the id crosses into the votes domain. */

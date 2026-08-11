@@ -102,6 +102,46 @@ public class VoteSentimentControllerTest {
     }
 
     @Test
+    public void sentimentByIncome_returnsTheRealCountrySpecificRangeAfterAggregation() {
+        long postId = insertPost();
+        insertIncomeVote(postId, VOTER_ID, true);
+        insertIncomeVote(postId, 812L, false);
+
+        JsonPath json = given()
+                .when().get("/votes/" + postId + "/sentiment/personalIncomeRange")
+                .then().statusCode(200)
+                .extract().jsonPath();
+
+        assertEquals("personalIncomeRange", json.getString("characteristic"));
+        assertEquals(1, json.getList("buckets").size());
+        assertEquals("income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_3",
+                json.getString("buckets[0].bucket"));
+        assertEquals("GBP 25k to GBP 40k", json.getString("buckets[0].label"));
+        assertEquals(2, json.getInt("buckets[0].total"));
+        assertEquals("GB", json.getString("buckets[0].income.marketCode"));
+        assertEquals("United Kingdom", json.getString("buckets[0].income.marketLabel"));
+        assertEquals("GBP", json.getString("buckets[0].income.currencyCode"));
+        assertEquals("Annual personal income before tax",
+                json.getString("buckets[0].income.measureLabel"));
+        assertEquals(25_000L, json.getLong("buckets[0].income.lowerInclusive"));
+        assertEquals(40_000L, json.getLong("buckets[0].income.upperExclusive"));
+        assertEquals("25th to 50th percentile locally",
+                json.getString("buckets[0].income.relativeLabel"));
+        Map<String, Object> bucket = json.getMap("buckets[0]");
+        assertEquals(Set.of("bucket", "label", "income", "total", "choices"), bucket.keySet());
+        assertEquals(Set.of(
+                        "bucketId", "label", "contextLabel", "relativeLabel", "marketCode",
+                        "marketLabel", "currencyCode", "measure", "measureLabel",
+                        "lowerInclusive", "upperExclusive", "relativeTier", "profileId",
+                        "profileVersion", "bandId"),
+                ((Map<?, ?>) bucket.get("income")).keySet());
+        List<Map<String, Object>> choices = json.getList("buckets[0].choices");
+        assertEquals(2, choices.size());
+        assertChoice(choices.get(0), optionId(postId, "AGREE"), 1, 50.0);
+        assertChoice(choices.get(1), optionId(postId, "DISAGREE"), 1, 50.0);
+    }
+
+    @Test
     public void sentimentResponse_carriesNoIdentityFields() {
         // The PII boundary: the aggregate result exposes only bucket labels, counts and percentages —
         // never a userId, email or any identifying key that could tie an aggregate back to a person.
@@ -314,6 +354,36 @@ public class VoteSentimentControllerTest {
             ps.executeUpdate();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to insert test vote", e);
+        }
+    }
+
+    private void insertIncomeVote(long postId, long userId, boolean voteFor) {
+        String snapshot = """
+                {
+                  "personalIncomeRange": "income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_3",
+                  "personalIncome": {
+                    "answerVersion": 2,
+                    "profileId": "GB-GBP-GROSS-2025-v1",
+                    "profileVersion": 1,
+                    "marketCode": "GB",
+                    "currencyCode": "GBP",
+                    "measure": "PERSONAL",
+                    "bandId": "PERSONAL_TIER_3",
+                    "relativeTier": "TIER_3"
+                  }
+                }
+                """;
+        String sql = "INSERT INTO votes (post_id, user_id, option_id, characteristic_snapshot) "
+                + "VALUES (?, ?, ?, ?::jsonb)";
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement insert = connection.prepareStatement(sql)) {
+            insert.setLong(1, postId);
+            insert.setLong(2, userId);
+            insert.setLong(3, optionId(postId, voteFor ? "AGREE" : "DISAGREE"));
+            insert.setString(4, snapshot);
+            assertEquals(1, insert.executeUpdate());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to insert income vote fixture", e);
         }
     }
 

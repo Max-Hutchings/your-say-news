@@ -33,8 +33,28 @@ export type VoteErrorKind = "duplicate" | "auth" | "network" | "unknown";
  */
 export interface BucketSentiment {
   bucket: string;
+  label?: string;
+  income?: IncomeRangeDisplay;
   total: number;
   choices: ChoiceSentiment[];
+}
+
+export interface IncomeRangeDisplay {
+  bucketId?: string;
+  label?: string;
+  contextLabel?: string;
+  relativeLabel: string;
+  marketCode: string;
+  marketLabel: string;
+  currencyCode: string;
+  measure: "PERSONAL" | "HOUSEHOLD";
+  measureLabel: string;
+  lowerInclusive: number | null;
+  upperExclusive: number | null;
+  relativeTier?: string;
+  profileId?: string;
+  profileVersion?: number;
+  bandId?: string;
 }
 
 export interface ChoiceSentiment {

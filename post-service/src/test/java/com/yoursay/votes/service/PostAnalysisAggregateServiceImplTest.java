@@ -6,6 +6,7 @@ import com.yoursay.posts.PostVotingConfigurationService;
 import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.posts.VotingType;
 import com.yoursay.votes.model.VoteRepository;
+import com.yoursay.votes.dto.PostAnalysisAggregateV1;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class PostAnalysisAggregateServiceImplTest {
         service.builder = new PostAnalysisAggregateBuilder();
         service.objectMapper = new ObjectMapper().findAndRegisterModules();
         service.entityManager = entityManager;
+        service.incomeDisplays = mock(IncomeBucketDisplayEnricher.class);
+        when(service.incomeDisplays.enrich(org.mockito.ArgumentMatchers.any(PostAnalysisAggregateV1.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         service.suppressBelow = 0;
 
         var firstPayload = service.builder.build(post, List.of(), 0, Instant.EPOCH);

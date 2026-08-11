@@ -152,6 +152,11 @@ function renderBreakdown({
   return (
     <>
       <ChartHead title={axisLabel} caption={caption} />
+      {breakdown.buckets[0].income && (
+        <Text style={[styles.incomeContext, { color: e.secondary }]}>
+          {incomeContext(breakdown.buckets[0])}
+        </Text>
+      )}
       <BreakdownChart view={view} buckets={breakdown.buckets} options={breakdown.options} />
       {breakdown.suppressedBuckets > 0 && (
         <Text style={[styles.empty, { color: e.muted }]}>
@@ -161,6 +166,15 @@ function renderBreakdown({
       )}
     </>
   );
+}
+
+function incomeContext(bucket: BucketSentiment): string {
+  const income = bucket.income;
+  if (!income) return "";
+  if (income.contextLabel) return income.contextLabel;
+  const article = ["United Kingdom", "United States", "United Arab Emirates", "Euro area"]
+    .includes(income.marketLabel) ? "the " : "";
+  return `${income.measureLabel} in ${article}${income.marketLabel}`;
 }
 
 /** Render the buckets as whichever chart the "View as" selector has picked. */
@@ -235,6 +249,12 @@ const styles = StyleSheet.create({
     fontFamily: EditorialFont.mono,
     fontSize: 12,
     paddingVertical: 8,
+  },
+  incomeContext: {
+    fontFamily: EditorialFont.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
   },
   errorRow: {
     gap: 10,

@@ -12,7 +12,7 @@ export function SentimentTable({ buckets, options }: { buckets: BucketSentiment[
       {options.map((o) => <Text key={o.id} style={[styles.value, { color: e.muted }]}>{o.label}</Text>)}
       <Text style={[styles.value, { color: e.muted }]}>Total</Text></View>
     {buckets.map((bucket) => <View key={bucket.bucket} style={[styles.row, { borderTopColor: e.border }]}>
-      <Text style={[styles.group, { color: e.ink }]}>{prettifyBucket(bucket.bucket)}</Text>
+      <Text style={[styles.group, { color: e.ink }]}>{bucket.label ?? prettifyBucket(bucket.bucket)}</Text>
       {options.map((option, index) => <Text key={option.id} style={[styles.value, { color: optionColor(option, index, e) }]}>
         {bucket.choices.find((choice) => choice.optionId === option.id)?.count ?? 0}
       </Text>)}

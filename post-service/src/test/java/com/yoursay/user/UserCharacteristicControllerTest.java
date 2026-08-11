@@ -15,7 +15,10 @@ import java.time.Year;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration tests for the characteristic onboarding flow against a real Postgres
@@ -290,6 +293,8 @@ public class UserCharacteristicControllerTest {
         assertIncomeDatabaseUpdateRejected("personal_income_range = 'BELOW_20K'");
         assertIncomeDatabaseUpdateRejected("income_answer_version = NULL");
         assertIncomeDatabaseUpdateRejected("income_currency_code = NULL");
+        assertVersionedIncomeReferences(
+                "IN-INR-GROSS-2023-24-v1", "PERSONAL_TIER_3", "HOUSEHOLD_TIER_5");
     }
 
     @Test
@@ -1007,5 +1012,38 @@ public class UserCharacteristicControllerTest {
                         "UPDATE user_characteristic SET " + assignment + " WHERE user_id = 5");
             }
         });
+    }
+
+    private void assertVersionedIncomeReferences(
+            String expectedProfile, String expectedPersonalBand, String expectedHouseholdBand) {
+        String sql = """
+                SELECT p.public_id,
+                       personal.band_code, personal.measure, personal_profile.public_id,
+                       household.band_code, household.measure, household_profile.public_id
+                FROM user_characteristic c
+                JOIN income_range_profile p ON p.id = c.income_range_profile_ref_id
+                JOIN income_range_band personal ON personal.id = c.personal_income_band_ref_id
+                JOIN income_range_profile personal_profile
+                  ON personal_profile.id = personal.income_range_profile_id
+                JOIN income_range_band household ON household.id = c.household_income_band_ref_id
+                JOIN income_range_profile household_profile
+                  ON household_profile.id = household.income_range_profile_id
+                WHERE c.user_id = 5
+                """;
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement();
+                java.sql.ResultSet result = statement.executeQuery(sql)) {
+            assertTrue(result.next());
+            assertEquals(expectedProfile, result.getString(1));
+            assertEquals(expectedPersonalBand, result.getString(2));
+            assertEquals("PERSONAL", result.getString(3));
+            assertEquals(expectedProfile, result.getString(4));
+            assertEquals(expectedHouseholdBand, result.getString(5));
+            assertEquals("HOUSEHOLD", result.getString(6));
+            assertEquals(expectedProfile, result.getString(7));
+            assertFalse(result.next());
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to verify versioned income references", e);
+        }
     }
 }
