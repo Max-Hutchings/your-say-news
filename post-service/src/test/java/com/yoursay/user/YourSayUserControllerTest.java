@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 
@@ -249,6 +250,27 @@ public class YourSayUserControllerTest {
                 .body("onboarded", equalTo(true));
     }
 
+    /**
+     * Postgres timestamptz resolves to microseconds. Linux clocks give {@code Instant.now()}
+     * nanosecond precision, so the surplus digits cannot survive the write; macOS clocks only offer
+     * microseconds and the value round-trips untouched — which is why comparing the two for exact
+     * equality passes on a developer machine and fails on CI. Which way the surplus goes is not
+     * fixed either: sent as text the server rounds, sent as binary the driver truncates, and pgjdbc
+     * only switches to binary once a statement has been server-prepared. So assert the two things
+     * that are actually guaranteed — the stored stamp holds microsecond precision, and it agrees
+     * with the returned stamp to within the one microsecond Postgres can represent.
+     */
+    private static void assertStampMatchesToPostgresResolution(Instant persisted, Instant returned) {
+        org.junit.jupiter.api.Assertions.assertNotNull(persisted, "consent must be stamped");
+        org.junit.jupiter.api.Assertions.assertEquals(0, persisted.getNano() % 1_000,
+                () -> "Stored stamp must be microsecond precision, was " + persisted);
+        org.junit.jupiter.api.Assertions.assertTrue(
+                Duration.between(persisted, returned).abs()
+                        .compareTo(Duration.ofNanos(1_000)) < 0,
+                () -> "Stored stamp " + persisted + " must match the returned " + returned
+                        + " to the microsecond Postgres can hold");
+    }
+
     private void deleteUserByEmail(String email) throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
@@ -283,10 +305,13 @@ public class YourSayUserControllerTest {
             try (ResultSet result = statement.executeQuery()) {
                 org.junit.jupiter.api.Assertions.assertTrue(result.next());
                 OffsetDateTime stored = result.getObject("consented_at", OffsetDateTime.class);
-                org.junit.jupiter.api.Assertions.assertEquals(
-                        expectedTime,
-                        stored == null ? null : stored.toInstant()
-                );
+                Instant persisted = stored == null ? null : stored.toInstant();
+                if (expectedTime == null) {
+                    // Rejected requests must leave the account unstamped.
+                    org.junit.jupiter.api.Assertions.assertNull(persisted);
+                } else {
+                    assertStampMatchesToPostgresResolution(persisted, expectedTime);
+                }
                 org.junit.jupiter.api.Assertions.assertEquals(
                         expectedVersion,
                         result.getString("privacy_policy_version")
