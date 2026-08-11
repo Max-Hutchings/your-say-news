@@ -109,5 +109,7 @@ from presenting unlike nominal ranges as one ordered scale.
   Internal cross-market analysis continues to use the separate canonical tier fields.
 - Profile definitions remain available indefinitely for historical reads and are reviewed at least
   annually; updates publish new versions rather than mutating old thresholds.
+- ADR-045 makes Postgres the source of truth for those immutable versions and adds the active-row
+  lifecycle used to publish replacements without changing historical meaning.
 - The implementation and rollout details are in
-  [Currency-aware income bands](../docs/plans/currency-aware-income-bands.md).
+  [Database-backed country income profiles](../docs/plans/database-backed-country-income-profiles.md).

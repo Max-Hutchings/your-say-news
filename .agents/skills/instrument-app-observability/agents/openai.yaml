@@ -1,0 +1,4 @@
+interface:
+  display_name: "Instrument App Observability"
+  short_description: "Design metrics, logs, traces, and dashboards"
+  default_prompt: "Use $instrument-app-observability to add complete observability for this application change."

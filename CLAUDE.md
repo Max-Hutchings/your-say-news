@@ -333,6 +333,10 @@ the repo-root one (which is tuned for the Quarkus jar build).
 
 - `test-audit-for-after-changing-tests` — audits whether tests give real signal.
 - `commit-message` — commit message conventions.
+- `instrument-app-observability` — defines required metrics, logs, traces, error classification and
+  Grafana dashboards. **Before adding or changing production code, read and follow
+  `.agents/skills/instrument-app-observability/SKILL.md`.** Include the required observability in
+  the same change as the application behaviour.
 
 Side note: Don't do work on a new branch unless instructed by a user or a designated skill
 
@@ -343,5 +347,97 @@ provide signal (representative data, assertions that pin expected values, and a 
 genuinely fail if the code broke).
 
 
-## Programming style 
+## Programming style
 Since virtual threads, reactive programming is no longer necessary for our crud applications. Default to imperative programming with virtual threads on.
+
+### Method design and single responsibility
+
+- Complex workflow methods should read as a clear summary. Extract meaningful business rules, transformations, calculations, grouping, filtering and sorting into precisely named private methods.
+- Keep each method at one level of abstraction and give it one clear responsibility. Avoid vague names such as `processVotes`, `handleResults` or `buildData`.
+- Do not extract obvious expressions, accessors or constructors. A private method must remove meaningful detail, not merely make the calling method shorter.
+
+Avoid placing the entire workflow and all implementation details in one method:
+
+```java
+public Report build(List<Vote> votes, int threshold) {
+    List<Vote> sortedVotes = votes.stream()
+            .sorted(Comparator.comparing(Vote::createdAt))
+            .toList();
+
+    Map<Long, Long> counts = new LinkedHashMap<>();
+    sortedVotes.forEach(vote ->
+            counts.merge(vote.optionId(), 1L, Long::sum));
+
+    List<Result> results = counts.entrySet().stream()
+            .filter(entry -> entry.getValue() >= threshold)
+            .map(entry -> new Result(
+                    entry.getKey(),
+                    entry.getValue(),
+                    percentage(entry.getValue(), votes.size())
+            ))
+            .toList();
+
+    return new Report(votes.size(), results);
+}
+```
+
+Prefer extracting the meaningful operations while leaving obvious expressions and construction visible:
+
+```java
+public Report build(List<Vote> votes, int threshold) {
+    List<Vote> sortedVotes = sortVotesByCreationTime(votes);
+    Map<Long, Long> voteCountsByOption = countVotesByOption(sortedVotes);
+    Map<Long, Long> surfacedVoteCounts =
+            selectVoteCountsAtOrAboveThreshold(voteCountsByOption, threshold);
+    List<Result> results =
+            createOptionResults(surfacedVoteCounts, votes.size());
+
+    return new Report(votes.size(), results);
+}
+
+private List<Vote> sortVotesByCreationTime(List<Vote> votes) {
+    return votes.stream()
+            .sorted(Comparator.comparing(Vote::createdAt))
+            .toList();
+}
+
+private Map<Long, Long> countVotesByOption(List<Vote> votes) {
+    Map<Long, Long> counts = new LinkedHashMap<>();
+
+    votes.forEach(vote ->
+            counts.merge(vote.optionId(), 1L, Long::sum));
+
+    return counts;
+}
+
+private Map<Long, Long> selectVoteCountsAtOrAboveThreshold(
+        Map<Long, Long> voteCountsByOption,
+        int threshold
+) {
+    return voteCountsByOption.entrySet().stream()
+            .filter(entry -> entry.getValue() >= threshold)
+            .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (existing, replacement) -> existing,
+                    LinkedHashMap::new
+            ));
+}
+
+private List<Result> createOptionResults(
+        Map<Long, Long> voteCountsByOption,
+        long totalVoteCount
+) {
+    return voteCountsByOption.entrySet().stream()
+            .map(entry -> new Result(
+                    entry.getKey(),
+                    entry.getValue(),
+                    percentage(entry.getValue(), totalVoteCount)
+            ))
+            .toList();
+}
+
+private double percentage(long count, long total) {
+    return total == 0 ? 0.0 : 100.0 * count / total;
+}
+```
