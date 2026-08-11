@@ -1,0 +1,176 @@
+name: Infrastructure Development
+run-name: Infrastructure development · ${{ github.ref_name }} · ${{ github.sha }}
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      plan_run_id:
+        description: Run ID of the successful development plan to apply
+        required: true
+        type: string
+      commit_sha:
+        description: Full 40-character SHA shown in that plan summary
+        required: true
+        type: string
+      confirmation:
+        description: Type "apply development" after reviewing the plan
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: infrastructure-development
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TERRAFORM_VERSION: 1.15.8
+  TERRAFORM_WORKING_DIRECTORY: service/infra/environments/development
+  TERRAFORM_BACKEND_CONFIG: development.backend.hcl.example
+  TERRAFORM_VAR_FILE: development.tfvars
+  TERRAFORM_PLAN_FILE: development.tfplan
+  TERRAFORM_PLAN_ARTIFACT: terraform-development-${{ github.sha }}
+
+jobs:
+  terraform-format:
+    name: Development · Format
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        uses: ./.github/templates/terraform/terraform-fmt
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+  terraform-validate:
+    name: Development · Validate and test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Initialise development without remote state
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: validation
+
+      - name: Validate development and run its Terraform tests
+        uses: ./.github/templates/terraform/terraform-validate
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+
+  terraform-plan:
+    name: Development · Plan
+    needs:
+      - terraform-format
+      - terraform-validate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@v6
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Connect to the development HCP workspace
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: remote
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+
+      - name: Create and publish the development plan
+        uses: ./.github/templates/terraform/terraform-plan
+        with:
+          environment-name: development
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          var-file: ${{ env.TERRAFORM_VAR_FILE }}
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+          plan-file: ${{ env.TERRAFORM_PLAN_FILE }}
+          artifact-name: ${{ env.TERRAFORM_PLAN_ARTIFACT }}
+
+  terraform-apply:
+    name: Development · Explicit manual apply
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+      AIVEN_TOKEN: ${{ secrets.AIVEN_TOKEN }}
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GRAFANA_AUTH: ${{ secrets.GRAFANA_AUTH }}
+    steps:
+      - name: Check out the selected workflow revision
+        uses: actions/checkout@v6
+
+      - name: Authorize the reviewed development plan
+        uses: ./.github/templates/terraform/terraform-authorize-apply
+        with:
+          environment-name: development
+          plan-run-id: ${{ inputs.plan_run_id }}
+          expected-commit: ${{ inputs.commit_sha }}
+          confirmation: ${{ inputs.confirmation }}
+          confirmation-phrase: apply development
+          expected-workflow-path: .github/workflows/infra-dev.yml
+          github-token: ${{ github.token }}
+
+      - name: Install Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Reconnect to the development HCP workspace
+        uses: ./.github/templates/terraform/terraform-init
+        with:
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          backend-mode: remote
+          backend-config: ${{ env.TERRAFORM_BACKEND_CONFIG }}
+
+      - name: Apply the exact reviewed development plan
+        uses: ./.github/templates/terraform/terraform-apply
+        with:
+          environment-name: development
+          working-directory: ${{ env.TERRAFORM_WORKING_DIRECTORY }}
+          plan-file: ${{ env.TERRAFORM_PLAN_FILE }}
+          artifact-name: terraform-development-${{ inputs.commit_sha }}
+          source-run-id: ${{ inputs.plan_run_id }}
+          expected-commit: ${{ inputs.commit_sha }}
+          github-token: ${{ github.token }}

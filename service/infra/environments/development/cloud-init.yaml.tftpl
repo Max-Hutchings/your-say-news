@@ -1,0 +1,90 @@
+#cloud-config
+
+timezone: Europe/London
+
+users:
+  - default
+  - name: deploy
+    gecos: Your Say News deployment account
+    lock_passwd: true
+    shell: /bin/bash
+
+ssh_pwauth: false
+disable_root: false
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-your-say-news.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
+      PermitRootLogin prohibit-password
+
+  - path: /etc/apt/apt.conf.d/52your-say-news-unattended-upgrades
+    owner: root:root
+    permissions: "0644"
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root:root
+    permissions: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+  - path: /etc/systemd/system/apt-daily-upgrade.timer.d/override.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Timer]
+      OnCalendar=
+      OnCalendar=Sun *-*-* 04:00:00 Europe/London
+      RandomizedDelaySec=0
+      Persistent=true
+
+  - path: /etc/systemd/system/cloudflared-ysn.service
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Your Say News Cloudflare Tunnel connector
+      After=network-online.target
+      Wants=network-online.target
+      ConditionPathExists=/etc/cloudflared/tunnel.env
+
+      [Service]
+      Type=simple
+      User=cloudflared
+      Group=cloudflared
+      EnvironmentFile=/etc/cloudflared/tunnel.env
+      ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate run
+      Restart=on-failure
+      RestartSec=5s
+      NoNewPrivileges=true
+      PrivateDevices=true
+      PrivateTmp=true
+      ProtectControlGroups=true
+      ProtectHome=true
+      ProtectKernelModules=true
+      ProtectKernelTunables=true
+      ProtectSystem=strict
+      RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+      RestrictSUIDSGID=true
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /usr/local/sbin/ysn-bootstrap-host
+    owner: root:root
+    permissions: "0750"
+    content: |
+      ${indent(6, bootstrap_script)}
+
+runcmd:
+  - [bash, /usr/local/sbin/ysn-bootstrap-host]
+
+final_message: Your Say News host cloud-init finished after $UPTIME seconds

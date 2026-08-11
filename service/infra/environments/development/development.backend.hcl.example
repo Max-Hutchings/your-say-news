@@ -1,0 +1,7 @@
+# HCP Terraform global organisation used for remote state and locking.
+hostname     = "app.terraform.io"
+organization = "your-say-news"
+
+workspaces {
+  name = "your-say-news-development"
+}

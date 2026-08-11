@@ -1,11 +1,15 @@
 # Development cloud infrastructure plan
 
-**Status:** Proposed for stakeholder and developer review  
+**Status:** Approved for implementation; external provisioning gates remain<br>
 **Date:** 2026-07-25  
+**Decision updates:** 2026-07-27 and 2026-08-09<br>
 **Scope:** The always-on, production-like development environment only  
 **Budget:** £20/month for compute, database, object storage and their network costs  
 **Excluded from the budget:** AI API usage, the one-off Google Play registration fee and future
 production support/SLA costs
+
+**External setup checklist:**
+[Development cloud external prerequisites](development-cloud-external-prerequisites.md)
 
 ## Contents
 
@@ -23,12 +27,12 @@ production support/SLA costs
   - [Media and backups](#media-and-backups)
   - [Authentication, tester restriction and administration](#authentication-tester-restriction-and-administration)
   - [Availability and job integrity](#availability-and-job-integrity)
-  - [Observability](#observability)
+- [Observability](#observability)
 - [Container images and deployment artifacts](#container-images-and-deployment-artifacts)
-  - [Dockerfile corrections before first deployment](#dockerfile-corrections-before-first-deployment)
+  - [Existing application image definition](#existing-application-image-definition)
 - [Repository and Terraform design](#repository-and-terraform-design)
   - [Your Say News repository](#your-say-news-repository)
-  - [Reusable platform repository](#reusable-platform-repository)
+  - [Reusable modules and templates](#reusable-modules-and-templates)
   - [Terraform scope](#terraform-scope)
   - [Remote state](#remote-state)
 - [CI/CD plan](#cicd-plan)
@@ -48,22 +52,27 @@ production support/SLA costs
 
 Use a small EU Linux VM running Docker Compose, with state kept outside the VM:
 
-- **Compute:** Hetzner Cloud CX23 in Nuremberg or Falkenstein (2 shared vCPU, 4 GB RAM, 40 GB disk).
-- **Database:** Aiven for PostgreSQL Free in its Europe geographical area initially, conditional on
-  confirming that the Europe area remains its residency boundary. Otherwise use a region-fixed
-  Scaleway DB-DEV-S in Paris or Milan.
+- **Compute:** Hetzner Cloud CX23 in Nuremberg (`nbg1`) (2 shared vCPU, 4 GB RAM, 40 GB disk).
+- **Database:** Aiven for PostgreSQL Free in its provider-assigned location for the synthetic-data
+  proof of concept. Exact-region placement is not a Gate B requirement; reassess it before Gate D
+  or funded production.
 - **Media:** a private Cloudflare R2 Standard bucket created with the `eu` jurisdiction.
-- **Ingress and DNS:** retain the domain registration at GoDaddy, delegate DNS to Cloudflare and
-  publish only the API hostname through Cloudflare Tunnel.
-- **Authentication:** Google-only authentication; the application database remains authoritative
-  for invitations and application permissions.
+- **Ingress and DNS:** retain `yoursaynews.com` and `yoursaynews.co.uk` at GoDaddy, delegate both
+  zones to Cloudflare and publish the development API at `https://dev.yoursaynews.com/api` through
+  Cloudflare Tunnel. Development has no public web frontend. Future production uses
+  `https://yoursaynews.com/api` for the API and the same apex origin for a marketing web
+  application; neither production workload is created in this development phase.
+- **Authentication:** Firebase Authentication with Google Sign-In; the application database
+  remains authoritative for invitations and application permissions.
 - **Observability:** Grafana Cloud Free, fed by OpenTelemetry/Alloy from the VM.
 - **Images:** private GitHub Container Registry (GHCR), tagged by immutable Git commit SHA/digest.
-- **CI/CD:** ephemeral GitHub-hosted Ubuntu runners. A deployment job temporarily joins Tailscale
-  and connects to the VM over its private Tailscale address. Do not install a GitHub runner on the
-  application VM.
-- **Infrastructure as code:** environment roots in this repository, reusable Terraform modules and
-  Compose templates in a separate platform repository, and remote state in HCP Terraform.
+- **Private operations and CI/CD:** use a separate Cloudflare Access policy and SSH hostname over
+  the existing outbound-only Tunnel. Max and Theo authenticate separately; an ephemeral
+  GitHub-hosted Ubuntu runner uses a narrowly scoped, rotating Access service token. Do not expose
+  SSH publicly or install a GitHub runner on the application VM.
+- **Infrastructure as code:** environment roots, reusable Terraform modules and Compose templates
+  under the root-level `service/` directory in this repository, with remote state in HCP
+  Terraform.
 - **Orchestration:** Docker Compose now; AWS ECS is the funded migration target. Kubernetes and Helm
   are deliberately out of scope.
 
@@ -84,6 +93,10 @@ The repository is not just one stateless HTTP container. The reviewed runtime co
 - OpenTelemetry metrics, logs and traces; and
 - an Expo/React Native Android application, built and distributed but not web-hosted.
 
+No marketing or holding page is part of the development deployment. A future marketing web
+application will use `yoursaynews.com`, with the production backend remaining below the `/api`
+path on that same origin.
+
 The current local Compose stack also contains Keycloak, a separate Keycloak database, LocalStack
 and the local Grafana/OTel distribution. Those are local-development substitutes, not four more
 cloud workloads:
@@ -93,9 +106,12 @@ cloud workloads:
 - Aiven replaces the local PostgreSQL container.
 - Grafana Cloud replaces the local observability stack.
 
-The API container, a lightweight telemetry collector and `cloudflared` are the only steady
-Compose services proposed on the VM. Liquibase runs as a one-shot release step. Tailscale should be
-installed as a host service for private operations access.
+The API container and a lightweight telemetry collector are the only steady application Compose
+services proposed on the VM. Liquibase runs as a one-shot release step. A host-level `cloudflared`
+service is installed by the non-secret infrastructure bootstrap so the deployment workflow can
+reach the VM before application Compose exists. The same connector carries the public API route
+and a separately Access-protected private SSH route; the mobile API itself must not receive an
+Access browser-login challenge.
 
 ## Wiki and roadmap reconciliation
 
@@ -107,8 +123,8 @@ preserves the following decisions:
 - ADR-020, ADR-022 and ADR-027 require durable asynchronous agent jobs. This is why a scale-to-zero
   platform is a poor fit while the worker polls every two seconds.
 - ADR-023 makes the application database authoritative for account and publisher status. The
-  proposed Google identity change extends this principle to invitations and site-administrator
-  permissions.
+  accepted Google/Firebase identity change extends this principle to invitations and
+  site-administrator permissions.
 - ADR-024 and ADR-025 keep voting, users and agents in the single `post-service` deployable and
   central Liquibase tree. No microservices, Kubernetes cluster or separate worker container is
   introduced now.
@@ -118,10 +134,11 @@ preserves the following decisions:
 - ADR-027's fixed `ysn` application-owned publisher and audit requirements remain. Only its
   Keycloak `admin` role assumption needs superseding.
 
-Historical accepted ADRs should not be rewritten. A new proposed ADR,
+Historical accepted ADRs should not be rewritten. ADR-028,
 `wiki/ADR-028-2026-07-25-google-authentication-and-application-authorization.md`, records the
 authentication change and explicitly supersedes only the Keycloak-specific parts of ADR-023 and
-ADR-027.
+ADR-027. Its application-owned authorisation direction is approved, with Firebase Authentication
+selected as the managed token broker rather than an application-built issuer.
 
 Two wiki risks must be closed before real people, rather than synthetic stakeholder data, use this
 environment:
@@ -129,9 +146,9 @@ environment:
 1. The database contains sensitive characteristic, disability, neurodiversity, income, vote and
    impression data. Complete the privacy, retention, account deletion/export and consent work
    already identified by the MVP plans.
-2. Vote aggregation currently permits a suppression threshold of zero. The wiki deliberately
-   deferred a minimum cohort threshold during MVP work, but the value must be non-zero before
-   characteristics from real testers can be exposed in aggregate results.
+2. Vote aggregation currently permits a suppression threshold of zero. The remote environment
+   uses the approved threshold of `5`; the local MVP default must not leak into the tester
+   deployment.
 
 ## Target architecture
 
@@ -148,27 +165,28 @@ Android internal/closed testers
   | EU Linux VM                                 |
   | Docker Compose                              |
   |  - post-service JVM API                     |
-  |  - cloudflared                              |
   |  - Grafana Alloy / OTel collector           |
-  | Host: Docker, Tailscale, firewall, updates  |
+  | Host: cloudflared, Docker, SSH, firewall,    |
+  |       updates                               |
   +------+------------------+-------------------+
          | TLS              | S3 HTTPS
          v                  v
   Aiven PostgreSQL      Private EU R2
   app data + jobs       images + videos
 
-  Google OIDC ---------- identity assertion ----> API
+  Firebase/Google ------ identity assertion ----> API
   xAI API <------------- server-side egress ----- API
   Grafana Cloud <------- metrics/logs/traces ---- Alloy
 
-  GitHub-hosted runner -- ephemeral Tailscale --> VM deploy user
+  GitHub runner -- Cloudflare Access SSH -------> VM deploy user
   GitHub Actions -------> GHCR / HCP Terraform / EAS / Play
 ```
 
-The native application necessarily contains its API hostname, so the URL cannot be treated as a
-secret or made undiscoverable. Security comes from HTTPS, valid Google identity, the database
-invitation/allowlist and server-side permissions. Cloudflare Access browser redirects should not
-be placed in front of the mobile API. The administration endpoints receive the stricter
+The native application necessarily contains its API base URL, so it cannot be treated as a secret
+or made undiscoverable. Development builds use `https://dev.yoursaynews.com/api`; future production
+builds use `https://yoursaynews.com/api`. Security comes from HTTPS, valid Google identity, the
+database invitation/allowlist and server-side permissions. Cloudflare Access browser redirects
+should not be placed in front of the mobile API. The administration endpoints receive the stricter
 application-owned `ADMIN` permission.
 
 ## Expected monthly cost
@@ -179,12 +197,11 @@ budgeting to the penny.
 | Component | Development selection | Estimated monthly cost |
 | --- | --- | ---: |
 | API VM | Hetzner CX23, EU, plus primary IPv4 if required | about €6–€8 including VAT |
-| PostgreSQL | Aiven Free in Europe | £0 |
+| PostgreSQL | Aiven Free in its provider-assigned location | £0 |
 | Media | R2 Standard, below 10 GB and free operation allowances | £0 |
-| DNS, tunnel and TLS | Cloudflare Free | £0 |
+| DNS, tunnel, Access and TLS | Cloudflare Free | £0 |
 | Telemetry | Grafana Cloud Free | £0 |
 | Terraform state | HCP Terraform Free, below 500 managed resources | £0 |
-| Private operations network | Tailscale Personal, while eligible and within limits | £0 |
 | CI | GitHub-hosted Linux, within the repository owner's allowance | £0 |
 | Image registry | GHCR, within allowance; control retention | £0 initially |
 | Android build | EAS Free or GitHub Linux fallback | £0 initially |
@@ -207,11 +224,9 @@ personal accounts:
   column. Confirm stock, location, tax and IPv4 price at purchase:
   [Hetzner 2026 pricing adjustment](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/).
 - Aiven Free is one node with 1 CPU, 1 GB RAM, 1 GB disk, backups and at most 20 connections. It has
-  no SLA, VPC, static IP or connection pooling. Aiven's Developer-tier announcement says Free and
-  Developer customers can choose the geographical area (including Europe), not the cloud or exact
-  region, while its service terms reserve the right to move provider/region or stop an inactive
-  Free service. Confirm with Aiven that a Europe choice cannot move the data outside Europe before
-  provisioning:
+  no SLA, VPC, static IP or connection pooling. Aiven assigns the Free service location and
+  reserves the right to move its provider/region or stop an inactive Free service. That trade-off
+  is accepted for synthetic proof-of-concept data:
   [Aiven Free PostgreSQL limitations](https://aiven.io/docs/products/postgresql/concepts/pg-free-tier).
 - Scaleway's Paris DB-DEV-S is currently €0.0156/hour before tax plus block storage and backups,
   providing a deterministic EU fallback:
@@ -227,10 +242,14 @@ personal accounts:
 - GitHub Free currently includes 2,000 private-repository Actions minutes and 500 MB of shared
   Actions/package storage:
   [GitHub included usage](https://docs.github.com/en/billing/reference/product-usage-included).
-- Tailscale Personal currently allows up to six users, 50 tagged resources and 1,000 ephemeral
-  resource minutes:
-  [Tailscale pricing](https://tailscale.com/pricing). Re-check licence suitability when the project
-  becomes a funded commercial operation.
+- Tailscale Personal is not suitable because its free tier is restricted to non-commercial use.
+  Standard is currently US$8 per user/month, so two paid seats would consume most of the
+  environment budget:
+  [Tailscale pricing](https://tailscale.com/pricing). Cloudflare Tunnel and Access instead provide
+  the already-approved outbound connector, identity-gated SSH and CI service-token path without
+  another provider or recurring charge:
+  [Cloudflare SSH](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/use-cases/ssh/),
+  [Cloudflare service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/).
 
 Free tiers are dependencies, not permanent entitlements. Pin the date and limits in the monthly
 cost review and alert before a provider changes them.
@@ -270,7 +289,7 @@ production rehearsal.
 
 | Option | Fit | Cost/operational conclusion |
 | --- | --- | --- |
-| **Hetzner VM + Aiven PG + R2** | Best current fit, conditional | Lowest predictable cost, 4 GB API memory, standard interfaces; confirm Europe-area residency and accept the free DB limits. |
+| **Hetzner VM + Aiven PG + R2** | Best current fit | Lowest predictable cost, 4 GB API memory and standard interfaces; accepts Aiven's provider-assigned Free location and limits for synthetic data. |
 | **Akamai VM + Aiven PG + R2** | Best fallback | Familiar provider, London available, still below budget with 2 GB VM; less memory. |
 | **Akamai VM + Akamai managed PG** | Technically strong | One provider and clean Terraform story, but credible minimum is above budget. |
 | Hetzner VM + Scaleway managed PG + R2 | Region-fixed EU fallback | Paris/Milan placement and managed backups; approximately consumes the full £20 ceiling after tax and small storage volumes. |
@@ -293,11 +312,12 @@ and more predictable always-on cost. ECS remains the future scaling path.
 Provision Ubuntu 24.04 LTS x86-64 with:
 
 - Docker Engine and the Compose v2 plugin from pinned repositories;
-- automatic security updates and an agreed maintenance/reboot window;
+- automatic security updates with a Sunday 04:00 `Europe/London` maintenance/reboot window;
 - an unprivileged `deploy` user, Docker access limited to that account and no password login;
-- Tailscale for private SSH/operations access;
+- Cloudflare Access for identity-gated SSH/operations access over the outbound Tunnel;
 - provider firewall and host firewall denying all public inbound ports;
-- `cloudflared` making outbound-only connections to Cloudflare;
+- a host-level `cloudflared` service, dormant until its separately delivered token is installed,
+  making outbound-only connections to Cloudflare;
 - disk, memory, JVM and container-restart alerts; and
 - no persistent application data beyond container layers and bounded local log buffers.
 
@@ -318,10 +338,10 @@ maintenance cost do not currently earn enough infrastructure savings.
 
 ### PostgreSQL
 
-Use managed PostgreSQL over TLS. Select the Aiven **Europe** geographical area, and record written
-confirmation of the area boundary in the environment evidence. If Aiven cannot confirm the
-database and its backups remain in Europe, select Scaleway Paris or Milan instead; do not waive the
-location requirement merely to keep the database free.
+Use managed PostgreSQL over TLS. Aiven chooses the Free service's cloud and region, and may change
+them. This is accepted only while the environment contains synthetic proof-of-concept data. If an
+exact EU location becomes mandatory before real testers or funded production, move to a
+region-selectable paid Aiven plan or a fixed-region provider such as Scaleway.
 
 Create separate least-privilege credentials for:
 
@@ -390,30 +410,33 @@ needs a processor-by-processor/DPA review and may require paid data-localisation
 
 ### Authentication, tester restriction and administration
 
-Use Google as the only identity provider, but do not make Google the application authorisation
-database:
+Use Firebase Authentication with Google Sign-In as the managed identity/session broker, but do not
+make Firebase or Google the application authorisation database:
 
-1. The Android client signs in with Google using an authorization-code/PKCE-compatible flow.
-2. The backend verifies signature, issuer, audience, expiry and nonce as applicable.
-3. Link accounts using Google's immutable `sub`, never mutable email.
+1. The Android client signs in with Google through the supported Firebase/Credential Manager flow.
+2. The backend verifies the Firebase ID-token signature, issuer, audience and expiry and applies
+   revocation checks where the operation requires them.
+3. Link accounts using the broker's immutable Firebase UID (`sub`), never mutable email. Preserve
+   the external issuer/subject mapping needed for a future broker migration.
 4. Check a database invitation/allowlist before creating or enabling an application account.
-5. Load application permissions and publishing status from PostgreSQL on each protected operation
-   or from a short-lived application token with a revocation strategy.
+5. Load account activity, application permissions and publishing status from PostgreSQL on each
+   protected operation so application revocation is not delayed by a still-valid identity token.
 
-Google's OIDC reference explicitly says to validate tokens and use `sub`, not email, as the stable
-identifier:
-[Google OIDC validation](https://developers.google.com/identity/openid-connect/openid-connect).
+Firebase issues short-lived ID tokens and managed refresh sessions and supports server-side refresh
+revocation. No application token issuer or signing-key service will be built:
+[Firebase session management](https://firebase.google.com/docs/auth/admin/manage-sessions).
 
-The implementation ADR must settle whether the application exchanges the Google assertion for its
-own short-lived access/refresh session or uses a supported Google-token validation mode on each
-request. The preferred enterprise shape is an application session because it keeps mobile API
-authorisation, refresh and future identity-provider migration explicit. Do not implement a custom
-token issuer without security review and full refresh-token rotation/revocation tests.
+Firebase Authentication processes authentication data in US data centres. This is accepted under
+the selected cost-first proof-of-concept standard: R2 uses its immutable EU jurisdiction, Aiven
+assigns the Free database location and only synthetic data is permitted before Gate D. A future
+strict all-processors-EU requirement must replace or renegotiate non-compliant processors before it
+can become an acceptance criterion:
+[Firebase privacy and data locations](https://firebase.google.com/support/privacy/).
 
 Add application permissions such as `USER` and `ADMIN` independently from `AccountType` and
-`PublisherStatus`. Bootstrap the first admin through a one-time migration or privileged CLI using a
-Google `sub`, not an email committed to Terraform. Every invite, revoke, permission and publisher
-change must be audited.
+`PublisherStatus`. Bootstrap the first admin through a one-time migration or privileged CLI using
+the immutable broker subject, not an email committed to Terraform. Every invite, revoke,
+permission and publisher change must be audited.
 
 Add an infrastructure-aware admin-page TODO:
 
@@ -451,13 +474,15 @@ The free tier has only three active users, which covers the current two develope
 
 ## Container images and deployment artifacts
 
-Use private GHCR packages for:
+Use private GHCR snapshot packages for development:
 
-- `post-service` runtime image; and
-- a matching Liquibase migration image or immutable migration artifact.
+- `your-say-news-post-service-snapshot`; and
+- `your-say-news-migrations-snapshot`.
 
-Build once and promote the same digest. Tag every image with `sha-<full-or-unambiguous-commit>`,
-optionally add a release label, and deploy by digest. Never deploy `latest`.
+Build each snapshot from one commit, tag it with `sha-<seven-character-commit>`, retain the full SHA
+in OCI labels and sealed metadata, and deploy by digest.
+Reserve the unsuffixed package names for a future production workflow that publishes only from
+approved version tags. Never deploy `latest`; see ADR-037.
 
 Retain:
 
@@ -477,23 +502,24 @@ Generate an SBOM, scan the filesystem/image, sign the digest with keyless OIDC s
 supported, and verify the expected digest in deployment. Pin base images by digest and renovate
 them through reviewed pull requests.
 
-### Dockerfile corrections before first deployment
+### Existing application image definition
 
-The repository currently builds with a Java 25 toolchain, while `Dockerfile.jvm` uses a Java 21
-runtime, and the Dockerfile exposes 8080 while the application is configured for 8082. Replace it
-with a multi-stage, reproducible Java 25 image and one canonical container port. Add:
+`post-service/src/main/docker/Dockerfile.jvm` remains the authoritative application image
+definition. The infrastructure skeleton must not change its runtime base image, exposed port,
+packaging layout or entrypoint. Build and validate that existing image as a separate application
+concern before the first remote deployment.
 
-- non-root runtime user;
-- health check/readiness endpoints;
-- JVM/container-aware memory flags;
-- OCI source/revision/version labels;
-- a `.dockerignore`; and
-- pinned base-image digests.
+Any future image hardening, base-image update, health-check metadata or port change requires its own
+reviewed application change with an image build and runtime test. The deployment configuration
+should consume the resulting immutable application image digest rather than silently redefining
+the application image contract.
 
 ## Repository and Terraform design
 
-Create a separate repository, provisionally named `your-say-platform`, for reusable material. Do
-not put live environment state or environment-specific secrets there.
+Keep reusable infrastructure and deployment material beside its only current consumer. This lets
+application, runtime-contract and infrastructure changes be reviewed and tested atomically without
+introducing cross-repository release/version coordination for one application and two developers.
+Do not put live environment state or environment-specific secrets in Git.
 
 ### Your Say News repository
 
@@ -507,6 +533,11 @@ your-say-news/                    # existing repository root
   post-service/                   # existing backend module
   service/                        # infrastructure and deployment operations
     infra/
+      modules/
+        linux-compose-host/
+        cloudflare-api-tunnel/
+        r2-private-bucket/
+        aiven-postgresql/
       environments/
         development/
           backend.tf
@@ -519,39 +550,46 @@ your-say-news/                    # existing repository root
     deploy/
       compose.yaml               # service-owned Compose overlay/root
       env.example                # names and safe defaults, no values
+      templates/
+        single-jvm-api/
       scripts/
         deploy.ps1-or-sh         # thin, tested invocation
         health-check.ps1-or-sh
       README.md
 ```
 
-`service/infra` is the environment composition/root: provider choices, module versions, tfvars and
-outputs for the backend. `service/deploy` identifies the exact runtime image,
-migration, environment contract and health/rollback procedure. There is no `chart/` directory
-because there is no Kubernetes or Helm deployment.
+`service/infra/environments` owns environment composition: provider choices, local module calls,
+tfvars and outputs. `service/infra/modules` owns reusable provider-specific behaviour.
+`service/deploy` identifies the exact runtime image, migration, environment contract and
+health/rollback procedure, while `service/deploy/templates` holds reusable Compose behaviour when
+it is genuinely shared. There is no `chart/` directory because there is no Kubernetes or Helm
+deployment.
 
-### Reusable platform repository
+### Reusable modules and templates
 
 ```text
-terraform/
-  modules/
+service/
+  infra/modules/
     linux-compose-host/
     cloudflare-api-tunnel/
     r2-private-bucket/
     aiven-postgresql/
-compose/
-  templates/
+  deploy/templates/
     single-jvm-api/
-github/
-  workflows/
-    terraform-plan.yml
-    compose-deploy.yml
 ```
 
-The platform repository owns generic module/template behaviour. Its changes require a pull request
-and lead-developer approval (the user's brother), enforced with CODEOWNERS and branch protection.
-The Your Say News repository pins modules/workflows/templates to immutable tags or commit SHAs; it
-never tracks their default branch.
+Modules have narrow provider-specific responsibilities, explicit input/output contracts and
+deletion protection. Environment roots reference them through repository-local paths, so the
+reviewed application commit is also the immutable module/template version. Changes under
+`service/infra/modules/**` and `service/deploy/templates/**` require a pull request and
+the normal automated checks. Max (`Max-Hutchings`) and Theo (`TheoHutchings908`) are co-owners;
+this trusted development environment does not require independent approval, and the author may
+approve their own change or deployment.
+
+Do not force abstraction into the first implementation: the development Compose root can remain
+the reference implementation until behaviour is actually shared. If a second application
+repository needs these modules/templates, extract the stable boundaries into a platform repository
+with their Git history and begin pinning consumers to immutable release tags or commit SHAs.
 
 Service environment changes still receive an automatic Terraform plan, but **every apply is
 manual** so both developers can read the exact plan first.
@@ -562,9 +600,12 @@ Manage these resources in Terraform where the provider supports them safely:
 
 - Hetzner VM, firewall, SSH key references, delete/rebuild protection;
 - Aiven project/service/database users and termination protection;
-- Cloudflare zone records, R2 buckets/CORS/lifecycle and Tunnel resources;
+- Cloudflare zone records, redirects, R2 buckets/CORS/lifecycle, Tunnel, Access policies and the
+  private SSH application;
 - Grafana Cloud stack/service-account configuration where useful;
-- non-secret GitHub Environment variables and environment protection configuration where safe.
+- non-secret GitHub workflow configuration where safe. Private GitHub Free does not expose
+  Environment secrets or approval rules, so it uses repository secrets plus explicit manual
+  workflow dispatch.
 
 Do not put these in Terraform state:
 
@@ -584,11 +625,13 @@ Use one HCP Terraform organisation and a workspace per environment, initially
 HCP for remote state, locking, history and team access, but keep execution in GitHub Actions so the
 plan/apply approval path stays visible in the repository.
 
-- Store a narrowly scoped HCP token in the GitHub `development` Environment secret.
+- Store a narrowly scoped HCP token in GitHub Actions repository secrets while this private
+  repository remains on GitHub Free.
 - Require MFA for both developers and remove unused tokens.
 - Never use local state in CI or upload state as an Actions artifact.
 - Save the binary plan in the same trusted workflow run that later applies it.
-- Reject the apply if the commit, lock file, provider versions, module pins or state serial changed.
+- Reject the apply if the commit, lock file, provider versions, local module sources or state serial
+  changed.
 
 When moving to AWS, migrate state deliberately to an encrypted versioned S3 backend with state
 locking after the AWS account foundation exists. Do not copy state by hand.
@@ -653,17 +696,19 @@ Backend changes:
 2. Build API and migration artifacts once.
 3. Generate SBOM, scan and sign.
 4. Push immutable images to GHCR.
-5. Enter the protected GitHub `development` deployment environment.
-6. Join Tailscale using GitHub OIDC workload identity and a short-lived `tag:ci` node.
-7. SSH to the unprivileged deploy user over the Tailscale address.
+5. Enter the repository's explicit manual deployment workflow.
+6. Authenticate to the dedicated Cloudflare SSH Access application with the scoped CI service
+   token stored in GitHub Actions repository secrets.
+7. SSH through `cloudflared` to the unprivileged deploy user; the VM exposes no public SSH port.
 8. Pull the exact digest, run the one-shot Liquibase migration, then run Compose.
 9. Check readiness through both localhost/private path and the public Cloudflare hostname.
 10. Automatically roll the API back to the previous digest if health fails. Never automatically
     reverse a database migration.
 
-Tailscale recommends workload identity for its GitHub Action and removes the ephemeral node at the
-end of the run:
-[Tailscale GitHub Action](https://tailscale.com/docs/integrations/github/github-action).
+The Access application has separate human allow rules for Max and Theo and a `Service Auth` rule
+limited to the CI token. Set a rotation/expiry alert and revoke that token independently if the
+deployment credential is exposed:
+[Cloudflare service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/).
 
 Frontend changes:
 
@@ -699,25 +744,25 @@ publish the Android update, wait for adoption, then remove old behaviour in a la
 ### Terraform plan and manual apply
 
 Any change under `service/infra/**` automatically creates and uploads a plan for the exact
-commit. Applying is a separate GitHub Actions job protected by the `development-infrastructure`
-Environment:
+commit. Applying is a separate, explicit `workflow_dispatch` run because private GitHub Free does
+not provide protected Environments:
 
-- require manual reviewer approval/button after the plan is read;
+- require a manual approval/button after the plan is read; self-approval is permitted;
 - apply only the saved binary plan, not a newly generated unreviewed plan;
-- invalidate stale plans when main/state/module/provider pins move;
+- invalidate stale plans when main, state, provider locks or local module sources move;
 - block any delete or replacement of PostgreSQL, R2, DNS zone or the VM unless a separate
   break-glass workflow and explicit second confirmation are used;
 - serialize plans/applies with workflow concurrency; and
 - publish apply outputs and audit links without secrets.
 
-GitHub does not permit a PR author to approve their own protected deployment in every plan/account
-configuration, so verify the chosen repository plan supports the desired reviewer rule. If not,
-retain the manual dispatch/button and require the other developer's PR review as the compensating
-control.
+No independent reviewer is required for this trusted two-developer environment. The manual
+`workflow_dispatch` apply requires the source plan run ID, exact commit SHA and environment-specific
+confirmation phrase, with the same saved-plan checks.
 
 ### Secrets and variables
 
-Use GitHub Environments, not repository `.env` files.
+Use GitHub Actions repository secrets while this private repository remains on GitHub Free; never
+use repository `.env` files. Reassess Environment secrets if the repository plan changes.
 
 Non-secret environment variables include:
 
@@ -736,6 +781,8 @@ Secrets include:
 - xAI key;
 - Grafana publishing token;
 - Google/Play service-account material;
+- Firebase administrative credential material where workload identity cannot replace it;
+- Cloudflare Access CI service-token material;
 - GHCR VM pull credential; and
 - any temporary deployment credential not replaced by OIDC.
 
@@ -750,20 +797,26 @@ The infrastructure cannot safely deploy the current local configuration unchange
 
 ### Backend
 
-- Add a documented `%prod`/remote environment contract for database, Google auth, R2, xAI and OTel.
+- Add a documented `%prod`/remote environment contract for database, Firebase/Google auth, R2, xAI
+  and OTel.
 - Remove Keycloak-only role assumptions after ADR approval.
 - Replace localhost/static S3 endpoint and credentials with R2 endpoint/credential variables.
 - Restrict CORS to actual mobile/API needs; remove local origins from the remote profile.
 - Turn off Hibernate/Liquibase migrate-at-start when the release pipeline owns migration.
 - Configure JDBC/reactive pools for the Aiven connection ceiling.
 - Define readiness/liveness behaviour and do not expose sensitive config in health output.
-- Set a non-zero vote suppression threshold before real tester demographics are used.
+- Set `votes.aggregation.suppress-below=5` in the remote environment before real tester
+  demographics are used.
 - Add job lease/recovery before more than one backend task is allowed.
 
 ### Frontend
 
-- Replace localhost API host/port pieces with one HTTPS base URL.
-- Replace Keycloak discovery/client configuration with the approved Google flow.
+- Replace localhost API host/port pieces with one environment-specific base URL; local development
+  may use `http://localhost:8082`, while distributed builds use the public `/api` URL.
+- Replace Keycloak discovery/client configuration with Firebase Authentication and Google Sign-In.
+- Set the permanent Android application/package ID to `com.yoursaynews.app`.
+- Use `https://dev.yoursaynews.com/api` for the development-store build and
+  `https://yoursaynews.com/api` for the future production build.
 - Keep client IDs/public endpoints in build-time variables; never embed client secrets.
 - Store refresh/session material only in platform secure storage.
 - Add Android internal-release version and backend compatibility telemetry.
@@ -786,11 +839,11 @@ This design deliberately uses portable contracts:
 | One-shot migration container | ECS one-off task in the deployment workflow |
 | Aiven PostgreSQL | RDS PostgreSQL |
 | R2 S3-compatible API | S3 |
-| GitHub Environment secrets | AWS Secrets Manager + task IAM role |
+| GitHub Actions repository secrets | AWS Secrets Manager + task IAM role |
 | Cloudflare Tunnel/DNS | ALB/API ingress; Cloudflare can stay or Route 53/CloudFront/WAF can replace it |
 | Grafana Cloud | Keep Grafana Cloud or connect CloudWatch/managed Grafana |
 | HCP Terraform state | Encrypted/versioned S3 backend with locking |
-| Tailscale deploy path | GitHub OIDC to AWS plus ECS APIs/SSM; no SSH deployment |
+| Cloudflare Access SSH deploy path | GitHub OIDC to AWS plus ECS APIs/SSM; no SSH deployment |
 
 The application image, environment-variable contract, PostgreSQL schema, S3 abstraction, Google
 identity boundary and OpenTelemetry instrumentation remain. Migration replaces Terraform modules
@@ -810,20 +863,25 @@ isolation without adding Kubernetes operations. Before the move:
 
 ## Delivery phases and acceptance gates
 
-### Phase 0 — approve decisions
+### Phase 0 — approved decisions and account setup
 
-- Review this plan and proposed ADR-028.
-- Choose the Hetzner primary/Akamai fallback.
-- Register the Google Play personal account.
-- Confirm the domain/subdomain names without committing credentials.
+- First, Theo creates the Hetzner Cloud account and development project, enables MFA/recovery and
+  adds Max with separate recovery/co-owner access. Confirm Nuremberg stock, VAT-inclusive cost and
+  the need for primary IPv4 before creating the VM.
+- Review the approved plan and accepted ADR-028 managed-broker decision.
+- Use Hetzner Nuremberg as primary and Akamai as fallback.
+- Defer the Google Play personal account until Android distribution work begins.
+- Delegate `yoursaynews.com` and `yoursaynews.co.uk` to Cloudflare, configure the approved
+  development hostname and give Theo delegated GoDaddy access. Do not create a development
+  marketing page or premature production origin.
 - Create provider accounts with MFA for both authorised developers.
 
-**Gate:** both developers accept cost, data processors, single-node availability and Google auth
-direction.
+**Gate:** the decisions and primary provider accounts are accepted. Provider identifiers,
+credentials and Max-owned GoDaddy/xAI tasks remain before provisioning/deployment.
 
 ### Phase 1 — make the application deployable
 
-- Correct the Java/port Dockerfile mismatch.
+- Build and validate the existing JVM Dockerfile without changing its application image contract.
 - Add production environment contracts and Google authentication.
 - Add application invitation/permission schema and audited admin bootstrap.
 - Harden R2 uploads and separate migrations from application startup.
@@ -831,11 +889,14 @@ direction.
 
 **Gate:** local production-profile Compose passes integration, security and rollback tests.
 
-### Phase 2 — platform repository and Terraform
+### Phase 2 — repository-local modules and Terraform
 
-- Create the platform repo, CODEOWNERS and lead-developer approval.
-- Implement small provider-specific modules with deletion protection.
-- Create HCP Europe organisation/workspace and GitHub Environments.
+- Add path-specific CODEOWNERS naming both developers without requiring independent approval.
+- Implement small provider-specific modules under `service/infra/modules` with deletion
+  protection.
+- Add reusable Compose behaviour under `service/deploy/templates` only where the concrete
+  development deployment proves it is shared.
+- Create the HCP organisation/workspace and GitHub Actions repository secrets.
 - Add `service/infra/environments/development`.
 
 **Gate:** automated plan is readable, contains no secret values and destructive changes are
@@ -843,9 +904,9 @@ blocked.
 
 ### Phase 3 — provision and deploy
 
-- Provision VM, Aiven PG, R2 buckets, Cloudflare DNS/Tunnel and Grafana stack.
+- Provision VM, Aiven PG, R2 buckets, Cloudflare DNS/Tunnel/Access and Grafana stack.
 - Bootstrap host with no public inbound ports.
-- Build/sign/push images and deploy through ephemeral Tailscale.
+- Build/sign/push images and deploy through the Access-protected SSH route.
 - Run migration, seed `ysn`, bootstrap first admin and complete health checks.
 
 **Gate:** API works through the app hostname, an uninvited Google account is denied, an invited
@@ -866,26 +927,40 @@ spend remains below £20.
 
 Decisions already made:
 
-- one always-on Linux VM;
+- Hetzner CX23 in Nuremberg as the primary one-node compute and Akamai 2 GB as fallback;
 - Docker Compose, not Kubernetes/Helm;
 - managed PostgreSQL separate from the API VM;
+- Aiven Free in its provider-assigned location for synthetic proof-of-concept data, with an exact
+  region reconsidered before Gate D or funded production;
 - Cloudflare R2 EU media storage;
-- Google-only authentication;
+- `https://dev.yoursaynews.com/api` for the development app, with no development web frontend;
+- `https://yoursaynews.com/api` for the future production app and a future marketing web
+  application at the production apex, neither created yet;
+- Firebase Authentication with Google Sign-In, not an application-built token issuer;
 - application-owned invitations/roles;
+- an initial vote-suppression threshold of `5`;
+- synthetic data only until Gate D is complete;
+- immutable EU R2 object storage; Aiven's provider-assigned Free database location is accepted only
+  for synthetic proof-of-concept data;
+- Cloudflare Access/Tunnel for human and CI SSH, with no Tailscale subscription;
+- Max and Theo as co-owners with self-approval allowed;
+- Theo as the operational DevOps owner, with Max retaining recovery/co-owner access;
+- Sunday 04:00 `Europe/London` maintenance, alerts to both developers and alternating quarterly
+  restore-test ownership;
+- permanent Android package ID `com.yoursaynews.app`;
 - Android-only testing through a personal Play account;
 - automatic component-specific application releases;
 - manual Terraform apply after automatic plan;
 - free Grafana Cloud;
 - HCP Terraform state;
+- repository-local Terraform modules and deployment templates until a second repository needs
+  them;
 - future AWS ECS path; and
 - AI API cost outside this budget.
 
-Feedback should therefore focus on:
-
-- accepting Hetzner as primary and Akamai as fallback;
-- whether Aiven Free's 1 GB/no-SLA limitations are acceptable for the stakeholder environment;
-- the exact Google-to-application session design in ADR-028; and
-- when real, sensitive tester data will be allowed rather than synthetic demonstration data.
+No stakeholder architecture questions remain for the synthetic-data implementation. Outstanding
+external work is collecting provider identifiers/credentials, completing Max's GoDaddy and xAI
+tasks, and completing Gate D before real sensitive tester data is admitted.
 
 ## Primary references
 
@@ -899,10 +974,14 @@ Feedback should therefore focus on:
 - [Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/)
 - [Cloudflare R2 EU jurisdiction](https://developers.cloudflare.com/r2/reference/data-location/)
 - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/)
+- [Cloudflare SSH](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/use-cases/ssh/)
+- [Cloudflare Access service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/)
 - [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect)
+- [Firebase Authentication](https://firebase.google.com/docs/auth)
+- [Firebase session management](https://firebase.google.com/docs/auth/admin/manage-sessions)
+- [Firebase privacy and data locations](https://firebase.google.com/support/privacy/)
 - [Google Play registration](https://support.google.com/googleplay/android-developer/answer/6112435)
 - [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 - [GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
-- [Tailscale GitHub Action](https://tailscale.com/docs/integrations/github/github-action)
 - [Grafana Cloud Free](https://grafana.com/get/)
 - [HCP Terraform plans](https://developer.hashicorp.com/terraform/cloud-docs/overview)

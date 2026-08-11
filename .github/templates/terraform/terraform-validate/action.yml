@@ -1,0 +1,37 @@
+name: Terraform validate
+description: Validate the development root and run its native Terraform tests.
+
+inputs:
+  working-directory:
+    description: Terraform environment root.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Terraform configuration
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::Validating Terraform configuration"
+        terraform validate -no-color
+        echo "::endgroup::"
+
+    - name: Run Terraform tests
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::Running Terraform native tests"
+        terraform test -no-color
+        echo "::endgroup::"
+
+    - name: Report validation success
+      shell: bash
+      run: |
+        echo "::notice title=Terraform validation complete::Configuration and native tests passed"
+        {
+          echo "## Terraform validate and test"
+          echo
+          echo "- Configuration validation: passed"
+          echo "- Native Terraform tests: passed"
+        } >> "$GITHUB_STEP_SUMMARY"
