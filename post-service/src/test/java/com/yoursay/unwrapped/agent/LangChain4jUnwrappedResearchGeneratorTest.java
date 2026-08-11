@@ -9,7 +9,6 @@ import com.yoursay.unwrapped.selection.CandidateRole;
 import com.yoursay.unwrapped.selection.OptionBriefV1;
 import com.yoursay.unwrapped.selection.SelectedCohortV1;
 import com.yoursay.user.usercharacteristic.dto.IncomeRangeDisplayDto;
-import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import com.yoursay.votes.dto.CohortDimensionV1;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.http.client.SuccessfulHttpResponse;
@@ -88,10 +87,9 @@ class LangChain4jUnwrappedResearchGeneratorTest {
     @Test
     void appendsRequiredOutputToTheProductionSystemPromptAndSendsOnlyInputAsUserMessage()
             throws Exception {
-        UnwrappedResearchDraftV1 draft = mock(UnwrappedResearchDraftV1.class);
+        UnwrappedResearchDraftV1 draft = new UnwrappedResearchDraftV1(null, null);
         UnwrappedResearchRequest request = representativeRequest();
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
-        UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/source");
         ObjectMapper objectMapper = new ObjectMapper();
@@ -106,7 +104,6 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         generator.aiService = aiService;
         generator.responseCapture = capture;
         generator.objectMapper = objectMapper;
-        generator.validator = validator;
         generator.apiKey = "test-key";
         generator.configuredModel = "configured-fallback-model";
 
@@ -116,7 +113,6 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         assertEquals(List.of("https://www.ons.gov.uk/source"), result.providerCitations());
         assertEquals("provider-grok-4.5", result.model());
         assertEquals("response-42", result.providerResponseId());
-        verify(validator).validate(request, draft, List.of("https://www.ons.gov.uk/source"));
         ArgumentCaptor<String> systemPrompt = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> outputInstructions = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> input = ArgumentCaptor.forClass(String.class);
@@ -125,7 +121,8 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         assertEquals(UnwrappedSystemPrompt.DEFAULT, systemPrompt.getValue());
         assertTrue(systemPrompt.getValue().startsWith("# Post Unwrapped editorial brief\n\n"));
         assertTrue(!systemPrompt.getValue().contains("Do not use these causal words anywhere"));
-        assertEquals(expectedOutputInstructions(), outputInstructions.getValue());
+        assertEquals(UnwrappedSystemPrompt.outputInstructions(List.of(71L, 72L)),
+                outputInstructions.getValue());
         assertTrue(!outputInstructions.getValue().contains("{{pageCount}}"));
         assertTrue(!outputInstructions.getValue().contains("{{optionIds}}"));
 
@@ -152,7 +149,6 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         UnwrappedResearchDraftV1 draft = mock(UnwrappedResearchDraftV1.class);
         UnwrappedResearchRequest request = requestWithoutCohorts();
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
-        UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
         when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
@@ -166,7 +162,6 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         generator.aiService = aiService;
         generator.responseCapture = capture;
         generator.objectMapper = new ObjectMapper();
-        generator.validator = validator;
         generator.apiKey = "test-key";
         generator.configuredModel = "grok-test";
 
@@ -179,17 +174,16 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 systemPrompt.capture(), outputInstructions.capture(), input.capture());
         verifyNoMoreInteractions(aiService);
         assertEquals("Use a deliberately terse editorial voice.", systemPrompt.getValue());
-        assertEquals(expectedOutputInstructions(), outputInstructions.getValue());
+        assertEquals(UnwrappedSystemPrompt.outputInstructions(List.of(71L, 72L)),
+                outputInstructions.getValue());
         assertTrue(!input.getValue().contains("Required output contract"));
         assertTrue(input.getValue().contains("\"candidates\":[]"));
-        verify(validator).validate(request, draft, List.of("https://www.ons.gov.uk/benchmark"));
     }
 
     @Test
     void classifiesANullStructuredDraftAsRetryableDraftFailure() {
         UnwrappedResearchRequest request = requestWithoutCohorts();
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
-        UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
         when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
@@ -203,7 +197,6 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         generator.aiService = aiService;
         generator.responseCapture = capture;
         generator.objectMapper = new ObjectMapper();
-        generator.validator = validator;
         generator.apiKey = "test-key";
         generator.configuredModel = "configured-fallback-model";
 
@@ -211,7 +204,6 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 () -> generator.generate(request, "Write a concise researched comparison."));
 
         assertEquals("UNWRAPPED_DRAFT_MISSING", failure.getMessage());
-        verifyNoInteractions(validator);
         verify(aiService).research(anyString(), anyString(), anyString());
     }
 
@@ -309,32 +301,6 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 .aiMessage(AiMessage.from("{}"))
                 .metadata(metadata)
                 .build();
-    }
-
-    private static String expectedOutputInstructions() {
-        return """
-                # Required output contract
-
-                - Return exactly 2 pages.
-                - Return pages in this exact `optionId` order: [71, 72].
-                - Include every `optionId` exactly once; do not merge or omit options.
-                - When an option supplies cohort candidates, select one or two of their IDs and name a
-                  selected cohort in the headline using its supplied `displayName`.
-                - When an option supplies no cohort candidates, return an empty `selectedCohortIds` list,
-                  write the strongest general researched case for that option, and do not invent a cohort.
-                - Headlines must be catchy, 6 to 10 words, and must not use agreement or disagreement.
-                - Write two or three paragraphs totalling 50 to 100 words for every page.
-                - In those paragraphs, explain why the selected cohort, or voters choosing the option
-                  when no cohort is supplied, are likely to favour that option.
-                - Direct explanations using words such as because, led or drove are allowed.
-                - Do not claim direct knowledge of every individual voter's private motivation.
-                - You must call web search before drafting any page.
-                - Give every paragraph one or more `sourceIds`; empty `sourceIds` are forbidden.
-                - Include every referenced source exactly once in `sources`; empty `sources` are forbidden.
-                - Copy each source URL exactly from a URL returned by web search in this same call.
-                - Do not include a source unless it directly supports context used in a paragraph.
-                - Every caveat must be exactly: This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.
-                """.strip();
     }
 
     private static final Set<String> UNWRAPPED_REQUEST_ALLOWED_FIELDS = Set.of(

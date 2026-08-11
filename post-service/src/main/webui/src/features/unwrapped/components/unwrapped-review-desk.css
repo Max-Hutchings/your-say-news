@@ -741,10 +741,20 @@
   gap: 1rem;
 }
 
-.review-argument__paragraph p {
+.review-argument__paragraph .unwrapped-markdown p,
+.review-argument__paragraph .unwrapped-markdown ul {
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.55;
+}
+
+.review-argument__paragraph .unwrapped-markdown {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.review-argument__paragraph .unwrapped-markdown ul {
+  padding-left: 1.4rem;
 }
 
 .review-argument__paragraph small {

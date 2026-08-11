@@ -1,4 +1,5 @@
 import type { UnwrappedArgument } from "../types";
+import { UnwrappedMarkdown } from "./UnwrappedMarkdown";
 
 type BenchmarkArgumentPageProps = {
   page: UnwrappedArgument;
@@ -16,7 +17,7 @@ export function BenchmarkArgumentPage({ page, optionLabel }: BenchmarkArgumentPa
       <div className="benchmark-argument__copy">
         {page.paragraphs.map((paragraph, paragraphIndex) => (
           <div key={`${page.optionId}-${paragraphIndex}`}>
-            <p>{paragraph.text}</p>
+            <UnwrappedMarkdown text={paragraph.text} />
             <small>
               {paragraph.sourceIds.map((id) => `[${sourceIds.indexOf(id) + 1}]`).join(" ")}
             </small>

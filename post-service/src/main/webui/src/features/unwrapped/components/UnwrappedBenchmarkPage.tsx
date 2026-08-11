@@ -6,6 +6,9 @@ import {
 } from "../services/unwrappedAdminApi";
 import type {
   UnwrappedAdminPost,
+  UnwrappedBenchmarkCandidate,
+  UnwrappedBenchmarkInputOption,
+  UnwrappedBenchmarkPrompt,
   UnwrappedBenchmarkVariant,
   UnwrappedReviewError,
 } from "../types";
@@ -21,6 +24,7 @@ const LANE_NAMES = ["A", "B", "C"];
 
 export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageProps) {
   const [prompts, setPrompts] = useState(["", "", ""]);
+  const [benchmarkContext, setBenchmarkContext] = useState<UnwrappedBenchmarkPrompt | null>(null);
   const [loadingPrompt, setLoadingPrompt] = useState(true);
   const [running, setRunning] = useState([false, false, false]);
   const [runningAll, setRunningAll] = useState(false);
@@ -45,9 +49,12 @@ export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageP
 
   useEffect(() => {
     let active = true;
-    void getUnwrappedBenchmarkPrompt()
-      .then(({ systemPrompt }) => {
-        if (active) setPrompts([systemPrompt, systemPrompt, systemPrompt]);
+    void getUnwrappedBenchmarkPrompt(post.postId)
+      .then((context) => {
+        if (active) {
+          setBenchmarkContext(context);
+          setPrompts([context.systemPrompt, context.systemPrompt, context.systemPrompt]);
+        }
       })
       .catch((reason) => {
         if (active) setError(toBenchmarkError(reason));
@@ -58,7 +65,7 @@ export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageP
     return () => {
       active = false;
     };
-  }, []);
+  }, [post.postId]);
 
   const updatePrompt = (index: number, value: string) => {
     setPrompts((current) => current.map((prompt, promptIndex) => (
@@ -165,6 +172,14 @@ export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageP
           ) : null}
         </div>
       </header>
+
+      {benchmarkContext ? (
+        <BenchmarkInputManifest context={benchmarkContext} />
+      ) : loadingPrompt ? (
+        <section className="benchmark-context benchmark-context--loading" aria-live="polite">
+          Loading the aggregate evidence sent to the model…
+        </section>
+      ) : null}
 
       <section>
         <header className="benchmark-instructions">
@@ -292,6 +307,130 @@ export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageP
   );
 }
 
+function BenchmarkInputManifest({ context }: { context: UnwrappedBenchmarkPrompt }) {
+  return (
+    <section className="benchmark-context" aria-labelledby="benchmark-context-title">
+      <header className="benchmark-context__header">
+        <div>
+          <p>Aggregate-only model handoff</p>
+          <h2 id="benchmark-context-title">What the model receives</h2>
+        </div>
+        <dl>
+          <div><dt>Snapshot</dt><dd>{context.input.aggregateVersion}</dd></div>
+          <div><dt>Options</dt><dd>{context.input.options.length}</dd></div>
+          <div><dt>Votes</dt><dd>{context.input.canonicalVoteCount.toLocaleString("en-GB")}</dd></div>
+        </dl>
+      </header>
+
+      <div className="benchmark-context__options">
+        {context.input.options.map((option, index) => (
+          <BenchmarkInputOptionCard key={option.option.id} option={option} index={index} />
+        ))}
+      </div>
+
+      <div className="benchmark-context__disclosures">
+        <details>
+          <summary>Fixed output instructions</summary>
+          <pre>{context.outputInstructions}</pre>
+        </details>
+        <details>
+          <summary>Raw input JSON</summary>
+          <pre>{JSON.stringify(context.input, null, 2)}</pre>
+        </details>
+      </div>
+    </section>
+  );
+}
+
+function BenchmarkInputOptionCard({
+  option,
+  index,
+}: {
+  option: UnwrappedBenchmarkInputOption;
+  index: number;
+}) {
+  return (
+    <article className="benchmark-context-option" data-semantic={option.option.semanticKey}>
+      <header>
+        <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+        <div>
+          <p>Option ID {option.option.id}</p>
+          <h3>{option.option.label}</h3>
+        </div>
+        <strong>{formatPercentage(option.overallVotePercentage)}</strong>
+        <small>{option.overallVoteCount.toLocaleString("en-GB")} votes</small>
+      </header>
+
+      <div className="benchmark-context-option__groups">
+        <p>Characteristic groups available to the model</p>
+        {option.candidates.length === 0 ? (
+          <div className="benchmark-context-option__empty">
+            <strong>No characteristic groups supplied</strong>
+            <p>{option.insufficientEvidence ?? "The model receives general option context only."}</p>
+          </div>
+        ) : option.candidates.map((candidate) => (
+          <BenchmarkCandidateCard
+            key={candidate.cohortId}
+            candidate={candidate}
+            optionLabel={option.option.label}
+          />
+        ))}
+      </div>
+
+      <details className="benchmark-context-option__instructions" open>
+        <summary>Narrative instructions</summary>
+        <ul>
+          {option.narrativeInstructions.map((instruction) => (
+            <li key={instruction}>{instruction}</li>
+          ))}
+        </ul>
+      </details>
+    </article>
+  );
+}
+
+function BenchmarkCandidateCard({
+  candidate,
+  optionLabel,
+}: {
+  candidate: UnwrappedBenchmarkCandidate;
+  optionLabel: string;
+}) {
+  return (
+    <section className="benchmark-candidate">
+      <header>
+        <div>
+          <p>{formatEnum(candidate.role)}</p>
+          <h4>{candidate.displayName}</h4>
+        </div>
+        <code>{candidate.cohortId}</code>
+      </header>
+
+      <div className="benchmark-candidate__dimensions">
+        {candidate.dimensions.map((dimension) => (
+          <span key={`${dimension.axis}:${dimension.bucket}`}>
+            {formatCamelCase(dimension.axis)} · {formatEnum(dimension.bucket)}
+          </span>
+        ))}
+      </div>
+
+      <p className="benchmark-candidate__reason">{candidate.relevanceReason}</p>
+
+      <dl className="benchmark-candidate__stats">
+        <div><dt>Sample</dt><dd>{candidate.sampleSize.toLocaleString("en-GB")} voters in group</dd></div>
+        <div><dt>Option votes</dt><dd>{candidate.optionVoteCount.toLocaleString("en-GB")} chose {optionLabel}</dd></div>
+        <div><dt>Propensity</dt><dd>{formatPercentage(candidate.propensityPercentage)} chose {optionLabel}</dd></div>
+        <div><dt>Difference</dt><dd>{formatSigned(candidate.differenceFromRestPercentagePoints)}pp vs everyone else</dd></div>
+        <div><dt>Audience share</dt><dd>{formatPercentage(candidate.populationSharePercentage)} of post voters</dd></div>
+        <div><dt>Option composition</dt><dd>{formatPercentage(candidate.compositionPercentage)} of {optionLabel} voters</dd></div>
+        <div><dt>Overall lift</dt><dd>{formatSigned(candidate.overIndexPercentagePoints)}pp</dd></div>
+        <div><dt>95% interval</dt><dd>{formatPercentage(candidate.wilson95Low)}–{formatPercentage(candidate.wilson95High)}</dd></div>
+        <div><dt>Adjusted q</dt><dd>{candidate.adjustedQValue.toLocaleString("en-GB", { maximumFractionDigits: 4 })}</dd></div>
+      </dl>
+    </section>
+  );
+}
+
 function BenchmarkAttemptDetails({ variant }: { variant: UnwrappedBenchmarkVariant }) {
   if (variant.attemptCount <= 1 || variant.effectiveSystemPrompt === variant.systemPrompt) {
     return null;
@@ -324,6 +463,15 @@ function formatEnum(value: string) {
 
 function formatPercentage(value: number) {
   return `${value.toLocaleString("en-GB", { maximumFractionDigits: 1 })}%`;
+}
+
+function formatSigned(value: number) {
+  const formatted = Math.abs(value).toLocaleString("en-GB", { maximumFractionDigits: 1 });
+  return `${value >= 0 ? "+" : "-"}${formatted}`;
+}
+
+function formatCamelCase(value: string) {
+  return formatEnum(value.replace(/([a-z])([A-Z])/g, "$1_$2"));
 }
 
 function splitLabel(post: UnwrappedAdminPost) {

@@ -2,6 +2,10 @@
 
 Date: 2026-08-03
 
+> **Amended by [ADR-044](ADR-044-2026-08-10-always-provide-option-cohorts.md):** every option now
+> receives a cohort whenever a governed group passes the privacy sample floors. The empty-list
+> fallback remains only for data with no such group.
+
 ## Situation
 
 Normal administrator generation and direct prompt benchmarking both generate a researched argument

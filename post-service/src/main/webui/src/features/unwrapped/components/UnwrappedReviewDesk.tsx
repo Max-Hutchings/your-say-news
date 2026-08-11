@@ -7,6 +7,7 @@ import type {
   UnwrappedReviewStory,
 } from "../types";
 import { UnwrappedAnalysisPosts } from "./UnwrappedAnalysisPosts";
+import { UnwrappedMarkdown } from "./UnwrappedMarkdown";
 import "./unwrapped-review-desk.css";
 
 type UnwrappedReviewDeskProps = {
@@ -182,15 +183,15 @@ export function UnwrappedReviewDesk({
                     </p>
                     <h3>{page.headline}</h3>
                     <div className="review-argument__article">
-                    {page.paragraphs.map((paragraph, paragraphIndex) => (
-                      <div key={`${page.optionId}-${paragraphIndex}`}
-                        className="review-argument__paragraph">
-                        <p>{paragraph.text}</p>
-                        <small>{paragraph.sourceIds.map(
-                          (id) => `[${sourceIds.indexOf(id) + 1}]`,
-                        ).join(" ")}</small>
-                      </div>
-                    ))}
+                      {page.paragraphs.map((paragraph, paragraphIndex) => (
+                        <div key={`${page.optionId}-${paragraphIndex}`}
+                          className="review-argument__paragraph">
+                          <UnwrappedMarkdown text={paragraph.text} />
+                          <small>{paragraph.sourceIds.map(
+                            (id) => `[${sourceIds.indexOf(id) + 1}]`,
+                          ).join(" ")}</small>
+                        </div>
+                      ))}
                     </div>
                     <div className="review-argument__sources">
                       <p>Data sources</p>

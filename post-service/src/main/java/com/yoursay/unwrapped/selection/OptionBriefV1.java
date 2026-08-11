@@ -9,9 +9,9 @@ import java.util.List;
  * @param option immutable option identity and label the argument must represent
  * @param overallVoteCount number of post voters who selected the option
  * @param overallVotePercentage option's share of all votes on the post
- * @param candidates statistically safe cohorts the model may use as observed context
+ * @param candidates privacy-safe cohorts the model may use as observed context
  * @param narrativeInstructions required explanatory and statistical boundaries for the model
- * @param insufficientEvidence explanation supplied when no cohort passes the narration rules
+ * @param insufficientEvidence explanation supplied when no privacy-safe cohort is available
  */
 public record OptionBriefV1(
         VoteOptionDto option,

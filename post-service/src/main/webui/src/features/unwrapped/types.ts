@@ -92,6 +92,50 @@ export type UnwrappedAdminPost = {
 
 export type UnwrappedBenchmarkPrompt = {
   systemPrompt: string;
+  outputInstructions: string;
+  input: UnwrappedBenchmarkInput;
+};
+
+export type UnwrappedBenchmarkDimension = {
+  axis: string;
+  bucket: string;
+};
+
+export type UnwrappedBenchmarkCandidate = {
+  cohortId: string;
+  dimensions: UnwrappedBenchmarkDimension[];
+  role: "CORE_ANCHOR" | "CORE_DIFFERENTIATOR" | "TOPIC_RELEVANT" | "INTERSECTION_DISCOVERY";
+  relevanceReason: string;
+  sampleSize: number;
+  populationSharePercentage: number;
+  optionVoteCount: number;
+  compositionPercentage: number;
+  propensityPercentage: number;
+  overIndexPercentagePoints: number;
+  differenceFromRestPercentagePoints: number;
+  wilson95Low: number;
+  wilson95High: number;
+  adjustedQValue: number;
+  displayName: string;
+};
+
+export type UnwrappedBenchmarkInputOption = {
+  option: { id: number; label: string; ordinal: number; semanticKey: string | null };
+  overallVoteCount: number;
+  overallVotePercentage: number;
+  candidates: UnwrappedBenchmarkCandidate[];
+  narrativeInstructions: string[];
+  insufficientEvidence: string | null;
+};
+
+export type UnwrappedBenchmarkInput = {
+  postId: number;
+  summary: string;
+  question: string;
+  jurisdiction: string;
+  canonicalVoteCount: number;
+  aggregateVersion: string;
+  options: UnwrappedBenchmarkInputOption[];
 };
 
 export type UnwrappedBenchmarkVariant = {

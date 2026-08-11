@@ -4,7 +4,7 @@ import com.yoursay.votes.dto.CohortDimensionV1;
 import java.util.List;
 
 /**
- * A statistically safe cohort shortlisted as possible context for one voting option.
+ * A privacy-safe cohort shortlisted as possible context for one voting option.
  *
  * @param cohortId stable identifier the model must copy when referencing the cohort
  * @param dimensions characteristic axis/value pairs that define cohort membership
@@ -19,7 +19,7 @@ import java.util.List;
  * @param differenceFromRestPercentagePoints cohort propensity minus non-cohort propensity
  * @param wilson95Low lower 95% confidence bound for cohort propensity
  * @param wilson95High upper 95% confidence bound for cohort propensity
- * @param adjustedQValue multiple-comparison-adjusted significance used to limit false discoveries
+ * @param adjustedQValue multiple-comparison-adjusted significance retained as descriptive context
  */
 public record SelectedCohortV1(
         String cohortId,

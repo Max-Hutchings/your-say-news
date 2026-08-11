@@ -157,7 +157,11 @@ describe("unwrappedAdminApi", () => {
   });
 
   it("loads the production prompt and submits one benchmark replacement", async () => {
-    const prompt = { systemPrompt: "Production system prompt" };
+    const prompt = {
+      systemPrompt: "Production system prompt",
+      outputInstructions: "Return exactly two pages.",
+      input: { postId: 42, options: [] },
+    };
     const benchmark = { postId: 42, variants: [] };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(prompt), {
@@ -170,13 +174,13 @@ describe("unwrappedAdminApi", () => {
       }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(getUnwrappedBenchmarkPrompt()).resolves.toEqual(prompt);
+    await expect(getUnwrappedBenchmarkPrompt(42)).resolves.toEqual(prompt);
     await expect(generateUnwrappedBenchmark(42, ["Prompt A"]))
       .resolves.toEqual(benchmark);
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "/api/admin/unwrapped/benchmark/system-prompt",
+      "/api/admin/unwrapped/posts/42/benchmark/context",
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
       }),

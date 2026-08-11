@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { EditorialFont, getEditorial, useTheme } from "@/constants/theme";
 import { SentimentResults } from "@/features/votes";
 import { useUnwrapped } from "../hooks/use-unwrapped";
+import { UnwrappedMarkdown } from "./UnwrappedMarkdown";
 import type {
   UnwrappedArgumentPage,
   UnwrappedSource,
@@ -149,7 +150,7 @@ function ArgumentPage({ page, story }: {
       <View style={styles.article}>
         {page.paragraphs.map((paragraph, index) => (
           <View key={`${page.optionId}-${index}`} style={styles.paragraph}>
-            <Text style={[styles.articleText, { color: e.ink }]}>{paragraph.text}</Text>
+            <UnwrappedMarkdown text={paragraph.text} />
             <Text style={[styles.citation, { color: e.teal }]}>
               {paragraph.sourceIds.map((id) => `[${sourceIds.indexOf(id) + 1}]`).join(" ")}
             </Text>
@@ -282,7 +283,6 @@ const styles = StyleSheet.create({
   body: { fontFamily: EditorialFont.sans, fontSize: 16, lineHeight: 24 },
   article: { gap: 16, marginVertical: 4 },
   paragraph: { gap: 5 },
-  articleText: { fontFamily: EditorialFont.serifRegular, fontSize: 20, lineHeight: 29 },
   citation: { fontFamily: EditorialFont.mono, fontSize: 10 },
   caveat: { fontFamily: EditorialFont.sans, fontSize: 12, lineHeight: 18 },
   sources: { borderTopWidth: 1, paddingTop: 18, gap: 12 },

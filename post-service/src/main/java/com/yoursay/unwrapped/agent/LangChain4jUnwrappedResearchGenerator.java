@@ -7,7 +7,7 @@ import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
-import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
+import com.yoursay.unwrapped.selection.OptionBriefV1;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,6 +18,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /** LangChain4j implementation kept behind the provider-neutral Unwrapped domain interface. */
 @ApplicationScoped
@@ -33,9 +34,6 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
 
     @Inject
     ObjectMapper objectMapper;
-
-    @Inject
-    UnwrappedDraftValidator validator;
 
     @ConfigProperty(name = "unwrapped.agent.api-key", defaultValue = "__not_configured__")
     String apiKey;
@@ -54,40 +52,19 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request, String systemPrompt) {
         if (stubbed) return stubbedResult(request);
-        if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
-            throw new IllegalStateException("UNWRAPPED_PROVIDER_NOT_CONFIGURED");
-        }
+        requireProviderConfigured();
         responseCapture.begin();
         try {
-            List<Long> optionIds = request.options().stream()
-                    .map(option -> option.option().id())
-                    .toList();
-            String editorialPrompt = systemPrompt == null
-                    ? UnwrappedSystemPrompt.DEFAULT
-                    : systemPrompt;
-            UnwrappedResearchDraftV1 draft = aiService.research(
-                    editorialPrompt,
-                    UnwrappedSystemPrompt.outputInstructions(optionIds),
-                    inputPrompt(request));
+            UnwrappedResearchDraftV1 draft = requestDraft(request, systemPrompt);
+            // The capture holds the raw provider response, which carries the citations and the
+            // model actually used — neither is available on the deserialised draft.
             ChatResponse response = responseCapture.take();
             if (response == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
             }
             if (draft == null) throw new IllegalArgumentException("UNWRAPPED_DRAFT_MISSING");
             List<String> citations = citations(response);
-            Log.infof("Unwrapped provider draft received: postId=%d expectedOptions=%s returnedOptions=%s citations=%d",
-                    request.postId(), request.options().stream().map(option -> option.option().id()).toList(),
-                    draft.pages() == null ? null : draft.pages().stream()
-                            .map(page -> page == null ? null : page.optionId()).toList(), citations.size());
-            try {
-                validator.validate(request, draft, citations);
-            } catch (IllegalArgumentException validationFailure) {
-                Log.warnf(
-                        "Unwrapped draft rejected: postId=%d code=%s pageDiagnostics=%s sourceDiagnostics=%s providerCitationCount=%d",
-                        request.postId(), validationFailure.getMessage(), pageDiagnostics(draft),
-                        sourceDiagnostics(draft), citations.size());
-                throw validationFailure;
-            }
+            logDraftReceived(request, draft, citations);
             return new UnwrappedResearchResult(draft, citations,
                     valueOr(response.modelName(), configuredModel), response.id());
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -99,63 +76,78 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
         }
     }
 
-    private static List<String> pageDiagnostics(UnwrappedResearchDraftV1 draft) {
-        if (draft.pages() == null) return List.of("pages=null");
-        return draft.pages().stream()
-                .map(page -> page == null ? "page=null" : "optionId=" + page.optionId()
-                        + ",cohorts=" + size(page.selectedCohortIds())
-                        + ",paragraphs=" + size(page.paragraphs()))
-                .toList();
+    private void requireProviderConfigured() {
+        if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
+            throw new IllegalStateException("UNWRAPPED_PROVIDER_NOT_CONFIGURED");
+        }
     }
 
-    private static List<String> sourceDiagnostics(UnwrappedResearchDraftV1 draft) {
-        if (draft.sources() == null) return List.of("sources=null");
-        return draft.sources().stream()
-                .map(source -> source == null ? "source=null" : source.id() + "=" + source.url()
-                        + "(" + source.classification() + ")")
-                .toList();
+    /** Benchmarking supplies its own editorial prompt; queued generation uses the default one. */
+    private UnwrappedResearchDraftV1 requestDraft(UnwrappedResearchRequest request, String systemPrompt)
+            throws Exception {
+        List<Long> optionIds = optionIds(request);
+        return aiService.research(
+                systemPrompt == null ? UnwrappedSystemPrompt.DEFAULT : systemPrompt,
+                UnwrappedSystemPrompt.outputInstructions(optionIds),
+                inputPrompt(request));
     }
 
-    private static int size(List<?> values) {
-        return values == null ? -1 : values.size();
+    /** Pins down whether the model answered for every option it was asked about. */
+    private static void logDraftReceived(UnwrappedResearchRequest request,
+                                         UnwrappedResearchDraftV1 draft, List<String> citations) {
+        Log.infof("Unwrapped provider draft received: postId=%d expectedOptions=%s returnedOptions=%s citations=%d",
+                request.postId(), optionIds(request),
+                draft.pages() == null ? null : draft.pages().stream()
+                        .map(page -> page == null ? null : page.optionId()).toList(), citations.size());
     }
 
+    private static List<Long> optionIds(UnwrappedResearchRequest request) {
+        return request.options().stream().map(option -> option.option().id()).toList();
+    }
+
+    /**
+     * Deterministic stand-in used in development and integration tests so the whole generation path
+     * runs without calling an external model.
+     */
     private UnwrappedResearchResult stubbedResult(UnwrappedResearchRequest request) {
         UnwrappedSourceDraftV1 source = new UnwrappedSourceDraftV1(
                 "stub-source", "https://www.ons.gov.uk/", "Office for National Statistics",
                 "Deterministic Unwrapped integration-test source", SourceClassification.OFFICIAL);
         List<UnwrappedArgumentDraftV1> pages = request.options().stream()
-                .map(option -> {
-                    boolean hasCohort = !option.candidates().isEmpty();
-                    String audience = hasCohort
-                            ? option.candidates().getFirst().displayName()
-                            : "People choosing " + option.option().label();
-                    return new UnwrappedArgumentDraftV1(
-                        option.option().id(), "Why " + audience.toLowerCase(java.util.Locale.ROOT)
-                                + " favour the development option",
-                        hasCohort
-                                ? option.candidates().stream().limit(2)
-                                        .map(candidate -> candidate.cohortId()).toList()
-                                : List.of(),
-                        List.of(
-                                new UnwrappedArticleParagraphDraftV2(
-                                        audience + " are likely to favour this option because its immediate effects "
-                                                + "fit the pressures represented by this deterministic development fixture. "
-                                                + "The observed pattern is carried into the preview without inventing another audience.",
-                                        List.of(source.id())),
-                                new UnwrappedArticleParagraphDraftV2(
-                                        "The fixed source provides stable context while the preview records "
-                                                + option.overallVoteCount() + " votes, or "
-                                                + option.overallVotePercentage() + " percent, for this option. "
-                                                + "This keeps integration tests repeatable without calling an external model.",
-                                        List.of(source.id()))),
-                        "This analysis describes patterns among people who voted on this post; "
-                                + "it cannot know every individual's reason.");
-                })
+                .map(option -> stubbedArgument(option, source))
                 .toList();
         return new UnwrappedResearchResult(
                 new UnwrappedResearchDraftV1(pages, List.of(source)),
                 List.of(source.url()), "stubbed-unwrapped", "stub-post-" + request.postId());
+    }
+
+    private static UnwrappedArgumentDraftV1 stubbedArgument(OptionBriefV1 option,
+                                                            UnwrappedSourceDraftV1 source) {
+        boolean hasCohort = !option.candidates().isEmpty();
+        String audience = hasCohort
+                ? option.candidates().getFirst().displayName()
+                : "People choosing " + option.option().label();
+        return new UnwrappedArgumentDraftV1(
+                option.option().id(),
+                "Why " + audience.toLowerCase(Locale.ROOT) + " favour the development option",
+                hasCohort
+                        ? option.candidates().stream().limit(2)
+                                .map(candidate -> candidate.cohortId()).toList()
+                        : List.of(),
+                List.of(
+                        new UnwrappedArticleParagraphDraftV2(
+                                audience + " are likely to favour this option because its immediate effects "
+                                        + "fit the pressures represented by this deterministic development fixture. "
+                                        + "The observed pattern is carried into the preview without inventing another audience.",
+                                List.of(source.id())),
+                        new UnwrappedArticleParagraphDraftV2(
+                                "The fixed source provides stable context while the preview records "
+                                        + option.overallVoteCount() + " votes, or "
+                                        + option.overallVotePercentage() + " percent, for this option. "
+                                        + "This keeps integration tests repeatable without calling an external model.",
+                                List.of(source.id()))),
+                "This analysis describes patterns among people who voted on this post; "
+                        + "it cannot know every individual's reason.");
     }
 
     private String inputPrompt(UnwrappedResearchRequest request) throws Exception {

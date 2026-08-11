@@ -92,8 +92,8 @@ public interface UnwrappedService {
      */
     UnwrappedGenerationTriggerDto triggerGeneration(Long postId);
 
-    /** Returns the current production system message for the benchmark editors. */
-    UnwrappedBenchmarkPromptDto benchmarkPrompt();
+    /** Returns the current prompt and aggregate-only model input for the benchmark editors. */
+    UnwrappedBenchmarkPromptDto benchmarkPrompt(Long postId);
 
     /** Generates up to three ephemeral prompt variants without creating queued or reviewable work. */
     UnwrappedBenchmarkResponseDto generateBenchmark(Long postId, List<String> systemPrompts);

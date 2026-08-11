@@ -17,7 +17,7 @@ const review = {
       headline: "Why younger adults favour reducing public spending",
       selectedCohortIds: ["ageRange=AGE_25_34"],
       paragraphs: [{
-        text: "Younger adults are likely to favour lower spending because current deductions squeeze already stretched budgets, making a visible reduction feel more urgent than benefits promised later.",
+        text: "**Younger adults**\n\nCurrent deductions squeeze already stretched budgets because this group faces immediate costs.\n\n- Lower monthly deductions\n- More room for **essential spending**",
         sourceIds: ["source-1"],
       }, {
         text: "Official figures show how the trade-off has changed over time. For these voters, immediate take-home pay can feel more valuable than distant benefits that are harder to see.",
@@ -85,7 +85,12 @@ describe("UnwrappedReviewDesk", () => {
     expect(screen.getByText("THE CASE FOR")).toBeInTheDocument();
     expect(screen.getByText("Reduce public spending")).toBeInTheDocument();
     expect(screen.queryByText(review.notice)).not.toBeInTheDocument();
-    expect(screen.getByText(review.argumentPages[0].paragraphs[0].text)).toBeInTheDocument();
+    expect(screen.getByText("Younger adults").tagName).toBe("STRONG");
+    expect(screen.getByText(
+      "Current deductions squeeze already stretched budgets because this group faces immediate costs.",
+    )).toBeInTheDocument();
+    expect(screen.getByText("Lower monthly deductions").closest("li")).toBeInTheDocument();
+    expect(screen.getByText("essential spending").tagName).toBe("STRONG");
     expect(screen.getByText(review.argumentPages[0].paragraphs[1].text)).toBeInTheDocument();
     expect(screen.getAllByText("[1]")).toHaveLength(2);
     expect(screen.queryByText(/Observed:/)).not.toBeInTheDocument();

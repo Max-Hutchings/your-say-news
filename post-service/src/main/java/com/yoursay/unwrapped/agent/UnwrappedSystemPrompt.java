@@ -14,7 +14,7 @@ public final class UnwrappedSystemPrompt {
     public static final String DEFAULT = load(SYSTEM_PROMPT_RESOURCE);
     private static final String OUTPUT_INSTRUCTIONS = load(OUTPUT_INSTRUCTIONS_RESOURCE);
 
-    static String outputInstructions(List<Long> optionIds) {
+    public static String outputInstructions(List<Long> optionIds) {
         return OUTPUT_INSTRUCTIONS
                 .replace("{{pageCount}}", Integer.toString(optionIds.size()))
                 .replace("{{optionIds}}", optionIds.toString());

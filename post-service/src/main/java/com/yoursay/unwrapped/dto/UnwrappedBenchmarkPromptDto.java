@@ -1,5 +1,11 @@
 package com.yoursay.unwrapped.dto;
 
-/** Current production prompt used to initialise the administrator benchmark editors. */
-public record UnwrappedBenchmarkPromptDto(String systemPrompt) {
+import com.fasterxml.jackson.databind.JsonNode;
+
+/** Exact instruction and aggregate context shown to the administrator benchmark editors. */
+public record UnwrappedBenchmarkPromptDto(
+        String systemPrompt,
+        String outputInstructions,
+        JsonNode input
+) {
 }

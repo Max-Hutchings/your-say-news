@@ -58,8 +58,10 @@ export function triggerUnwrappedGeneration(postId: number): Promise<UnwrappedGen
   });
 }
 
-export function getUnwrappedBenchmarkPrompt(): Promise<UnwrappedBenchmarkPrompt> {
-  return unwrappedRequest<UnwrappedBenchmarkPrompt>("/api/admin/unwrapped/benchmark/system-prompt");
+export function getUnwrappedBenchmarkPrompt(postId: number): Promise<UnwrappedBenchmarkPrompt> {
+  return unwrappedRequest<UnwrappedBenchmarkPrompt>(
+    `/api/admin/unwrapped/posts/${postId}/benchmark/context`,
+  );
 }
 
 export function generateUnwrappedBenchmark(

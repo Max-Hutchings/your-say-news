@@ -18,6 +18,7 @@ import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -345,7 +346,7 @@ class UnwrappedAdminControllerTest {
                 .then()
                 .statusCode(403);
         given()
-                .when().get("/api/admin/unwrapped/benchmark/system-prompt")
+                .when().get("/api/admin/unwrapped/posts/2007/benchmark/context")
                 .then()
                 .statusCode(403);
         given()
@@ -358,12 +359,60 @@ class UnwrappedAdminControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
-    void benchmarkContractExposesTheDefaultPromptAndAcceptsUpToThreePrompts() {
-        given()
-                .when().get("/api/admin/unwrapped/benchmark/system-prompt")
-                .then()
-                .statusCode(200)
-                .body("systemPrompt", equalTo(UnwrappedSystemPrompt.DEFAULT));
+    void benchmarkContractExposesTheDefaultPromptAndAcceptsUpToThreePrompts() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotesWithCharacteristic(post.id(), post.agreeOptionId(), 60, 0,
+                    "{\"gender\":\"MAN\"}");
+            insertVotesWithCharacteristic(post.id(), post.disagreeOptionId(), 40, 10_000,
+                    "{\"gender\":\"WOMAN\"}");
+            String contextJson = given()
+                    .when().get("/api/admin/unwrapped/posts/" + post.id() + "/benchmark/context")
+                    .then()
+                    .statusCode(200)
+                    .body("systemPrompt", equalTo(UnwrappedSystemPrompt.DEFAULT))
+                    .body("outputInstructions", equalTo(UnwrappedSystemPrompt.outputInstructions(
+                            List.of(post.agreeOptionId(), post.disagreeOptionId()))))
+                    .body("input.postId", equalTo((int) post.id()))
+                    .body("input.summary", equalTo("Forced generation summary"))
+                    .body("input.question", equalTo("Should this be generated?"))
+                    .body("input.jurisdiction", equalTo("GLOBAL"))
+                    .body("input.canonicalVoteCount", equalTo(100))
+                    .body("input.aggregateVersion", matchesPattern("sha256:[0-9a-f]{64}"))
+                    .body("input.options.size()", equalTo(2))
+                    .body("input.options[0].option.id", equalTo((int) post.agreeOptionId()))
+                    .body("input.options[0].option.label", equalTo("Agree"))
+                    .body("input.options[0].overallVoteCount", equalTo(60))
+                    .body("input.options[0].overallVotePercentage", equalTo(60.0F))
+                    .body("input.options[1].option.id", equalTo((int) post.disagreeOptionId()))
+                    .body("input.options[1].option.label", equalTo("Disagree"))
+                    .body("input.options[1].overallVoteCount", equalTo(40))
+                    .body("input.options[1].overallVotePercentage", equalTo(40.0F))
+                    .body("input.options[0].candidates.size()", equalTo(1))
+                    .body("input.options[0].candidates[0].cohortId", equalTo("gender=MAN"))
+                    .body("input.options[0].candidates[0].dimensions[0].axis", equalTo("gender"))
+                    .body("input.options[0].candidates[0].dimensions[0].bucket", equalTo("MAN"))
+                    .body("input.options[0].candidates[0].role", equalTo("CORE_ANCHOR"))
+                    .body("input.options[0].candidates[0].displayName", equalTo("Men"))
+                    .body("input.options[0].candidates[0].sampleSize", equalTo(60))
+                    .body("input.options[0].candidates[0].optionVoteCount", equalTo(60))
+                    .body("input.options[0].candidates[0].propensityPercentage", equalTo(100.0F))
+                    .body("input.options[1].candidates.size()", equalTo(1))
+                    .body("input.options[1].candidates[0].cohortId", equalTo("gender=WOMAN"))
+                    .body("input.options[1].candidates[0].role", equalTo("CORE_ANCHOR"))
+                    .body("input.options[1].candidates[0].displayName", equalTo("Women"))
+                    .body("input.options[1].candidates[0].sampleSize", equalTo(40))
+                    .body("input.options[1].candidates[0].optionVoteCount", equalTo(40))
+                    .body("input.options[1].candidates[0].propensityPercentage", equalTo(100.0F))
+                    .body("input.options[0].narrativeInstructions[0]", equalTo(
+                            "Explain why a selected cohort is likely to favour the option using researched context."))
+                    .extract().asString();
+            assertFalse(contextJson.contains("userId"));
+            assertFalse(contextJson.contains("email"));
+            assertFalse(contextJson.contains("dateOfBirth"));
+        } finally {
+            deletePost(post.id());
+        }
 
         given()
                 .contentType("application/json")
@@ -489,6 +538,23 @@ class UnwrappedAdminControllerTest {
             statement.setInt(2, userOffset);
             statement.setLong(3, optionId);
             statement.setInt(4, count);
+            assertEquals(count, statement.executeUpdate());
+        }
+    }
+
+    private void insertVotesWithCharacteristic(long postId, long optionId, int count,
+                                               int userOffset, String snapshot) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into votes(post_id, user_id, option_id, characteristic_snapshot)
+                     select ?, 900000 + ? + generated.user_number, ?, ?::jsonb
+                     from generate_series(1, ?) as generated(user_number)
+                     """)) {
+            statement.setLong(1, postId);
+            statement.setInt(2, userOffset);
+            statement.setLong(3, optionId);
+            statement.setString(4, snapshot);
+            statement.setInt(5, count);
             assertEquals(count, statement.executeUpdate());
         }
     }
