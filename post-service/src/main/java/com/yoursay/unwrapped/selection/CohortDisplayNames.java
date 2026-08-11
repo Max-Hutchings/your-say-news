@@ -28,8 +28,8 @@ final class CohortDisplayNames {
             case "country" -> "Voters in " + title(bucket);
             case "region" -> "Voters in " + title(bucket);
             case "urbanRural" -> title(bucket) + " voters";
-            case "personalIncomeRange" -> "People in personal income " + income(bucket);
-            case "householdIncomeRange" -> "People in household income " + income(bucket);
+            case "personalIncomeRange" -> income(dimension, "personal");
+            case "householdIncomeRange" -> income(dimension, "household");
             case "education" -> education(bucket);
             case "occupation" -> occupation(bucket);
             case "employmentSector" -> employmentSector(bucket) + " workers";
@@ -108,8 +108,22 @@ final class CohortDisplayNames {
         };
     }
 
-    private static String income(String bucket) {
-        return lowerFirst(title(bucket.startsWith("V2_") ? bucket.substring(3) : bucket));
+    private static String income(CohortDimensionV1 dimension, String measure) {
+        if (dimension.income() != null) {
+            return "People with annual " + measure + " income of " + dimension.income().label()
+                    + " in " + marketWithArticle(dimension.income().marketLabel());
+        }
+        String bucket = dimension.bucket();
+        return "People in " + measure + " income "
+                + lowerFirst(title(bucket.startsWith("V2_") ? bucket.substring(3) : bucket));
+    }
+
+    private static String marketWithArticle(String market) {
+        return switch (market) {
+            case "United Kingdom", "United States", "United Arab Emirates", "Euro area" ->
+                    "the " + market;
+            default -> market;
+        };
     }
 
     private static String title(String value) {

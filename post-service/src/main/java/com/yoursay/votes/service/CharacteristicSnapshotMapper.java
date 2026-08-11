@@ -1,7 +1,9 @@
 package com.yoursay.votes.service;
 
 import com.yoursay.votes.dto.CharacteristicSnapshot;
+import com.yoursay.votes.dto.IncomeRangeSnapshot;
 import com.yoursay.votes.client.UserCharacteristicView;
+import com.yoursay.user.usercharacteristic.dto.IncomeAnswerDto;
 
 import java.util.List;
 
@@ -38,8 +40,8 @@ public final class CharacteristicSnapshotMapper {
                 view.occupation(),
                 view.employmentSector(),
                 view.universitySubject(),
-                incomeBucket(view.personalIncomeTier(), view.personalIncomeRange()),
-                incomeBucket(view.householdIncomeTier(), view.householdIncomeRange()),
+                incomeBucket(view.income(), "PERSONAL", view.personalIncomeRange()),
+                incomeBucket(view.income(), "HOUSEHOLD", view.householdIncomeRange()),
                 view.height(),
                 view.weightRange(),
                 view.eyeColor(),
@@ -61,15 +63,31 @@ public final class CharacteristicSnapshotMapper {
                 copied(view.neurodivergenceType()),
                 copied(view.disabilityType()),
                 view.balancedNewsViewpoint() == null ? null : String.valueOf(view.balancedNewsViewpoint()),
-                mainstreamBand(view.mainstreamNewsPercent())
+                mainstreamBand(view.mainstreamNewsPercent()),
+                incomeSnapshot(view.income(), "PERSONAL", view.personalIncomeTier()),
+                incomeSnapshot(view.income(), "HOUSEHOLD", view.householdIncomeTier())
         );
     }
 
-    private static String incomeBucket(String tier, String legacyRange) {
-        if (tier != null) {
-            return "V2_" + tier;
+    private static String incomeBucket(IncomeAnswerDto income, String measure, String legacyRange) {
+        if (income != null) {
+            String bandId = "PERSONAL".equals(measure)
+                    ? income.personalBandId() : income.householdBandId();
+            return "income|" + income.profileId() + "|" + measure + "|" + bandId;
         }
         return legacyRange == null ? null : "LEGACY_" + legacyRange;
+    }
+
+    private static IncomeRangeSnapshot incomeSnapshot(
+            IncomeAnswerDto income, String measure, String relativeTier) {
+        if (income == null) {
+            return null;
+        }
+        String bandId = "PERSONAL".equals(measure)
+                ? income.personalBandId() : income.householdBandId();
+        return new IncomeRangeSnapshot(
+                income.answerVersion(), income.profileId(), income.profileVersion(),
+                income.marketCode(), income.currencyCode(), measure, bandId, relativeTier);
     }
 
     /**

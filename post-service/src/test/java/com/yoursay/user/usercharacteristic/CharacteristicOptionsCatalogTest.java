@@ -5,7 +5,8 @@ import com.yoursay.user.usercharacteristic.dto.IncomeCatalogDto;
 import com.yoursay.user.usercharacteristic.dto.CharacteristicOptionDto;
 
 import com.yoursay.user.usercharacteristic.service.CharacteristicOptionsCatalog;
-import com.yoursay.user.usercharacteristic.service.IncomeProfileCatalog;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -16,10 +17,11 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@QuarkusTest
 class CharacteristicOptionsCatalogTest {
 
-    private final CharacteristicOptionsCatalog catalog =
-            new CharacteristicOptionsCatalog(new IncomeProfileCatalog());
+    @Inject
+    CharacteristicOptionsCatalog catalog;
 
     @Test
     void categoricalOptionsAreAlphabeticalWhileScalesAndRangesKeepTheirMeaningfulOrder() {

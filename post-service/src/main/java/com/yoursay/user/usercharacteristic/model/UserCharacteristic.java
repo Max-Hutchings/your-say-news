@@ -165,6 +165,16 @@ public class UserCharacteristic extends PanacheEntityBase {
     @Column(name = "household_income_tier", length = 16)
     private String householdIncomeTier;
 
+    /** Immutable database profile selected by the versioned answer. */
+    @Column(name = "income_range_profile_ref_id")
+    private Long incomeRangeProfileRefId;
+
+    @Column(name = "personal_income_band_ref_id")
+    private Long personalIncomeBandRefId;
+
+    @Column(name = "household_income_band_ref_id")
+    private Long householdIncomeBandRefId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "height", nullable = false)
     private Height height;
@@ -545,6 +555,30 @@ public class UserCharacteristic extends PanacheEntityBase {
 
     public void setHouseholdIncomeTier(String householdIncomeTier) {
         this.householdIncomeTier = householdIncomeTier;
+    }
+
+    public Long getIncomeRangeProfileRefId() {
+        return incomeRangeProfileRefId;
+    }
+
+    public void setIncomeRangeProfileRefId(Long incomeRangeProfileRefId) {
+        this.incomeRangeProfileRefId = incomeRangeProfileRefId;
+    }
+
+    public Long getPersonalIncomeBandRefId() {
+        return personalIncomeBandRefId;
+    }
+
+    public void setPersonalIncomeBandRefId(Long personalIncomeBandRefId) {
+        this.personalIncomeBandRefId = personalIncomeBandRefId;
+    }
+
+    public Long getHouseholdIncomeBandRefId() {
+        return householdIncomeBandRefId;
+    }
+
+    public void setHouseholdIncomeBandRefId(Long householdIncomeBandRefId) {
+        this.householdIncomeBandRefId = householdIncomeBandRefId;
     }
 
     public Height getHeight() {

@@ -12,7 +12,7 @@ export function SentimentBars({ buckets, options }: { buckets: BucketSentiment[]
   return (
     <View style={styles.bars}>
       {buckets.map((b) => (
-        <SentimentBar key={b.bucket} label={prettifyBucket(b.bucket)} bucket={b} options={options} />
+        <SentimentBar key={b.bucket} label={b.label ?? prettifyBucket(b.bucket)} bucket={b} options={options} />
       ))}
     </View>
   );

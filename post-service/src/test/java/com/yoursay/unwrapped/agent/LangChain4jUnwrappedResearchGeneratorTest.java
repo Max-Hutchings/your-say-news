@@ -1,12 +1,14 @@
 package com.yoursay.unwrapped.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.selection.CandidateRole;
 import com.yoursay.unwrapped.selection.OptionBriefV1;
 import com.yoursay.unwrapped.selection.SelectedCohortV1;
+import com.yoursay.user.usercharacteristic.dto.IncomeRangeDisplayDto;
 import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import com.yoursay.votes.dto.CohortDimensionV1;
 import dev.langchain4j.data.message.AiMessage;
@@ -24,7 +26,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -129,6 +133,18 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         assertTrue(!input.getValue().contains("You must call web search"));
         assertEquals("INPUT JSON:\n" + objectMapper.writeValueAsString(request) + "\n",
                 input.getValue());
+        assertTrue(input.getValue().contains("\"label\":\"GBP 25k to GBP 40k\""));
+        assertTrue(input.getValue().contains("\"marketLabel\":\"United Kingdom\""));
+        assertTrue(input.getValue().contains("\"lowerInclusive\":25000"));
+        assertTrue(input.getValue().contains("\"upperExclusive\":40000"));
+        assertTrue(input.getValue().contains("\"measureLabel\":\"Annual personal income before tax\""));
+        assertTrue(!input.getValue().contains("exactIncome"));
+        assertTrue(!input.getValue().contains("userId"));
+        Set<String> requestFields = new HashSet<>();
+        collectFieldNames(objectMapper.valueToTree(request), requestFields);
+        assertTrue(UNWRAPPED_REQUEST_ALLOWED_FIELDS.containsAll(requestFields),
+                () -> "Unexpected Unwrapped request fields: "
+                        + difference(requestFields, UNWRAPPED_REQUEST_ALLOWED_FIELDS));
     }
 
     @Test
@@ -222,13 +238,29 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 45, 75, 75, 15, 30, 62, 84, 0.001, "Men");
     }
 
+    private static SelectedCohortV1 incomeCohort() {
+        IncomeRangeDisplayDto income = new IncomeRangeDisplayDto(
+                "income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_3",
+                "GBP 25k to GBP 40k", "Annual personal income before tax in the United Kingdom",
+                "25th to 50th percentile locally", "GB", "United Kingdom", "GBP",
+                "PERSONAL", "Annual personal income before tax", 25_000L, 40_000L,
+                "TIER_3", "GB-GBP-GROSS-2025-v1", 1, "PERSONAL_TIER_3");
+        CohortDimensionV1 dimension = new CohortDimensionV1(
+                "personalIncomeRange", income.bucketId(), income.label(), income);
+        return new SelectedCohortV1(
+                "personalIncomeRange=" + income.bucketId(), List.of(dimension),
+                CandidateRole.CORE_ANCHOR, "Broad core group", 60, 60,
+                45, 75, 75, 15, 30, 62, 84, 0.001,
+                "People with annual personal income of GBP 25k to GBP 40k in the United Kingdom");
+    }
+
     private static UnwrappedResearchRequest representativeRequest() {
         OptionBriefV1 agree = new OptionBriefV1(
                 new VoteOptionDto(71L, "Agree", 0, "AGREE"), 120, 60.0,
-                List.of(cohort()), List.of("Explain the observed pattern."), null);
+                List.of(incomeCohort()), List.of("Explain the observed pattern."), null);
         OptionBriefV1 disagree = new OptionBriefV1(
                 new VoteOptionDto(72L, "Disagree", 1, "DISAGREE"), 80, 40.0,
-                List.of(cohort()), List.of("Explain the observed pattern."), null);
+                List.of(incomeCohort()), List.of("Explain the observed pattern."), null);
         return new UnwrappedResearchRequest(
                 42L,
                 "A city is considering a workplace parking levy.",
@@ -303,5 +335,35 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 - Do not include a source unless it directly supports context used in a paragraph.
                 - Every caveat must be exactly: This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.
                 """.strip();
+    }
+
+    private static final Set<String> UNWRAPPED_REQUEST_ALLOWED_FIELDS = Set.of(
+            "postId", "summary", "question", "jurisdiction", "canonicalVoteCount",
+            "aggregateVersion", "options", "option", "id", "label", "ordinal",
+            "semanticKey", "overallVoteCount", "overallVotePercentage", "candidates",
+            "narrativeInstructions", "insufficientEvidence", "cohortId", "dimensions", "role",
+            "relevanceReason", "sampleSize", "populationSharePercentage", "optionVoteCount",
+            "compositionPercentage", "propensityPercentage", "overIndexPercentagePoints",
+            "differenceFromRestPercentagePoints", "wilson95Low", "wilson95High",
+            "adjustedQValue", "displayName", "axis", "bucket", "income", "bucketId",
+            "contextLabel", "relativeLabel", "marketCode", "marketLabel", "currencyCode",
+            "measure", "measureLabel", "lowerInclusive", "upperExclusive", "relativeTier",
+            "profileId", "profileVersion", "bandId");
+
+    private static void collectFieldNames(JsonNode node, Set<String> target) {
+        if (node.isObject()) {
+            node.fields().forEachRemaining(entry -> {
+                target.add(entry.getKey());
+                collectFieldNames(entry.getValue(), target);
+            });
+        } else if (node.isArray()) {
+            node.forEach(child -> collectFieldNames(child, target));
+        }
+    }
+
+    private static Set<String> difference(Set<String> actual, Set<String> allowed) {
+        Set<String> unexpected = new HashSet<>(actual);
+        unexpected.removeAll(allowed);
+        return unexpected;
     }
 }

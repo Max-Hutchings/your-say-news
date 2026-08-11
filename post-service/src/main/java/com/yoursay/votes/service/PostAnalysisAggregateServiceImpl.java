@@ -37,6 +37,9 @@ public class PostAnalysisAggregateServiceImpl implements PostAnalysisAggregateSe
     @Inject
     EntityManager entityManager;
 
+    @Inject
+    IncomeBucketDisplayEnricher incomeDisplays;
+
     @ConfigProperty(name = "votes.aggregation.suppress-below", defaultValue = "0")
     int suppressBelow;
 
@@ -50,7 +53,8 @@ public class PostAnalysisAggregateServiceImpl implements PostAnalysisAggregateSe
         List<VoteSnapshot> votes = voteRepository.listByPost(postId).stream()
                 .map(PostAnalysisAggregateServiceImpl::snapshot)
                 .toList();
-        PostAnalysisAggregateV1 aggregate = builder.build(post, votes, suppressBelow, Instant.now());
+        PostAnalysisAggregateV1 aggregate = incomeDisplays.enrich(
+                builder.build(post, votes, suppressBelow, Instant.now()));
         String version = aggregateVersion(aggregate);
         return new PostAnalysisAggregateV1(aggregate.schemaVersion(), aggregate.postId(),
                 aggregate.votingType(), aggregate.summary(), aggregate.question(), aggregate.jurisdiction(),

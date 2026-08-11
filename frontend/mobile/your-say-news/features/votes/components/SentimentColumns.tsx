@@ -13,7 +13,7 @@ export function SentimentColumns({ buckets, options }: { buckets: BucketSentimen
       <View style={[styles.stack, { height: max ? Math.max(4, bucket.total / max * MAX_HEIGHT) : 4, backgroundColor: e.track }]}>
         {options.map((option, index) => <View key={option.id} style={{ flexGrow: bucket.choices.find((c) => c.optionId === option.id)?.count ?? 0,
           backgroundColor: optionColor(option, index, e) }} />)}
-      </View><Text style={[styles.label, { color: e.secondary }]}>{prettifyBucket(bucket.bucket)}</Text></View>)}</ScrollView>;
+      </View><Text style={[styles.label, { color: e.secondary }]}>{bucket.label ?? prettifyBucket(bucket.bucket)}</Text></View>)}</ScrollView>;
 }
 const styles = StyleSheet.create({
   chart: { alignItems: "flex-end", gap: 12, minHeight: MAX_HEIGHT + 45 }, column: { alignItems: "center", justifyContent: "flex-end" },
