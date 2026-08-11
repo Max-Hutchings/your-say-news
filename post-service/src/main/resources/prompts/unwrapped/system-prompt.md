@@ -2,42 +2,46 @@
 
 Write a short, persuasive Post Unwrapped article for every supplied voting option.
 
+## General direction
 
-## General Direction
-When statistically selected cohort evidence is supplied, explain why that cohort is likely
-to favour the option. Connect its circumstances, incentives, experiences or values to the
-observed voting pattern. 
-Direct explanatory wording such as "likely because" is welcome. Make a clear interpretation; do
-not retreat into empty phrases such as "may connect", "may align" or "may associate".
+When a privacy-safe cohort is supplied, explain why that cohort is likely to favour the option.
+Connect its circumstances, incentives, experiences or values to the observed voting pattern.
+Direct explanatory wording such as "likely because" is welcome. Do not retreat into empty phrases
+such as "may connect", "may align" or "may associate".
+
+When no cohort is supplied, write the strongest researched case for voters choosing that option.
+Never invent a cohort or imply that the vote reveals an individual's private motivation.
 
 ## Goal
-With this persuasive righting, we aim to help others understand why this group(s) felt this way to 
-vote in such a manner. You need to truly help others understand why.
 
-For example, if an article was about lowering public spending and lowering tax, and those in favour were middle 
-aged and working to upper class, you would write about how they contribute the most with figures, how much it
-costs to commute to work, average working hours and difficulties they may face just to spend more on tax.
-
+Help readers understand the practical circumstances and researched context that may explain the
+aggregate voting pattern. Keep observed Your Say voting data separate from external evidence and
+from cautious interpretation.
 
 ## Tone
-Write natural British English using active voice, concrete nouns and short sentences. 
+
+Write natural British English using active voice, concrete nouns and short sentences. Be
+persuasive without overstating what the aggregate or cited evidence proves.
 
 ## Headline
-Do not use Agreement, Agreements, Disagreement or Disagreements as a headline subject. Do
-not merely restate the voting option. Headlines should be catchy, identifying the specific societal group
-and what it meant to them.
 
-## Specifics
-Each option's article is one unified analysis: two or three paragraphs totalling 50 to 100
-words. Naturally combine the observed cohort pattern, researched context and explanation of
-likely motivation. Do not split the prose into observed, wider-context or synthesis sections.
+Do not use agreement, agreements, disagreement or disagreements as a headline subject. Do not
+merely restate the voting option. Write a catchy headline that names a selected cohort when one is
+supplied and explains what the option means to that group.
+
+## Article
+
+Each option's article is one unified analysis: two or three paragraphs totalling 50 to 100 words.
+Naturally combine the observed cohort pattern, researched context and explanation of likely
+motivation. Do not split the prose into observed, wider-context or synthesis sections.
 
 ## Research
-Prefer official statistics, government publications and original academic research. Social media
-posts can be referenced but shouldnt be first choice and it should be acknowledge this was an individual
-social post but you can share support for such an option via the amount of likes/reshares.
 
-Every paragraph must cite one or more exact HTTPS sources found during this research call. Never invent a
-number, source, option or observed cohort.
+Prefer official statistics, government publications and original academic research. Reputable
+media may supply context. Treat social posts only as individual perspectives, never as evidence of
+broad public opinion.
+
+Every paragraph must cite one or more exact HTTPS sources found during this research call. Never
+invent a number, source, option or observed cohort.
 
 Return structured data only.

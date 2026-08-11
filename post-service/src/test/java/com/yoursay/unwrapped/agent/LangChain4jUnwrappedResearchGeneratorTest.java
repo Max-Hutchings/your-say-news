@@ -2,13 +2,19 @@ package com.yoursay.unwrapped.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.yoursay.observability.DomainMetrics;
 import com.yoursay.posts.dto.VoteOptionDto;
+import com.yoursay.unwrapped.SourceClassification;
+import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
+import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import com.yoursay.unwrapped.selection.CandidateRole;
 import com.yoursay.unwrapped.selection.OptionBriefV1;
 import com.yoursay.unwrapped.selection.SelectedCohortV1;
 import com.yoursay.user.usercharacteristic.dto.IncomeRangeDisplayDto;
+import com.yoursay.unwrapped.validation.SourceUrlPolicy;
+import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import com.yoursay.votes.dto.CohortDimensionV1;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.http.client.SuccessfulHttpResponse;
@@ -30,12 +36,16 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -81,14 +91,64 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 .paragraphs().getFirst().sourceIds());
         assertEquals(List.of("gender=MAN"), result.draft().pages().getFirst()
                 .selectedCohortIds());
+        assertDoesNotThrow(() -> new UnwrappedDraftValidator(new SourceUrlPolicy())
+                .validate(request, result.draft(), result.providerCitations()));
+        verifyNoInteractions(aiService);
+    }
+
+    @Test
+    void developmentStubLimitsCohortsAndBuildsTheNoCohortFallback() {
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        OptionBriefV1 cohortOption = new OptionBriefV1(
+                new VoteOptionDto(15L, "Reduce local tax", 0, "AGREE"), 377L, 62.83,
+                List.of(
+                        cohort("gender=MAN", "Men", "MAN"),
+                        cohort("gender=WOMAN", "Women", "WOMAN"),
+                        cohort("gender=NON_BINARY", "Non-binary people", "NON_BINARY")),
+                List.of("Explain the option-specific pattern."), null);
+        OptionBriefV1 generalOption = new OptionBriefV1(
+                new VoteOptionDto(16L, "Keep local services", 1, "DISAGREE"), 223L, 37.17,
+                List.of(), List.of("Write the strongest researched general case."),
+                "No privacy-safe characteristic group is available.");
+        UnwrappedResearchRequest request = new UnwrappedResearchRequest(
+                2005L, "The council is reviewing local tax.",
+                "Should local tax be reduced?", "UNITED_KINGDOM", 600L,
+                "aggregate-v4", List.of(cohortOption, generalOption));
+
+        LangChain4jUnwrappedResearchGenerator generator =
+                new LangChain4jUnwrappedResearchGenerator();
+        generator.aiService = aiService;
+        generator.stubbed = true;
+
+        UnwrappedResearchResult result = generator.generate(request);
+
+        assertEquals(List.of(15L, 16L), result.draft().pages().stream()
+                .map(UnwrappedArgumentDraftV1::optionId).toList());
+        assertEquals(List.of("gender=MAN", "gender=WOMAN"),
+                result.draft().pages().getFirst().selectedCohortIds());
+        assertEquals(List.of(), result.draft().pages().getLast().selectedCohortIds());
+        assertEquals("Why people choosing keep local services favour the development option",
+                result.draft().pages().getLast().headline());
+        assertEquals(2, result.draft().pages().getFirst().paragraphs().size());
+        assertTrue(result.draft().pages().getFirst().paragraphs().getLast().text()
+                .contains("377 votes, or 62.83 percent"));
+        assertTrue(result.draft().pages().getLast().paragraphs().getLast().text()
+                .contains("223 votes, or 37.17 percent"));
+        assertEquals("This analysis describes patterns among people who voted on this post; "
+                        + "it cannot know every individual's reason.",
+                result.draft().pages().getLast().caveat());
+        assertEquals(List.of("stub-source"), result.draft().pages().getLast()
+                .paragraphs().getLast().sourceIds());
+        assertDoesNotThrow(() -> new UnwrappedDraftValidator(new SourceUrlPolicy())
+                .validate(request, result.draft(), result.providerCitations()));
         verifyNoInteractions(aiService);
     }
 
     @Test
     void appendsRequiredOutputToTheProductionSystemPromptAndSendsOnlyInputAsUserMessage()
             throws Exception {
-        UnwrappedResearchDraftV1 draft = new UnwrappedResearchDraftV1(null, null);
         UnwrappedResearchRequest request = representativeRequest();
+        UnwrappedResearchDraftV1 draft = validDraft(request, "https://www.ons.gov.uk/source");
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/source");
@@ -99,12 +159,9 @@ class LangChain4jUnwrappedResearchGeneratorTest {
             return draft;
         });
 
-        LangChain4jUnwrappedResearchGenerator generator =
-                new LangChain4jUnwrappedResearchGenerator();
-        generator.aiService = aiService;
-        generator.responseCapture = capture;
-        generator.objectMapper = objectMapper;
-        generator.apiKey = "test-key";
+        DomainMetrics metrics = mock(DomainMetrics.class);
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, objectMapper, metrics);
         generator.configuredModel = "configured-fallback-model";
 
         UnwrappedResearchResult result = generator.generate(request);
@@ -118,11 +175,8 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         ArgumentCaptor<String> input = ArgumentCaptor.forClass(String.class);
         verify(aiService).research(
                 systemPrompt.capture(), outputInstructions.capture(), input.capture());
-        assertEquals(UnwrappedSystemPrompt.DEFAULT, systemPrompt.getValue());
-        assertTrue(systemPrompt.getValue().startsWith("# Post Unwrapped editorial brief\n\n"));
-        assertTrue(!systemPrompt.getValue().contains("Do not use these causal words anywhere"));
-        assertEquals(UnwrappedSystemPrompt.outputInstructions(List.of(71L, 72L)),
-                outputInstructions.getValue());
+        assertEquals(expectedSystemPrompt(), systemPrompt.getValue());
+        assertEquals(expectedOutputInstructions(), outputInstructions.getValue());
         assertTrue(!outputInstructions.getValue().contains("{{pageCount}}"));
         assertTrue(!outputInstructions.getValue().contains("{{optionIds}}"));
 
@@ -130,6 +184,24 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         assertTrue(!input.getValue().contains("You must call web search"));
         assertEquals("INPUT JSON:\n" + objectMapper.writeValueAsString(request) + "\n",
                 input.getValue());
+        assertTrue(input.getValue().contains(
+                "\"summary\":\"A city is considering a workplace parking levy.\""));
+        assertTrue(input.getValue().contains(
+                "\"question\":\"Should the city introduce a workplace parking levy?\""));
+        assertTrue(input.getValue().contains("\"canonicalVoteCount\":200"));
+        assertTrue(input.getValue().contains("\"aggregateVersion\":\"aggregate-v1\""));
+        assertTrue(input.getValue().contains(
+                "\"overallVoteCount\":120,\"overallVotePercentage\":60.0"));
+        assertTrue(input.getValue().contains(
+                "\"overallVoteCount\":80,\"overallVotePercentage\":40.0"));
+        assertTrue(input.getValue().contains(
+                "\"sampleSize\":60,\"populationSharePercentage\":60.0,\"optionVoteCount\":45"));
+        assertTrue(input.getValue().contains(
+                "\"compositionPercentage\":75.0,\"propensityPercentage\":75.0,"));
+        assertTrue(input.getValue().contains(
+                "\"overIndexPercentagePoints\":15.0,\"differenceFromRestPercentagePoints\":30.0"));
+        assertTrue(input.getValue().contains(
+                "\"wilson95Low\":62.0,\"wilson95High\":84.0,\"adjustedQValue\":0.001"));
         assertTrue(input.getValue().contains("\"label\":\"GBP 25k to GBP 40k\""));
         assertTrue(input.getValue().contains("\"marketLabel\":\"United Kingdom\""));
         assertTrue(input.getValue().contains("\"lowerInclusive\":25000"));
@@ -142,12 +214,15 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         assertTrue(UNWRAPPED_REQUEST_ALLOWED_FIELDS.containsAll(requestFields),
                 () -> "Unexpected Unwrapped request fields: "
                         + difference(requestFields, UNWRAPPED_REQUEST_ALLOWED_FIELDS));
+        verify(metrics).recordOperation(eq("unwrapped"), eq("research_provider"),
+                eq("success"), eq("none"), eq("none"), org.mockito.ArgumentMatchers.anyLong());
     }
 
     @Test
     void appendsRequiredOutputAfterTheEditableBenchmarkSystemPrompt() {
-        UnwrappedResearchDraftV1 draft = mock(UnwrappedResearchDraftV1.class);
         UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchDraftV1 draft = validDraft(
+                request, "https://www.ons.gov.uk/benchmark");
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
@@ -157,12 +232,8 @@ class LangChain4jUnwrappedResearchGeneratorTest {
             return draft;
         });
 
-        LangChain4jUnwrappedResearchGenerator generator =
-                new LangChain4jUnwrappedResearchGenerator();
-        generator.aiService = aiService;
-        generator.responseCapture = capture;
-        generator.objectMapper = new ObjectMapper();
-        generator.apiKey = "test-key";
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
         generator.configuredModel = "grok-test";
 
         generator.generate(request, "Use a deliberately terse editorial voice.");
@@ -174,8 +245,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                 systemPrompt.capture(), outputInstructions.capture(), input.capture());
         verifyNoMoreInteractions(aiService);
         assertEquals("Use a deliberately terse editorial voice.", systemPrompt.getValue());
-        assertEquals(UnwrappedSystemPrompt.outputInstructions(List.of(71L, 72L)),
-                outputInstructions.getValue());
+        assertEquals(expectedOutputInstructions(), outputInstructions.getValue());
         assertTrue(!input.getValue().contains("Required output contract"));
         assertTrue(input.getValue().contains("\"candidates\":[]"));
     }
@@ -192,12 +262,8 @@ class LangChain4jUnwrappedResearchGeneratorTest {
             return null;
         });
 
-        LangChain4jUnwrappedResearchGenerator generator =
-                new LangChain4jUnwrappedResearchGenerator();
-        generator.aiService = aiService;
-        generator.responseCapture = capture;
-        generator.objectMapper = new ObjectMapper();
-        generator.apiKey = "test-key";
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
         generator.configuredModel = "configured-fallback-model";
 
         IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
@@ -205,6 +271,255 @@ class LangChain4jUnwrappedResearchGeneratorTest {
 
         assertEquals("UNWRAPPED_DRAFT_MISSING", failure.getMessage());
         verify(aiService).research(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void rejectsMalformedDraftsBeforeTheyCanReachPersistence() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return new UnwrappedResearchDraftV1(null, null);
+        });
+        DomainMetrics metrics = mock(DomainMetrics.class);
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), metrics);
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> generator.generate(request));
+
+        assertEquals("UNWRAPPED_OPTION_PAGE_COUNT", failure.getMessage());
+        verify(metrics).recordOperation(eq("unwrapped"), eq("research_provider"),
+                eq("dependency_error"), eq("provider_contract"),
+                eq("UNWRAPPED_OPTION_PAGE_COUNT"),
+                org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void rejectsDraftSourcesThatDoNotMatchTheProviderCitations() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = responseWithCitation("https://www.ons.gov.uk/provider-source");
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return validDraft(request, "https://www.ons.gov.uk/invented-source");
+        });
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> generator.generate(request));
+
+        assertEquals("UNWRAPPED_SOURCE_NOT_PROVIDER_CITATION", failure.getMessage());
+    }
+
+    @Test
+    void rejectsIdentityBearingProviderProseBeforePersistence() {
+        String sourceUrl = "https://www.ons.gov.uk/provider-source";
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = responseWithCitation(sourceUrl);
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return withFirstParagraphPrefix(validDraft(request, sourceUrl),
+                    "Jane Smith voted for this option and can be contacted at jane@example.com.");
+        });
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> generator.generate(request));
+
+        assertEquals("UNWRAPPED_PII_RISK", failure.getMessage());
+    }
+
+    @Test
+    void combinesTopLevelAndNestedCitationsWhileFilteringAndDeduplicating() {
+        String sourceUrl = "https://www.ons.gov.uk/source";
+        String supportingUrl = "https://www.gov.uk/supporting-source";
+        String body = """
+                {
+                  "citations":["%s","%s","http://unsafe.example/source"],
+                  "output":[{"content":[{"annotations":[
+                    {"type":"url_citation","url":"%s"},
+                    {"type":"url_citation","url":"%s"},
+                    {"type":"file_citation","url":"https://files.example/not-a-web-citation"}
+                  ]}]}]
+                }
+                """.formatted(sourceUrl, sourceUrl, sourceUrl, supportingUrl);
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = response(body, "provider-grok-4.5");
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return validDraft(request, sourceUrl);
+        });
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
+
+        UnwrappedResearchResult result = generator.generate(request);
+
+        assertEquals(List.of(sourceUrl, supportingUrl), result.providerCitations());
+        assertFalse(result.providerCitations().contains("http://unsafe.example/source"));
+    }
+
+    @Test
+    void retainsAnUppercaseHttpsProviderCitationAcceptedByTheUrlPolicy() {
+        String sourceUrl = "HTTPS://www.ons.gov.uk/source";
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = responseWithCitation(sourceUrl);
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return validDraft(request, sourceUrl);
+        });
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
+
+        assertEquals(List.of(sourceUrl), generator.generate(request).providerCitations());
+    }
+
+    @Test
+    void rejectsMissingAndMalformedProviderCitationMetadata() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+
+        assertEquals("UNWRAPPED_PROVIDER_CITATIONS_MISSING",
+                providerFailure(request, response("{}", "provider-grok-4.5")));
+        assertEquals("UNWRAPPED_PROVIDER_CITATIONS_INVALID",
+                providerFailure(request, response("{not-json", "provider-grok-4.5")));
+
+        ChatResponse missingMetadata = ChatResponse.builder()
+                .aiMessage(AiMessage.from("{}"))
+                .build();
+        assertEquals("UNWRAPPED_PROVIDER_CITATIONS_MISSING",
+                providerFailure(request, missingMetadata));
+
+        OpenAiResponsesChatResponseMetadata missingRawResponse =
+                OpenAiResponsesChatResponseMetadata.builder()
+                        .id("response-without-raw-http")
+                        .modelName("provider-grok-4.5")
+                        .build();
+        assertEquals("UNWRAPPED_PROVIDER_CITATIONS_MISSING",
+                providerFailure(request, ChatResponse.builder()
+                        .aiMessage(AiMessage.from("{}"))
+                        .metadata(missingRawResponse)
+                        .build()));
+
+        OpenAiResponsesChatResponseMetadata nullBodyMetadata =
+                mock(OpenAiResponsesChatResponseMetadata.class);
+        SuccessfulHttpResponse nullBodyResponse = mock(SuccessfulHttpResponse.class);
+        when(nullBodyMetadata.rawHttpResponse()).thenReturn(nullBodyResponse);
+        when(nullBodyResponse.body()).thenReturn(null);
+        assertEquals("UNWRAPPED_PROVIDER_CITATIONS_MISSING",
+                providerFailure(request, ChatResponse.builder()
+                        .aiMessage(AiMessage.from("{}"))
+                        .metadata(nullBodyMetadata)
+                        .build()));
+    }
+
+    @Test
+    void rejectsEveryUnconfiguredApiKeyFormWithoutCallingTheProvider() {
+        for (String apiKey : new String[]{null, "", "   ", "__not_configured__"}) {
+            UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+            DomainMetrics metrics = mock(DomainMetrics.class);
+            LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                    aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                    metrics);
+            generator.apiKey = apiKey;
+
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
+                    () -> generator.generate(requestWithoutCohorts()));
+
+            assertEquals("UNWRAPPED_PROVIDER_NOT_CONFIGURED", failure.getMessage());
+            verifyNoInteractions(aiService);
+            verify(metrics).recordOperation(eq("unwrapped"), eq("research_provider"),
+                    eq("service_error"), eq("configuration"),
+                    eq("UNWRAPPED_PROVIDER_NOT_CONFIGURED"),
+                    org.mockito.ArgumentMatchers.anyLong());
+        }
+    }
+
+    @Test
+    void wrapsEveryProviderExceptionTypeAndAlwaysClearsCapturedResponses() {
+        for (Exception providerFailure : List.of(
+                new java.io.IOException("provider transport exposed detail"),
+                new IllegalArgumentException("provider rejected its request"),
+                new IllegalStateException("provider runtime exposed detail"))) {
+            UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+            UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+            ChatResponse staleResponse = responseWithCitation("https://www.ons.gov.uk/stale");
+            when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+                capture.onResponse(new ChatModelResponseContext(
+                        staleResponse, mock(ChatRequest.class), ModelProvider.OPEN_AI,
+                        new HashMap<>()));
+                throw providerFailure;
+            });
+            DomainMetrics metrics = mock(DomainMetrics.class);
+            LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                    aiService, capture, new ObjectMapper(), metrics);
+
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
+                    () -> generator.generate(requestWithoutCohorts()));
+
+            assertEquals("UNWRAPPED_PROVIDER_FAILURE", failure.getMessage());
+            assertEquals(providerFailure.getClass(), failure.getCause().getClass());
+            assertNull(capture.take());
+            String logMessage = LangChain4jUnwrappedResearchGenerator.failureLogMessage(
+                    "dependency_error", "provider", "UNWRAPPED_PROVIDER_FAILURE");
+            assertEquals("Unwrapped research failed: domain=unwrapped "
+                    + "operation=research_provider outcome=dependency_error "
+                    + "errorType=provider errorCode=UNWRAPPED_PROVIDER_FAILURE", logMessage);
+            assertFalse(logMessage.contains(providerFailure.getMessage()));
+            verify(metrics).recordOperation(eq("unwrapped"), eq("research_provider"),
+                    eq("dependency_error"), eq("provider"), eq("UNWRAPPED_PROVIDER_FAILURE"),
+                    org.mockito.ArgumentMatchers.anyLong());
+        }
+    }
+
+    @Test
+    void rejectsAProviderResultWhenTheRawResponseWasNotCaptured() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        when(aiService.research(anyString(), anyString(), anyString()))
+                .thenReturn(validDraft(request, "https://www.ons.gov.uk/source"));
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                mock(DomainMetrics.class));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> generator.generate(request));
+
+        assertEquals("UNWRAPPED_PROVIDER_RESPONSE_MISSING", failure.getMessage());
+    }
+
+    @Test
+    void usesTheConfiguredModelWhenProviderMetadataHasABlankModelName() {
+        String sourceUrl = "https://www.ons.gov.uk/source";
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = responseWithCitation(sourceUrl, "   ");
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return validDraft(request, sourceUrl);
+        });
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
+        generator.configuredModel = "configured-grok-model";
+
+        assertEquals("configured-grok-model", generator.generate(request).model());
     }
 
     @Test
@@ -224,10 +539,14 @@ class LangChain4jUnwrappedResearchGeneratorTest {
     }
 
     private static SelectedCohortV1 cohort() {
-        return new SelectedCohortV1("gender=MAN",
-                List.of(new CohortDimensionV1("gender", "MAN")),
+        return cohort("gender=MAN", "Men", "MAN");
+    }
+
+    private static SelectedCohortV1 cohort(String cohortId, String displayName, String bucket) {
+        return new SelectedCohortV1(cohortId,
+                List.of(new CohortDimensionV1("gender", bucket)),
                 CandidateRole.CORE_ANCHOR, "Broad core group", 60, 60,
-                45, 75, 75, 15, 30, 62, 84, 0.001, "Men");
+                45, 75, 75, 15, 30, 62, 84, 0.001, displayName);
     }
 
     private static SelectedCohortV1 incomeCohort() {
@@ -283,24 +602,203 @@ class LangChain4jUnwrappedResearchGeneratorTest {
     }
 
     private static ChatResponse responseWithCitation(String citation) {
+        return responseWithCitation(citation, "provider-grok-4.5");
+    }
+
+    private static ChatResponse responseWithCitation(String citation, String modelName) {
+        return response("""
+                {"output":[{"content":[{"annotations":[
+                  {"type":"url_citation","url":"%s"}
+                ]}]}]}
+                """.formatted(citation), modelName);
+    }
+
+    private static ChatResponse response(String body, String modelName) {
         SuccessfulHttpResponse rawResponse = SuccessfulHttpResponse.builder()
                 .statusCode(200)
-                .body("""
-                        {"output":[{"content":[{"annotations":[
-                          {"type":"url_citation","url":"%s"}
-                        ]}]}]}
-                        """.formatted(citation))
+                .body(body)
                 .build();
         OpenAiResponsesChatResponseMetadata metadata =
                 OpenAiResponsesChatResponseMetadata.builder()
                         .id("response-42")
-                        .modelName("provider-grok-4.5")
+                        .modelName(modelName)
                         .rawHttpResponse(rawResponse)
                         .build();
         return ChatResponse.builder()
                 .aiMessage(AiMessage.from("{}"))
                 .metadata(metadata)
                 .build();
+    }
+
+    private static LangChain4jUnwrappedResearchGenerator liveGenerator(
+            UnwrappedResearchAiService aiService,
+            UnwrappedChatResponseCapture capture,
+            ObjectMapper objectMapper,
+            DomainMetrics metrics
+    ) {
+        LangChain4jUnwrappedResearchGenerator generator =
+                new LangChain4jUnwrappedResearchGenerator();
+        generator.aiService = aiService;
+        generator.responseCapture = capture;
+        generator.objectMapper = objectMapper;
+        generator.validator = new UnwrappedDraftValidator(new SourceUrlPolicy());
+        generator.metrics = metrics;
+        generator.apiKey = "test-key";
+        generator.configuredModel = "configured-fallback-model";
+        return generator;
+    }
+
+    private static UnwrappedResearchDraftV1 validDraft(
+            UnwrappedResearchRequest request,
+            String sourceUrl
+    ) {
+        UnwrappedSourceDraftV1 source = new UnwrappedSourceDraftV1(
+                "source-1", sourceUrl, "Office for National Statistics",
+                "Household costs and public finances", SourceClassification.OFFICIAL);
+        List<UnwrappedArgumentDraftV1> pages = request.options().stream()
+                .map(option -> validPage(option, source.id()))
+                .toList();
+        return new UnwrappedResearchDraftV1(pages, List.of(source));
+    }
+
+    private static UnwrappedArgumentDraftV1 validPage(OptionBriefV1 option, String sourceId) {
+        boolean hasCohort = !option.candidates().isEmpty();
+        String headline = hasCohort
+                ? "Why GBP 25k to GBP 40k voters favour change"
+                : "Why voters favour this practical policy option";
+        List<String> selected = hasCohort
+                ? List.of(option.candidates().getFirst().cohortId())
+                : List.of();
+        return new UnwrappedArgumentDraftV1(
+                option.option().id(), headline, selected,
+                List.of(
+                        new UnwrappedArticleParagraphDraftV2(
+                                "These voters are likely to favour this option because its immediate effect "
+                                        + "addresses household pressures described by the supplied aggregate. "
+                                        + "The explanation remains tied to the observed voting pattern rather "
+                                        + "than claiming private knowledge about individual motivations.",
+                                List.of(sourceId)),
+                        new UnwrappedArticleParagraphDraftV2(
+                                "Published national statistics provide relevant context about household costs "
+                                        + "and public finances. That evidence may explain why the practical effect "
+                                        + "of this option matters to the selected voters while preserving the "
+                                        + "difference between researched context and observed votes.",
+                                List.of(sourceId))),
+                "This analysis describes patterns among people who voted on this post; "
+                        + "it cannot know every individual's reason.");
+    }
+
+    private static UnwrappedResearchDraftV1 withFirstParagraphPrefix(
+            UnwrappedResearchDraftV1 draft,
+            String prefix
+    ) {
+        UnwrappedArgumentDraftV1 firstPage = draft.pages().getFirst();
+        UnwrappedArticleParagraphDraftV2 firstParagraph = firstPage.paragraphs().getFirst();
+        UnwrappedArgumentDraftV1 changedPage = new UnwrappedArgumentDraftV1(
+                firstPage.optionId(), firstPage.headline(), firstPage.selectedCohortIds(),
+                List.of(new UnwrappedArticleParagraphDraftV2(
+                                prefix + " " + firstParagraph.text(), firstParagraph.sourceIds()),
+                        firstPage.paragraphs().getLast()),
+                firstPage.caveat());
+        return new UnwrappedResearchDraftV1(
+                List.of(changedPage, draft.pages().getLast()), draft.sources());
+    }
+
+    private static String providerFailure(
+            UnwrappedResearchRequest request,
+            ChatResponse response
+    ) {
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return validDraft(request, "https://www.ons.gov.uk/source");
+        });
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
+        return assertThrows(IllegalStateException.class, () -> generator.generate(request))
+                .getMessage();
+    }
+
+    private static String expectedOutputInstructions() {
+        return """
+                # Required output contract
+
+                - Return exactly 2 pages.
+                - Return pages in this exact `optionId` order: [71, 72].
+                - Include every `optionId` exactly once; do not merge or omit options.
+                - When an option supplies cohort candidates, select one or two of their IDs and name a
+                  selected cohort in the headline using its supplied `displayName` or governed dimension label.
+                - When an option supplies no cohort candidates, return an empty `selectedCohortIds` list,
+                  write the strongest general researched case for that option, and do not invent a cohort.
+                - Headlines must be catchy, 6 to 18 words, and must not use agreement or disagreement.
+                - Write two or three paragraphs totalling 50 to 100 words for every page.
+                - In those paragraphs, explain why the selected cohort, or voters choosing the option
+                  when no cohort is supplied, are likely to favour that option.
+                - Direct explanations using words such as because, led or drove are allowed.
+                - Do not claim direct knowledge of every individual voter's private motivation.
+                - Do not identify individual voters using personal names, email addresses, exact dates of birth or identity-linked vote claims.
+                - You must call web search before drafting any page.
+                - Give every paragraph one or more `sourceIds`; empty `sourceIds` are forbidden.
+                - Include every referenced source exactly once in `sources`; empty `sources` are forbidden.
+                - Include no more than 20 sources in total.
+                - Copy each source URL exactly from an HTTPS URL returned by web search in this same call.
+                - Do not include a source unless it directly supports context used in a paragraph.
+                - Every caveat must be exactly: This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.
+                """.strip();
+    }
+
+    private static String expectedSystemPrompt() {
+        return """
+                # Post Unwrapped editorial brief
+
+                Write a short, persuasive Post Unwrapped article for every supplied voting option.
+
+                ## General direction
+
+                When a privacy-safe cohort is supplied, explain why that cohort is likely to favour the option.
+                Connect its circumstances, incentives, experiences or values to the observed voting pattern.
+                Direct explanatory wording such as "likely because" is welcome. Do not retreat into empty phrases
+                such as "may connect", "may align" or "may associate".
+
+                When no cohort is supplied, write the strongest researched case for voters choosing that option.
+                Never invent a cohort or imply that the vote reveals an individual's private motivation.
+
+                ## Goal
+
+                Help readers understand the practical circumstances and researched context that may explain the
+                aggregate voting pattern. Keep observed Your Say voting data separate from external evidence and
+                from cautious interpretation.
+
+                ## Tone
+
+                Write natural British English using active voice, concrete nouns and short sentences. Be
+                persuasive without overstating what the aggregate or cited evidence proves.
+
+                ## Headline
+
+                Do not use agreement, agreements, disagreement or disagreements as a headline subject. Do not
+                merely restate the voting option. Write a catchy headline that names a selected cohort when one is
+                supplied and explains what the option means to that group.
+
+                ## Article
+
+                Each option's article is one unified analysis: two or three paragraphs totalling 50 to 100 words.
+                Naturally combine the observed cohort pattern, researched context and explanation of likely
+                motivation. Do not split the prose into observed, wider-context or synthesis sections.
+
+                ## Research
+
+                Prefer official statistics, government publications and original academic research. Reputable
+                media may supply context. Treat social posts only as individual perspectives, never as evidence of
+                broad public opinion.
+
+                Every paragraph must cite one or more exact HTTPS sources found during this research call. Never
+                invent a number, source, option or observed cohort.
+
+                Return structured data only.
+                """.strip();
     }
 
     private static final Set<String> UNWRAPPED_REQUEST_ALLOWED_FIELDS = Set.of(

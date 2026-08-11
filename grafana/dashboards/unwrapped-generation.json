@@ -1,0 +1,319 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Logs and traces",
+      "type": "link",
+      "url": "/d/ysn-logs-traces/your-say-news-logs-traces"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "panels": [],
+      "title": "Unwrapped overview",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 1},
+      "id": 2,
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (operation, outcome) (rate(yoursay_domain_operations_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "{{operation}} - {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Operation rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 1},
+      "id": 3,
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p50 {{operation}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p95 {{operation}}",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p99 {{operation}}",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Provider operation latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 9},
+      "id": 4,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(yoursay_domain_operations_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range]))",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Calls in selected period",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 9},
+      "id": 5,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(increase(yoursay_domain_errors_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range]))",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Errors in selected period",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 9},
+      "id": 6,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * sum(increase(yoursay_domain_errors_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) / clamp_min(sum(increase(yoursay_domain_operations_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 1)",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Error percentage",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 9},
+      "id": 7,
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (error_code) (increase(yoursay_domain_operations_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\", outcome!=\"success\"}[$__range]))",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top errors",
+      "transformations": [
+        {"id": "sortBy", "options": {"sort": [{"desc": true, "field": "Value"}]}},
+        {"id": "limit", "options": {"limitField": 10}}
+      ],
+      "type": "bargauge"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "id": 8,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+          "id": 9,
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "sum by (outcome, error_code) (rate(yoursay_domain_operations_total{domain=\"unwrapped\", environment=~\"$environment\", operation=\"research_provider\"}[$__rate_interval]))",
+              "legendFormat": "{{outcome}} - {{error_code}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Provider calls by outcome",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+          "id": 10,
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"unwrapped\", environment=~\"$environment\", operation=\"research_provider\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{outcome}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Provider p95 latency",
+          "type": "timeseries"
+        }
+      ],
+      "title": "AI research provider",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15},
+      "id": 11,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "id": 12,
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "sum by (outcome) (rate(yoursay_domain_operations_total{domain=\"unwrapped\", environment=~\"$environment\", operation=\"generation\"}[$__rate_interval]))",
+              "legendFormat": "{{outcome}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Generation job outcomes",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "id": 13,
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(yoursay_domain_job_duration_seconds_bucket{domain=\"unwrapped\", environment=~\"$environment\", operation=\"generation\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{outcome}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Generation job p95 duration",
+          "type": "timeseries"
+        }
+      ],
+      "title": "Background generation jobs",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 16},
+      "id": 14,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 17},
+          "id": 15,
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=\"unwrapped\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} - {{error_code}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Errors per second",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 17},
+          "id": 16,
+          "options": {"showLabels": true, "showTime": true, "wrapLogMessage": true},
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "{service_name=~\"$service\"} |~ \"(?i)unwrapped\" |~ \"(?i)(warn|error|failed)\"",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "Warnings and errors",
+          "type": "logs"
+        }
+      ],
+      "title": "Errors and logs",
+      "type": "row"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["your-say-news", "unwrapped", "ai-provider"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": false, "text": ".*", "value": ".*"},
+        "hide": 0,
+        "label": "Environment",
+        "name": "environment",
+        "options": [],
+        "query": ".*",
+        "type": "textbox"
+      },
+      {
+        "current": {"selected": false, "text": "post-service", "value": "post-service"},
+        "hide": 0,
+        "label": "Service",
+        "name": "service",
+        "options": [],
+        "query": "post-service",
+        "type": "textbox"
+      },
+      {
+        "allValue": ".*",
+        "current": {"selected": true, "text": "All", "value": "$__all"},
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "definition": "label_values(yoursay_domain_operations_total{domain=\"unwrapped\"}, operation)",
+        "includeAll": true,
+        "label": "Operation",
+        "multi": true,
+        "name": "operation",
+        "options": [],
+        "query": {"query": "label_values(yoursay_domain_operations_total{domain=\"unwrapped\"}, operation)", "refId": "VariableQueryEditor-Operation"},
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Your Say News - Unwrapped generation",
+  "uid": "ysn-unwrapped-generation",
+  "version": 1
+}
