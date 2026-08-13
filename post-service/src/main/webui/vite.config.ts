@@ -14,8 +14,7 @@ export function createAdminViteConfig(
       port: adminPort,
       strictPort: true,
       proxy: {
-        "/api/admin/users": adminApiOrigin,
-        "/api/admin/unwrapped": adminApiOrigin,
+        "/api/admin": adminApiOrigin,
       },
     },
     test: {
@@ -25,8 +24,15 @@ export function createAdminViteConfig(
   };
 }
 
-export default defineConfig(({ mode }) => {
-  const environment = loadEnv(mode, ".", "");
+type EnvironmentLoader = typeof loadEnv;
+
+export function resolveAdminViteConfig(
+  { mode }: { mode: string },
+  environmentLoader: EnvironmentLoader = loadEnv
+) {
+  const environment = environmentLoader(mode, ".", "");
   const adminPort = Number(environment.VITE_ADMIN_PORT ?? 8083);
   return createAdminViteConfig(environment.VITE_API_ORIGIN, adminPort);
-});
+}
+
+export default defineConfig(resolveAdminViteConfig);
