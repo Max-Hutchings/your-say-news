@@ -96,7 +96,7 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
             if (enforcePublicationContract && response == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
             }
-            if (draft == null) throw new IllegalArgumentException("UNWRAPPED_DRAFT_MISSING");
+            requireDraftContent(draft);
             List<String> citations = enforcePublicationContract ? citations(response) : List.of();
             if (enforcePublicationContract) validator.validate(request, draft, citations);
             logDraftReceived(draft, citations);
@@ -151,6 +151,14 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     private void requireProviderConfigured() {
         if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_NOT_CONFIGURED");
+        }
+    }
+
+    /** Requires the structured response container, without validating model-written content. */
+    private static void requireDraftContent(UnwrappedResearchDraftV1 draft) {
+        if (draft == null || draft.pages() == null || draft.pages().isEmpty()
+                || draft.pages().stream().allMatch(page -> page == null)) {
+            throw new IllegalArgumentException("UNWRAPPED_DRAFT_MISSING");
         }
     }
 

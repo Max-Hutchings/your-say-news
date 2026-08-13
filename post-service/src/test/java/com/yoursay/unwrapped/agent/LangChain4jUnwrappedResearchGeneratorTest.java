@@ -30,6 +30,8 @@ import jakarta.enterprise.context.control.ActivateRequestContext;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -327,28 +330,115 @@ class LangChain4jUnwrappedResearchGeneratorTest {
     }
 
     @Test
-    void rejectsMalformedDraftsBeforeTheyCanReachPersistence() {
+    void rejectsBenchmarkEntitiesWithoutAnyArgumentPageContent() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        when(aiService.research(anyString(), anyString(), anyString())).thenReturn(
+                new UnwrappedResearchDraftV1(null, List.of()),
+                new UnwrappedResearchDraftV1(List.of(), List.of()),
+                new UnwrappedResearchDraftV1(Collections.singletonList(null), List.of()),
+                new UnwrappedResearchDraftV1(
+                        Collections.nCopies(2, (UnwrappedArgumentDraftV1) null), List.of()));
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                mock(DomainMetrics.class));
+
+        for (int attempt = 0; attempt < 4; attempt++) {
+            IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                    () -> generator.generate(request, "Benchmark prompt"));
+
+            assertEquals("UNWRAPPED_DRAFT_MISSING", failure.getMessage());
+        }
+        verify(aiService, times(4)).research(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void benchmarkAcceptsEntityWithAnyArgumentPageContent() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedArgumentDraftV1 modelPage = new UnwrappedArgumentDraftV1(
+                15L, "Model headline", null,
+                List.of(new UnwrappedArticleParagraphDraftV2("Model paragraph", null)),
+                "Model caveat");
+        List<UnwrappedArgumentDraftV1> leadingNullPages = new ArrayList<>();
+        leadingNullPages.add(null);
+        leadingNullPages.add(modelPage);
+        UnwrappedResearchDraftV1 leadingNullDraft =
+                new UnwrappedResearchDraftV1(leadingNullPages, List.of());
+        List<UnwrappedArgumentDraftV1> trailingNullPages = new ArrayList<>();
+        trailingNullPages.add(modelPage);
+        trailingNullPages.add(null);
+        UnwrappedResearchDraftV1 trailingNullDraft =
+                new UnwrappedResearchDraftV1(trailingNullPages, List.of());
+        List<UnwrappedArgumentDraftV1> surroundingNullPages = new ArrayList<>();
+        surroundingNullPages.add(null);
+        surroundingNullPages.add(modelPage);
+        surroundingNullPages.add(null);
+        UnwrappedResearchDraftV1 surroundingNullDraft =
+                new UnwrappedResearchDraftV1(surroundingNullPages, List.of());
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        when(aiService.research(anyString(), anyString(), anyString()))
+                .thenReturn(leadingNullDraft, trailingNullDraft, surroundingNullDraft);
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                mock(DomainMetrics.class));
+
+        UnwrappedResearchResult leadingNullResult =
+                generator.generate(request, "Benchmark prompt");
+        UnwrappedResearchResult trailingNullResult =
+                generator.generate(request, "Benchmark prompt");
+        UnwrappedResearchResult surroundingNullResult =
+                generator.generate(request, "Benchmark prompt");
+
+        assertSame(leadingNullDraft, leadingNullResult.draft());
+        assertNull(leadingNullResult.draft().pages().getFirst());
+        assertSame(modelPage, leadingNullResult.draft().pages().get(1));
+        assertSame(trailingNullDraft, trailingNullResult.draft());
+        assertSame(modelPage, trailingNullResult.draft().pages().getFirst());
+        assertNull(trailingNullResult.draft().pages().get(1));
+        assertSame(surroundingNullDraft, surroundingNullResult.draft());
+        assertNull(surroundingNullResult.draft().pages().getFirst());
+        assertSame(modelPage, surroundingNullResult.draft().pages().get(1));
+        assertNull(surroundingNullResult.draft().pages().get(2));
+    }
+
+    @Test
+    void rejectsMissingDraftContentBeforeItCanReachPublicationValidation() {
         UnwrappedResearchRequest request = requestWithoutCohorts();
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
         UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
         ChatResponse response = responseWithCitation("https://www.ons.gov.uk/benchmark");
+        List<UnwrappedResearchDraftV1> missingDrafts = new ArrayList<>();
+        missingDrafts.add(null);
+        missingDrafts.add(new UnwrappedResearchDraftV1(null, List.of()));
+        missingDrafts.add(new UnwrappedResearchDraftV1(List.of(), List.of()));
+        missingDrafts.add(new UnwrappedResearchDraftV1(
+                Collections.singletonList(null), List.of()));
+        missingDrafts.add(new UnwrappedResearchDraftV1(
+                Collections.nCopies(2, (UnwrappedArgumentDraftV1) null), List.of()));
+        var missingDraftIterator = missingDrafts.iterator();
         when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
             capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
                     ModelProvider.OPEN_AI, new HashMap<>()));
-            return new UnwrappedResearchDraftV1(null, null);
+            return missingDraftIterator.next();
         });
         DomainMetrics metrics = mock(DomainMetrics.class);
+        UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                 aiService, capture, new ObjectMapper(), metrics);
+        generator.validator = validator;
 
-        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
-                () -> generator.generate(request));
+        for (int attempt = 0; attempt < 5; attempt++) {
+            IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                    () -> generator.generate(request));
 
-        assertEquals("UNWRAPPED_OPTION_PAGE_COUNT", failure.getMessage());
-        verify(metrics).recordOperation(eq("unwrapped"), eq("research_provider"),
+            assertEquals("UNWRAPPED_DRAFT_MISSING", failure.getMessage());
+        }
+        verifyNoInteractions(validator);
+        verify(metrics, times(5)).recordOperation(eq("unwrapped"), eq("research_provider"),
                 eq("dependency_error"), eq("provider_contract"),
-                eq("UNWRAPPED_OPTION_PAGE_COUNT"),
+                eq("UNWRAPPED_DRAFT_MISSING"),
                 org.mockito.ArgumentMatchers.anyLong());
+        verifyNoMoreInteractions(metrics);
     }
 
     @Test
