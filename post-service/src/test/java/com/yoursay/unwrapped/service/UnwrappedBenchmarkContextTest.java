@@ -77,6 +77,15 @@ class UnwrappedBenchmarkContextTest {
         assertTrue(context.outputInstructions().contains(
                         "- Headlines must be catchy, 6 to 18 words,"),
                 context.outputInstructions());
+        // Group headings were accidentally removed by the safety prompt rewrite in b10a75a.
+        // Pin both the rule and the Markdown shape because the web and mobile renderers depend on it.
+        assertTrue(context.outputInstructions().contains(
+                        "- Start each selected characteristic group's explanation with its exact supplied"
+                                + " `displayName` in bold on its own line."),
+                context.outputInstructions());
+        assertTrue(context.outputInstructions().contains(
+                        "**People aged 18 to 24**\n\nCompared with older adults"),
+                context.outputInstructions());
         assertEquals(objectMapper.readTree(EXPECTED_INPUT_JSON).toString(),
                 context.input().toString());
     }
