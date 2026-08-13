@@ -5,7 +5,7 @@ Date: 2026-08-09
 ## Situation
 
 The MVP1 feed (`GET /feed`, `com.yoursay.feed`) works, and the `FeedRanker` seam that ADR-021 and
-`docs/feed-ranking.md` set up is the right shape — a pure ordering function that a real recommender
+`../docs/plans/feed-ranking.md` set up is the right shape — a pure ordering function that a real recommender
 can replace later. The layer **underneath** that seam is not enterprise-standard, and four defects
 compound on every single feed request:
 
@@ -116,4 +116,4 @@ have the read traffic or the ranking signals to justify one.
 - **A malformed or truncated cursor is rejected with 400**, not silently treated as the first page,
   so a client bug surfaces instead of quietly restarting the reader's feed.
 - Follow-up, not in scope here: recording impressions for repeat suppression, and the category feed
-  — both already specified as Stage 6 in `docs/feed-ranking.md`.
+  — both already specified as Stage 6 in `../docs/plans/feed-ranking.md`.

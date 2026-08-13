@@ -25,11 +25,11 @@ inside the two existing services, not standalone services.
   near-mechanical package move** — the boundary is already enforced in code.
 - **`votes` stays with `posts`** because votes are cast on local post content and the privacy
   boundary is enforced at the **domain** layer: each vote carries an anonymised
-  `CharacteristicSnapshot` (see [vote-aggregation.md](./vote-aggregation.md)), so aggregation never
+  `CharacteristicSnapshot` (see [vote-aggregation.md](plans/vote-aggregation.md)), so aggregation never
   query-time cross-joins into `user-service`. A service hop would add nothing here.
 - **`feed` stays with `posts`** because it ranks local post content. It calls `user-service` for the
   `social` follow graph via the existing rest-client pattern; the ranker is swappable behind an
-  interface (see [feed-ranking.md](./feed-ranking.md)).
+  interface (see [feed-ranking.md](plans/feed-ranking.md)).
 - **`topics` stays with `posts`** because it classifies and indexes local post content, owns private
   user topic interests, then supplies canonical signals to `feed`. Its public interface
   keeps those records separate from both post persistence and aggregate-only user characteristics.
