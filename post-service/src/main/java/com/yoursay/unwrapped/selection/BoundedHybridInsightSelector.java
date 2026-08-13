@@ -25,7 +25,19 @@ public class BoundedHybridInsightSelector implements InsightSelectionService {
             Set.of("ageRange", "occupation"),
             Set.of("ageRange", "employmentSector"),
             Set.of("personalIncomeRange", "gender"),
-            Set.of("politicalPersuasion", "personalIncomeRange"));
+            Set.of("politicalPersuasion", "personalIncomeRange"),
+            Set.of("householdIncomeRange", "gender"),
+            Set.of("ageRange", "personalIncomeRange"),
+            Set.of("ageRange", "householdIncomeRange"),
+            Set.of("politicalPersuasion", "ageRange"),
+            Set.of("politicalPersuasion", "gender"),
+            Set.of("politicalPersuasion", "householdIncomeRange"),
+            Set.of("gender", "occupation"),
+            Set.of("gender", "employmentSector"),
+            Set.of("region", "householdIncomeRange"),
+            Set.of("region", "employmentSector"),
+            Set.of("urbanRural", "householdIncomeRange"),
+            Set.of("region", "urbanRural"));
     private static final List<String> NARRATIVE_INSTRUCTIONS = List.of(
             "Explain why a selected cohort is likely to favour the option using researched context.",
             "Do not claim direct knowledge of every individual voter's private motivation.",

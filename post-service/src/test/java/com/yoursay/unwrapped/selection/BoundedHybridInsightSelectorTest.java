@@ -174,13 +174,19 @@ class BoundedHybridInsightSelectorTest {
                 List.of(new CohortDimensionV1("gender", "MAN"),
                         new CohortDimensionV1("religion", "CHRISTIANITY")),
                 MembershipSemantics.EXCLUSIVE, 40, 25, 0.001);
+        CohortAggregateV1 ungovernedCorePair = intersection(
+                "ageRange=AGE_25_34&region=LONDON",
+                List.of(new CohortDimensionV1("ageRange", "AGE_25_34"),
+                        new CohortDimensionV1("region", "LONDON")),
+                MembershipSemantics.EXCLUSIVE, 40, 25, 0.001);
         CohortAggregateV1 overlapping = intersection(
                 "ageRange=AGE_25_34&gender=MAN",
                 List.of(new CohortDimensionV1("ageRange", "AGE_25_34"),
                         new CohortDimensionV1("gender", "MAN")),
                 MembershipSemantics.MULTI_MEMBERSHIP, 40, 25, 0.001);
 
-        OptionBriefV1 option = selector.select(aggregate(100, List.of(ungoverned, overlapping)))
+        OptionBriefV1 option = selector.select(aggregate(100,
+                        List.of(ungoverned, ungovernedCorePair, overlapping)))
                 .options().getFirst();
 
         assertEquals(List.of(), option.candidates());
@@ -205,6 +211,42 @@ class BoundedHybridInsightSelectorTest {
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("politicalPersuasion", "CENTRE_LEFT"),
                 new CohortDimensionV1("personalIncomeRange", "V2_TIER_3")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4"),
+                new CohortDimensionV1("gender", "WOMAN")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("ageRange", "AGE_25_34"),
+                new CohortDimensionV1("personalIncomeRange", "V2_TIER_3")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("ageRange", "AGE_25_34"),
+                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("politicalPersuasion", "CENTRE_LEFT"),
+                new CohortDimensionV1("ageRange", "AGE_25_34")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("politicalPersuasion", "CENTRE_LEFT"),
+                new CohortDimensionV1("gender", "WOMAN")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("politicalPersuasion", "CENTRE_LEFT"),
+                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("gender", "WOMAN"),
+                new CohortDimensionV1("occupation", "EMPLOYED")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("gender", "WOMAN"),
+                new CohortDimensionV1("employmentSector", "TECHNOLOGY")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("region", "LONDON"),
+                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("region", "LONDON"),
+                new CohortDimensionV1("employmentSector", "TECHNOLOGY")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("urbanRural", "URBAN"),
+                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4")));
+        assertAllowlistedIntersection(List.of(
+                new CohortDimensionV1("region", "LONDON"),
+                new CohortDimensionV1("urbanRural", "URBAN")));
 
         OptionBriefV1 sensitiveSingle = selector.select(aggregate(100, List.of(
                 cohort("religion=CHRISTIANITY", "religion", "CHRISTIANITY", 40, 25, 0.001))))

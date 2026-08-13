@@ -70,7 +70,7 @@ public class UnwrappedStory extends PanacheEntityBase {
         this.storySchemaVersion = STORY_SCHEMA_VERSION;
         this.analysisVersion = job.getAnalysisVersion();
         this.promptVersion = PROMPT_VERSION;
-        this.ruleSetVersion = "cohort-rules-v1";
+        this.ruleSetVersion = "cohort-rules-v2";
         this.model = model;
         this.storyJson = storyJson;
         this.reviewStatus = UnwrappedReviewStatus.DRAFT;
@@ -82,6 +82,7 @@ public class UnwrappedStory extends PanacheEntityBase {
     public Integer getMilestone() { return milestone; }
     public long getCanonicalVoteCount() { return canonicalVoteCount; }
     public String getAggregateVersion() { return aggregateVersion; }
+    public String getRuleSetVersion() { return ruleSetVersion; }
     public String getStorySchemaVersion() { return storySchemaVersion; }
     public JsonNode getStoryJson() { return storyJson; }
     public UnwrappedReviewStatus getReviewStatus() { return reviewStatus; }

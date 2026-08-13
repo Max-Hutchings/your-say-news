@@ -25,7 +25,7 @@ import java.util.Set;
 @ApplicationScoped
 public class PostAnalysisAggregateBuilder {
     public static final String SCHEMA_VERSION = "post-analysis-aggregate-v1";
-    public static final String RULE_SET_VERSION = "cohort-rules-v1";
+    public static final String RULE_SET_VERSION = "cohort-rules-v2";
 
     /**
      * Every retained reportable characteristic except the four news-habit answers. Inclusion here
@@ -45,7 +45,19 @@ public class PostAnalysisAggregateBuilder {
             List.of("ageRange", "occupation"),
             List.of("ageRange", "employmentSector"),
             List.of("personalIncomeRange", "gender"),
-            List.of("politicalPersuasion", "personalIncomeRange"));
+            List.of("politicalPersuasion", "personalIncomeRange"),
+            List.of("householdIncomeRange", "gender"),
+            List.of("ageRange", "personalIncomeRange"),
+            List.of("ageRange", "householdIncomeRange"),
+            List.of("politicalPersuasion", "ageRange"),
+            List.of("politicalPersuasion", "gender"),
+            List.of("politicalPersuasion", "householdIncomeRange"),
+            List.of("gender", "occupation"),
+            List.of("gender", "employmentSector"),
+            List.of("region", "householdIncomeRange"),
+            List.of("region", "employmentSector"),
+            List.of("urbanRural", "householdIncomeRange"),
+            List.of("region", "urbanRural"));
 
     public PostAnalysisAggregateV1 build(PostVotingConfigurationDto post, List<VoteSnapshot> votes,
                                          int suppressBelow, Instant capturedAt) {

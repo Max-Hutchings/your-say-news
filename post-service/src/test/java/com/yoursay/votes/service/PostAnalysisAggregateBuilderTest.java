@@ -111,6 +111,25 @@ class PostAnalysisAggregateBuilderTest {
 
     @Test
     void computesExactCompositionPropensityOverIndexAndIntersectionStatistics() {
+        assertEquals(List.of(
+                        List.of("ageRange", "gender"),
+                        List.of("ageRange", "occupation"),
+                        List.of("ageRange", "employmentSector"),
+                        List.of("personalIncomeRange", "gender"),
+                        List.of("politicalPersuasion", "personalIncomeRange"),
+                        List.of("householdIncomeRange", "gender"),
+                        List.of("ageRange", "personalIncomeRange"),
+                        List.of("ageRange", "householdIncomeRange"),
+                        List.of("politicalPersuasion", "ageRange"),
+                        List.of("politicalPersuasion", "gender"),
+                        List.of("politicalPersuasion", "householdIncomeRange"),
+                        List.of("gender", "occupation"),
+                        List.of("gender", "employmentSector"),
+                        List.of("region", "householdIncomeRange"),
+                        List.of("region", "employmentSector"),
+                        List.of("urbanRural", "householdIncomeRange"),
+                        List.of("region", "urbanRural")),
+                PostAnalysisAggregateBuilder.INTERSECTION_AXES);
         PostAnalysisAggregateV1 aggregate = builder.build(post(), strongFixture(), 0, CAPTURED);
 
         assertEquals(200, aggregate.canonicalVoteCount());
@@ -134,7 +153,7 @@ class PostAnalysisAggregateBuilderTest {
         assertEquals("TWO_PROPORTION_Z", support.statisticalTest());
         assertTrue(support.adjustedQValue() > support.rawPValue(),
                 "multiple-comparison correction must not return the raw p-value unchanged");
-        assertEquals(5.3006728149642054E-8, support.adjustedQValue(), 1E-18);
+        assertEquals(5.113790119564827E-8, support.adjustedQValue(), 1E-18);
         OptionStatisticV1 oppose = option(youngMen, 102L);
         assertEquals(4, oppose.count());
         assertEquals(10.0, oppose.percentage(), 0.000001);
@@ -143,24 +162,36 @@ class PostAnalysisAggregateBuilderTest {
         assertEquals(-50.0, oppose.differenceFromRestPercentagePoints(), 0.000001);
         assertEquals(3.96, oppose.wilson95Low(), 0.01);
         assertEquals(23.05, oppose.wilson95High(), 0.01);
-        assertEquals(5.3006728149642054E-8, oppose.adjustedQValue(), 1E-18);
+        assertEquals(5.113790119564827E-8, oppose.adjustedQValue(), 1E-18);
         List<CohortAggregateV1> intersections = aggregate.cohorts().stream()
                 .filter(cohort -> cohort.dimensions().size() == 2)
                 .toList();
-        assertEquals(11, intersections.size());
+        assertEquals(30, intersections.size());
         assertEquals(Set.of(
                         Set.of("ageRange", "gender"),
                         Set.of("ageRange", "occupation"),
                         Set.of("ageRange", "employmentSector"),
                         Set.of("personalIncomeRange", "gender"),
-                        Set.of("politicalPersuasion", "personalIncomeRange")),
+                        Set.of("politicalPersuasion", "personalIncomeRange"),
+                        Set.of("householdIncomeRange", "gender"),
+                        Set.of("ageRange", "personalIncomeRange"),
+                        Set.of("ageRange", "householdIncomeRange"),
+                        Set.of("politicalPersuasion", "ageRange"),
+                        Set.of("politicalPersuasion", "gender"),
+                        Set.of("politicalPersuasion", "householdIncomeRange"),
+                        Set.of("gender", "occupation"),
+                        Set.of("gender", "employmentSector"),
+                        Set.of("region", "householdIncomeRange"),
+                        Set.of("region", "employmentSector"),
+                        Set.of("urbanRural", "householdIncomeRange"),
+                        Set.of("region", "urbanRural")),
                 intersections.stream()
                         .map(cohort -> cohort.dimensions().stream()
                                 .map(dimension -> dimension.axis())
                                 .collect(Collectors.toSet()))
                         .collect(Collectors.toSet()));
-        assertEquals(48, aggregate.metadata().testedComparisons());
-        assertEquals("cohort-rules-v1", aggregate.metadata().ruleSetVersion());
+        assertEquals(86, aggregate.metadata().testedComparisons());
+        assertEquals("cohort-rules-v2", aggregate.metadata().ruleSetVersion());
         assertEquals(100, aggregate.metadata().minimumOverallSample());
         assertEquals(30, aggregate.metadata().minimumCohortSample());
         assertEquals(40, aggregate.metadata().minimumIntersectionSample());
@@ -197,7 +228,8 @@ class PostAnalysisAggregateBuilderTest {
                 aggregate.overall().stream().map(value -> value.count()).toList());
         assertTrue(aggregate.cohorts().stream()
                 .noneMatch(value -> value.cohortId().startsWith("ageRange=")));
-        assertEquals(16, aggregate.metadata().suppressedCohorts());
+        assertEquals(2, cohort(aggregate, "country=GB").sampleSize());
+        assertEquals(32, aggregate.metadata().suppressedCohorts());
     }
 
     @Test

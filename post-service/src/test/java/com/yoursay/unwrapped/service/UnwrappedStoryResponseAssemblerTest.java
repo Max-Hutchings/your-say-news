@@ -97,6 +97,7 @@ class UnwrappedStoryResponseAssemblerTest {
                 new UnwrappedAnalysisJob(44L, 100, UnwrappedStory.ANALYSIS_VERSION);
         job.attachAggregate(128L, "sha256:public-contract", objectMapper.createObjectNode());
         UnwrappedStory story = new UnwrappedStory(job, objectMapper.valueToTree(draft), "configured-model");
+        assertEquals("cohort-rules-v2", story.getRuleSetVersion());
         PostVotingConfigurationService posts = mock(PostVotingConfigurationService.class);
         when(posts.findByPostId(44L)).thenReturn(Optional.of(new PostVotingConfigurationDto(
                 44L, VotingType.BINARY, List.of(
@@ -111,6 +112,10 @@ class UnwrappedStoryResponseAssemblerTest {
         JsonNode firstPage = json.path("argumentPages").get(0);
         JsonNode firstParagraph = firstPage.path("paragraphs").get(0);
 
+        assertEquals(Set.of("schemaVersion", "storyId", "postId", "milestone",
+                "canonicalVoteCount", "aggregateVersion", "generatedAt", "model",
+                "argumentPages", "reconsiderationQuestion", "reconsiderationOptions"),
+                fieldNames(json));
         assertEquals("unwrapped-story-v2", json.path("schemaVersion").asText());
         assertEquals(Set.of("optionId", "headline", "selectedCohortIds", "paragraphs",
                 "caveat", "sources"), fieldNames(firstPage));
