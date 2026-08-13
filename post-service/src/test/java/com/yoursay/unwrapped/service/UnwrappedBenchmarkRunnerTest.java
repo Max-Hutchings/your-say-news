@@ -7,6 +7,7 @@ import com.yoursay.unwrapped.SourceClassification;
 import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
 import com.yoursay.unwrapped.dto.UnwrappedBenchmarkStatus;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkVariantDto;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import org.junit.jupiter.api.Test;
@@ -123,6 +124,48 @@ class UnwrappedBenchmarkRunnerTest {
         assertEquals(1, failure.attemptCount());
         assertEquals("Write a concise researched comparison.", failure.effectiveSystemPrompt());
         verify(generator).generate(request, "Write a concise researched comparison.");
+    }
+
+    @Test
+    void displaysModelFieldsEvenWhenTheyBreakThePublicationContract() {
+        UnwrappedResearchPreparation preparation = mock(UnwrappedResearchPreparation.class);
+        UnwrappedResearchGenerator generator = mock(UnwrappedResearchGenerator.class);
+        UnwrappedResearchRequest request = mock(UnwrappedResearchRequest.class);
+        UnwrappedResearchDraftV1 uncheckedDraft = new UnwrappedResearchDraftV1(
+                List.of(new UnwrappedArgumentDraftV1(
+                        999L, "Short", null,
+                        List.of(
+                                new UnwrappedArticleParagraphDraftV2(
+                                        "Exactly as returned.", List.of("missing-source")),
+                                new UnwrappedArticleParagraphDraftV2(
+                                        "No source ids were returned.", null)),
+                        "Different caveat")),
+                null);
+        when(preparation.prepare(42L)).thenReturn(
+                new UnwrappedResearchPreparation.PreparedResearch(null, request));
+        when(generator.generate(request, "Benchmark prompt")).thenReturn(
+                new UnwrappedResearchResult(
+                        uncheckedDraft, List.of(), "model-a", "response-a"));
+        UnwrappedBenchmarkRunner runner = new UnwrappedBenchmarkRunner();
+        runner.preparation = preparation;
+        runner.generator = generator;
+
+        UnwrappedBenchmarkVariantDto variant = runner.run(
+                42L, List.of("Benchmark prompt")).getFirst();
+
+        assertEquals(UnwrappedBenchmarkStatus.SUCCEEDED, variant.status());
+        assertEquals(999L, variant.argumentPages().getFirst().optionId());
+        assertEquals("Short", variant.argumentPages().getFirst().headline());
+        assertEquals(List.of(), variant.argumentPages().getFirst().selectedCohortIds());
+        assertEquals(List.of("Exactly as returned.", "No source ids were returned."),
+                variant.argumentPages().getFirst().paragraphs().stream()
+                        .map(UnwrappedArticleParagraphDraftV2::text).toList());
+        assertEquals(List.of("missing-source"), variant.argumentPages().getFirst().paragraphs()
+                .getFirst().sourceIds());
+        assertEquals(List.of(), variant.argumentPages().getFirst().paragraphs()
+                .getLast().sourceIds());
+        assertEquals(List.of(), variant.argumentPages().getFirst().sources());
+        assertEquals("Different caveat", variant.argumentPages().getFirst().caveat());
     }
 
     @Test

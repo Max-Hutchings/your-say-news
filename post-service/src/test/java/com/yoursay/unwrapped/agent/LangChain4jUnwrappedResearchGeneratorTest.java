@@ -251,6 +251,59 @@ class LangChain4jUnwrappedResearchGeneratorTest {
     }
 
     @Test
+    void benchmarkReturnsTheStructuredModelDraftWithoutValidationOrCitationMetadata() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchDraftV1 modelDraft = new UnwrappedResearchDraftV1(
+                List.of(new UnwrappedArgumentDraftV1(
+                        999L, "Short", null,
+                        List.of(new UnwrappedArticleParagraphDraftV2(
+                                "The model returned this unchanged.", null)),
+                        "A model-written caveat.")),
+                List.of());
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse responseWithoutCitations = response("{}", "provider-grok-4.5");
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(
+                    responseWithoutCitations, mock(ChatRequest.class), ModelProvider.OPEN_AI,
+                    new HashMap<>()));
+            return modelDraft;
+        });
+        UnwrappedDraftValidator validator = mock(UnwrappedDraftValidator.class);
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
+        generator.validator = validator;
+
+        UnwrappedResearchResult result = generator.generate(request, "Benchmark prompt");
+
+        assertSame(modelDraft, result.draft());
+        assertEquals(List.of(), result.providerCitations());
+        assertEquals("provider-grok-4.5", result.model());
+        assertEquals("response-42", result.providerResponseId());
+        verifyNoInteractions(validator);
+    }
+
+    @Test
+    void benchmarkDoesNotRequireCapturedProviderMetadata() {
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchDraftV1 modelDraft = validDraft(
+                request, "https://www.ons.gov.uk/model-source");
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        when(aiService.research(anyString(), anyString(), anyString())).thenReturn(modelDraft);
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                mock(DomainMetrics.class));
+        generator.configuredModel = "configured-grok-model";
+
+        UnwrappedResearchResult result = generator.generate(request, "Benchmark prompt");
+
+        assertSame(modelDraft, result.draft());
+        assertEquals(List.of(), result.providerCitations());
+        assertEquals("configured-grok-model", result.model());
+        assertNull(result.providerResponseId());
+    }
+
+    @Test
     void classifiesANullStructuredDraftAsRetryableDraftFailure() {
         UnwrappedResearchRequest request = requestWithoutCohorts();
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);

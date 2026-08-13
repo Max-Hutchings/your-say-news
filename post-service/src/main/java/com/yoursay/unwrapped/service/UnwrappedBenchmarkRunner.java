@@ -47,7 +47,8 @@ class UnwrappedBenchmarkRunner {
                     position, systemPrompt, systemPrompt, 1,
                     UnwrappedBenchmarkStatus.SUCCEEDED,
                     result.model(), result.providerResponseId(),
-                    UnwrappedStoryResponseAssembler.argumentPages(result.draft()), null, null);
+                    UnwrappedStoryResponseAssembler.benchmarkArgumentPages(result.draft()),
+                    null, null);
         } catch (RuntimeException failure) {
             String code = errorCode(failure);
             return new UnwrappedBenchmarkVariantDto(

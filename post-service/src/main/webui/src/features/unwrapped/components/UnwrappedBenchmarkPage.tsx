@@ -251,7 +251,7 @@ export function UnwrappedBenchmarkPage({ post, onBack }: UnwrappedBenchmarkPageP
                     <div className="benchmark-result__waiting" aria-live="polite">
                       <span />
                       <strong>Generating comparison {LANE_NAMES[index]}…</strong>
-                      <p>Researching, writing and checking every citation.</p>
+                      <p>Researching and writing the model response.</p>
                     </div>
                   ) : !variant ? (
                     <div className="benchmark-result__empty">

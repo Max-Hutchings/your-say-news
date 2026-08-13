@@ -54,15 +54,24 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
 
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request) {
-        return generate(request, null);
+        return generate(request, null, true);
     }
 
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request, String systemPrompt) {
+        return generate(request, systemPrompt, false);
+    }
+
+    private UnwrappedResearchResult generate(
+            UnwrappedResearchRequest request,
+            String systemPrompt,
+            boolean enforcePublicationContract
+    ) {
         if (stubbed) return stubbedResult(request);
         long started = System.nanoTime();
         try {
-            UnwrappedResearchResult result = generateWithProvider(request, systemPrompt);
+            UnwrappedResearchResult result = generateWithProvider(
+                    request, systemPrompt, enforcePublicationContract);
             metrics.recordOperation("unwrapped", "research_provider",
                     "success", "none", "none", System.nanoTime() - started);
             return result;
@@ -74,7 +83,8 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
 
     private UnwrappedResearchResult generateWithProvider(
             UnwrappedResearchRequest request,
-            String systemPrompt
+            String systemPrompt,
+            boolean enforcePublicationContract
     ) {
         requireProviderConfigured();
         responseCapture.begin();
@@ -83,15 +93,18 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
             // The capture holds the raw provider response, which carries the citations and the
             // model actually used — neither is available on the deserialised draft.
             ChatResponse response = responseCapture.take();
-            if (response == null) {
+            if (enforcePublicationContract && response == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
             }
             if (draft == null) throw new IllegalArgumentException("UNWRAPPED_DRAFT_MISSING");
-            List<String> citations = citations(response);
-            validator.validate(request, draft, citations);
+            List<String> citations = enforcePublicationContract ? citations(response) : List.of();
+            if (enforcePublicationContract) validator.validate(request, draft, citations);
             logDraftReceived(draft, citations);
             return new UnwrappedResearchResult(draft, citations,
-                    valueOr(response.modelName(), configuredModel), response.id());
+                    response == null
+                            ? configuredModel
+                            : valueOr(response.modelName(), configuredModel),
+                    response == null ? null : response.id());
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
@@ -162,7 +175,7 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     ) {
         Log.infof("Unwrapped research completed: domain=unwrapped operation=research_provider "
                         + "outcome=success pages=%d citations=%d",
-                draft.pages().size(), citations.size());
+                draft.pages() == null ? 0 : draft.pages().size(), citations.size());
     }
 
     private static List<Long> optionIds(UnwrappedResearchRequest request) {

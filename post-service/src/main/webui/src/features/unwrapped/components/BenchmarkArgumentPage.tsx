@@ -17,7 +17,7 @@ export function BenchmarkArgumentPage({ page, optionLabel }: BenchmarkArgumentPa
       <div className="benchmark-argument__copy">
         {page.paragraphs.map((paragraph, paragraphIndex) => (
           <div key={`${page.optionId}-${paragraphIndex}`}>
-            <UnwrappedMarkdown text={paragraph.text} />
+            <UnwrappedMarkdown text={paragraph.text ?? ""} />
             <small>
               {paragraph.sourceIds.map((id) => `[${sourceIds.indexOf(id) + 1}]`).join(" ")}
             </small>
@@ -32,7 +32,10 @@ export function BenchmarkArgumentPage({ page, optionLabel }: BenchmarkArgumentPa
               <span>{String(sourceIndex + 1).padStart(2, "0")}</span>
               <div>
                 <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
-                <small>{source.publisher} · {source.classification.replace("_", " ")}</small>
+                <small>
+                  {source.publisher ?? "Unknown publisher"} · {source.classification?.replace("_", " ")
+                    ?? "UNCLASSIFIED"}
+                </small>
               </div>
             </li>
           ))}
