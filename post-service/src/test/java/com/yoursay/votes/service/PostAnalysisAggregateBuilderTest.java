@@ -25,6 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PostAnalysisAggregateBuilderTest {
     private static final Instant CAPTURED = Instant.parse("2026-07-25T12:00:00Z");
+    private static final String PERSONAL_INCOME_TIER_3 =
+            "income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_3";
+    private static final String HOUSEHOLD_INCOME_TIER_4 =
+            "income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_4";
     private static final List<VoteOptionDto> OPTIONS = List.of(
             new VoteOptionDto(102L, "Keep public services funded", 1, null),
             new VoteOptionDto(101L, "Reduce public spending", 0, null));
@@ -65,8 +69,8 @@ class PostAnalysisAggregateBuilderTest {
                 Map.entry("country", "GB"),
                 Map.entry("region", "LONDON"),
                 Map.entry("urbanRural", "URBAN"),
-                Map.entry("personalIncomeRange", "V2_TIER_3"),
-                Map.entry("householdIncomeRange", "V2_TIER_4"),
+                Map.entry("personalIncomeRange", PERSONAL_INCOME_TIER_3),
+                Map.entry("householdIncomeRange", HOUSEHOLD_INCOME_TIER_4),
                 Map.entry("education", "MASTERS"),
                 Map.entry("occupation", "EMPLOYED_FULL_TIME"),
                 Map.entry("employmentSector", "IT_TECHNOLOGY"),
@@ -299,8 +303,8 @@ class PostAnalysisAggregateBuilderTest {
                 empty.maritalStatus(), races.isEmpty() ? null : String.join("+", races),
                 "GB", "LONDON", "URBAN", empty.ukCounty(), empty.countryOfBirth(),
                 empty.citizenship(), empty.religion(), empty.religiosity(), "DEGREE",
-                "EMPLOYED", "TECHNOLOGY", empty.universitySubject(), "GBP_50_75",
-                "GBP_75_100", empty.height(), empty.weightRange(), empty.eyeColor(), empty.parent(),
+                "EMPLOYED", "TECHNOLOGY", empty.universitySubject(), PERSONAL_INCOME_TIER_3,
+                HOUSEHOLD_INCOME_TIER_4, empty.height(), empty.weightRange(), empty.eyeColor(), empty.parent(),
                 "6_8", empty.hasPet(), empty.petType(), empty.chronotype(), empty.outlook(),
                 empty.neurodivergent(), empty.neurodivergenceType(), empty.hasDisability(),
                 empty.disabilityType(), empty.housingStatus(), empty.propertyType(),
@@ -312,8 +316,8 @@ class PostAnalysisAggregateBuilderTest {
                 "CENTRE", "AGE_25_34", "WOMAN", "FEMALE", "BISEXUAL", "MARRIED",
                 "EAST_ASIAN", "GB", "LONDON", "URBAN", "GREATER_LONDON", "INDIA",
                 "BRITISH", "HINDU", "SOMEWHAT_IMPORTANT", "MASTERS",
-                "EMPLOYED_FULL_TIME", "IT_TECHNOLOGY", "COMPUTER_SCIENCE", "V2_TIER_3",
-                "V2_TIER_4", "CM_160_169", "KG_60_69", "BROWN",
+                "EMPLOYED_FULL_TIME", "IT_TECHNOLOGY", "COMPUTER_SCIENCE", PERSONAL_INCOME_TIER_3,
+                HOUSEHOLD_INCOME_TIER_4, "CM_160_169", "KG_60_69", "BROWN",
                 "PARENT_CAREGIVER_UNDER_18", "6_8", "true", "DOG", "NIGHT_OWL",
                 "OPTIMIST", "true", "ADHD", "true", "HEARING", "OWN_MORTGAGE",
                 "FLAT_APARTMENT", List.of("EAST_ASIAN"), List.of("BRITISH"),

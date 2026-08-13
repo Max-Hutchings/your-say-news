@@ -40,8 +40,8 @@ public final class CharacteristicSnapshotMapper {
                 view.occupation(),
                 view.employmentSector(),
                 view.universitySubject(),
-                incomeBucket(view.income(), "PERSONAL", view.personalIncomeRange()),
-                incomeBucket(view.income(), "HOUSEHOLD", view.householdIncomeRange()),
+                incomeBucket(view.income(), "PERSONAL"),
+                incomeBucket(view.income(), "HOUSEHOLD"),
                 view.height(),
                 view.weightRange(),
                 view.eyeColor(),
@@ -69,13 +69,13 @@ public final class CharacteristicSnapshotMapper {
         );
     }
 
-    private static String incomeBucket(IncomeAnswerDto income, String measure, String legacyRange) {
-        if (income != null) {
-            String bandId = "PERSONAL".equals(measure)
-                    ? income.personalBandId() : income.householdBandId();
-            return "income|" + income.profileId() + "|" + measure + "|" + bandId;
+    private static String incomeBucket(IncomeAnswerDto income, String measure) {
+        if (income == null) {
+            return null;
         }
-        return legacyRange == null ? null : "LEGACY_" + legacyRange;
+        String bandId = "PERSONAL".equals(measure)
+                ? income.personalBandId() : income.householdBandId();
+        return "income|" + income.profileId() + "|" + measure + "|" + bandId;
     }
 
     private static IncomeRangeSnapshot incomeSnapshot(

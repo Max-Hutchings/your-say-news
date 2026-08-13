@@ -121,7 +121,13 @@ identity, characteristics and published reporting.
 - Extend vote snapshots so local profile and band identities survive vote-time freezing.
 - Extend direct result DTOs and Unwrapped candidate context with resolved, structured display data.
 - Keep legacy income answers isolated. Do not infer a country, currency or normalized tier for
-  legacy rows.
+  legacy rows. New vote snapshots omit legacy income enums and report income as unknown until the
+  characteristic answer is upgraded to a valid country profile.
+- Enforce versioned income snapshot structure in the vote database. A stored income bucket must
+  match its structured profile, measure, band and relative tier; tier-only or inconsistent values
+  are rejected rather than displayed with a fallback label.
+- Treat unresolved aggregate income buckets as data-integrity failures. Direct results and Post
+  Unwrapped must never invent a monetary label from a bare tier.
 - Apply minimum cohort suppression before resolving or returning income labels.
 - ADR-031 remains authoritative for market-informed ranges, source quality and no exact-income
   collection. This ADR supersedes only its packaged-resource implementation direction.

@@ -109,13 +109,12 @@ final class CohortDisplayNames {
     }
 
     private static String income(CohortDimensionV1 dimension, String measure) {
-        if (dimension.income() != null) {
-            return "People with annual " + measure + " income of " + dimension.income().label()
-                    + " in " + marketWithArticle(dimension.income().marketLabel());
+        if (dimension.income() == null) {
+            throw new IllegalStateException(
+                    "Income cohort is missing its resolved country-specific range");
         }
-        String bucket = dimension.bucket();
-        return "People in " + measure + " income "
-                + lowerFirst(title(bucket.startsWith("V2_") ? bucket.substring(3) : bucket));
+        return "People with annual " + measure + " income of " + dimension.income().label()
+                + " in " + marketWithArticle(dimension.income().marketLabel());
     }
 
     private static String marketWithArticle(String market) {

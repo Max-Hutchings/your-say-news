@@ -296,8 +296,8 @@ profiles AS (
             WHEN 6 THEN 'MEDICINE'
             ELSE NULL
         END AS university_subject,
-        'V2_TIER_' || ((series.n % 7) + 1) AS personal_income_range,
-        'V2_TIER_' || (((series.n + 2) % 7) + 1) AS household_income_range,
+        ((series.n % 7) + 1) AS personal_income_tier,
+        (((series.n + 2) % 7) + 1) AS household_income_tier,
         CASE series.n % 8
             WHEN 0 THEN 'FEET_4_10_TO_5_0'
             WHEN 1 THEN 'FEET_5_1_TO_5_3'
@@ -415,11 +415,11 @@ selected_options AS (
                                  WHEN 'RIGHT' THEN 10
                                  ELSE 0
                                END
-                             + CASE personal_income_range
-                                 WHEN 'V2_TIER_1' THEN -6
-                                 WHEN 'V2_TIER_2' THEN -4
-                                 WHEN 'V2_TIER_6' THEN 4
-                                 WHEN 'V2_TIER_7' THEN 6
+                             + CASE personal_income_tier
+                                 WHEN 1 THEN -6
+                                 WHEN 2 THEN -4
+                                 WHEN 6 THEN 4
+                                 WHEN 7 THEN 6
                                  ELSE 0
                                END
                          ))
@@ -504,8 +504,30 @@ SELECT
         'occupation', occupation,
         'employmentSector', employment_sector,
         'universitySubject', university_subject,
-        'personalIncomeRange', personal_income_range,
-        'householdIncomeRange', household_income_range,
+        'personalIncomeRange',
+            'income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_' || personal_income_tier,
+        'householdIncomeRange',
+            'income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_' || household_income_tier,
+        'personalIncome', jsonb_build_object(
+            'answerVersion', 2,
+            'profileId', 'GB-GBP-GROSS-2025-v1',
+            'profileVersion', 1,
+            'marketCode', 'GB',
+            'currencyCode', 'GBP',
+            'measure', 'PERSONAL',
+            'bandId', 'PERSONAL_TIER_' || personal_income_tier,
+            'relativeTier', 'TIER_' || personal_income_tier
+        ),
+        'householdIncome', jsonb_build_object(
+            'answerVersion', 2,
+            'profileId', 'GB-GBP-GROSS-2025-v1',
+            'profileVersion', 1,
+            'marketCode', 'GB',
+            'currencyCode', 'GBP',
+            'measure', 'HOUSEHOLD',
+            'bandId', 'HOUSEHOLD_TIER_' || household_income_tier,
+            'relativeTier', 'TIER_' || household_income_tier
+        ),
         'height', height,
         'weightRange', weight_range,
         'eyeColor', eye_color,

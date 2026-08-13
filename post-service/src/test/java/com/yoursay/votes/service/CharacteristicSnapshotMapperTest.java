@@ -71,7 +71,7 @@ class CharacteristicSnapshotMapperTest {
         assertEquals("AGE_25_34", s.bucketFor("ageRange"));
         assertEquals("WOMAN", s.bucketFor("gender"));
         assertEquals("SURREY", s.bucketFor("ukCounty"));
-        assertEquals("LEGACY_BETWEEN_50K_AND_100K", s.bucketFor("personalIncomeRange"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, s.bucketFor("personalIncomeRange"));
         assertEquals("PARENT_CAREGIVER_UNDER_18", s.bucketFor("parent"));
         // Numeric news frequency is coarsened; booleans are stringified.
         assertEquals("6_8", s.bucketFor("newsFrequency"));
@@ -137,6 +137,16 @@ class CharacteristicSnapshotMapperTest {
         assertEquals("GBP", snapshot.householdIncome().currencyCode());
         assertEquals("HOUSEHOLD", snapshot.householdIncome().measure());
         assertEquals("HOUSEHOLD_TIER_5", snapshot.householdIncome().bandId());
+    }
+
+    @Test
+    void legacyIncomeEnumsAreNotCopiedIntoNewVoteSnapshots() {
+        CharacteristicSnapshot snapshot = CharacteristicSnapshotMapper.from(fullView());
+
+        assertNull(snapshot.personalIncomeRange());
+        assertNull(snapshot.householdIncomeRange());
+        assertNull(snapshot.personalIncome());
+        assertNull(snapshot.householdIncome());
     }
 
     @Test

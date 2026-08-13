@@ -52,4 +52,10 @@ public class VoteApiException extends ApiException {
         return new VoteApiException("VOTE_USER_LOOKUP_FAILED", responseStatus,
                 "Could not resolve vote caller user id: email=" + callerEmail + ", userServiceStatus=" + status);
     }
+
+    public static VoteApiException unresolvedIncomeRange() {
+        return new VoteApiException("VOTE_INCOME_RANGE_UNRESOLVED",
+                Response.Status.INTERNAL_SERVER_ERROR,
+                "Stored income cohort does not reference a published country-specific range");
+    }
 }

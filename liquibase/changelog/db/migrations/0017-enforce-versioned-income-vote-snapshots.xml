@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="0017-enforce-versioned-income-vote-snapshots" author="codex">
+        <comment>
+            Remove income enums that have no defensible monetary meaning and require every future
+            vote income bucket to carry a consistent immutable profile and band identity.
+        </comment>
+        <sql><![CDATA[
+            UPDATE votes
+            SET characteristic_snapshot = characteristic_snapshot
+                - 'personalIncomeRange' - 'personalIncome'
+            WHERE (
+                  characteristic_snapshot ->> 'personalIncomeRange' IS NOT NULL
+                  OR characteristic_snapshot -> 'personalIncome' IS NOT NULL
+              )
+              AND NOT COALESCE(
+                  (characteristic_snapshot ->> 'personalIncomeRange')
+                      ~ '^income\|[A-Z]{2,3}-[A-Z]{3}-[A-Z0-9-]+-v[1-9][0-9]*\|PERSONAL\|PERSONAL_TIER_[1-7]$'
+                  AND jsonb_typeof(characteristic_snapshot -> 'personalIncome') = 'object'
+                  AND characteristic_snapshot #>> '{personalIncome,answerVersion}' = '2'
+                  AND (characteristic_snapshot #>> '{personalIncome,profileVersion}') ~ '^[1-9][0-9]*$'
+                  AND (characteristic_snapshot #>> '{personalIncome,marketCode}') ~ '^[A-Z]{2,3}$'
+                  AND (characteristic_snapshot #>> '{personalIncome,currencyCode}') ~ '^[A-Z]{3}$'
+                  AND characteristic_snapshot #>> '{personalIncome,profileId}' ~ (
+                      '^' || (characteristic_snapshot #>> '{personalIncome,marketCode}')
+                      || '-' || (characteristic_snapshot #>> '{personalIncome,currencyCode}') || '-'
+                  )
+                  AND characteristic_snapshot #>> '{personalIncome,measure}' = 'PERSONAL'
+                  AND characteristic_snapshot #>> '{personalIncome,bandId}'
+                      ~ '^PERSONAL_TIER_[1-7]$'
+                  AND characteristic_snapshot #>> '{personalIncome,relativeTier}' ~ '^TIER_[1-7]$'
+                  AND characteristic_snapshot ->> 'personalIncomeRange' =
+                      'income|' || (characteristic_snapshot #>> '{personalIncome,profileId}')
+                      || '|PERSONAL|' || (characteristic_snapshot #>> '{personalIncome,bandId}')
+                  AND characteristic_snapshot #>> '{personalIncome,bandId}' =
+                      'PERSONAL_' || (characteristic_snapshot #>> '{personalIncome,relativeTier}'),
+                  false
+              );
+
+            UPDATE votes
+            SET characteristic_snapshot = characteristic_snapshot
+                - 'householdIncomeRange' - 'householdIncome'
+            WHERE (
+                  characteristic_snapshot ->> 'householdIncomeRange' IS NOT NULL
+                  OR characteristic_snapshot -> 'householdIncome' IS NOT NULL
+              )
+              AND NOT COALESCE(
+                  (characteristic_snapshot ->> 'householdIncomeRange')
+                      ~ '^income\|[A-Z]{2,3}-[A-Z]{3}-[A-Z0-9-]+-v[1-9][0-9]*\|HOUSEHOLD\|HOUSEHOLD_TIER_[1-7]$'
+                  AND jsonb_typeof(characteristic_snapshot -> 'householdIncome') = 'object'
+                  AND characteristic_snapshot #>> '{householdIncome,answerVersion}' = '2'
+                  AND (characteristic_snapshot #>> '{householdIncome,profileVersion}') ~ '^[1-9][0-9]*$'
+                  AND (characteristic_snapshot #>> '{householdIncome,marketCode}') ~ '^[A-Z]{2,3}$'
+                  AND (characteristic_snapshot #>> '{householdIncome,currencyCode}') ~ '^[A-Z]{3}$'
+                  AND characteristic_snapshot #>> '{householdIncome,profileId}' ~ (
+                      '^' || (characteristic_snapshot #>> '{householdIncome,marketCode}')
+                      || '-' || (characteristic_snapshot #>> '{householdIncome,currencyCode}') || '-'
+                  )
+                  AND characteristic_snapshot #>> '{householdIncome,measure}' = 'HOUSEHOLD'
+                  AND characteristic_snapshot #>> '{householdIncome,bandId}'
+                      ~ '^HOUSEHOLD_TIER_[1-7]$'
+                  AND characteristic_snapshot #>> '{householdIncome,relativeTier}' ~ '^TIER_[1-7]$'
+                  AND characteristic_snapshot ->> 'householdIncomeRange' =
+                      'income|' || (characteristic_snapshot #>> '{householdIncome,profileId}')
+                      || '|HOUSEHOLD|' || (characteristic_snapshot #>> '{householdIncome,bandId}')
+                  AND characteristic_snapshot #>> '{householdIncome,bandId}' =
+                      'HOUSEHOLD_' || (characteristic_snapshot #>> '{householdIncome,relativeTier}'),
+                  false
+              );
+        ]]></sql>
+
+        <sql><![CDATA[
+            ALTER TABLE votes
+            ADD CONSTRAINT chk_votes_personal_income_snapshot_versioned CHECK (
+                (
+                    characteristic_snapshot ->> 'personalIncomeRange' IS NULL
+                    AND characteristic_snapshot -> 'personalIncome' IS NULL
+                )
+                OR (
+                    (characteristic_snapshot ->> 'personalIncomeRange')
+                        ~ '^income\|[A-Z]{2,3}-[A-Z]{3}-[A-Z0-9-]+-v[1-9][0-9]*\|PERSONAL\|PERSONAL_TIER_[1-7]$'
+                    AND jsonb_typeof(characteristic_snapshot -> 'personalIncome') = 'object'
+                    AND characteristic_snapshot #>> '{personalIncome,answerVersion}' = '2'
+                    AND (characteristic_snapshot #>> '{personalIncome,profileVersion}') ~ '^[1-9][0-9]*$'
+                    AND (characteristic_snapshot #>> '{personalIncome,marketCode}') ~ '^[A-Z]{2,3}$'
+                    AND (characteristic_snapshot #>> '{personalIncome,currencyCode}') ~ '^[A-Z]{3}$'
+                    AND characteristic_snapshot #>> '{personalIncome,profileId}' ~ (
+                        '^' || (characteristic_snapshot #>> '{personalIncome,marketCode}')
+                        || '-' || (characteristic_snapshot #>> '{personalIncome,currencyCode}') || '-'
+                    )
+                    AND characteristic_snapshot #>> '{personalIncome,measure}' = 'PERSONAL'
+                    AND characteristic_snapshot #>> '{personalIncome,bandId}'
+                        ~ '^PERSONAL_TIER_[1-7]$'
+                    AND characteristic_snapshot #>> '{personalIncome,relativeTier}' ~ '^TIER_[1-7]$'
+                    AND characteristic_snapshot ->> 'personalIncomeRange' =
+                        'income|' || (characteristic_snapshot #>> '{personalIncome,profileId}')
+                        || '|PERSONAL|' || (characteristic_snapshot #>> '{personalIncome,bandId}')
+                    AND characteristic_snapshot #>> '{personalIncome,bandId}' =
+                        'PERSONAL_' || (characteristic_snapshot #>> '{personalIncome,relativeTier}')
+                )
+            );
+
+            ALTER TABLE votes
+            ADD CONSTRAINT chk_votes_household_income_snapshot_versioned CHECK (
+                (
+                    characteristic_snapshot ->> 'householdIncomeRange' IS NULL
+                    AND characteristic_snapshot -> 'householdIncome' IS NULL
+                )
+                OR (
+                    (characteristic_snapshot ->> 'householdIncomeRange')
+                        ~ '^income\|[A-Z]{2,3}-[A-Z]{3}-[A-Z0-9-]+-v[1-9][0-9]*\|HOUSEHOLD\|HOUSEHOLD_TIER_[1-7]$'
+                    AND jsonb_typeof(characteristic_snapshot -> 'householdIncome') = 'object'
+                    AND characteristic_snapshot #>> '{householdIncome,answerVersion}' = '2'
+                    AND (characteristic_snapshot #>> '{householdIncome,profileVersion}') ~ '^[1-9][0-9]*$'
+                    AND (characteristic_snapshot #>> '{householdIncome,marketCode}') ~ '^[A-Z]{2,3}$'
+                    AND (characteristic_snapshot #>> '{householdIncome,currencyCode}') ~ '^[A-Z]{3}$'
+                    AND characteristic_snapshot #>> '{householdIncome,profileId}' ~ (
+                        '^' || (characteristic_snapshot #>> '{householdIncome,marketCode}')
+                        || '-' || (characteristic_snapshot #>> '{householdIncome,currencyCode}') || '-'
+                    )
+                    AND characteristic_snapshot #>> '{householdIncome,measure}' = 'HOUSEHOLD'
+                    AND characteristic_snapshot #>> '{householdIncome,bandId}'
+                        ~ '^HOUSEHOLD_TIER_[1-7]$'
+                    AND characteristic_snapshot #>> '{householdIncome,relativeTier}' ~ '^TIER_[1-7]$'
+                    AND characteristic_snapshot ->> 'householdIncomeRange' =
+                        'income|' || (characteristic_snapshot #>> '{householdIncome,profileId}')
+                        || '|HOUSEHOLD|' || (characteristic_snapshot #>> '{householdIncome,bandId}')
+                    AND characteristic_snapshot #>> '{householdIncome,bandId}' =
+                        'HOUSEHOLD_' || (characteristic_snapshot #>> '{householdIncome,relativeTier}')
+                )
+            );
+        ]]></sql>
+
+        <rollback>
+            <sql>
+                ALTER TABLE votes DROP CONSTRAINT chk_votes_household_income_snapshot_versioned;
+                ALTER TABLE votes DROP CONSTRAINT chk_votes_personal_income_snapshot_versioned;
+            </sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
