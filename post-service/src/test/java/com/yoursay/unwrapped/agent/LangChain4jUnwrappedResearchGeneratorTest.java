@@ -17,12 +17,20 @@ import com.yoursay.unwrapped.validation.SourceUrlPolicy;
 import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
 import com.yoursay.votes.dto.CohortDimensionV1;
 import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.exception.AuthenticationException;
+import dev.langchain4j.exception.ContentFilteredException;
+import dev.langchain4j.exception.InternalServerException;
+import dev.langchain4j.exception.InvalidRequestException;
+import dev.langchain4j.exception.RateLimitException;
+import dev.langchain4j.exception.TimeoutException;
 import dev.langchain4j.http.client.SuccessfulHttpResponse;
 import dev.langchain4j.model.ModelProvider;
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
+import dev.langchain4j.model.output.FinishReason;
+import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
@@ -36,6 +44,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -327,6 +338,38 @@ class LangChain4jUnwrappedResearchGeneratorTest {
 
         assertEquals("UNWRAPPED_DRAFT_MISSING", failure.getMessage());
         verify(aiService).research(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void describesAnEmptyDraftUsingSafeProviderCompletionMetadata() {
+        ChatResponse response = ChatResponse.builder()
+                .aiMessage(AiMessage.from("{\"pages\":[],\"sources\":[]}"))
+                .id("response-sensitive-42")
+                .modelName("grok-4.5")
+                .tokenUsage(new TokenUsage(1_240, 18, 1_258))
+                .finishReason(FinishReason.STOP)
+                .build();
+
+        String message = LangChain4jUnwrappedResearchGenerator.missingDraftLogMessage(
+                response, new UnwrappedResearchDraftV1(List.of(), List.of()));
+
+        assertEquals("Unwrapped provider returned no draft content: domain=unwrapped "
+                + "operation=research_provider outcome=dependency_error "
+                + "errorType=provider_contract errorCode=UNWRAPPED_DRAFT_MISSING "
+                + "providerResponseCaptured=true model=grok-4.5 finishReason=STOP "
+                + "inputTokens=1240 outputTokens=18 totalTokens=1258 "
+                + "responseTextChars=25 toolRequests=0 pages=0 nonNullPages=0", message);
+        assertFalse(message.contains("response-sensitive-42"));
+        assertFalse(message.contains("sources"));
+
+        ChatResponse hostileMetadata = ChatResponse.builder()
+                .aiMessage(AiMessage.from("{}"))
+                .modelName("grok\napi-key=sensitive")
+                .build();
+        String hostileMessage = LangChain4jUnwrappedResearchGenerator.missingDraftLogMessage(
+                hostileMetadata, null);
+        assertTrue(hostileMessage.contains("model=unknown"));
+        assertFalse(hostileMessage.contains("sensitive"));
     }
 
     @Test
@@ -628,6 +671,77 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                     eq("dependency_error"), eq("provider"), eq("UNWRAPPED_PROVIDER_FAILURE"),
                     org.mockito.ArgumentMatchers.anyLong());
         }
+    }
+
+    @Test
+    void classifiesKnownProviderFailuresWithoutExposingTheirMessages() {
+        List<ProviderFailureCase> failures = List.of(
+                new ProviderFailureCase(new TimeoutException("sensitive timeout"),
+                        "UNWRAPPED_PROVIDER_TIMEOUT"),
+                new ProviderFailureCase(new RateLimitException("sensitive quota"),
+                        "UNWRAPPED_PROVIDER_RATE_LIMITED"),
+                new ProviderFailureCase(new AuthenticationException("sensitive auth"),
+                        "UNWRAPPED_PROVIDER_AUTHENTICATION"),
+                new ProviderFailureCase(new ContentFilteredException("sensitive filter"),
+                        "UNWRAPPED_PROVIDER_CONTENT_FILTERED"),
+                new ProviderFailureCase(new InvalidRequestException("sensitive request"),
+                        "UNWRAPPED_PROVIDER_REQUEST_INVALID"),
+                new ProviderFailureCase(new InternalServerException("sensitive outage"),
+                        "UNWRAPPED_PROVIDER_UNAVAILABLE"));
+
+        for (ProviderFailureCase providerFailure : failures) {
+            UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+            when(aiService.research(anyString(), anyString(), anyString()))
+                    .thenThrow(providerFailure.failure());
+            DomainMetrics metrics = mock(DomainMetrics.class);
+            LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                    aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(), metrics);
+
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
+                    () -> generator.generate(requestWithoutCohorts(), "Benchmark prompt"));
+
+            assertEquals(providerFailure.errorCode(), failure.getMessage());
+            assertSame(providerFailure.failure(), failure.getCause());
+            assertFalse(failure.getMessage().contains(providerFailure.failure().getMessage()));
+            verify(metrics).recordOperation(eq("unwrapped"), eq("research_provider"),
+                    eq("dependency_error"), eq("provider"),
+                    eq(providerFailure.errorCode()), org.mockito.ArgumentMatchers.anyLong());
+        }
+    }
+
+    @Test
+    void classifiesKnownProviderFailureThroughWrapperCauses() {
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        TimeoutException timeout = new TimeoutException("sensitive nested timeout");
+        when(aiService.research(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("outer wrapper", timeout));
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                mock(DomainMetrics.class));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> generator.generate(requestWithoutCohorts(), "Benchmark prompt"));
+
+        assertEquals("UNWRAPPED_PROVIDER_TIMEOUT", failure.getMessage());
+        assertFalse(failure.getMessage().contains(timeout.getMessage()));
+    }
+
+    @Test
+    void emitsOnlyTheStableProviderFailureCodeToTheActualLog() {
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        when(aiService.research(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("api-key=sensitive-provider-detail"));
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                mock(DomainMetrics.class));
+
+        LogRecord log = captureLog(() -> assertThrows(IllegalStateException.class,
+                () -> generator.generate(requestWithoutCohorts(), "Benchmark prompt")));
+
+        assertEquals("Unwrapped research failed: domain=unwrapped "
+                + "operation=research_provider outcome=dependency_error "
+                + "errorType=provider errorCode=UNWRAPPED_PROVIDER_FAILURE", log.getMessage());
+        assertFalse(log.getMessage().contains("sensitive-provider-detail"));
     }
 
     @Test
@@ -984,5 +1098,40 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         Set<String> unexpected = new HashSet<>(actual);
         unexpected.removeAll(allowed);
         return unexpected;
+    }
+
+    private static LogRecord captureLog(Runnable action) {
+        CapturingLogHandler logs = new CapturingLogHandler();
+        Logger rootLogger = Logger.getLogger("");
+        rootLogger.addHandler(logs);
+        try {
+            action.run();
+        } finally {
+            rootLogger.removeHandler(logs);
+        }
+        assertNotNull(logs.failure);
+        return logs.failure;
+    }
+
+    private static final class CapturingLogHandler extends Handler {
+        private LogRecord failure;
+
+        @Override
+        public void publish(LogRecord record) {
+            if (record.getMessage().startsWith("Unwrapped research failed:")) {
+                failure = record;
+            }
+        }
+
+        @Override
+        public void flush() {
+        }
+
+        @Override
+        public void close() {
+        }
+    }
+
+    private record ProviderFailureCase(RuntimeException failure, String errorCode) {
     }
 }

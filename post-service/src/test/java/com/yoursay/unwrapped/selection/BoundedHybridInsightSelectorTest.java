@@ -17,6 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class BoundedHybridInsightSelectorTest {
     private final BoundedHybridInsightSelector selector = new BoundedHybridInsightSelector();
@@ -206,20 +207,20 @@ class BoundedHybridInsightSelectorTest {
                 new CohortDimensionV1("ageRange", "AGE_25_34"),
                 new CohortDimensionV1("employmentSector", "HEALTHCARE")));
         assertAllowlistedIntersection(List.of(
-                new CohortDimensionV1("personalIncomeRange", "V2_TIER_3"),
+                personalIncomeDimension(),
                 new CohortDimensionV1("gender", "MAN")));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("politicalPersuasion", "CENTRE_LEFT"),
-                new CohortDimensionV1("personalIncomeRange", "V2_TIER_3")));
+                personalIncomeDimension()));
         assertAllowlistedIntersection(List.of(
-                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4"),
+                householdIncomeDimension(),
                 new CohortDimensionV1("gender", "WOMAN")));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("ageRange", "AGE_25_34"),
-                new CohortDimensionV1("personalIncomeRange", "V2_TIER_3")));
+                personalIncomeDimension()));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("ageRange", "AGE_25_34"),
-                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4")));
+                householdIncomeDimension()));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("politicalPersuasion", "CENTRE_LEFT"),
                 new CohortDimensionV1("ageRange", "AGE_25_34")));
@@ -228,7 +229,7 @@ class BoundedHybridInsightSelectorTest {
                 new CohortDimensionV1("gender", "WOMAN")));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("politicalPersuasion", "CENTRE_LEFT"),
-                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4")));
+                householdIncomeDimension()));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("gender", "WOMAN"),
                 new CohortDimensionV1("occupation", "EMPLOYED")));
@@ -237,13 +238,13 @@ class BoundedHybridInsightSelectorTest {
                 new CohortDimensionV1("employmentSector", "TECHNOLOGY")));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("region", "LONDON"),
-                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4")));
+                householdIncomeDimension()));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("region", "LONDON"),
                 new CohortDimensionV1("employmentSector", "TECHNOLOGY")));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("urbanRural", "URBAN"),
-                new CohortDimensionV1("householdIncomeRange", "V2_TIER_4")));
+                householdIncomeDimension()));
         assertAllowlistedIntersection(List.of(
                 new CohortDimensionV1("region", "LONDON"),
                 new CohortDimensionV1("urbanRural", "URBAN")));
@@ -330,6 +331,37 @@ class BoundedHybridInsightSelectorTest {
         assertEquals("GBP 25k to GBP 40k", selected.dimensions().getFirst().income().label());
         assertEquals("People with annual personal income of GBP 25k to GBP 40k in the United Kingdom",
                 selected.displayName());
+    }
+
+    @Test
+    void refusesToInventANameForAnUnresolvedIncomeBucket() {
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> name("personalIncomeRange", "V2_TIER_3"));
+
+        assertEquals("Income cohort is missing its resolved country-specific range",
+                error.getMessage());
+    }
+
+    private static CohortDimensionV1 personalIncomeDimension() {
+        IncomeRangeDisplayDto income = new IncomeRangeDisplayDto(
+                "income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_3",
+                "GBP 25k to GBP 40k", "Annual personal income before tax in the United Kingdom",
+                "25th to 50th percentile locally", "GB", "United Kingdom", "GBP",
+                "PERSONAL", "Annual personal income before tax", 25_000L, 40_000L,
+                "TIER_3", "GB-GBP-GROSS-2025-v1", 1, "PERSONAL_TIER_3");
+        return new CohortDimensionV1(
+                "personalIncomeRange", income.bucketId(), income.label(), income);
+    }
+
+    private static CohortDimensionV1 householdIncomeDimension() {
+        IncomeRangeDisplayDto income = new IncomeRangeDisplayDto(
+                "income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_4",
+                "GBP 55k to GBP 80k", "Annual household income before tax in the United Kingdom",
+                "50th to 75th percentile locally", "GB", "United Kingdom", "GBP",
+                "HOUSEHOLD", "Annual household income before tax", 55_000L, 80_000L,
+                "TIER_4", "GB-GBP-GROSS-2025-v1", 1, "HOUSEHOLD_TIER_4");
+        return new CohortDimensionV1(
+                "householdIncomeRange", income.bucketId(), income.label(), income);
     }
 
     private static String name(String axis, String bucket) {

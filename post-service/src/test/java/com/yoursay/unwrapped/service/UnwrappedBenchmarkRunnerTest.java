@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -22,6 +23,25 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class UnwrappedBenchmarkRunnerTest {
+    @Test
+    void explainsWhetherTheProviderFailedOrReturnedAnEmptyDraft() {
+        assertEquals("The model provider completed successfully but returned no argument pages. "
+                        + "Check the post-service log for finish reason and token usage.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_DRAFT_MISSING"));
+        assertEquals("The model provider timed out before returning a draft.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_TIMEOUT"));
+        assertEquals("The model provider rate limit was reached.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_RATE_LIMITED"));
+        assertEquals("The model provider rejected its credentials.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_AUTHENTICATION"));
+        assertEquals("The model provider filtered the request or response.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_CONTENT_FILTERED"));
+        assertEquals("The model provider rejected the request format.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_REQUEST_INVALID"));
+        assertEquals("The model provider was unavailable.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_UNAVAILABLE"));
+    }
+
     @Test
     void reusesOnePreparedRequestAndKeepsOrderedSuccessesWhenOnePromptFails() {
         UnwrappedResearchPreparation preparation = mock(UnwrappedResearchPreparation.class);
@@ -97,6 +117,36 @@ class UnwrappedBenchmarkRunnerTest {
         assertEquals("This prompt did not produce a valid Unwrapped draft (UNWRAPPED_GENERATION_FAILED).",
                 failure.errorMessage());
         verify(generator).generate(request, "A");
+    }
+
+    @Test
+    void rejectsNullAndHostilePrefixedMessagesAsGenericLaneFailures() {
+        UnwrappedResearchPreparation preparation = mock(UnwrappedResearchPreparation.class);
+        UnwrappedResearchGenerator generator = mock(UnwrappedResearchGenerator.class);
+        UnwrappedResearchRequest request = mock(UnwrappedResearchRequest.class);
+        when(preparation.prepare(42L)).thenReturn(
+                new UnwrappedResearchPreparation.PreparedResearch(null, request));
+        when(generator.generate(same(request), eq("Null message")))
+                .thenThrow(new IllegalStateException((String) null));
+        when(generator.generate(same(request), eq("Hostile message")))
+                .thenThrow(new IllegalStateException(
+                        "UNWRAPPED_PROVIDER_FAILURE api-key=sensitive"));
+        UnwrappedBenchmarkRunner runner = new UnwrappedBenchmarkRunner();
+        runner.preparation = preparation;
+        runner.generator = generator;
+
+        var failures = runner.run(42L, List.of("Null message", "Hostile message"));
+
+        assertEquals(List.of("UNWRAPPED_GENERATION_FAILED", "UNWRAPPED_GENERATION_FAILED"),
+                failures.stream().map(value -> value.errorCode()).toList());
+        assertEquals(List.of(
+                        "This prompt did not produce a valid Unwrapped draft "
+                                + "(UNWRAPPED_GENERATION_FAILED).",
+                        "This prompt did not produce a valid Unwrapped draft "
+                                + "(UNWRAPPED_GENERATION_FAILED)."),
+                failures.stream().map(value -> value.errorMessage()).toList());
+        assertTrue(failures.stream().noneMatch(
+                value -> value.errorMessage().contains("sensitive")));
     }
 
     @Test

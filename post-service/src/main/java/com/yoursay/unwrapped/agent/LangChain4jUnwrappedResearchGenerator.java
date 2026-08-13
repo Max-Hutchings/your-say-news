@@ -10,8 +10,15 @@ import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import com.yoursay.unwrapped.selection.OptionBriefV1;
 import com.yoursay.unwrapped.validation.UnwrappedDraftValidator;
+import dev.langchain4j.exception.AuthenticationException;
+import dev.langchain4j.exception.ContentFilteredException;
+import dev.langchain4j.exception.InvalidRequestException;
+import dev.langchain4j.exception.RateLimitException;
+import dev.langchain4j.exception.RetriableException;
+import dev.langchain4j.exception.TimeoutException;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
+import dev.langchain4j.model.output.TokenUsage;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
@@ -96,7 +103,7 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
             if (enforcePublicationContract && response == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
             }
-            requireDraftContent(draft);
+            requireDraftContent(draft, response);
             List<String> citations = enforcePublicationContract ? citations(response) : List.of();
             if (enforcePublicationContract) validator.validate(request, draft, citations);
             logDraftReceived(draft, citations);
@@ -155,11 +162,51 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     }
 
     /** Requires the structured response container, without validating model-written content. */
-    private static void requireDraftContent(UnwrappedResearchDraftV1 draft) {
+    private static void requireDraftContent(
+            UnwrappedResearchDraftV1 draft,
+            ChatResponse response
+    ) {
         if (draft == null || draft.pages() == null || draft.pages().isEmpty()
                 || draft.pages().stream().allMatch(page -> page == null)) {
+            Log.warn(missingDraftLogMessage(response, draft));
             throw new IllegalArgumentException("UNWRAPPED_DRAFT_MISSING");
         }
+    }
+
+    static String missingDraftLogMessage(
+            ChatResponse response,
+            UnwrappedResearchDraftV1 draft
+    ) {
+        TokenUsage usage = response == null ? null : response.tokenUsage();
+        String responseText = response == null ? null : response.aiMessage().text();
+        int pageCount = draft == null || draft.pages() == null ? 0 : draft.pages().size();
+        long nonNullPageCount = draft == null || draft.pages() == null
+                ? 0
+                : draft.pages().stream().filter(page -> page != null).count();
+        return "Unwrapped provider returned no draft content: domain=unwrapped "
+                + "operation=research_provider outcome=dependency_error "
+                + "errorType=provider_contract errorCode=UNWRAPPED_DRAFT_MISSING "
+                + "providerResponseCaptured=" + (response != null)
+                + " model=" + safeModelName(response == null ? null : response.modelName())
+                + " finishReason=" + metadataValue(response == null ? null : response.finishReason())
+                + " inputTokens=" + metadataValue(usage == null ? null : usage.inputTokenCount())
+                + " outputTokens=" + metadataValue(usage == null ? null : usage.outputTokenCount())
+                + " totalTokens=" + metadataValue(usage == null ? null : usage.totalTokenCount())
+                + " responseTextChars=" + (responseText == null ? 0 : responseText.length())
+                + " toolRequests=" + (response == null
+                        ? 0
+                        : response.aiMessage().toolExecutionRequests().size())
+                + " pages=" + pageCount
+                + " nonNullPages=" + nonNullPageCount;
+    }
+
+    private static String metadataValue(Object value) {
+        return value == null || value.toString().isBlank() ? "unknown" : value.toString();
+    }
+
+    private static String safeModelName(String modelName) {
+        if (modelName == null || !modelName.matches("[A-Za-z0-9._:-]{1,80}")) return "unknown";
+        return modelName;
     }
 
     /** Benchmarking supplies its own editorial prompt; queued generation uses the default one. */
@@ -172,8 +219,26 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
         try {
             return aiService.research(editorialPrompt, outputInstructions, input);
         } catch (Exception failure) {
-            throw new IllegalStateException("UNWRAPPED_PROVIDER_FAILURE", failure);
+            throw new IllegalStateException(providerErrorCode(failure), failure);
         }
+    }
+
+    private static String providerErrorCode(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof TimeoutException) return "UNWRAPPED_PROVIDER_TIMEOUT";
+            if (cause instanceof RateLimitException) return "UNWRAPPED_PROVIDER_RATE_LIMITED";
+            if (cause instanceof AuthenticationException) {
+                return "UNWRAPPED_PROVIDER_AUTHENTICATION";
+            }
+            if (cause instanceof ContentFilteredException) {
+                return "UNWRAPPED_PROVIDER_CONTENT_FILTERED";
+            }
+            if (cause instanceof InvalidRequestException) {
+                return "UNWRAPPED_PROVIDER_REQUEST_INVALID";
+            }
+            if (cause instanceof RetriableException) return "UNWRAPPED_PROVIDER_UNAVAILABLE";
+        }
+        return "UNWRAPPED_PROVIDER_FAILURE";
     }
 
     /** Pins down whether the model answered for every option it was asked about. */

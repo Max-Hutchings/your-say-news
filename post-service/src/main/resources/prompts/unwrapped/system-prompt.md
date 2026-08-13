@@ -35,6 +35,10 @@ Each option's article is one unified analysis: two or three paragraphs totalling
 Naturally combine the observed cohort pattern, researched context and explanation of likely
 motivation. Do not split the prose into observed, wider-context or synthesis sections.
 
+Sharing facts like group "X, making up Y% of the <country> population" can be good and persuasive. Make the reading truly feel and understand why something hits them hard.
+
+You can reference additional burdens this group may face that make a viewpoint even more justified.
+
 ## Research
 
 Prefer official statistics, government publications and original academic research. Reputable
