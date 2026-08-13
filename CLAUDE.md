@@ -1,6 +1,7 @@
 ## Message for AI
 
 1. Less is more. Provide adequate detail but always avoid lots of text and over-complicated detail in responses. Be specific, be precise.
+2. Never change branches without being asked to. You can complete work on a separate worktree if changes will be large but always state that when saying done
 
 # CLAUDE.md
 
