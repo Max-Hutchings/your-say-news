@@ -13,6 +13,7 @@ import type {
   UnwrappedReviewError,
 } from "../types";
 import { BenchmarkArgumentPage } from "./BenchmarkArgumentPage";
+import { formatBenchmarkDimension } from "./formatBenchmarkDimension";
 import "./unwrapped-benchmark-page.css";
 
 type UnwrappedBenchmarkPageProps = {
@@ -409,7 +410,7 @@ function BenchmarkCandidateCard({
       <div className="benchmark-candidate__dimensions">
         {candidate.dimensions.map((dimension) => (
           <span key={`${dimension.axis}:${dimension.bucket}`}>
-            {formatCamelCase(dimension.axis)} · {formatEnum(dimension.bucket)}
+            {formatBenchmarkDimension(dimension)}
           </span>
         ))}
       </div>
@@ -468,10 +469,6 @@ function formatPercentage(value: number) {
 function formatSigned(value: number) {
   const formatted = Math.abs(value).toLocaleString("en-GB", { maximumFractionDigits: 1 });
   return `${value >= 0 ? "+" : "-"}${formatted}`;
-}
-
-function formatCamelCase(value: string) {
-  return formatEnum(value.replace(/([a-z])([A-Z])/g, "$1_$2"));
 }
 
 function splitLabel(post: UnwrappedAdminPost) {

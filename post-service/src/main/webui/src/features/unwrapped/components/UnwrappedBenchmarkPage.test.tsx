@@ -63,6 +63,43 @@ const benchmarkContext: UnwrappedBenchmarkPrompt = {
         wilson95High: 89.5,
         adjustedQValue: 0.004,
         displayName: "Men aged 25 to 34",
+      }, {
+        cohortId: "householdIncomeRange=income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_7",
+        dimensions: [{
+          axis: "householdIncomeRange",
+          bucket: "income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_7",
+          label: "GBP 200k or more",
+          income: {
+            bucketId: "income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_7",
+            label: "GBP 200k or more",
+            contextLabel: "Annual household income before tax in the United Kingdom",
+            relativeLabel: "Top 5% locally",
+            marketCode: "GB",
+            marketLabel: "United Kingdom",
+            currencyCode: "GBP",
+            measure: "HOUSEHOLD",
+            measureLabel: "Annual household income before tax",
+            lowerInclusive: 200_000,
+            upperExclusive: null,
+            relativeTier: "TIER_7",
+            profileId: "GB-GBP-GROSS-2025-v1",
+            profileVersion: 1,
+            bandId: "HOUSEHOLD_TIER_7",
+          },
+        }],
+        role: "CORE_DIFFERENTIATOR",
+        relevanceReason: "Strongest available core differentiator for this option.",
+        sampleSize: 20,
+        populationSharePercentage: 16,
+        optionVoteCount: 16,
+        compositionPercentage: 21.3,
+        propensityPercentage: 75,
+        overIndexPercentagePoints: 15,
+        differenceFromRestPercentagePoints: 23.8,
+        wilson95Low: 58.4,
+        wilson95High: 91.9,
+        adjustedQValue: 0.009,
+        displayName: "People with annual household income of GBP 200k or more in the United Kingdom",
       }],
       narrativeInstructions: [
         "Explain why a selected cohort is likely to favour the option using researched context.",
@@ -195,22 +232,33 @@ describe("UnwrappedBenchmarkPage", () => {
     const disagreeOption = contextView.getByRole("heading", { name: "Disagree" }).closest("article");
     expect(disagreeOption).toHaveTextContent("50 votes");
     expect(disagreeOption).toHaveTextContent("40%");
-    expect(screen.getByRole("heading", { name: "Men aged 25 to 34" })).toBeInTheDocument();
-    expect(screen.getByText("Intersection discovery")).toBeInTheDocument();
-    expect(screen.getByText("ageRange=AGE_25_34|gender=MAN")).toBeInTheDocument();
-    expect(screen.getByText("Age range · Age 25 34")).toBeInTheDocument();
-    expect(screen.getByText("Gender · Man")).toBeInTheDocument();
-    expect(screen.getByText("40 voters in group")).toBeInTheDocument();
-    expect(screen.getByText("32 chose Agree")).toBeInTheDocument();
-    expect(screen.getByText("80% chose Agree")).toBeInTheDocument();
-    expect(screen.getByText("+29.4pp vs everyone else")).toBeInTheDocument();
-    expect(screen.getByText("32% of post voters")).toBeInTheDocument();
-    expect(screen.getByText("42.7% of Agree voters")).toBeInTheDocument();
-    expect(screen.getByText("+20pp")).toBeInTheDocument();
-    expect(screen.getByText("65.2%–89.5%")).toBeInTheDocument();
-    expect(screen.getByText("0.004")).toBeInTheDocument();
-    expect(screen.getByText("Strongest non-redundant two-characteristic intersection."))
+    const ageHeading = screen.getByRole("heading", { name: "Men aged 25 to 34" });
+    const ageCard = within(ageHeading.closest("section")!);
+    expect(ageCard.getByText("Intersection discovery")).toBeInTheDocument();
+    expect(ageCard.getByText("ageRange=AGE_25_34|gender=MAN")).toBeInTheDocument();
+    expect(ageCard.getByText("Age range · Age 25 34")).toBeInTheDocument();
+    expect(ageCard.getByText("Gender · Man")).toBeInTheDocument();
+    expect(ageCard.getByText("40 voters in group")).toBeInTheDocument();
+    expect(ageCard.getByText("32 chose Agree")).toBeInTheDocument();
+    expect(ageCard.getByText("80% chose Agree")).toBeInTheDocument();
+    expect(ageCard.getByText("+29.4pp vs everyone else")).toBeInTheDocument();
+    expect(ageCard.getByText("32% of post voters")).toBeInTheDocument();
+    expect(ageCard.getByText("42.7% of Agree voters")).toBeInTheDocument();
+    expect(ageCard.getByText("+20pp")).toBeInTheDocument();
+    expect(ageCard.getByText("65.2%–89.5%")).toBeInTheDocument();
+    expect(ageCard.getByText("0.004")).toBeInTheDocument();
+    expect(ageCard.getByText("Strongest non-redundant two-characteristic intersection."))
       .toBeInTheDocument();
+    const incomeHeading = screen.getByRole("heading", {
+      name: "People with annual household income of GBP 200k or more in the United Kingdom",
+    });
+    const incomeCard = within(incomeHeading.closest("section")!);
+    expect(incomeCard.getByText(
+      "Annual household income before tax · United Kingdom · GBP 200k or more",
+    )).toBeInTheDocument();
+    expect(screen.queryByText(
+      "Household income range · Income|gb-gbp-gross-2025-v1|household|household tier 7",
+    )).not.toBeInTheDocument();
     expect(screen.getByText("No characteristic groups supplied")).toBeInTheDocument();
     expect(screen.getByText("No reliable demographic concentration passes the narration rules."))
       .toBeInTheDocument();

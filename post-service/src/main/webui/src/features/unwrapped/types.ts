@@ -96,9 +96,29 @@ export type UnwrappedBenchmarkPrompt = {
   input: UnwrappedBenchmarkInput;
 };
 
+export type UnwrappedIncomeRangeDisplay = {
+  bucketId: string;
+  label: string;
+  contextLabel: string;
+  relativeLabel: string;
+  marketCode: string;
+  marketLabel: string;
+  currencyCode: string;
+  measure: "PERSONAL" | "HOUSEHOLD";
+  measureLabel: string;
+  lowerInclusive: number | null;
+  upperExclusive: number | null;
+  relativeTier: string;
+  profileId: string;
+  profileVersion: number;
+  bandId: string;
+};
+
 export type UnwrappedBenchmarkDimension = {
   axis: string;
   bucket: string;
+  label?: string;
+  income?: UnwrappedIncomeRangeDisplay;
 };
 
 export type UnwrappedBenchmarkCandidate = {
