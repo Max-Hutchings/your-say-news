@@ -9,14 +9,20 @@ import jakarta.ws.rs.container.ContainerResponseContext;
 import jakarta.ws.rs.container.ContainerResponseFilter;
 import jakarta.ws.rs.ext.Provider;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Provider
 @Priority(Priorities.USER)
 public class DomainRequestFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
     private static final String START_NANOS = "yoursay.startNanos";
+
+    /** Set by {@link ApiExceptionMapper} when the endpoint contract defines the refusal as normal. */
+    static final String EXPECTED_REJECTION = "yoursay.expectedRejection";
 
     /**
      * Longest path prefix wins, so a nested domain route such as {@code posts/{id}/unwrapped} is
@@ -41,12 +47,26 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
     /** Post Unwrapped hangs off a post's URL but is its own domain, so it is matched separately. */
     private static final Pattern UNWRAPPED_POST_ROUTE = Pattern.compile("^posts/[^/]+/unwrapped(/.*)?$");
 
-    private static final Pattern NUMERIC_SEGMENT = Pattern.compile("/\\d+");
-    private static final Pattern UUID_SEGMENT = Pattern.compile(
-            "/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
-    private static final Pattern EMAIL_SEGMENT = Pattern.compile("/[^/]+@[^/]+");
-    /** Topic ids are caller-supplied slugs, so the segment after {@code topic-tags} is collapsed too. */
-    private static final Pattern TOPIC_SLUG_SEGMENT = Pattern.compile("(topic-tags)/[^/]+");
+    /**
+     * Every literal segment that appears in a route of this service. A segment outside this set is
+     * caller-supplied and becomes a placeholder.
+     *
+     * <p>This is an allowlist on purpose. Recognising identifiers by shape instead would leave the
+     * tag unbounded: {@code /votes/{postId}/sentiment/{axis}} takes a free-form axis, and the
+     * whitelist check runs inside the controller, after this filter has already read the raw URI.
+     * Anything unrecognised - an invalid axis, a probe for {@code /wp-admin/setup-config.php} - would
+     * become a new tag value. Collapsing by default means a forgotten literal degrades to
+     * {@code {id}} rather than to an unbounded metric.
+     */
+    private static final Set<String> ROUTE_LITERALS = Set.of(
+            "access", "active", "admin", "agent", "api", "approve", "benchmark", "consent",
+            "context", "count", "data", "email", "feed", "follow-up", "followers", "following",
+            "follows", "generate", "generation-status", "id", "income-options", "jobs", "live",
+            "me", "media", "mine", "onboarding", "options", "posts", "presign", "profiles", "q",
+            "reject", "review", "save", "sentiment", "social", "topic-tags", "unwrapped", "user",
+            "user-characteristics", "users", "votes", "your-say-user");
+
+    private static final String PLACEHOLDER = "{id}";
 
     @Inject
     DomainMetrics metrics;
@@ -60,7 +80,12 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) {
         String path = requestContext.getUriInfo().getPath();
         metrics.recordRequest(domainFromPath(path), operationFrom(requestContext.getMethod(), path),
-                responseContext.getStatus(), elapsedNanos(requestContext));
+                responseContext.getStatus(), isExpectedRejection(requestContext),
+                elapsedNanos(requestContext));
+    }
+
+    private static boolean isExpectedRejection(ContainerRequestContext requestContext) {
+        return Boolean.TRUE.equals(requestContext.getProperty(EXPECTED_REJECTION));
     }
 
     private static long elapsedNanos(ContainerRequestContext requestContext) {
@@ -84,18 +109,24 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
     }
 
     /**
-     * Build a stable, low-cardinality operation name. Every identifier-shaped segment collapses to
-     * a placeholder so a metric tag never carries a post id, story id or email address.
+     * Build a stable, low-cardinality operation name. Only known route literals survive; every other
+     * segment is caller-supplied and collapses to a placeholder, so a metric tag can never carry a
+     * post id, story id, email address, characteristic axis or scanner probe path.
      */
     static String operationFrom(String method, String path) {
-        if (path == null || path.isBlank()) {
+        // A leading slash would otherwise become an empty segment, producing names like "GET..feed".
+        String normalized = path == null ? "" : path.replaceAll("^/+", "");
+        if (normalized.isBlank()) {
             return method + ".root";
         }
-        String template = UUID_SEGMENT.matcher(path).replaceAll("/{id}");
-        template = NUMERIC_SEGMENT.matcher(template).replaceAll("/{id}");
-        template = EMAIL_SEGMENT.matcher(template).replaceAll("/{email}");
-        template = TOPIC_SLUG_SEGMENT.matcher(template).replaceAll("$1/{id}");
-        return method + "." + template.replace('/', '.');
+        return method + "." + templateOf(normalized);
+    }
+
+    private static String templateOf(String normalizedPath) {
+        return Arrays.stream(normalizedPath.split("/"))
+                .filter(segment -> !segment.isBlank())
+                .map(segment -> ROUTE_LITERALS.contains(segment) ? segment : PLACEHOLDER)
+                .collect(Collectors.joining("."));
     }
 
     private record DomainRoute(String prefix, String domain) {

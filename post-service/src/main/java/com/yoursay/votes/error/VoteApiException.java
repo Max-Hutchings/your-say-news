@@ -9,9 +9,15 @@ public class VoteApiException extends ApiException {
         super("votes", errorCode, status, detailMessage);
     }
 
+    private VoteApiException(String errorCode, Response.Status status, String detailMessage,
+                             boolean expectedRejection) {
+        super("votes", errorCode, status, detailMessage, ApiException.genericMessage(status), expectedRejection);
+    }
+
+    /** One vote per user per post is the product rule, so a second attempt is expected, not a fault. */
     public static VoteApiException duplicateVote(Long postId, Long userId) {
         return new VoteApiException("VOTE_DUPLICATE", Response.Status.CONFLICT,
-                "Duplicate vote rejected: postId=" + postId + ", userId=" + userId);
+                "Duplicate vote rejected: postId=" + postId + ", userId=" + userId, true);
     }
 
     public static VoteApiException postMissing(Long postId) {
@@ -29,9 +35,10 @@ public class VoteApiException extends ApiException {
                 "Selected option is not available on the post: postId=" + postId + ", optionId=" + optionId);
     }
 
+    /** Results stay locked until the caller votes, so this refusal is the feature working. */
     public static VoteApiException resultsLocked(Long postId) {
         return new VoteApiException("VOTE_RESULTS_LOCKED", Response.Status.FORBIDDEN,
-                "Sentiment results are locked until the caller has voted on post " + postId);
+                "Sentiment results are locked until the caller has voted on post " + postId, true);
     }
 
     public static VoteApiException unknownAxis(String axis) {

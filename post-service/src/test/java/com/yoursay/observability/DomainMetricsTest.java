@@ -96,6 +96,37 @@ class DomainMetricsTest {
     }
 
     @Test
+    void tagsRequestsWithABoundedErrorCodeAndRecordsTheirDuration() {
+        metrics.recordRequest("votes", "GET.votes.{id}.count", 200, 7_000_000L);
+        metrics.recordRequest("votes", "POST.votes", 409, true, 3_000_000L);
+
+        assertEquals("none", requestCounter("votes", "GET.votes.{id}.count", 200, "success")
+                .getId().getTag("error_code"));
+        assertEquals("http_409", requestCounter("votes", "POST.votes", 409, "expected_rejection")
+                .getId().getTag("error_code"));
+        assertEquals("client", requestCounter("votes", "POST.votes", 409, "expected_rejection")
+                .getId().getTag("error_type"));
+
+        // Throughput mirrors requests, and is what the traffic panels read.
+        assertEquals(1.0, registry.find("yoursay.domain.throughput.total")
+                .tags("domain", "votes", "operation", "GET.votes.{id}.count", "outcome", "success")
+                .counter().count());
+
+        Timer timer = registry.find("yoursay.domain.request.duration")
+                .tags("domain", "votes", "operation", "GET.votes.{id}.count", "outcome", "success")
+                .timer();
+        assertEquals(1, timer.count());
+        assertEquals(7.0, timer.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS));
+    }
+
+    private Counter requestCounter(String domain, String operation, int status, String outcome) {
+        return registry.find("yoursay.domain.requests.total")
+                .tags("domain", domain, "operation", operation,
+                        "status", Integer.toString(status), "outcome", outcome)
+                .counter();
+    }
+
+    @Test
     void recordsLegacyBooleanOperationsWithoutLosingFailureClassification() {
         metrics.recordOperation("user", "save_profile", true);
         metrics.recordOperation("user", "save_profile", false);
@@ -109,6 +140,59 @@ class DomainMetricsTest {
         assertEquals(1.0, registry.find("yoursay.domain.errors.total")
                 .tags("domain", "user", "operation", "save_profile", "outcome", "service_error")
                 .counter().count());
+    }
+
+    @Test
+    void recordsJobDurationAndCountsAFailedJobAsAnError() {
+        metrics.recordJob("unwrapped", "generation", true, 40_000_000L);
+        metrics.recordJob("unwrapped", "generation", false, 12_000_000L);
+
+        Timer succeeded = registry.find("yoursay.domain.job.duration")
+                .tags("domain", "unwrapped", "operation", "generation", "outcome", "success")
+                .timer();
+        assertEquals(1, succeeded.count());
+        assertEquals(40.0, succeeded.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS));
+
+        Timer failed = registry.find("yoursay.domain.job.duration")
+                .tags("domain", "unwrapped", "operation", "generation", "outcome", "job_error")
+                .timer();
+        assertEquals(1, failed.count());
+        assertEquals(12.0, failed.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS));
+
+        assertEquals(1.0, jobCounter("yoursay.domain.operations.total", "success", "none", "none").count());
+        assertEquals(1.0, jobCounter("yoursay.domain.operations.total", "job_error", "internal", "job_failed").count());
+
+        // The success counter drives every success-rate panel, so both branches are pinned.
+        assertEquals(1.0, jobCounter("yoursay.domain.success.total", "success", "none", "none").count());
+        assertEquals(0.0, jobCounter("yoursay.domain.success.total", "job_error", "internal", "job_failed").count());
+
+        // A job never returns an HTTP status, so its failure only counts as an error here.
+        assertEquals(1.0, jobCounter("yoursay.domain.errors.total", "job_error", "internal", "job_failed").count());
+        assertNull(registry.find("yoursay.domain.errors.total")
+                .tags("domain", "unwrapped", "operation", "generation", "outcome", "success")
+                .counter());
+    }
+
+    @Test
+    void marksAFailedInternalOperationWithADifferentErrorCodeFromAFailedJob() {
+        metrics.recordOperation("feed", "rank", false);
+        metrics.recordJob("feed", "rank", false, 1_000_000L);
+
+        assertEquals(1.0, registry.find("yoursay.domain.errors.total")
+                .tags("domain", "feed", "operation", "rank",
+                        "outcome", "service_error", "error_code", "operation_failed")
+                .counter().count());
+        assertEquals(1.0, registry.find("yoursay.domain.errors.total")
+                .tags("domain", "feed", "operation", "rank",
+                        "outcome", "job_error", "error_code", "job_failed")
+                .counter().count());
+    }
+
+    private Counter jobCounter(String name, String outcome, String errorType, String errorCode) {
+        return registry.find(name)
+                .tags("domain", "unwrapped", "operation", "generation", "outcome", outcome,
+                        "error_type", errorType, "error_code", errorCode, "environment", "test")
+                .counter();
     }
 
     @Test

@@ -4,6 +4,8 @@ import io.quarkus.logging.Log;
 import jakarta.inject.Inject;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
@@ -17,17 +19,47 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
     @Inject
     DomainMetrics metrics;
 
+    @Context
+    ContainerRequestContext requestContext;
+
     @Override
     public Response toResponse(Throwable exception) {
         ApiException apiException = toApiException(exception);
         SourceLocation source = sourceLocation(exception);
-        metrics.recordError(apiException.domain(), "api", apiException.errorCode(), apiException.statusCode());
-        withMdc(apiException, source, () -> Log.errorf(exception,
-                "API error %s in domain %s at %s:%d: %s",
-                apiException.errorCode(), apiException.domain(), source.file(), source.line(), exception.getMessage()));
+        markExpectedRejection(apiException);
+        if (!apiException.expectedRejection()) {
+            metrics.recordError(apiException.domain(), "api", apiException.errorCode(), apiException.statusCode());
+        }
+        withMdc(apiException, source, () -> log(exception, apiException, source));
         return Response.status(apiException.statusCode())
                 .entity(new ErrorResponse(apiException.errorCode(), apiException.publicMessage()))
                 .build();
+    }
+
+    /**
+     * The response filter records the request metric after this mapper has run, so the contract's
+     * verdict is handed to it here. Without this every refusal would be counted as an error.
+     */
+    private void markExpectedRejection(ApiException apiException) {
+        if (requestContext != null && apiException.expectedRejection()) {
+            requestContext.setProperty(DomainRequestFilter.EXPECTED_REJECTION, Boolean.TRUE);
+        }
+    }
+
+    /**
+     * An expected rejection is the contract working, so it is a warning without a stack trace. Only
+     * a genuine failure is logged as an error.
+     */
+    private static void log(Throwable exception, ApiException apiException, SourceLocation source) {
+        if (apiException.expectedRejection()) {
+            Log.warnf("API rejected request: domain=%s operation=api outcome=expected_rejection "
+                            + "errorCode=%s status=%d",
+                    apiException.domain(), apiException.errorCode(), apiException.statusCode());
+            return;
+        }
+        Log.errorf(exception, "API error %s in domain %s at %s:%d: %s",
+                apiException.errorCode(), apiException.domain(), source.file(), source.line(),
+                exception.getMessage());
     }
 
     private static ApiException toApiException(Throwable exception) {
