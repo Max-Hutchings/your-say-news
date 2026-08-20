@@ -105,19 +105,31 @@ public class PostServiceImpl implements PostService {
     @WithTransaction
     public Uni<PostDto> create(String authorEmail, String authorization, CreatePostRequest request,
                                PostCreationProvenance provenance) {
+        return resolveAuthor(authorEmail, authorization)
+                .flatMap(author -> createResolved(author.userId(), request, provenance));
+    }
+
+    @Override
+    @WithTransaction
+    public Uni<PostDto> createForPublisher(Long publisherUserId, CreatePostRequest request,
+                                           PostCreationProvenance provenance) {
+        return createResolved(publisherUserId, request, provenance);
+    }
+
+    private Uni<PostDto> createResolved(Long publisherUserId, CreatePostRequest request,
+                                        PostCreationProvenance provenance) {
         List<CreatePostRequest.Media> media = requestedMedia(request);
         List<VotingOptionRules.Definition> optionDefinitions = normalizeVotingOptions(request);
         validateMedia(media);
 
-        return resolveAuthor(authorEmail, authorization)
-                .flatMap(author -> existingAiPost(provenance)
-                        .flatMap(existing -> existing != null
-                                ? decoratePost(existing)
-                                : consumeUploads(media, author.userId())
-                                        .chain(() -> saveWithTopicTags(
-                                                assemblePost(author.userId(), request, media,
-                                                        optionDefinitions, provenance),
-                                                request.topicTagIds()))))
+        return existingAiPost(provenance)
+                .flatMap(existing -> existing != null
+                        ? decoratePost(existing)
+                        : consumeUploads(media, publisherUserId)
+                                .chain(() -> saveWithTopicTags(
+                                        assemblePost(publisherUserId, request, media,
+                                                optionDefinitions, provenance),
+                                        request.topicTagIds())))
                 .invoke(() -> recordMetric("create", true))
                 .onFailure().invoke(() -> recordMetric("create", false));
     }

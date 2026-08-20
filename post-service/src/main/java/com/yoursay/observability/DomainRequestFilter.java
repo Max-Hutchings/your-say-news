@@ -29,6 +29,7 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
      * attributed to the domain that owns it rather than to the domain that owns its URL root.
      */
     private static final List<DomainRoute> DOMAIN_ROUTES = List.of(
+            new DomainRoute("api/admin/auto-post", "autopost"),
             new DomainRoute("api/admin/unwrapped", "unwrapped"),
             new DomainRoute("api/admin/topic-tags", "topics"),
             new DomainRoute("api/admin/users", "user"),
@@ -42,7 +43,7 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
             new DomainRoute("social", "social"),
             new DomainRoute("agent", "postagent"),
             new DomainRoute("live", "platform"),
-            new DomainRoute("q/", "platform"));
+            new DomainRoute("q", "platform"));
 
     /** Post Unwrapped hangs off a post's URL but is its own domain, so it is matched separately. */
     private static final Pattern UNWRAPPED_POST_ROUTE = Pattern.compile("^posts/[^/]+/unwrapped(/.*)?$");
@@ -59,11 +60,12 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
      * {@code {id}} rather than to an unbounded metric.
      */
     private static final Set<String> ROUTE_LITERALS = Set.of(
-            "access", "active", "admin", "agent", "api", "approve", "benchmark", "consent",
-            "context", "count", "data", "drafts", "email", "events", "feed", "follow-up", "followers", "following",
+            "access", "active", "admin", "agent", "api", "approve", "auto-post", "benchmark",
+            "candidates", "consent", "context", "count", "data", "drafts", "email", "events", "feed",
+            "follow-up", "followers", "following",
             "follows", "generate", "generation-status", "id", "income-options", "latest", "live",
             "me", "media", "mine", "onboarding", "options", "posts", "presign", "profiles", "q",
-            "reject", "review", "save", "sentiment", "social", "topic-tags", "unwrapped", "user",
+            "reject", "review", "runs", "save", "select", "sentiment", "social", "topic-tags", "unwrapped", "user",
             "user-characteristics", "users", "votes", "your-say-user");
 
     private static final String PLACEHOLDER = "{id}";
@@ -102,7 +104,7 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
             return "unwrapped";
         }
         return DOMAIN_ROUTES.stream()
-                .filter(route -> normalized.startsWith(route.prefix()))
+                .filter(route -> route.matches(normalized))
                 .map(DomainRoute::domain)
                 .findFirst()
                 .orElse("unknown");
@@ -130,5 +132,8 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
     }
 
     private record DomainRoute(String prefix, String domain) {
+        private boolean matches(String path) {
+            return path.equals(prefix) || path.startsWith(prefix + "/");
+        }
     }
 }

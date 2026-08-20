@@ -27,9 +27,9 @@
   milestones, stored in Postgres and reused until a later milestone produces a newer analysis.
 - **The final slide offers a second vote.** This follow-up response is captured separately and never
   changes the original vote or any canonical aggregate. Personalised analysis is deferred.
-- **The `ysn` official account can publish autonomously.** An admin-only server endpoint triggers a
-  new `ysnagent` to research current top stories, choose a topic, obtain a complete post from
-  `postagent`, validate it and publish directly as `ysn`; no client interface is required.
+- **Admins manage official auto-posts.** The auto-post desk researches and persists ten
+  non-duplicate UK, US and global stories from the previous 24 hours. An admin selects one,
+  `postagent` drafts it, and publication still requires explicit human approval.
 
 ## Product decisions locked for MVP1 v2
 
@@ -41,8 +41,8 @@
 | Post-vote experience | **Post Unwrapped replaces the raw results landing page.** | Direct aggregate exploration can remain accessible from the story. |
 | Analysis | **Aggregate-only agent analysis, cached by vote milestone.** | User-specific stories are deferred until the audience is large enough to justify them. |
 | Feed discovery | **Categories first; no “For You” page in MVP1.** Keep Following/Latest chronological with an official-follow boost. Category feeds rank posts by popularity within the selected canonical topic, tempered by recency, and strongly suppress posts already shown to that user. | A behavioural/personalised recommender is deferred. Feed code remains behind an interface. |
-| Unbiased Post agent | **Grok + live web search** inside the `post-service` `agents.postagent` domain pulls real sources at creation time, then synthesises summary, supporting arguments, a support question, voting type and valid ordered options. | Official-operated only. Sources always linked; latency handled with durable async jobs. |
-| YSN official agent | **Admin-triggered, server-side autonomous publication** in `agents.ysnagent`. It researches current stories, selects a non-duplicate topic, delegates full post writing to `postagent`, validates the result and publishes as the fixed `ysn` official account. | One `202` trigger endpoint for MVP1 v2; no UI or recurring schedule. |
+| Unbiased Post agent | **Grok + live web search** inside `com.yoursay.posts.postagent` pulls real sources at creation time, then synthesises summary, supporting arguments, a support question, voting type and valid ordered options. | Official-operated only. Sources always linked; latency handled with durable async jobs. |
+| Official auto-post | **Admin-managed workflow** in top-level `autopost`. It persists ten ranked stories from the previous 24 hours, streams progress, delegates the confirmed selection to `postagent`, and requires final approval before publishing as `yoursay`. | Manual trigger for MVP1 v2; recurring scheduling is deferred. |
 | Post media | **Images + video** via the existing S3/LocalStack setup. | Video needs an upload plus basic transcode/poster path. |
 | Privacy guard | **Aggregate-only, no minimum bucket threshold** for MVP1. | Re-identification risk remains on tiny buckets. Build `suppressBelow=k` as a configuration flip and revisit before release. The analysis agent must not narrate suppressed or statistically unsafe cohorts. |
 
@@ -93,7 +93,7 @@ architecture decision is recorded in
 - `user-service` (:8081) — domains `user`, `usercharacteristic`.
 - `post-service` (:8082) — domains `posts`, `votes` (vote scaffolding present:
   `model`/`service`/`client`). Votes stay here; `feed`, `topics`, top-level `unwrapped`, and the
-  role-specific `agents.postagent` and planned `agents.ysnagent` subdomains are siblings.
+  posts-owned `posts.postagent` component and top-level `autopost` workflow are separate boundaries.
 - Keycloak auth with realm + test users auto-imported; mobile auth (`features/auth`) wired with a
   bearer-injecting HTTP client.
 - Onboarding characteristic option sets exist on the frontend
@@ -129,7 +129,7 @@ Lock the cross-cutting pieces every later stage depends on.
   | Service | Port | Domains it owns |
   | --- | --- | --- |
   | `user-service` | 8081 | `user` (identity/PII, private voter account, official publication profile, account type and publisher status), `usercharacteristic`, `social` (users following official accounts) |
-  | `post-service` | 8082 | `posts`, `votes` (canonical votes + aggregation), `feed`, `topics`, `unwrapped` (cached post-vote stories + separate follow-up), `agents.postagent` (official post creation), `agents.ysnagent` (admin-triggered official publication) |
+  | `post-service` | 8082 | `posts`, `votes` (canonical votes + aggregation), `feed`, `topics`, `unwrapped` (cached post-vote stories + separate follow-up), `posts.postagent` (official post drafting), `autopost` (admin-managed current-story workflow) |
 
   `votes` remains beside the content and stores vote-time characteristic snapshots. `unwrapped`
   consumes only the public aggregate contract from `votes`; keeping it separate prevents agent
@@ -365,7 +365,7 @@ immediate repetition, and a new user can select private topic interests.
 
 Retain the differentiating creation agent, but make the entire flow official-operated.
 
-- **`post-service` `agents.postagent` domain** — configurable Grok models, balanced-reporting prompt
+- **`post-service` `com.yoursay.posts.postagent` component** - configurable Grok models, balanced-reporting prompt
   and live web search.
 - **Official conversational creation flow** — an authorised publisher speaks/types the subject; the
   agent produces a neutral summary, what each side believes, linked sources and a support question.
@@ -386,36 +386,27 @@ publishes it with the badge, and users vote and receive Post Unwrapped.
 
 ---
 
-## Stage 9 — The YSN official publishing agent
+## Stage 9 — Admin-managed official auto-posts
 
-Add a distinct server-side orchestrator at `com.yoursay.agents.ysnagent`.
+Add the top-level `com.yoursay.autopost` workflow defined by ADR-048.
 
-- **Admin-only trigger** — `POST /admin/ysn-agent/posts` requires the existing Keycloak `admin`
-  realm role, persists a durable job and returns `202 Accepted`. The request cannot choose the topic
-  or author.
-- **Current-story research and selection** — discover fresh, credible and corroborated top stories,
-  store an auditable candidate/source set, reject recent semantic duplicates and select one topic
-  suitable for a meaningful support question.
-- **Delegate writing** — pass the selected topic brief to `postagent` through its public Java
-  contract and receive the complete sourced post directly. Do not call its HTTP API, repositories
-  or generator internals.
-- **Fail-closed validation** — require every post field, valid binary or ordered multiple-choice
-  voting options, complete source metadata and verified claim citations before publication.
-- **Direct official publication** — publish idempotently through the public `posts` contract as the
-  fixed application account with handle `ysn`, which must still be active,
-  `OFFICIAL` and an `ACTIVE` publisher. The triggering admin is audit data, never the author.
-- **Server only** — no mobile/web route, review screen or progress interface. Jobs, failures and
-  published post IDs are observable through persistence, logs, traces and metrics.
+- **Admin story desk** — the Your Say official posts tab lists prior workflow runs and starts a new
+  durable run manually.
+- **Current-story discovery** — search the exact previous 24 hours and persist ten ranked,
+  non-duplicate candidates across UK, US and global news with verified source provenance.
+- **Live progress** — stream durable run state to the admin UI over bearer-authenticated SSE.
+- **Human selection** — show each headline, primary region and expandable summary, then require
+  confirmation before handing a bounded brief to `postagent` through its public Java contract.
+- **Human publication approval** — show the publication-ready post-agent draft and require a second
+  explicit approval before idempotent publication as the fixed active official `yoursay` account.
 - **Rights-safe media boundary** — text-only publication is valid; do not automatically republish
   arbitrary web-search images.
 
-The detailed contract, states, persistence and tests are in
-[`ysnagent-official-publishing.md`](ysnagent-official-publishing.md). The architecture decision is
-recorded in
-[`ADR-027`](../../wiki/ADR-027-2026-07-24-server-ysn-agent-publishing.md).
+The architecture decision is recorded in
+[`ADR-048`](../../wiki/ADR-048-2026-08-20-admin-auto-post-workflow.md).
 
-**Demoable:** an admin calls one endpoint; the server selects a current sourced story, obtains and
-validates a full post, and exactly one new post appears under the `ysn` official profile.
+**Demoable:** an admin reviews ten current sourced stories, confirms one for drafting, reviews the
+returned draft and publishes exactly one official post.
 
 ---
 
@@ -502,7 +493,7 @@ Stage 0 (contracts + publisher decision)
   → 5 (Post Unwrapped + cached analysis + follow-up vote)
 
 Stage 2 → 6 (official profiles/follows/feed) → 7 (topics)
-Stage 2 → 8 (official post agent) → 9 (YSN autonomous publisher)
+Stage 2 → 8 (official post agent) → 9 (admin-managed official auto-posts)
 Stages 8–9 published posts rejoin Stages 3–5
 Workstream T spans Stages 1–5 and gates meaningful Stage 4/5 verification
 Stage 10 hardening is continuous and gates release
@@ -522,9 +513,9 @@ Stage 4 aggregate source and Workstream T fixtures are proven.
    observation, context and hypothesis.
 3. **Agent quality, sources, latency and cost** — both creation and analysis agents need durable
    async work, citation checks, monitoring and versioned caching.
-4. **Autonomous editorial mistakes or duplicate coverage** — `ysnagent` can publish without human
-   review, so current-story selection, citation validation, recent-topic deduplication, fixed-author
-   checks and fail-closed publication must all be auditable and idempotent.
+4. **Editorial mistakes or duplicate coverage** — auto-post discovery can surface weak or repeated
+   topics, so candidate validation, source checks, human selection, final approval and fixed-author
+   publication must all remain auditable and idempotent.
 5. **Publisher-authorisation drift** — all posting write endpoints must use the ADR-023 database
    rule; do not introduce a competing Keycloak role or client-only check.
 6. **Follow-up contamination** — the Post Unwrapped second vote must be physically and logically
@@ -546,5 +537,5 @@ Stage 4 aggregate source and Workstream T fixtures are proven.
 - Multi-select, ranked-choice, write-in and user-authored voting options.
 - A cross-category behavioural “For You” recommender.
 - Self-service staff/publisher administration UI; future admin permissions require a separate ADR.
-- A `ysnagent` client interface, recurring schedule, caller-supplied topic or automated use of
-  arbitrary web-search images.
+- A recurring auto-post schedule, caller-supplied discovery topic or automated use of arbitrary
+  web-search images.

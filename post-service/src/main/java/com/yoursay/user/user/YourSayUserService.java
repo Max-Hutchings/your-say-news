@@ -43,6 +43,15 @@ public interface YourSayUserService {
     /** PII-free account classification and publishing capability for the authenticated subject. */
     UserAccessDto getAccessByEmail(String email);
 
+    /** PII-free account classification for a trusted cross-domain id lookup. */
+    UserAccessDto getAccessById(long userId);
+
+    /** PII-free account classification for a fixed application-owned handle. */
+    UserAccessDto getAccessByHandle(String handle);
+
+    /** Database authority check used by administrator workflow domains. */
+    boolean hasActiveAdminAccess(String email);
+
     /**
      * Record explicit consent to the privacy promise for the authenticated user, stamping the time
      * and the policy version they agreed to.

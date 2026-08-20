@@ -10,9 +10,9 @@ import com.yoursay.posts.dto.PostDto;
 import com.yoursay.posts.dto.PostCreationProvenance;
 import com.yoursay.posts.dto.PostSourceDto;
 
-import com.yoursay.agents.postagent.AgentService;
-import com.yoursay.agents.postagent.dto.AgentPublicationDto;
-import com.yoursay.agents.postagent.dto.AgentSourceDto;
+import com.yoursay.posts.postagent.AgentService;
+import com.yoursay.posts.postagent.dto.AgentPublicationDto;
+import com.yoursay.posts.postagent.dto.AgentSourceDto;
 
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;

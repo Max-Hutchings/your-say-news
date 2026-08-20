@@ -9,11 +9,12 @@ import {
 import { AccountLedger, useAdminUsers, type AccountType } from "../../features/users";
 import { Masthead } from "../../shared/components/Masthead";
 import { TopicsPage } from "../topics";
+import { AutoPostPage } from "../auto-post";
 import "./users-page.css";
 
 type TypeFilter = "ALL" | AccountType;
 type ActivityFilter = "ALL" | "ACTIVE" | "INACTIVE";
-type AdminSection = "ACCOUNTS" | "TOPICS" | "UNWRAPPED";
+type AdminSection = "ACCOUNTS" | "TOPICS" | "UNWRAPPED" | "AUTO_POST";
 
 export function UsersPage() {
   const { identity, logout } = useAdminAuth();
@@ -73,6 +74,18 @@ export function UsersPage() {
         >
           <span>Accounts</span>
           <small>People &amp; permissions</small>
+        </button>
+        <button
+          type="button"
+          id="auto-post-tab"
+          role="tab"
+          aria-controls="auto-post-panel"
+          aria-selected={section === "AUTO_POST"}
+          className={section === "AUTO_POST" ? "admin-tab admin-tab--active" : "admin-tab"}
+          onClick={() => setSection("AUTO_POST")}
+        >
+          <span>Official posts</span>
+          <small>Daily story desk</small>
         </button>
         <button
           type="button"
@@ -185,6 +198,10 @@ export function UsersPage() {
       </main> : section === "TOPICS" ? (
         <div id="topics-panel" role="tabpanel" aria-labelledby="topics-tab">
           <TopicsPage />
+        </div>
+      ) : section === "AUTO_POST" ? (
+        <div id="auto-post-panel" role="tabpanel" aria-labelledby="auto-post-tab">
+          <AutoPostPage />
         </div>
       ) : benchmarkPost ? (
         <UnwrappedBenchmarkPage

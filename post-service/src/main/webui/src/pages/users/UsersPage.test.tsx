@@ -19,6 +19,7 @@ vi.mock("../../features/unwrapped/hooks/useUnwrappedReviews", () => ({
 }));
 
 vi.mock("../topics", () => ({ TopicsPage: () => <h1>Topics desk</h1> }));
+vi.mock("../auto-post", () => ({ AutoPostPage: () => <h1>Your Say official posts</h1> }));
 
 const accounts = [
   {
@@ -233,6 +234,18 @@ describe("UsersPage", () => {
     await user.click(screen.getByRole("tab", { name: /Topics/ }));
     expect(screen.getByRole("tab", { name: /Topics/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("heading", { name: "Topics desk" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Your Say News")).toBeInTheDocument();
+  });
+
+  it("opens the official-post workflow from its own admin tab", async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+
+    await user.click(screen.getByRole("tab", { name: /Official posts/ }));
+
+    expect(screen.getByRole("tab", { name: /Official posts/ }))
+      .toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Your Say official posts" })).toBeInTheDocument();
     expect(screen.getByLabelText("Your Say News")).toBeInTheDocument();
   });
 

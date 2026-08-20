@@ -1,7 +1,7 @@
 {
   "uid": "ysn-domain-posts",
   "title": "Your Say News - Posts",
-  "description": "Publishing: the posts API, media upload presigning and the official post agent's jobs.",
+  "description": "Publishing: the posts API, official post agent jobs and admin-managed auto-post discovery.",
   "tags": [
     "your-say-news",
     "domain",
@@ -43,7 +43,7 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values({__name__=~\"yoursay_domain_(requests|operations)_total\", domain=~\"posts|postagent\"}, environment)",
+          "query": "label_values({__name__=~\"yoursay_domain_(requests|operations)_total\", domain=~\"posts|postagent|autopost\"}, environment)",
           "refId": "env"
         },
         "refresh": 2,
@@ -65,7 +65,7 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values({__name__=~\"yoursay_domain_(requests|operations)_total\", domain=~\"posts|postagent\", environment=~\"$environment\"}, operation)",
+          "query": "label_values({__name__=~\"yoursay_domain_(requests|operations)_total\", domain=~\"posts|postagent|autopost\", environment=~\"$environment\"}, operation)",
           "refId": "op"
         },
         "refresh": 2,
@@ -101,10 +101,10 @@
         "name": "logFilter",
         "label": "Log filter",
         "type": "textbox",
-        "query": "post|media|presign|agent job",
+        "query": "post|media|presign|agent job|auto-post",
         "current": {
-          "text": "post|media|presign|agent job",
-          "value": "post|media|presign|agent job",
+          "text": "post|media|presign|agent job|auto-post",
+          "value": "post|media|presign|agent job|auto-post",
           "selected": false
         },
         "description": "Case-insensitive regex matched against log lines in the errors and logs row."
@@ -150,7 +150,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(yoursay_domain_requests_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "expr": "sum(rate(yoursay_domain_requests_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
           "legendFormat": "__auto",
           "editorMode": "code",
           "range": false,
@@ -210,7 +210,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "clamp_min(sum(increase(yoursay_domain_requests_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) + sum(increase(yoursay_domain_operations_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 0)",
+          "expr": "clamp_min(sum(increase(yoursay_domain_requests_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) + sum(increase(yoursay_domain_operations_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 0)",
           "legendFormat": "__auto",
           "editorMode": "code",
           "range": false,
@@ -270,7 +270,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(yoursay_domain_errors_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__range]))",
+          "expr": "sum(increase(yoursay_domain_errors_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__range]))",
           "legendFormat": "__auto",
           "editorMode": "code",
           "range": false,
@@ -340,7 +340,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(yoursay_domain_errors_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "expr": "sum(rate(yoursay_domain_errors_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
           "legendFormat": "__auto",
           "editorMode": "code",
           "range": false,
@@ -404,7 +404,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * sum(increase(yoursay_domain_errors_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) / clamp_min(sum(increase(yoursay_domain_requests_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) + sum(increase(yoursay_domain_operations_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 1)",
+          "expr": "100 * sum(increase(yoursay_domain_errors_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) / clamp_min(sum(increase(yoursay_domain_requests_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) + sum(increase(yoursay_domain_operations_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 1)",
           "legendFormat": "__auto",
           "editorMode": "code",
           "range": false,
@@ -472,7 +472,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
           "legendFormat": "{{operation}} \u00b7 {{outcome}}",
           "editorMode": "code",
           "range": true,
@@ -540,7 +540,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
           "legendFormat": "p50 {{operation}}",
           "editorMode": "code",
           "range": true,
@@ -552,7 +552,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
           "legendFormat": "p95 {{operation}}",
           "editorMode": "code",
           "range": true,
@@ -564,7 +564,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
           "legendFormat": "p99 {{operation}}",
           "editorMode": "code",
           "range": true,
@@ -640,7 +640,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "topk(10, sum by (operation, outcome, error_type, error_code) (increase(yoursay_domain_errors_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])))",
+          "expr": "topk(10, sum by (operation, outcome, error_type, error_code) (increase(yoursay_domain_errors_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])))",
           "legendFormat": "__auto",
           "editorMode": "code",
           "range": false,
@@ -707,7 +707,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "topk(10, sum by (error_code) (increase(yoursay_domain_errors_by_code_total{domain=~\"posts|postagent\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])))",
+          "expr": "topk(10, sum by (error_code) (increase(yoursay_domain_errors_by_code_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])))",
           "legendFormat": "{{error_code}}",
           "editorMode": "code",
           "range": false,
@@ -2035,6 +2035,139 @@
       ]
     },
     {
+      "id": 35,
+      "type": "row",
+      "title": "Auto-post story discovery",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "panels": [
+        {
+          "id": 36,
+          "type": "timeseries",
+          "title": "Discovery runs per second by outcome",
+          "description": "Every undertaken discovery attempt records one terminal success, error or fault.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 34
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (outcome) (rate(yoursay_domain_operations_total{domain=\"autopost\", operation=\"discovery\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["mean", "max"]
+            },
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 37,
+          "type": "timeseries",
+          "title": "Discovery latency p50 / p95 / p99",
+          "description": "End-to-end provider research and candidate validation time.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 34
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=\"discovery\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=\"discovery\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.99, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=\"discovery\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["mean", "max"]
+            },
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
       "id": 34,
       "type": "row",
       "title": "Errors and logs",
@@ -2068,7 +2201,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "sum by (operation, error_type, error_code) (rate(yoursay_domain_errors_total{domain=~\"posts|postagent\", environment=~\"$environment\"}[$__rate_interval]))",
+              "expr": "sum by (operation, error_type, error_code) (rate(yoursay_domain_errors_total{domain=~\"posts|postagent|autopost\", environment=~\"$environment\"}[$__rate_interval]))",
               "legendFormat": "{{operation}} \u00b7 {{error_type}} \u00b7 {{error_code}}",
               "editorMode": "code",
               "range": true,

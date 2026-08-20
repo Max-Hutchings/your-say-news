@@ -36,6 +36,13 @@ public interface PostService {
         return create(authorEmail, authorization, request);
     }
 
+    /** Create for a publisher identity already verified by a trusted server-side workflow. */
+    default Uni<PostDto> createForPublisher(Long publisherUserId, CreatePostRequest request,
+                                            PostCreationProvenance provenance) {
+        return Uni.createFrom().failure(
+                new UnsupportedOperationException("Trusted publisher creation is not implemented"));
+    }
+
     /** A single post with presigned media URLs, or null if it does not exist. */
     Uni<PostDto> getById(Long id);
 

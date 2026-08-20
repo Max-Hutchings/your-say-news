@@ -68,13 +68,13 @@ The `agent` package is not a nested domain. It is a technical implementation con
 Unwrapped. The domain-level generation contract is model-agnostic; model names, provider response
 types and provider-specific citation extraction remain inside `agent`.
 
-`com.yoursay.agents` continues to contain role-specific official publishing agents such as
-`postagent` and `ysnagent`. Those agents orchestrate creation/publication as their primary domain
-responsibility. Post Unwrapped does not belong there merely because one internal step uses
-LangChain4j.
+Post drafting remains inside the posts capability at `com.yoursay.posts.postagent`; there is no
+cross-domain `com.yoursay.agents` namespace.
+ADR-048 replaced the never-implemented `ysnagent` with the top-level, human-reviewed `autopost`
+workflow. Post Unwrapped does not belong in either merely because one internal step uses LangChain4j.
 
 This decision supersedes only the placement of `unwrappedagent` in ADR-022 and the corresponding
-namespace lists in ADR-027. It does not change the separate `postagent` or `ysnagent` boundaries.
+namespace lists in ADR-027. ADR-048 separately supersedes the `ysnagent` boundary.
 
 ## Reason
 

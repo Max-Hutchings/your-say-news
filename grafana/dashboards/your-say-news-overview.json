@@ -2835,7 +2835,7 @@
           "id": 41,
           "type": "stat",
           "title": "Domains reporting",
-          "description": "Expected over a busy range: feed, posts, postagent, topics, unwrapped, user, usercharacteristic, social, votes, platform. A drop means a route stopped being attributed to its domain, or an 'unknown' has appeared.",
+          "description": "Expected over a busy range: autopost, feed, posts, postagent, topics, unwrapped, user, usercharacteristic, social, votes, platform. A drop means a route stopped being attributed to its domain, or an 'unknown' has appeared.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

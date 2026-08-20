@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="0019-create-auto-post-workflow" author="codex">
+        <createTable tableName="auto_post_run">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="pk_auto_post_run" nullable="false"/>
+            </column>
+            <column name="triggered_by_admin_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="window_start" type="timestamp with time zone"><constraints nullable="false"/></column>
+            <column name="window_end" type="timestamp with time zone"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(32)"><constraints nullable="false"/></column>
+            <column name="attempt_count" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="next_attempt_at" type="timestamp with time zone"/>
+            <column name="selected_candidate_id" type="uuid"/>
+            <column name="pepper_draft_id" type="uuid"/>
+            <column name="published_post_id" type="bigint"/>
+            <column name="model" type="varchar(128)"/>
+            <column name="prompt_version" type="varchar(64)"><constraints nullable="false"/></column>
+            <column name="provider_response_id" type="varchar(160)"/>
+            <column name="error_code" type="varchar(80)"/>
+            <column name="error_message" type="varchar(512)"/>
+            <column name="created_at" type="timestamp with time zone"><constraints nullable="false"/></column>
+            <column name="updated_at" type="timestamp with time zone"><constraints nullable="false"/></column>
+            <column name="completed_at" type="timestamp with time zone"/>
+        </createTable>
+
+        <createTable tableName="auto_post_candidate">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="pk_auto_post_candidate" nullable="false"/>
+            </column>
+            <column name="run_id" type="uuid"><constraints nullable="false"/></column>
+            <column name="rank" type="integer"><constraints nullable="false"/></column>
+            <column name="region" type="varchar(16)"><constraints nullable="false"/></column>
+            <column name="headline" type="varchar(300)"><constraints nullable="false"/></column>
+            <column name="summary" type="varchar(2000)"><constraints nullable="false"/></column>
+            <column name="deduplication_key" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="published_at" type="timestamp with time zone"><constraints nullable="false"/></column>
+            <column name="created_at" type="timestamp with time zone"><constraints nullable="false"/></column>
+        </createTable>
+
+        <createTable tableName="auto_post_candidate_source">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="pk_auto_post_candidate_source" nullable="false"/>
+            </column>
+            <column name="candidate_id" type="uuid"><constraints nullable="false"/></column>
+            <column name="ordinal" type="integer"><constraints nullable="false"/></column>
+            <column name="url" type="text"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(512)"><constraints nullable="false"/></column>
+            <column name="publisher" type="varchar(256)"><constraints nullable="false"/></column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="auto_post_run" baseColumnNames="triggered_by_admin_id"
+                                 referencedTableName="your_say_user" referencedColumnNames="id"
+                                 constraintName="fk_auto_post_run_admin"/>
+        <addForeignKeyConstraint baseTableName="auto_post_run" baseColumnNames="published_post_id"
+                                 referencedTableName="post" referencedColumnNames="id"
+                                 constraintName="fk_auto_post_run_post"/>
+        <addForeignKeyConstraint baseTableName="auto_post_candidate" baseColumnNames="run_id"
+                                 referencedTableName="auto_post_run" referencedColumnNames="id"
+                                 constraintName="fk_auto_post_candidate_run" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="auto_post_candidate_source" baseColumnNames="candidate_id"
+                                 referencedTableName="auto_post_candidate" referencedColumnNames="id"
+                                 constraintName="fk_auto_post_source_candidate" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="auto_post_run" baseColumnNames="selected_candidate_id"
+                                 referencedTableName="auto_post_candidate" referencedColumnNames="id"
+                                 constraintName="fk_auto_post_run_selected_candidate"/>
+        <addForeignKeyConstraint baseTableName="auto_post_run" baseColumnNames="pepper_draft_id"
+                                 referencedTableName="pepper_ai_draft_post" referencedColumnNames="id"
+                                 constraintName="fk_auto_post_run_pepper_draft"/>
+
+        <addUniqueConstraint tableName="auto_post_candidate" columnNames="run_id,rank"
+                             constraintName="uk_auto_post_candidate_rank"/>
+        <addUniqueConstraint tableName="auto_post_candidate" columnNames="run_id,deduplication_key"
+                             constraintName="uk_auto_post_candidate_story"/>
+        <addUniqueConstraint tableName="auto_post_candidate_source" columnNames="candidate_id,ordinal"
+                             constraintName="uk_auto_post_source_ordinal"/>
+        <addUniqueConstraint tableName="auto_post_candidate_source" columnNames="candidate_id,url"
+                             constraintName="uk_auto_post_source_url"/>
+        <addUniqueConstraint tableName="auto_post_run" columnNames="pepper_draft_id"
+                             constraintName="uk_auto_post_run_pepper_draft"/>
+
+        <createIndex tableName="auto_post_run" indexName="ix_auto_post_run_status_created">
+            <column name="status"/><column name="created_at"/>
+        </createIndex>
+        <createIndex tableName="auto_post_candidate" indexName="ix_auto_post_candidate_run_rank">
+            <column name="run_id"/><column name="rank"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE auto_post_run
+                ADD CONSTRAINT ck_auto_post_run_window CHECK (window_end > window_start),
+                ADD CONSTRAINT ck_auto_post_run_status CHECK (status IN
+                    ('QUEUED','DISCOVERING','CANDIDATES_READY','DRAFTING','DRAFT_READY','PUBLISHING','FAILED','PUBLISHED'));
+            ALTER TABLE auto_post_candidate
+                ADD CONSTRAINT ck_auto_post_candidate_rank CHECK (rank BETWEEN 1 AND 10),
+                ADD CONSTRAINT ck_auto_post_candidate_region CHECK (region IN ('UK','US','GLOBAL'));
+            ALTER TABLE auto_post_candidate_source
+                ADD CONSTRAINT ck_auto_post_source_ordinal CHECK (ordinal &gt;= 0);
+        </sql>
+    </changeSet>
+</databaseChangeLog>

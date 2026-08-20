@@ -24,6 +24,10 @@ public class YourSayUserRepository implements PanacheRepository<YourSayUser> {
             .firstResult();
     }
 
+    public YourSayUser findByHandle(String handle) {
+        return find("handle", handle).firstResult();
+    }
+
     public java.util.List<YourSayUser> listForAdministration() {
         return list("order by createdDate desc, id desc");
     }

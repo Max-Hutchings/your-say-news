@@ -1,7 +1,7 @@
 package com.yoursay;
 
 import com.yoursay.posts.client.UserServiceClient;
-import com.yoursay.agents.postagent.client.AgentUserClient;
+import com.yoursay.posts.postagent.client.AgentUserClient;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;

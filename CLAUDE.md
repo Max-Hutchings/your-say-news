@@ -32,9 +32,10 @@ personalisation data owned by the `post-service` `topics` domain. Never put them
 - **Backend:** Quarkus (latest release), Java 25, Gradle (Kotlin DSL). Group id `com.yoursay`.
   The sole backend deployable is `post-service` (port 8082). It keeps strict DDD domains so each can
   be extracted later as a near-mechanical package move: `user` (containing the `user`,
-  `usercharacteristic` and `social` subdomains), `posts`, `votes`, `feed`, `topics`, `unwrapped`,
-  and the `agents` namespace, whose role-specific official-publishing subdomains are `postagent`
-  and the planned `ysnagent`. Unwrapped owns its LangChain4j implementation internally under
+  `usercharacteristic` and `social` subdomains), `posts` (including the
+  `com.yoursay.posts.postagent` official-drafting component), `votes`, `feed`, `topics`, `unwrapped`,
+  and the top-level `autopost` domain for
+  admin-managed current-story discovery and handoff. Unwrapped owns its LangChain4j implementation internally under
   `com.yoursay.unwrapped.agent` — see `docs/plans/mvp1-v2-roadmap.md`.
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
   Routing via `expo-router` (file-based, with route groups like `(protected)`).
@@ -141,9 +142,9 @@ Rules:
    express HTTP status codes with annotations such as `@ResponseStatus`. Returning `Response`
    weakens the public Java/API contract and is prohibited.
 
-The deliberate exception is `com.yoursay.agents`: it is a namespace for role-specific official
-publishing agent subdomains. `postagent` and the planned `ysnagent` are separate domain boundaries
-beneath it, and each follows the public-face/internal-subpackage rules above independently.
+Post drafting is part of the posts capability at `com.yoursay.posts.postagent`; do not create a
+cross-domain `com.yoursay.agents` namespace. The human-reviewed `autopost` workflow is a normal
+top-level domain, not another agent persona.
 `com.yoursay.unwrapped` is instead a normal top-level domain; its `agent` child is an internal
 technical package, not another domain.
 

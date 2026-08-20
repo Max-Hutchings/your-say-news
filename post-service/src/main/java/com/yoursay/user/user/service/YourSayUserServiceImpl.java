@@ -116,7 +116,26 @@ public class YourSayUserServiceImpl implements YourSayUserService {
 
     @Override
     public UserAccessDto getAccessByEmail(String email) {
+        return toAccessDto(yourSayUserRepository.findByEmail(email));
+    }
+
+    @Override
+    public UserAccessDto getAccessById(long userId) {
+        return toAccessDto(yourSayUserRepository.findYourSayUserById(userId));
+    }
+
+    @Override
+    public UserAccessDto getAccessByHandle(String handle) {
+        return toAccessDto(yourSayUserRepository.findByHandle(handle));
+    }
+
+    @Override
+    public boolean hasActiveAdminAccess(String email) {
         YourSayUser user = yourSayUserRepository.findByEmail(email);
+        return user != null && user.isActive() && user.getAccountType() == AccountType.ADMIN;
+    }
+
+    private static UserAccessDto toAccessDto(YourSayUser user) {
         if (user == null) {
             return null;
         }

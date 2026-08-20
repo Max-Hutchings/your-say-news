@@ -71,6 +71,7 @@ class DomainRequestFilterTest {
         assertEquals("usercharacteristic", DomainRequestFilter.domainFromPath("/user-characteristics/me"));
         assertEquals("social", DomainRequestFilter.domainFromPath("/social/following"));
         assertEquals("postagent", DomainRequestFilter.domainFromPath("/agent/drafts"));
+        assertEquals("autopost", DomainRequestFilter.domainFromPath("/api/admin/auto-post/runs"));
         assertEquals("platform", DomainRequestFilter.domainFromPath("/live"));
         assertEquals("platform", DomainRequestFilter.domainFromPath("/q/metrics"));
     }
@@ -84,6 +85,8 @@ class DomainRequestFilterTest {
         assertEquals("user", DomainRequestFilter.domainFromPath("/api/admin/users"));
         assertEquals("topics", DomainRequestFilter.domainFromPath("/api/admin/topic-tags"));
         assertEquals("unwrapped", DomainRequestFilter.domainFromPath("/api/admin/unwrapped/review"));
+        assertEquals("autopost", DomainRequestFilter.domainFromPath(
+                "/api/admin/auto-post/runs/2451c413-12bf-44ad-b458-ef45dd7e2f7a/events"));
     }
 
     @Test
@@ -96,6 +99,7 @@ class DomainRequestFilterTest {
     @Test
     void reportsAnUnmappedRouteAsUnknownSoItSurfacesOnTheOverviewDashboard() {
         assertEquals("unknown", DomainRequestFilter.domainFromPath("/something-new"));
+        assertEquals("unknown", DomainRequestFilter.domainFromPath("/api/admin/auto-postevil/runs"));
         assertEquals("unknown", DomainRequestFilter.domainFromPath(null));
     }
 }

@@ -20,7 +20,7 @@ At the end of this stage:
 
 ## Architecture
 
-Add the post-creation agent at `com.yoursay.agents.postagent`. Post Unwrapped is separately owned by
+Add the post-creation agent at `com.yoursay.posts.postagent`. Post Unwrapped is separately owned by
 the top-level `com.yoursay.unwrapped` domain, with its model integration internal to
 `com.yoursay.unwrapped.agent`.
 
