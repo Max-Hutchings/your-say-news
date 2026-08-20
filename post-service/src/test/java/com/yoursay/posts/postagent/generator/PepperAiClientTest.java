@@ -40,7 +40,9 @@ class PepperAiClientTest {
     @Test
     void researchReturnsStructuredLangChain4jContentAndRawGrokCitations() {
         AgentDraftDto draft = draft();
-        Mockito.when(service.research("Compare the UK voting-age proposal."))
+        Mockito.when(service.research(PepperSystemPrompt.DEFAULT,
+                        PepperSystemPrompt.OUTPUT_INSTRUCTIONS,
+                        "Compare the UK voting-age proposal."))
                 .thenReturn(result(draft, """
                         {
                           "citations": [
@@ -58,12 +60,15 @@ class PepperAiClientTest {
                 "https://www.parliament.uk/bills/voting-age"), response.citations());
         assertEquals("grok-4.3", response.model());
         assertEquals("resp_uk_voting_age", response.providerResponseId());
-        Mockito.verify(service).research("Compare the UK voting-age proposal.");
+        Mockito.verify(service).research(PepperSystemPrompt.DEFAULT,
+                PepperSystemPrompt.OUTPUT_INSTRUCTIONS,
+                "Compare the UK voting-age proposal.");
     }
 
     @Test
     void researchFailsClosedWhenRawResponseCannotProveCitations() {
-        Mockito.when(service.research(Mockito.anyString())).thenReturn(Result.<AgentDraftDto>builder()
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(Result.<AgentDraftDto>builder()
                 .content(draft())
                 .finalResponse(ChatResponse.builder()
                         .aiMessage(AiMessage.from("structured output"))

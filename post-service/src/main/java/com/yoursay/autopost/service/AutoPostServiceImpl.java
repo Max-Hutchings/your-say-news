@@ -216,7 +216,7 @@ public class AutoPostServiceImpl implements AutoPostService {
         return updates.onCompletion().switchTo(() -> Multi.createFrom().uni(Uni.createFrom()
                         .item(() -> get(runId, administratorEmail))
                         .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())))
-                .map(AutoPostEventDto::new)
+                .map(this::toMeasuredSseEvent)
                 .onCompletion().invoke(() -> recordStreamOutcome(
                         streamOutcomeRecorded, "success", "none", "none", streamStarted))
                 .onCancellation().invoke(() -> recordStreamOutcome(
@@ -230,6 +230,20 @@ public class AutoPostServiceImpl implements AutoPostService {
         if (recorded.compareAndSet(false, true)) {
             metrics.recordOperation("autopost", "sseLifetime", outcome, faultType, faultCode,
                     System.nanoTime() - started);
+        }
+    }
+
+    private AutoPostEventDto toMeasuredSseEvent(AutoPostRunDto run) {
+        long started = System.nanoTime();
+        try {
+            AutoPostEventDto event = new AutoPostEventDto(run);
+            metrics.recordOperation("autopost", "sseEvent", "success", "none", "none",
+                    System.nanoTime() - started);
+            return event;
+        } catch (RuntimeException error) {
+            metrics.recordOperation("autopost", "sseEvent", "fault", "application",
+                    "AUTO_POST_SSE_EVENT_FAILED", System.nanoTime() - started);
+            throw error;
         }
     }
 

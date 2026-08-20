@@ -30,6 +30,10 @@ export function getAutoPostRuns(): Promise<AutoPostRun[]> {
   return autoPostRequest<AutoPostRun[]>("/api/admin/auto-post/runs");
 }
 
+export function getAutoPostRun(runId: string, signal?: AbortSignal): Promise<AutoPostRun> {
+  return autoPostRequest<AutoPostRun>(`/api/admin/auto-post/runs/${runId}`, { signal });
+}
+
 export function startAutoPostRun(): Promise<AutoPostRun> {
   return autoPostRequest<AutoPostRun>("/api/admin/auto-post/runs", { method: "POST" });
 }

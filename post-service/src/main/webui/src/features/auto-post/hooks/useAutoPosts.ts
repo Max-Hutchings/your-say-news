@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   approveAutoPostRun,
   AutoPostAdminApiError,
+  getAutoPostRun,
   getAutoPostRuns,
   selectAutoPostCandidate,
   startAutoPostRun,
@@ -51,13 +52,42 @@ export function useAutoPosts() {
     streams.current.get(runId)?.abort();
     const controller = new AbortController();
     streams.current.set(runId, controller);
-    void streamAutoPostRun(runId, (event) => replaceRun(event.run), controller.signal)
+    let terminalRunSeen = false;
+    const applyRun = (run: AutoPostRun) => {
+      if (terminalRunSeen) return;
+      replaceRun(run);
+      if (isTerminal(run)) {
+        terminalRunSeen = true;
+        controller.abort();
+      }
+    };
+    const stream = streamAutoPostRun(
+      runId,
+      (event) => applyRun(event.run),
+      controller.signal,
+    ).then(() => {
+      if (!terminalRunSeen) {
+        throw new Error("The story discovery stream closed before the run finished.");
+      }
+    }).catch((reason) => {
+      if (!terminalRunSeen) throw reason;
+    });
+    const poll = pollAutoPostRun(runId, controller.signal, applyRun).catch((reason) => {
+      if (!terminalRunSeen) throw reason;
+    });
+
+    void Promise.any([stream, poll])
       .catch((reason) => {
-        if (!controller.signal.aborted) {
+        if (!terminalRunSeen && !controller.signal.aborted) {
           setError(toAutoPostError(reason));
         }
       })
-      .finally(() => streams.current.delete(runId));
+      .finally(() => {
+        controller.abort();
+        if (streams.current.get(runId) === controller) {
+          streams.current.delete(runId);
+        }
+      });
   }, [replaceRun]);
 
   const create = useCallback(async () => {
@@ -103,6 +133,24 @@ export function useAutoPosts() {
   }, [replaceRun]);
 
   return { runs, activeRun, error, creating, selectingCandidateId, approving, load, create, select, approve };
+}
+
+async function pollAutoPostRun(
+  runId: string,
+  signal: AbortSignal,
+  onRun: (run: AutoPostRun) => void,
+): Promise<void> {
+  while (!signal.aborted) {
+    const run = await getAutoPostRun(runId, signal);
+    if (signal.aborted) return;
+    onRun(run);
+    if (isTerminal(run)) return;
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+}
+
+function isTerminal(run: AutoPostRun): boolean {
+  return ["CANDIDATES_READY", "DRAFT_READY", "FAILED", "PUBLISHED"].includes(run.status);
 }
 
 function toAutoPostError(reason: unknown): AutoPostError {

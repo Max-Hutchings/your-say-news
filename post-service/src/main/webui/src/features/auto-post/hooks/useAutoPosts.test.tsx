@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AutoPostRun } from "../types";
 
 const api = vi.hoisted(() => ({
+  getAutoPostRun: vi.fn(),
   getAutoPostRuns: vi.fn(),
   approveAutoPostRun: vi.fn(),
   selectAutoPostCandidate: vi.fn(),
@@ -39,6 +40,7 @@ describe("useAutoPosts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.getAutoPostRuns.mockResolvedValue([]);
+    api.getAutoPostRun.mockResolvedValue(queuedRun);
     api.streamAutoPostRun.mockImplementation(() => new Promise(() => undefined));
   });
 
@@ -80,5 +82,47 @@ describe("useAutoPosts", () => {
     unmount();
 
     expect(signal?.aborted).toBe(true);
+  });
+
+  it("shows a failed run when the stream never connects", async () => {
+    const failedRun: AutoPostRun = {
+      ...queuedRun,
+      status: "FAILED",
+      errorCode: "AUTO_POST_PROVIDER_RESPONSE_INVALID",
+      errorMessage: "Story discovery failed.",
+    };
+    api.startAutoPostRun.mockResolvedValue(queuedRun);
+    api.getAutoPostRun.mockResolvedValue(failedRun);
+    const { result } = renderHook(() => useAutoPosts());
+    await waitFor(() => expect(result.current.runs).toEqual([]));
+
+    await act(async () => result.current.create());
+
+    await waitFor(() => expect(result.current.activeRun).toEqual(failedRun));
+    expect(api.getAutoPostRun).toHaveBeenCalledWith(queuedRun.id, expect.any(AbortSignal));
+    expect(result.current.error).toBeNull();
+  });
+
+  it("does not replace a terminal SSE update with a stale polling response", async () => {
+    api.startAutoPostRun.mockResolvedValue(queuedRun);
+    let resolvePoll: ((run: AutoPostRun) => void) | undefined;
+    api.getAutoPostRun.mockImplementation(() => new Promise<AutoPostRun>((resolve) => {
+      resolvePoll = resolve;
+    }));
+    let sendEvent: ((event: { run: AutoPostRun }) => void) | undefined;
+    api.streamAutoPostRun.mockImplementation((_id, onEvent) => {
+      sendEvent = onEvent;
+      return new Promise(() => undefined);
+    });
+    const { result } = renderHook(() => useAutoPosts());
+    await waitFor(() => expect(result.current.runs).toEqual([]));
+    await act(async () => result.current.create());
+
+    const readyRun = { ...queuedRun, status: "CANDIDATES_READY" as const };
+    act(() => sendEvent?.({ run: readyRun }));
+    await act(async () => resolvePoll?.(queuedRun));
+
+    expect(result.current.activeRun).toEqual(readyRun);
+    expect(result.current.runs).toEqual([readyRun]);
   });
 });

@@ -4,6 +4,7 @@ vi.mock("../../auth", () => ({ getAccessToken: vi.fn().mockResolvedValue("admin-
 
 import {
   approveAutoPostRun,
+  getAutoPostRun,
   getAutoPostRuns,
   selectAutoPostCandidate,
   startAutoPostRun,
@@ -25,40 +26,58 @@ const run = {
   createdAt: "2026-08-20T12:00:00Z",
   updatedAt: "2026-08-20T12:01:00Z",
 };
+const candidateId = "4f864bb6-4e65-48fb-8e57-2e17cc5a869f";
 
 describe("autoPostAdminApi", () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it("uses authenticated admin endpoints for history, creation and selection", async () => {
+  it("uses authenticated admin endpoints for history, polling, creation and selection", async () => {
+    const pollingController = new AbortController();
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify([run]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(run), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ...run, status: "QUEUED" }), { status: 202 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ...run, status: "DRAFTING" }), { status: 202 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ...run, status: "PUBLISHED" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getAutoPostRuns()).resolves.toEqual([run]);
+    await expect(getAutoPostRun(run.id, pollingController.signal)).resolves.toEqual(run);
     await expect(startAutoPostRun()).resolves.toEqual({ ...run, status: "QUEUED" });
-    await expect(selectAutoPostCandidate(run.id, "candidate-1"))
+    await expect(selectAutoPostCandidate(run.id, candidateId))
       .resolves.toEqual({ ...run, status: "DRAFTING" });
     await expect(approveAutoPostRun(run.id)).resolves.toEqual({ ...run, status: "PUBLISHED" });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/admin/auto-post/runs", expect.objectContaining({
       headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
     }));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/admin/auto-post/runs", expect.objectContaining({
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/admin/auto-post/runs/${run.id}`,
+      expect.objectContaining({
+        signal: pollingController.signal,
+        headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/admin/auto-post/runs", expect.objectContaining({
       method: "POST",
       headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
-      `/api/admin/auto-post/runs/${run.id}/candidates/candidate-1/select`,
-      expect.objectContaining({ method: "POST" }),
+      4,
+      `/api/admin/auto-post/runs/${run.id}/candidates/${candidateId}/select`,
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+      }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      5,
       `/api/admin/auto-post/runs/${run.id}/approve`,
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+      }),
     );
   });
 

@@ -22,7 +22,10 @@ class PepperAiClient {
     ObjectMapper objectMapper;
 
     PepperAiResponse research(String request) {
-        Result<AgentDraftDto> result = service.research(request.trim());
+        Result<AgentDraftDto> result = service.research(
+                PepperSystemPrompt.DEFAULT,
+                PepperSystemPrompt.OUTPUT_INSTRUCTIONS,
+                request.trim());
         ChatResponse response = result.finalResponse();
         if (response == null) {
             throw invalid("LangChain4j returned no final Grok response");

@@ -26,7 +26,8 @@ data rather than existing only in a model response or browser session.
 For progress updates:
 
 1. Poll the run endpoint from the admin UI.
-2. Use an authenticated Server-Sent Events stream backed by durable run state.
+2. Use an authenticated Server-Sent Events stream backed by durable run state, with polling as a
+   recovery path when a browser cannot establish or retain the stream.
 3. Use a bidirectional WebSocket.
 
 ## Decision
@@ -45,9 +46,15 @@ The admin UI gains a **Your Say official posts** tab. Its **Create new** action:
 
 Each candidate has one primary region, `UK`, `US` or `GLOBAL`, plus a rank, neutral headline,
 short summary, stable within-run deduplication key and one or more sources. Exactly ten candidates
-must be returned, every region must be represented, ranks must be unique from 1 to 10, and duplicate
-underlying events are rejected. Provider source URLs are retained and validated against the live
-web-search citations before the candidate set becomes reviewable.
+must be requested, every region must be represented, ranks must be unique from 1 to 10, and duplicate
+underlying events must be removed. These editorial requirements are owned by the agent prompt.
+Application output validation only rejects missing or blank required fields, leaving the persisted
+response visible for human review instead of duplicating editorial judgement in Java.
+
+Each LangChain4j agent keeps its system prompt and output requirements in separate Markdown
+resources under `prompts`. The auto-post agent uses the same direct typed AI-service structure as
+the working Unwrapped agent, with raw response metadata captured separately from the structured
+draft.
 
 Persist three related records:
 
@@ -59,7 +66,8 @@ Persist three related records:
 Only an active application administrator can use the auto-post API. The SSE endpoint uses an
 authenticated `fetch` stream so the existing bearer token is sent in the `Authorization` header;
 tokens are never placed in URLs. Stream events are derived from durable state so reconnecting or
-landing on another replica does not lose the workflow.
+landing on another replica does not lose the workflow. The admin UI also polls the durable run in
+parallel, so a failed run replaces the loading state even if SSE never reaches the backend.
 
 Selecting a candidate does not immediately draft or publish. The UI shows a confirmation step.
 Confirmation atomically marks that candidate as selected and sends a bounded brief, including its
@@ -82,6 +90,8 @@ provider dependency, candidate validation, SSE lifetime, post-agent handoff and 
 exactly one terminal `success`, `error` or `fault` outcome per undertaken operation. Logs contain
 stable error or fault codes and trace correlation, but no tokens, email addresses, source text,
 headlines, summaries, user IDs, run IDs, candidate IDs or post IDs as metric labels.
+Each SSE event payload is also measured as the low-cardinality `sseEvent` I/O operation, including
+its outcome and creation latency.
 
 ## Reason
 

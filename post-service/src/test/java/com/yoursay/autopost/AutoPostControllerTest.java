@@ -6,6 +6,7 @@ import com.yoursay.autopost.agent.AutoPostDiscoveryException;
 import com.yoursay.autopost.agent.StoryDiscoveryAgent;
 import com.yoursay.autopost.agent.StoryDiscoveryResult;
 import com.yoursay.autopost.service.AutoPostWorker;
+import com.yoursay.observability.DomainMetrics;
 import com.yoursay.posts.postagent.AutoPostAgentService;
 import com.yoursay.posts.postagent.PepperDraftStatus;
 import com.yoursay.posts.postagent.dto.AgentPublicationDto;
@@ -20,6 +21,7 @@ import com.yoursay.posts.dto.PostDto;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.mockito.InjectSpy;
 import io.quarkus.test.security.TestSecurity;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -66,9 +68,13 @@ class AutoPostControllerTest {
     @Inject
     AgroalDataSource dataSource;
 
+    @InjectSpy
+    DomainMetrics metrics;
+
     @BeforeEach
     void cleanRuns() throws Exception {
         Mockito.reset(discoveryAgent, postAgentService, postService);
+        Mockito.clearInvocations(metrics);
         try (Connection connection = dataSource.getConnection()) {
             try (PreparedStatement statement = connection.prepareStatement("delete from auto_post_run")) {
                 statement.executeUpdate();
@@ -117,6 +123,9 @@ class AutoPostControllerTest {
                 .then().statusCode(200)
                 .contentType(startsWith("text/event-stream"))
                 .body(org.hamcrest.Matchers.containsString("CANDIDATES_READY"));
+        Mockito.verify(metrics).recordOperation(
+                Mockito.eq("autopost"), Mockito.eq("sseEvent"), Mockito.eq("success"),
+                Mockito.eq("none"), Mockito.eq("none"), Mockito.anyLong());
     }
 
     @Test
@@ -188,11 +197,14 @@ class AutoPostControllerTest {
     }
 
     @Test
-    void invalidProviderOutputFailsTheRunWithoutPersistingCandidates() throws Exception {
+    void providerOutputWithBlankRequiredFieldFailsTheRunWithoutPersistingCandidates() throws Exception {
         Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
                 .thenAnswer(invocation -> {
                     StoryDiscoveryResult valid = discoveryResult(invocation.getArgument(0), invocation.getArgument(1));
-                    return new StoryDiscoveryResult(valid.stories().subList(0, 9), valid.model(),
+                    DiscoveredStory first = valid.stories().getFirst();
+                    DiscoveredStory invalid = new DiscoveredStory(first.rank(), first.region(), " ",
+                            first.summary(), first.deduplicationKey(), first.publishedAt(), first.sources());
+                    return new StoryDiscoveryResult(List.of(invalid), valid.model(),
                             valid.providerResponseId(), valid.providerCitations());
                 });
 
@@ -425,4 +437,5 @@ class AutoPostControllerTest {
             }
         }
     }
+
 }
