@@ -136,6 +136,27 @@ const articlePage = {
   }],
 };
 
+const disagreeArticlePage = {
+  optionId: 72,
+  headline: "Night-shift workers cannot rely on the last bus home",
+  selectedCohortIds: [],
+  paragraphs: [{
+    text: "Workers may oppose the levy because late and unreliable services can leave driving as their only practical option.",
+    sourceIds: ["source-2"],
+  }, {
+    text: "A daily workplace charge would therefore land on people who have the fewest realistic alternatives.",
+    sourceIds: ["source-2"],
+  }],
+  caveat: "This analysis describes aggregate voting patterns, not individual motivations.",
+  sources: [{
+    id: "source-2",
+    url: "https://www.gov.uk/government/statistics/annual-bus-statistics-year-ending-march-2025",
+    publisher: "Department for Transport",
+    title: "Annual bus statistics",
+    classification: "OFFICIAL" as const,
+  }],
+};
+
 function benchmarkResponse(
   systemPrompt: string,
   headline = articlePage.headline,
@@ -157,7 +178,7 @@ function benchmarkResponse(
       status: "SUCCEEDED" as const,
       model: "grok-test",
       providerResponseId: `response-${systemPrompt.toLowerCase().replaceAll(" ", "-")}`,
-      argumentPages: [{ ...articlePage, headline }],
+      argumentPages: [{ ...articlePage, headline }, disagreeArticlePage],
       errorCode: null,
       errorMessage: null,
     }],
@@ -298,14 +319,24 @@ describe("UnwrappedBenchmarkPage", () => {
     await user.click(screen.getByRole("button", { name: "Generate prompt A" }));
 
     expect(generateUnwrappedBenchmark).toHaveBeenNthCalledWith(1, 42, ["Prompt A"]);
-    expect(await screen.findByRole("heading", { name: articlePage.headline }))
+    const resultA = screen.getByLabelText("Result A");
+    expect(await within(resultA).findByRole("heading", { name: articlePage.headline }))
       .toBeInTheDocument();
-    expect(screen.getByText("Support the levy")).toBeInTheDocument();
-    expect(screen.getByText("Younger commuters").tagName).toBe("STRONG");
-    expect(screen.getByText("More predictable journeys").closest("li")).toBeInTheDocument();
-    expect(screen.getByText("Lower travel costs").tagName).toBe("STRONG");
-    expect(screen.getByRole("link", { name: "Transport data" }))
+    expect(within(resultA).getByText("Support the levy")).toBeInTheDocument();
+    expect(within(resultA).getByText("Younger commuters").tagName).toBe("STRONG");
+    expect(within(resultA).getByText("More predictable journeys").closest("li"))
+      .toBeInTheDocument();
+    expect(within(resultA).getByText("Lower travel costs").tagName).toBe("STRONG");
+    expect(within(resultA).getByRole("link", { name: "Transport data" }))
       .toHaveAttribute("href", "https://www.ons.gov.uk/transport");
+    expect(within(resultA).getByRole("heading", { name: disagreeArticlePage.headline }))
+      .toBeInTheDocument();
+    expect(within(resultA).getByText("Disagree")).toBeInTheDocument();
+    for (const paragraph of disagreeArticlePage.paragraphs) {
+      expect(within(resultA).getByText(paragraph.text)).toBeInTheDocument();
+    }
+    expect(within(resultA).getByRole("link", { name: "Annual bus statistics" }))
+      .toHaveAttribute("href", disagreeArticlePage.sources[0].url);
     expect(screen.getByText("1 of 3 comparisons generated")).toBeInTheDocument();
     expect(screen.getByLabelText("Result B")).toHaveTextContent(
       "The generated article will continue down this lane.",
@@ -460,7 +491,7 @@ describe("UnwrappedBenchmarkPage", () => {
       expect(within(result).getByRole("alert")).toHaveTextContent(
         "The combined benchmark request timed out.",
       );
-      expect(within(result).getByRole("heading")).toBeInTheDocument();
+      expect(within(result).getAllByRole("heading")).toHaveLength(2);
     }
     expect(screen.getByRole("button", { name: "Generate all three" })).toBeEnabled();
   });

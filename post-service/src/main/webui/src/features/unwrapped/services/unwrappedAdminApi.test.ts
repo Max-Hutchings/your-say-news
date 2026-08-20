@@ -13,6 +13,7 @@ import {
   triggerUnwrappedGeneration,
   getUnwrappedReviewQueue,
   rejectUnwrappedStory,
+  UnwrappedAdminApiError,
 } from "./unwrappedAdminApi";
 
 describe("unwrappedAdminApi", () => {
@@ -162,7 +163,46 @@ describe("unwrappedAdminApi", () => {
       outputInstructions: "Return exactly two pages.",
       input: { postId: 42, options: [] },
     };
-    const benchmark = { postId: 42, variants: [] };
+    const benchmark = {
+      postId: 42,
+      generatedAt: "2026-08-13T18:18:18Z",
+      options: [
+        { id: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE" },
+        { id: 72, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE" },
+      ],
+      variants: [{
+        position: 1,
+        systemPrompt: "Prompt A",
+        effectiveSystemPrompt: "Prompt A",
+        attemptCount: 1,
+        status: "SUCCEEDED",
+        model: "grok-4.5",
+        providerResponseId: "response-42",
+        argumentPages: [{
+          optionId: 71,
+          headline: "Young commuters gain a cheaper route through the city",
+          selectedCohortIds: ["ageRange=AGE_25_34"],
+          paragraphs: [{
+            text: "Reliable buses can give younger commuters a practical alternative to paying the levy.",
+            sourceIds: ["source-1"],
+          }],
+          caveat: "Aggregate voting cannot identify individual motivation.",
+          sources: [],
+        }, {
+          optionId: 72,
+          headline: "Night workers cannot depend on buses that have stopped running",
+          selectedCohortIds: [],
+          paragraphs: [{
+            text: "Late shifts can make driving the only realistic journey home.",
+            sourceIds: ["source-2"],
+          }],
+          caveat: "Aggregate voting cannot identify individual motivation.",
+          sources: [],
+        }],
+        errorCode: null,
+        errorMessage: null,
+      }],
+    };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(prompt), {
         status: 200,
@@ -197,5 +237,81 @@ describe("unwrappedAdminApi", () => {
         }),
       }),
     );
+  });
+
+  it("rejects a successful benchmark response when an option article has no content", async () => {
+    const incompleteBenchmark = {
+      postId: 42,
+      generatedAt: "2026-08-13T18:18:18Z",
+      options: [
+        { id: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE" },
+        { id: 72, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE" },
+      ],
+      variants: [{
+        position: 1,
+        status: "SUCCEEDED",
+        argumentPages: [{
+          optionId: 71,
+          headline: "A complete article",
+          paragraphs: [{ text: "A complete paragraph.", sourceIds: [] }],
+          sources: [],
+        }],
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      JSON.stringify(incompleteBenchmark),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    )));
+
+    const failure = await generateUnwrappedBenchmark(42, ["Prompt A"])
+      .then(() => null, (reason: unknown) => reason);
+
+    expect(failure).toBeInstanceOf(UnwrappedAdminApiError);
+    expect(failure).toMatchObject({
+      status: 502,
+      message: "The model returned incomplete article content for Disagree.",
+    });
+  });
+
+  it.each([
+    ["a blank headline", {
+      optionId: 71,
+      headline: "   ",
+      paragraphs: [{ text: "A complete paragraph.", sourceIds: [] }],
+      sources: [],
+    }],
+    ["no paragraphs", {
+      optionId: 71,
+      headline: "A complete headline",
+      paragraphs: [],
+      sources: [],
+    }],
+    ["a blank paragraph", {
+      optionId: 71,
+      headline: "A complete headline",
+      paragraphs: [{ text: "   ", sourceIds: [] }],
+      sources: [],
+    }],
+  ])("rejects a successful benchmark response containing %s", async (_case, page) => {
+    const incompleteBenchmark = {
+      postId: 42,
+      generatedAt: "2026-08-13T18:18:18Z",
+      options: [{ id: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE" }],
+      variants: [{
+        position: 1,
+        status: "SUCCEEDED",
+        argumentPages: [page],
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      JSON.stringify(incompleteBenchmark),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    )));
+
+    await expect(generateUnwrappedBenchmark(42, ["Prompt A"]))
+      .rejects.toMatchObject({
+        status: 502,
+        message: "The model returned incomplete article content for Agree.",
+      });
   });
 });
