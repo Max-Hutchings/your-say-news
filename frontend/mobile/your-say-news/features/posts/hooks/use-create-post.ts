@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { createPost } from "../services/PostService";
 import { uploadMedia, type LocalMedia } from "../services/MediaUploadService";
-import type { CreatePostMedia, MediaType, Post, VotingType } from "../types";
+import type { CreatePostMedia, MediaType, Post, PostSource, VotingType } from "../types";
 
 /**
  * Orchestrates the create-post flow: pick media → presign + upload (with
@@ -25,6 +25,8 @@ export interface CreatePostFields {
   votingType?: VotingType;
   voteOptions?: string[];
   topicTagIds?: string[];
+  pepperDraftId?: string;
+  citations?: PostSource[];
 }
 
 /** Trimmed-empty checks for the two required fields; keys with errors map to a message. */
@@ -157,6 +159,9 @@ export function useCreatePost() {
             : [],
           media,
           topicTagIds: fields.topicTagIds ?? [],
+          ...(fields.pepperDraftId
+            ? { pepperDraftId: fields.pepperDraftId, citations: fields.citations ?? [] }
+            : {}),
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not publish your post.");

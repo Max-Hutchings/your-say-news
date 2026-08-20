@@ -13,6 +13,8 @@ import com.yoursay.posts.dto.PostDto;
 import com.yoursay.posts.dto.PostMediaDto;
 
 import com.yoursay.posts.dto.PostPageRequest;
+import com.yoursay.posts.dto.PostCreationProvenance;
+import com.yoursay.posts.dto.PostSourceDto;
 
 import com.yoursay.posts.*;
 import com.yoursay.posts.client.UserServiceClient;
@@ -24,6 +26,8 @@ import com.yoursay.posts.model.PostMediaUploadRepository;
 import com.yoursay.posts.model.PostRepository;
 import com.yoursay.posts.model.PostVoteOption;
 import com.yoursay.posts.model.PostVoteOptionRepository;
+import com.yoursay.posts.model.PostSource;
+import com.yoursay.posts.model.PostSourceRepository;
 import com.yoursay.posts.model.VotingOptionRules;
 import com.yoursay.observability.DomainMetrics;
 import com.yoursay.topics.TopicService;
@@ -56,6 +60,9 @@ public class PostServiceImpl implements PostService {
 
     @Inject
     PostVoteOptionRepository optionRepository;
+
+    @Inject
+    PostSourceRepository sourceRepository;
 
     @Inject
     MediaStorageService mediaStorage;
@@ -91,18 +98,42 @@ public class PostServiceImpl implements PostService {
     @Override
     @WithTransaction
     public Uni<PostDto> create(String authorEmail, String authorization, CreatePostRequest request) {
-        Log.infof("Creating post for author %s", authorEmail);
+        return create(authorEmail, authorization, request, null);
+    }
+
+    @Override
+    @WithTransaction
+    public Uni<PostDto> create(String authorEmail, String authorization, CreatePostRequest request,
+                               PostCreationProvenance provenance) {
         List<CreatePostRequest.Media> media = requestedMedia(request);
         List<VotingOptionRules.Definition> optionDefinitions = normalizeVotingOptions(request);
         validateMedia(media);
 
         return resolveAuthor(authorEmail, authorization)
-                .flatMap(author -> consumeUploads(media, author.userId())
-                        .chain(() -> saveWithTopicTags(
-                                assemblePost(author.userId(), request, media, optionDefinitions),
-                                request.topicTagIds())))
+                .flatMap(author -> existingAiPost(provenance)
+                        .flatMap(existing -> existing != null
+                                ? decoratePost(existing)
+                                : consumeUploads(media, author.userId())
+                                        .chain(() -> saveWithTopicTags(
+                                                assemblePost(author.userId(), request, media,
+                                                        optionDefinitions, provenance),
+                                                request.topicTagIds()))))
                 .invoke(() -> recordMetric("create", true))
                 .onFailure().invoke(() -> recordMetric("create", false));
+    }
+
+    private Uni<Post> existingAiPost(PostCreationProvenance provenance) {
+        return provenance == null
+                ? Uni.createFrom().nullItem()
+                : postRepository.getByAiDraftId(provenance.pepperDraftId());
+    }
+
+    private Uni<PostDto> decoratePost(Post post) {
+        return optionRepository.listByPostId(post.getId())
+                .flatMap(options -> sourceRepository.listByPostIds(List.of(post.getId()))
+                        .map(sources -> toDto(post, options, sources)))
+                .flatMap(dto -> topicService.effectiveTagsForPosts(List.of(post.getId()))
+                        .map(tags -> dto.withTopicTags(tags.getOrDefault(post.getId(), List.of()))));
     }
 
     private static List<CreatePostRequest.Media> requestedMedia(CreatePostRequest request) {
@@ -140,12 +171,20 @@ public class PostServiceImpl implements PostService {
         return claims;
     }
 
-    /** Author comes from the token; body userId (if any) and isUnbiased are ignored/forced. */
+    /** Author comes from the token; AI provenance is supplied only after server ownership checks. */
     private static Post assemblePost(Long authorId, CreatePostRequest request,
                                      List<CreatePostRequest.Media> media,
-                                     List<VotingOptionRules.Definition> optionDefinitions) {
+                                     List<VotingOptionRules.Definition> optionDefinitions,
+                                     PostCreationProvenance provenance) {
         Post post = new Post(authorId, request.summary().trim(),
-                request.supportQuestion().trim(), false);
+                request.supportQuestion().trim(), provenance != null);
+        if (provenance != null) {
+            post.setAiDraftId(provenance.pepperDraftId());
+            for (int index = 0; index < provenance.sources().size(); index++) {
+                PostSourceDto source = provenance.sources().get(index);
+                post.addSource(new PostSource(post, source.url(), source.title(), source.publisher(), index));
+            }
+        }
         post.setCaseFor(emptyToNull(request.caseFor()));
         post.setCaseAgainst(emptyToNull(request.caseAgainst()));
         post.setJurisdiction(normalizeJurisdiction(request.jurisdiction()));
@@ -167,7 +206,9 @@ public class PostServiceImpl implements PostService {
     private Uni<PostDto> saveWithTopicTags(Post post, List<String> topicTagIds) {
         return postRepository.savePost(post).flatMap(saved -> topicService
                 .assignCreatorTags(saved.getId(), topicTagIds)
-                .map(tags -> toDto(saved, saved.getVoteOptions()).withTopicTags(tags)));
+                .flatMap(tags -> sourceRepository.listByPostIds(List.of(saved.getId()))
+                        .map(sources -> toDto(saved, saved.getVoteOptions(), sources)
+                                .withTopicTags(tags))));
     }
 
     @Override
@@ -176,7 +217,8 @@ public class PostServiceImpl implements PostService {
         return postRepository.getPostById(id).flatMap(post -> post == null
                 ? Uni.createFrom().nullItem()
                 : optionRepository.listByPostId(id)
-                        .map(options -> toDto(post, options))
+                        .flatMap(options -> sourceRepository.listByPostIds(List.of(id))
+                                .map(sources -> toDto(post, options, sources)))
                         .flatMap(dto -> topicService.effectiveTagsForPosts(List.of(id))
                                 .map(byPostId -> dto.withTopicTags(
                                         byPostId.getOrDefault(id, List.of())))));
@@ -222,17 +264,24 @@ public class PostServiceImpl implements PostService {
             return Uni.createFrom().item(List.of());
         }
         List<Long> ids = posts.stream().map(Post::getId).toList();
-        return optionRepository.listByPostIds(ids).flatMap(options -> {
+        return optionRepository.listByPostIds(ids).flatMap(options ->
+                sourceRepository.listByPostIds(ids).flatMap(sources -> {
             Map<Long, List<PostVoteOption>> optionsByPostId = options.stream()
                     .collect(Collectors.groupingBy(option -> option.getPost().getId()));
+            Map<Long, List<PostSource>> sourcesByPostId = sources.stream()
+                    .collect(Collectors.groupingBy(source -> source.getPost().getId()));
             return topicService.effectiveTagsForPosts(ids).map(tagsByPostId -> posts.stream()
-                    .map(post -> toDto(post, optionsByPostId.getOrDefault(post.getId(), List.of()))
+                    .map(post -> toDto(
+                                    post,
+                                    optionsByPostId.getOrDefault(post.getId(), List.of()),
+                                    sourcesByPostId.getOrDefault(post.getId(), List.of()))
                             .withTopicTags(tagsByPostId.getOrDefault(post.getId(), List.of())))
                     .toList());
-        });
+        }));
     }
 
-    private PostDto toDto(Post post, List<PostVoteOption> options) {
+    private PostDto toDto(
+            Post post, List<PostVoteOption> options, List<PostSource> sources) {
         if (post == null) {
             return null;
         }
@@ -254,11 +303,16 @@ public class PostServiceImpl implements PostService {
                         .map(option -> new VoteOptionDto(option.getId(), option.getLabel(),
                                 option.getOrdinal(), option.getSemanticKey()))
                         .toList(),
-                post.isUnbiased(),
+                post.isAiGenerated(),
                 post.getCreatedAt(),
                 media,
                 // Decorated by the caller: a single post via getById, a page via mapPostsWithOptions.
-                List.of()
+                List.of(),
+                sources.stream()
+                        .sorted((left, right) -> Integer.compare(left.getOrdinal(), right.getOrdinal()))
+                        .map(source -> new PostSourceDto(
+                                source.getUrl(), source.getTitle(), source.getPublisher()))
+                        .toList()
         );
     }
 

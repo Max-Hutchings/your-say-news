@@ -1525,7 +1525,7 @@
     {
       "id": 26,
       "type": "row",
-      "title": "Agent job API",
+      "title": "Pepper draft API",
       "collapsed": true,
       "gridPos": {
         "h": 1,
@@ -1538,7 +1538,7 @@
           "id": 23,
           "type": "timeseries",
           "title": "Requests per second",
-          "description": "Queueing and polling official-publishing agent jobs.",
+          "description": "Direct Pepper generation streams, reconnects, draft recovery and autosave requests.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1556,7 +1556,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.jobs.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.drafts.*\", environment=~\"$environment\"}[$__rate_interval]))",
               "legendFormat": "{{operation}} \u00b7 {{outcome}}",
               "editorMode": "code",
               "range": true,
@@ -1624,7 +1624,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.jobs.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.drafts.*\", environment=~\"$environment\"}[$__rate_interval]))",
               "legendFormat": "{{operation}} \u00b7 {{error_code}}",
               "editorMode": "code",
               "range": true,
@@ -1698,7 +1698,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.jobs.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.drafts.*\", environment=~\"$environment\"}[$__rate_interval])))",
               "legendFormat": "p50 {{operation}}",
               "editorMode": "code",
               "range": true,
@@ -1710,7 +1710,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.jobs.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.drafts.*\", environment=~\"$environment\"}[$__rate_interval])))",
               "legendFormat": "p95 {{operation}}",
               "editorMode": "code",
               "range": true,
@@ -1722,7 +1722,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.jobs.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"posts|postagent\", operation=~\".*\\\\.agent\\\\.drafts.*\", environment=~\"$environment\"}[$__rate_interval])))",
               "legendFormat": "p99 {{operation}}",
               "editorMode": "code",
               "range": true,
@@ -1781,7 +1781,7 @@
     {
       "id": 30,
       "type": "row",
-      "title": "Agent publishing jobs",
+      "title": "Pepper generation",
       "collapsed": true,
       "gridPos": {
         "h": 1,
@@ -1793,8 +1793,8 @@
         {
           "id": 27,
           "type": "timeseries",
-          "title": "Job runs per second by outcome",
-          "description": "A failed background job counts as an error even though no HTTP 5xx is ever returned.",
+          "title": "Generations per second by outcome",
+          "description": "Direct generation outcomes, including faults reported inside an established SSE response.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1861,7 +1861,7 @@
         {
           "id": 28,
           "type": "timeseries",
-          "title": "Job failures per second",
+          "title": "Generation faults per second",
           "description": "",
           "datasource": {
             "type": "prometheus",
@@ -1935,7 +1935,7 @@
         {
           "id": 29,
           "type": "timeseries",
-          "title": "Job duration p50 / p95 / p99",
+          "title": "Generation duration p50 / p95 / p99",
           "description": "",
           "datasource": {
             "type": "prometheus",
@@ -1954,7 +1954,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(yoursay_domain_job_duration_milliseconds_bucket{domain=\"postagent\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
+              "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"postagent\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
               "legendFormat": "p50 {{outcome}}",
               "editorMode": "code",
               "range": true,
@@ -1966,7 +1966,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(yoursay_domain_job_duration_milliseconds_bucket{domain=\"postagent\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
+              "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"postagent\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
               "legendFormat": "p95 {{outcome}}",
               "editorMode": "code",
               "range": true,
@@ -1978,7 +1978,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "histogram_quantile(0.99, sum by (le, outcome) (rate(yoursay_domain_job_duration_milliseconds_bucket{domain=\"postagent\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
+              "expr": "histogram_quantile(0.99, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"postagent\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
               "legendFormat": "p99 {{outcome}}",
               "editorMode": "code",
               "range": true,

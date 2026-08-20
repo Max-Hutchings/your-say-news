@@ -22,8 +22,8 @@ class DomainRequestFilterTest {
         assertEquals("GET.posts.{id}", DomainRequestFilter.operationFrom("GET", "/posts/2007"));
         assertEquals("GET.votes.{id}.sentiment",
                 DomainRequestFilter.operationFrom("GET", "/votes/2007/sentiment"));
-        assertEquals("GET.agent.jobs.{id}",
-                DomainRequestFilter.operationFrom("GET", "/agent/jobs/3f8b1c2d-4e5a-6b7c-8d9e-0f1a2b3c4d5e"));
+        assertEquals("GET.agent.drafts.{id}.events",
+                DomainRequestFilter.operationFrom("GET", "/agent/drafts/3f8b1c2d-4e5a-6b7c-8d9e-0f1a2b3c4d5e/events"));
         assertEquals("GET.your-say-user.email.{id}",
                 DomainRequestFilter.operationFrom("GET", "/your-say-user/email/john.doe@example.com"));
         assertEquals("PUT.api.admin.topic-tags.{id}.active",
@@ -70,7 +70,7 @@ class DomainRequestFilterTest {
         assertEquals("user", DomainRequestFilter.domainFromPath("/your-say-user/onboarding"));
         assertEquals("usercharacteristic", DomainRequestFilter.domainFromPath("/user-characteristics/me"));
         assertEquals("social", DomainRequestFilter.domainFromPath("/social/following"));
-        assertEquals("postagent", DomainRequestFilter.domainFromPath("/agent/jobs"));
+        assertEquals("postagent", DomainRequestFilter.domainFromPath("/agent/drafts"));
         assertEquals("platform", DomainRequestFilter.domainFromPath("/live"));
         assertEquals("platform", DomainRequestFilter.domainFromPath("/q/metrics"));
     }

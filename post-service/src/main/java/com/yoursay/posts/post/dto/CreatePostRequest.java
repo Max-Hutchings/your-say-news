@@ -9,10 +9,11 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Body for creating a post. The author is derived from the authenticated token, never this body,
- * and {@code isUnbiased} is always forced false on create (only the Stage 7 agent sets it).
+ * AI provenance is derived from a verified Pepper draft ID, never a client boolean.
  */
 public record CreatePostRequest(
         @NotBlank
@@ -40,9 +41,26 @@ public record CreatePostRequest(
          * dropped, so an author never publishes believing a topic was applied.
          */
         @Size(max = 3)
-        List<@NotBlank @Size(max = 64) String> topicTagIds
+        List<@NotBlank @Size(max = 64) String> topicTagIds,
+        UUID pepperDraftId,
+        @Size(max = 20) List<@NotNull @Valid Citation> citations
 ) {
+    public CreatePostRequest(String summary, String supportQuestion, String caseFor,
+                             String caseAgainst, String jurisdiction, VotingType votingType,
+                             List<VoteOption> voteOptions, List<Media> media,
+                             List<String> topicTagIds) {
+        this(summary, supportQuestion, caseFor, caseAgainst, jurisdiction, votingType,
+                voteOptions, media, topicTagIds, null, List.of());
+    }
+
     public record VoteOption(@NotBlank @Size(max = 120) String label) {
+    }
+
+    public record Citation(
+            @NotBlank @Size(max = 2048) String url,
+            @NotBlank @Size(max = 512) String title,
+            @NotBlank @Size(max = 256) String publisher
+    ) {
     }
 
     /**

@@ -221,7 +221,7 @@ public class PostControllerTest {
                 .body("supportQuestion", is("Should large platforms be accountable?"))
                 .body("caseFor", is("Reach means responsibility."))
                 .body("caseAgainst", is("Scale makes it unenforceable."))
-                .body("isUnbiased", is(false))
+                .body("isAiGenerated", is(false))
                 .body("createdAt", notNullValue())
                 .body("media.size()", is(2))
                 .body("media[0].mediaType", is("IMAGE"))
@@ -248,7 +248,7 @@ public class PostControllerTest {
                 .body("$", not(hasKey("title")))
                 .body("summary", is("Body summary"))
                 .body("supportQuestion", is("Should large platforms be accountable?"))
-                .body("isUnbiased", is(false))
+                .body("isAiGenerated", is(false))
                 .body("createdAt", notNullValue())
                 // order survives the round trip: IMAGE before VIDEO
                 .body("media.mediaType", contains("IMAGE", "VIDEO"))
@@ -326,7 +326,7 @@ public class PostControllerTest {
     public void createIgnoresUserIdAndIsUnbiasedInBody() {
         // Body tries to spoof a different author and force the unbiased badge — both must be ignored.
         String json = """
-                { "userId": 999, "isUnbiased": true,
+                { "userId": 999, "isAiGenerated": true,
                   "summary": "Trying to spoof", "supportQuestion": "Should this be trusted?", "media": [] }
                 """;
 
@@ -337,7 +337,7 @@ public class PostControllerTest {
                 .then()
                 .statusCode(201)
                 .body("userId", is((int) AUTHOR_ID))   // from token, not the body's 999
-                .body("isUnbiased", is(false));         // forced false, not the body's true
+                .body("isAiGenerated", is(false));         // forced false, not the body's true
     }
 
     @Test

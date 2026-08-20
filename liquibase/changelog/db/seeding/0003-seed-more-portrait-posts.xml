@@ -20,7 +20,7 @@
             <column name="support_question" value="Should cities protect established street-performance spots?"/>
             <column name="case_for" value="Great pitches build culture and community that's worth safeguarding."/>
             <column name="case_against" value="Fixed rights to public space invite disputes and shut newcomers out."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-07-01T10:00:00"/>
             <column name="updated_at" valueDate="2026-07-01T10:00:00"/>
         </insert>
@@ -33,7 +33,7 @@
             <column name="support_question" value="Should councils provide safe open-water swimming spots?"/>
             <column name="case_for" value="Safe access spreads a proven boost to physical and mental health."/>
             <column name="case_against" value="Councils take on liability and lifeguard costs for a risky activity."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-07-01T11:00:00"/>
             <column name="updated_at" valueDate="2026-07-01T11:00:00"/>
         </insert>

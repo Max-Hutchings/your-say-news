@@ -69,10 +69,11 @@ const posts: Post[] = [1, 2].map((id) => ({
         { id: id * 10 + 1, label: "Agree", ordinal: 0, semanticKey: "AGREE" as const },
         { id: id * 10 + 2, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE" as const },
       ],
-  isUnbiased: false,
+  isAiGenerated: false,
   createdAt: "2026-07-13T12:00:00Z",
   media: [],
   topicTags: [],
+  sources: [],
 }));
 
 const videoPost: Post = {

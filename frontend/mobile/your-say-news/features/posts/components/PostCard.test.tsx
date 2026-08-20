@@ -57,7 +57,8 @@ const basePost: Post = {
     { id: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE" },
     { id: 72, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE" },
   ],
-  isUnbiased: false,
+  isAiGenerated: false,
+  sources: [],
   createdAt: "2026-06-21T10:00:00Z",
   media: [
     {
@@ -195,14 +196,29 @@ describe("PostCard", () => {
     expect(screen.queryByTestId("post-card-video")).toBeNull();
   });
 
-  it("hides the unbiased badge when the post is not unbiased", () => {
+  it("hides the AI label when the post was written manually", () => {
     renderWithTheme(<PostCard post={basePost} />);
-    expect(screen.queryByText("UNBIASED")).toBeNull();
+    expect(screen.queryByText("AI GENERATED")).toBeNull();
   });
 
-  it("shows the unbiased badge only when the post is unbiased", () => {
-    renderWithTheme(<PostCard post={{ ...basePost, isUnbiased: true }} />);
-    expect(screen.getByText("UNBIASED")).toBeOnTheScreen();
+  it("labels posts whose completed Pepper draft was published", () => {
+    renderWithTheme(<PostCard post={{ ...basePost, isAiGenerated: true }} />);
+    expect(screen.getByText("AI GENERATED")).toBeOnTheScreen();
+  });
+
+  it("renders citations after the article text and supporting arguments", () => {
+    renderWithTheme(<PostCard post={{
+      ...basePost,
+      sources: [
+        { url: "https://www.ons.gov.uk/work", title: "Working patterns", publisher: "ONS" },
+        { url: "https://www.acas.org.uk/hours", title: "Working hours", publisher: "Acas" },
+      ],
+    }} />);
+
+    expect(screen.getByText("SOURCES")).toBeOnTheScreen();
+    expect(screen.getByText("Working patterns")).toBeOnTheScreen();
+    expect(screen.getByText("ONS")).toBeOnTheScreen();
+    expect(screen.getByText("Working hours")).toBeOnTheScreen();
   });
 
   it("renders the case-for and case-against cards with their arguments", () => {

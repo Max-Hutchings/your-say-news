@@ -24,20 +24,21 @@ public record PostDto(
         String jurisdiction,
         VotingType votingType,
         List<VoteOptionDto> voteOptions,
-        boolean isUnbiased,
+        boolean isAiGenerated,
         Instant createdAt,
         List<PostMediaDto> media,
-        List<TopicTagDto> topicTags
+        List<TopicTagDto> topicTags,
+        List<PostSourceDto> sources
 ) {
     public PostDto(Long id, Long userId, String summary, String supportQuestion, String caseFor,
-                   String caseAgainst, boolean isUnbiased, Instant createdAt, List<PostMediaDto> media) {
+                   String caseAgainst, boolean isAiGenerated, Instant createdAt, List<PostMediaDto> media) {
         this(id, userId, summary, supportQuestion, caseFor, caseAgainst, "GLOBAL", VotingType.BINARY,
-                List.of(), isUnbiased, createdAt, media, List.of());
+                List.of(), isAiGenerated, createdAt, media, List.of(), List.of());
     }
 
     /** The same post with its topic chips attached — used when decorating a page of posts. */
     public PostDto withTopicTags(List<TopicTagDto> topicTags) {
         return new PostDto(id, userId, summary, supportQuestion, caseFor, caseAgainst, jurisdiction,
-                votingType, voteOptions, isUnbiased, createdAt, media, topicTags);
+                votingType, voteOptions, isAiGenerated, createdAt, media, topicTags, sources);
     }
 }

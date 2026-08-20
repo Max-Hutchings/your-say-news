@@ -10,6 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @ApplicationScoped
 public class PostRepository implements PanacheRepository<Post> {
@@ -38,6 +39,12 @@ public class PostRepository implements PanacheRepository<Post> {
     public Uni<Post> getPostById(Long id) {
         return find("select distinct p from Post p left join fetch p.media where p.id = :id",
                 Parameters.with("id", id)).firstResult();
+    }
+
+    public Uni<Post> getByAiDraftId(UUID draftId) {
+        return find("select distinct p from Post p left join fetch p.media "
+                        + "where p.aiDraftId = :draftId",
+                Parameters.with("draftId", draftId)).firstResult();
     }
 
     public Uni<List<Post>> getPostsByUser(Long userId) {

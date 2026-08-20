@@ -156,7 +156,7 @@ class UnwrappedAdminGenerationIntegrationTest {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement post = connection.prepareStatement("""
                      insert into post(
-                         user_id, summary, support_question, is_unbiased,
+                         user_id, summary, support_question, is_ai_generated,
                          created_at, updated_at, voting_type, jurisdiction, case_for, case_against
                      ) values (1,
                          'A council is considering permits that cap street-performance hours and rotate busy pitches after residents complained about amplified evening music.',

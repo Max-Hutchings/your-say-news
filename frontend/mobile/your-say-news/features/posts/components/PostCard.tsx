@@ -12,7 +12,8 @@ import { useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont, feedMediaHeight } from "@/constants/theme";
 import { VoteControls } from "@/features/votes";
 import type { Post } from "../types";
-import { UnbiasedBadge } from "./UnbiasedBadge";
+import { AiGeneratedBadge } from "./AiGeneratedBadge";
+import { PostSources } from "./PostSources";
 import { PostVideo } from "./PostVideo";
 import { PostImageCarousel } from "./PostImageCarousel";
 import { ScrollableSummary } from "./ScrollableSummary";
@@ -99,6 +100,12 @@ export function PostCard({
         )}
       </View>
     ) : null;
+  const articleFooter = (
+    <>
+      {caseFooter}
+      <PostSources sources={post.sources ?? []} />
+    </>
+  );
 
   // The motion — the support question. Shared by both layouts.
   const motionBox = (
@@ -191,9 +198,9 @@ export function PostCard({
         >
           {mediaBox.h > 0 && immersiveMedia}
 
-          {post.isUnbiased && (
+          {post.isAiGenerated && (
             <View style={styles.badgeOverlay}>
-              <UnbiasedBadge />
+              <AiGeneratedBadge />
             </View>
           )}
           <View style={[styles.timeOverlay, { backgroundColor: e.mediaScrim }]}>
@@ -221,7 +228,7 @@ export function PostCard({
               <Ionicons name="chevron-down" size={18} color={e.muted} />
               <Text style={[styles.panelHandleText, { color: e.muted }]}>See less</Text>
             </Pressable>
-            <ScrollableSummary text={post.summary} footer={caseFooter} />
+            <ScrollableSummary text={post.summary} footer={articleFooter} />
           </Animated.View>
 
           {!expanded && (
@@ -260,9 +267,9 @@ export function PostCard({
         <View testID="post-media-stage" style={{ width: window.width, height: mediaBoxHeight }}>
           {mediaContent}
 
-          {post.isUnbiased && (
+          {post.isAiGenerated && (
             <View style={styles.badgeOverlay}>
-              <UnbiasedBadge />
+              <AiGeneratedBadge />
             </View>
           )}
 
@@ -278,7 +285,7 @@ export function PostCard({
         {/* Text-only posts have no media to overlay, so the meta shows here. */}
         {!hasMedia && (
           <View style={styles.metaRow}>
-            {post.isUnbiased ? <UnbiasedBadge /> : <View />}
+            {post.isAiGenerated ? <AiGeneratedBadge /> : <View />}
             <Text style={[styles.meta, { color: e.muted }]}>{timeAgo(post.createdAt)}</Text>
           </View>
         )}
@@ -288,7 +295,7 @@ export function PostCard({
         {!hasMedia && authorLink()}
 
         {/* The scroll region: summary, then the case-for/against cards at the bottom. */}
-        <ScrollableSummary text={post.summary} footer={caseFooter} />
+        <ScrollableSummary text={post.summary} footer={articleFooter} />
 
         {voteRow}
       </View>

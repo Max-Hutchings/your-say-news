@@ -60,8 +60,8 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
      */
     private static final Set<String> ROUTE_LITERALS = Set.of(
             "access", "active", "admin", "agent", "api", "approve", "benchmark", "consent",
-            "context", "count", "data", "email", "feed", "follow-up", "followers", "following",
-            "follows", "generate", "generation-status", "id", "income-options", "jobs", "live",
+            "context", "count", "data", "drafts", "email", "events", "feed", "follow-up", "followers", "following",
+            "follows", "generate", "generation-status", "id", "income-options", "latest", "live",
             "me", "media", "mine", "onboarding", "options", "posts", "presign", "profiles", "q",
             "reject", "review", "save", "sentiment", "social", "topic-tags", "unwrapped", "user",
             "user-characteristics", "users", "votes", "your-say-user");

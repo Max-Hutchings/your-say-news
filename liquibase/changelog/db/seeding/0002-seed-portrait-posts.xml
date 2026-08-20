@@ -21,7 +21,7 @@
             <column name="support_question" value="Should councils be required to publish an open tree map?"/>
             <column name="case_for" value="Public data lets residents challenge felling and target shade where it's needed."/>
             <column name="case_against" value="Mapping every tree is costly upkeep councils can't reliably fund."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-07-01T08:00:00"/>
             <column name="updated_at" valueDate="2026-07-01T08:00:00"/>
         </insert>
@@ -34,7 +34,7 @@
             <column name="support_question" value="Should councils fund vertical farms in social housing?"/>
             <column name="case_for" value="Fresh food on-site with no lorries, packaging or supermarket markup."/>
             <column name="case_against" value="The lighting bill is huge and it may never scale past a novelty."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-07-01T09:00:00"/>
             <column name="updated_at" valueDate="2026-07-01T09:00:00"/>
         </insert>

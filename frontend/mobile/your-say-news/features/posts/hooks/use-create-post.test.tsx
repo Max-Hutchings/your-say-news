@@ -172,6 +172,37 @@ describe("useCreatePost submit", () => {
     });
   });
 
+  it("publishes a Pepper draft through the normal post endpoint with only selected citations", async () => {
+    mockCreate.mockResolvedValue({ id: 13, isAiGenerated: true });
+    const { result } = renderHook(() => useCreatePost());
+
+    await act(async () => {
+      await result.current.submit({
+        ...validFields,
+        pepperDraftId: "draft-41",
+        citations: [
+          { url: "https://www.ons.gov.uk/work", title: "Working patterns", publisher: "ONS" },
+        ],
+      });
+    });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      summary: "A summary",
+      supportQuestion: "Do you agree?",
+      caseFor: null,
+      caseAgainst: null,
+      votingType: "BINARY",
+      voteOptions: [],
+      media: [],
+      topicTagIds: [],
+      pepperDraftId: "draft-41",
+      citations: [
+        { url: "https://www.ons.gov.uk/work", title: "Working patterns", publisher: "ONS" },
+      ],
+    });
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty("isAiGenerated");
+  });
+
   it("rejects blank and case-insensitively duplicate multiple-choice options", async () => {
     const { result } = renderHook(() => useCreatePost());
     await act(async () => { await result.current.submit({ ...validFields, votingType: "MULTIPLE_CHOICE", voteOptions: ["Buses", " "] }); });

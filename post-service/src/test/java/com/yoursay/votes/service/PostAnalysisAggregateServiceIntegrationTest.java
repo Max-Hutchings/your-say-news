@@ -94,7 +94,7 @@ class PostAnalysisAggregateServiceIntegrationTest {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement post = connection.prepareStatement("""
                      insert into post(
-                         user_id, summary, support_question, is_unbiased,
+                         user_id, summary, support_question, is_ai_generated,
                          created_at, updated_at, voting_type, jurisdiction
                      ) values (1, 'Stable summary', 'Stable question?',
                          false, now(), now(), 'BINARY', 'GLOBAL')
