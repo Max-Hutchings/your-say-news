@@ -35,20 +35,20 @@ public class AutoPostController {
     @POST
     @Path("/runs")
     @ResponseStatus(202)
-    public AutoPostRunDto start() {
-        return service.start(subjectEmail());
+    public AutoPostRunDto startDiscoveryRun() {
+        return service.startDiscoveryRun(subjectEmail());
     }
 
     @GET
     @Path("/runs")
-    public List<AutoPostRunDto> list() {
-        return service.list(subjectEmail());
+    public List<AutoPostRunDto> listRecentRuns() {
+        return service.listRecentRuns(subjectEmail());
     }
 
     @GET
     @Path("/runs/{runId}")
-    public AutoPostRunDto get(@PathParam("runId") UUID runId) {
-        return service.get(runId, subjectEmail());
+    public AutoPostRunDto getRun(@PathParam("runId") UUID runId) {
+        return service.getRun(runId, subjectEmail());
     }
 
     @GET
@@ -61,22 +61,22 @@ public class AutoPostController {
     // so state that here: it keeps running on a virtual thread, with the intent declared rather
     // than inferred.
     @Blocking
-    public Multi<AutoPostEventDto> events(@PathParam("runId") UUID runId) {
-        return service.events(runId, subjectEmail());
+    public Multi<AutoPostEventDto> streamRunEvents(@PathParam("runId") UUID runId) {
+        return service.streamRunEvents(runId, subjectEmail());
     }
 
     @POST
     @Path("/runs/{runId}/candidates/{candidateId}/select")
     @ResponseStatus(202)
-    public AutoPostRunDto select(@PathParam("runId") UUID runId,
-                                 @PathParam("candidateId") UUID candidateId) {
-        return service.select(runId, candidateId, subjectEmail());
+    public AutoPostRunDto selectCandidateForDrafting(@PathParam("runId") UUID runId,
+                                                      @PathParam("candidateId") UUID candidateId) {
+        return service.selectCandidateForDrafting(runId, candidateId, subjectEmail());
     }
 
     @POST
     @Path("/runs/{runId}/approve")
-    public AutoPostRunDto approve(@PathParam("runId") UUID runId) {
-        return service.approve(runId, subjectEmail());
+    public AutoPostRunDto approveAndPublishDraft(@PathParam("runId") UUID runId) {
+        return service.approveAndPublishDraft(runId, subjectEmail());
     }
 
     private String subjectEmail() {

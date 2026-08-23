@@ -33,17 +33,34 @@ class AutoPostCandidateValidatorTest {
                 "repeated-story", WINDOW_START.minusSeconds(1),
                 List.of(new DiscoveredStorySource("not-a-url", "A source title", "A publisher")));
         StoryDiscoveryResult result = new StoryDiscoveryResult(
-                List.of(repeatedStory, repeatedStory), "grok-4.5", "response-42", List.of());
+                java.util.Collections.nCopies(10, repeatedStory),
+                "grok-4.5", "response-42", List.of());
 
-        assertDoesNotThrow(() -> validator.validate(result, WINDOW_START, WINDOW_END));
+        assertDoesNotThrow(() -> validator.validateRequiredFields(result));
     }
 
     @Test
     void rejectsAnEmptyStoryList() {
         AutoPostValidationException error = assertThrows(AutoPostValidationException.class,
-                () -> validator.validate(result(List.of()), WINDOW_START, WINDOW_END));
+                () -> validator.validateRequiredFields(result(List.of())));
 
         assertEquals("AUTO_POST_STORIES_MISSING", error.code());
+    }
+
+    @Test
+    void rejectsAProviderFailurePresentedAsOnePopulatedStory() {
+        DiscoveredStory failurePresentedAsStory = story(
+                AutoPostRegion.GLOBAL,
+                "No qualified stories in supplied window",
+                "Live search could not be completed with verifiable primary sources.",
+                "no-qualified-stories",
+                WINDOW_END,
+                List.of(VALID_SOURCE));
+
+        AutoPostValidationException error = assertThrows(AutoPostValidationException.class,
+                () -> validator.validateRequiredFields(result(List.of(failurePresentedAsStory))));
+
+        assertEquals("AUTO_POST_STORY_COUNT_INVALID", error.code());
     }
 
     @ParameterizedTest(name = "{0}")
@@ -54,7 +71,7 @@ class AutoPostCandidateValidatorTest {
             String expectedCode
     ) {
         AutoPostValidationException error = assertThrows(AutoPostValidationException.class,
-                () -> validator.validate(result, WINDOW_START, WINDOW_END));
+                () -> validator.validateRequiredFields(result));
 
         assertEquals(expectedCode, error.code());
     }

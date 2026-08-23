@@ -5,7 +5,6 @@ import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.LockModeType;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,9 +12,8 @@ import java.util.UUID;
 @ApplicationScoped
 public class AutoPostRunRepository implements PanacheRepositoryBase<AutoPostRun, UUID> {
 
-    public Optional<AutoPostRun> claimable(Instant now) {
-        return find("status = ?1 and (nextAttemptAt is null or nextAttemptAt <= ?2) order by createdAt",
-                AutoPostRunStatus.QUEUED, now)
+    public Optional<AutoPostRun> claimable() {
+        return find("status = ?1 order by createdAt", AutoPostRunStatus.QUEUED)
                 .withLock(LockModeType.PESSIMISTIC_WRITE)
                 .firstResultOptional();
     }

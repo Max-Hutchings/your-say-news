@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,30 +19,56 @@ class AutoPostAiClientTest {
 
     private AutoPostResearchAiService service;
     private AutoPostChatResponseCapture responseCapture;
+    private AutoPostProviderResponseInspector responseInspector;
     private AutoPostAiClient client;
 
     @BeforeEach
     void setUp() {
         service = Mockito.mock(AutoPostResearchAiService.class);
         responseCapture = Mockito.mock(AutoPostChatResponseCapture.class);
+        responseInspector = Mockito.mock(AutoPostProviderResponseInspector.class);
         client = new AutoPostAiClient();
         client.service = service;
         client.responseCapture = responseCapture;
+        client.responseInspector = responseInspector;
         client.configuredModel = "configured-grok";
+    }
+
+    @Test
+    void discoveryContractDoesNotLetTheProviderDeclareOperationalFailure() {
+        List<String> componentNames = Arrays.stream(StoryDiscoveryDraft.class.getRecordComponents())
+                .map(component -> component.getName())
+                .toList();
+        String systemPrompt = AutoPostSystemPrompt.DEFAULT.replaceAll("\\s+", " ");
+
+        assertEquals(List.of("stories"), componentNames);
+        assertEquals(false, AutoPostSystemPrompt.OUTPUT_INSTRUCTIONS.contains("failureReason"));
+        assertEquals(false, AutoPostSystemPrompt.OUTPUT_INSTRUCTIONS.contains("`FAILED`"));
+        assertEquals(false, systemPrompt.contains("first reported or officially announced"));
+        assertEquals(true, systemPrompt.contains("reported in the last 24 hours"));
     }
 
     @Test
     void discoverUsesSeparatePromptsAndDirectStructuredOutput() {
         Instant start = Instant.parse("2026-08-19T12:00:00Z");
         Instant end = Instant.parse("2026-08-20T12:00:00Z");
-        DiscoveredStory story = new DiscoveredStory(1, AutoPostRegion.UK, "Headline", "Summary",
+        DiscoveredStory expectedStory = new DiscoveredStory(1, AutoPostRegion.UK, "Headline", "Summary",
                 "story-key", end, List.of(new DiscoveredStorySource("url", "title", "publisher")));
-        String instruction = "Window start inclusive: %s%nWindow end inclusive: %s".formatted(start, end);
+        DiscoveredStoryDraft providerStory = new DiscoveredStoryDraft(
+                1, AutoPostRegion.UK, "Headline", "Summary", "story-key", end.toString(),
+                List.of(new DiscoveredStorySource("url", "title", "publisher")));
+        String instruction = """
+                Current UTC time: %s
+                Treat this current time as authoritative. The supplied window is not future-dated.
+                Window start inclusive: %s
+                Window end inclusive: %s
+                Use live web search now before returning the ten stories.
+                """.formatted(end, start, end).strip();
         Mockito.when(service.discover(
                         AutoPostSystemPrompt.DEFAULT,
                         AutoPostSystemPrompt.OUTPUT_INSTRUCTIONS,
                         instruction))
-                .thenReturn(new StoryDiscoveryDraft(List.of(story)));
+                .thenReturn(new StoryDiscoveryDraft(List.of(providerStory)));
         Mockito.when(responseCapture.take()).thenReturn(ChatResponse.builder()
                 .aiMessage(AiMessage.from("structured output"))
                 .metadata(ChatResponseMetadata.builder()
@@ -52,7 +79,7 @@ class AutoPostAiClientTest {
 
         StoryDiscoveryResult result = client.discover(start, end);
 
-        assertEquals(List.of(story), result.stories());
+        assertEquals(List.of(expectedStory), result.stories());
         assertEquals("grok-4.5", result.model());
         assertEquals("response-42", result.providerResponseId());
         assertEquals(List.of(), result.providerCitations());
@@ -89,6 +116,24 @@ class AutoPostAiClientTest {
 
         assertEquals("AUTO_POST_PROVIDER_RESPONSE_INVALID", error.code());
         assertEquals("The model returned no discovery response", error.getMessage());
+        Mockito.verify(responseCapture).clear();
+    }
+
+    @Test
+    void discoverRejectsANonIsoPublicationTimestampAtTheMappingStage() {
+        DiscoveredStoryDraft providerStory = new DiscoveredStoryDraft(
+                1, AutoPostRegion.GLOBAL, "Headline", "Summary", "story-key", "not-a-time",
+                List.of(new DiscoveredStorySource("url", "title", "publisher")));
+        Mockito.when(service.discover(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(new StoryDiscoveryDraft(List.of(providerStory)));
+
+        AutoPostDiscoveryException error = assertThrows(AutoPostDiscoveryException.class,
+                () -> client.discover(
+                        Instant.parse("2026-08-19T12:00:00Z"),
+                        Instant.parse("2026-08-20T12:00:00Z")));
+
+        assertEquals("AUTO_POST_PROVIDER_RESPONSE_INVALID", error.code());
+        assertEquals("structured_output_mapping", error.stage());
         Mockito.verify(responseCapture).clear();
     }
 }

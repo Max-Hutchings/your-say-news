@@ -2037,7 +2037,7 @@
     {
       "id": 35,
       "type": "row",
-      "title": "Auto-post story discovery",
+      "title": "Auto-post workflow stages",
       "collapsed": true,
       "gridPos": {
         "h": 1,
@@ -2049,8 +2049,8 @@
         {
           "id": 36,
           "type": "timeseries",
-          "title": "Discovery runs per second by outcome",
-          "description": "Every undertaken discovery attempt records one terminal success, error or fault.",
+          "title": "Auto-post stage operations per second",
+          "description": "Discovery, drafting and publication stages each record one terminal outcome so the stopping point is visible.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -2068,8 +2068,8 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "sum by (outcome) (rate(yoursay_domain_operations_total{domain=\"autopost\", operation=\"discovery\", environment=~\"$environment\"}[$__rate_interval]))",
-              "legendFormat": "{{outcome}}",
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_operations_total{domain=\"autopost\", operation=~\"discovery|providerResearch|candidateValidation|candidatePersistence|postAgentHandoff|draftStatusCheck|draftSynchronization|publication|postAgentDraftRead|postAgentPublicationPreparation|publicationCandidateRead|postPersistence|postAgentDraftFinalization|publicationStatePersistence|publicationRecovery\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} {{outcome}}",
               "editorMode": "code",
               "range": true,
               "instant": false
@@ -2101,8 +2101,8 @@
         {
           "id": 37,
           "type": "timeseries",
-          "title": "Discovery latency p50 / p95 / p99",
-          "description": "End-to-end provider research and candidate validation time.",
+          "title": "Auto-post stage latency p50 / p95 / p99",
+          "description": "Latency for each discovery, drafting and publication stage.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -2117,8 +2117,8 @@
             {
               "refId": "A",
               "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=\"discovery\", environment=~\"$environment\"}[$__rate_interval])))",
-              "legendFormat": "p50 {{outcome}}",
+              "expr": "histogram_quantile(0.50, sum by (le, operation, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=~\"discovery|providerResearch|candidateValidation|candidatePersistence|postAgentHandoff|draftStatusCheck|draftSynchronization|publication|postAgentDraftRead|postAgentPublicationPreparation|publicationCandidateRead|postPersistence|postAgentDraftFinalization|publicationStatePersistence|publicationRecovery\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}} {{outcome}}",
               "editorMode": "code",
               "range": true,
               "instant": false
@@ -2126,8 +2126,8 @@
             {
               "refId": "B",
               "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=\"discovery\", environment=~\"$environment\"}[$__rate_interval])))",
-              "legendFormat": "p95 {{outcome}}",
+              "expr": "histogram_quantile(0.95, sum by (le, operation, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=~\"discovery|providerResearch|candidateValidation|candidatePersistence|postAgentHandoff|draftStatusCheck|draftSynchronization|publication|postAgentDraftRead|postAgentPublicationPreparation|publicationCandidateRead|postPersistence|postAgentDraftFinalization|publicationStatePersistence|publicationRecovery\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}} {{outcome}}",
               "editorMode": "code",
               "range": true,
               "instant": false
@@ -2135,8 +2135,8 @@
             {
               "refId": "C",
               "datasource": {"type": "prometheus", "uid": "prometheus"},
-              "expr": "histogram_quantile(0.99, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=\"discovery\", environment=~\"$environment\"}[$__rate_interval])))",
-              "legendFormat": "p99 {{outcome}}",
+              "expr": "histogram_quantile(0.99, sum by (le, operation, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"autopost\", operation=~\"discovery|providerResearch|candidateValidation|candidatePersistence|postAgentHandoff|draftStatusCheck|draftSynchronization|publication|postAgentDraftRead|postAgentPublicationPreparation|publicationCandidateRead|postPersistence|postAgentDraftFinalization|publicationStatePersistence|publicationRecovery\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}} {{outcome}}",
               "editorMode": "code",
               "range": true,
               "instant": false
@@ -2308,7 +2308,7 @@
             },
             {
               "title": "Open matching logs",
-              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22post-service%5C%22%7D%20%7C~%20%5C%22%28%3Fi%29%28warn%7Cerror%7Cexception%7Cfailed%29%5C%22%20%7C~%20%5C%22%28%3Fi%29%28post%7Cmedia%7Cpresign%7Cagent%20job%29%5C%22%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22post-service%5C%22%7D%20%7C%20detected_level%3D~%5C%22warn%7Cerror%5C%22%20%7C~%20%5C%22%28%3Fi%29%28post%7Cmedia%7Cpresign%7Cagent%20job%7Cautopost%29%5C%22%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
               "targetBlank": true
             }
           ],
@@ -2354,7 +2354,7 @@
           "id": 32,
           "type": "logs",
           "title": "Warning and error logs",
-          "description": "Matches log text with the $logFilter variable. Widen it to see neighbouring context.",
+          "description": "Shows structured faults and errors plus legacy warning text. Matches domain text with the $logFilter variable.",
           "datasource": {
             "type": "loki",
             "uid": "loki"
@@ -2372,7 +2372,7 @@
                 "type": "loki",
                 "uid": "loki"
               },
-              "expr": "{service_name=~\"$service\"} |~ \"(?i)(warn|error|exception|failed)\" |~ \"(?i)($logFilter)\"",
+              "expr": "{service_name=~\"$service\"} | detected_level=~\"warn|error\" |~ \"(?i)($logFilter)\"",
               "queryType": "range"
             }
           ],

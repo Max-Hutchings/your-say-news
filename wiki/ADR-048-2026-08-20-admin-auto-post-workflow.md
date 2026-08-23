@@ -48,13 +48,30 @@ Each candidate has one primary region, `UK`, `US` or `GLOBAL`, plus a rank, neut
 short summary, stable within-run deduplication key and one or more sources. Exactly ten candidates
 must be requested, every region must be represented, ranks must be unique from 1 to 10, and duplicate
 underlying events must be removed. These editorial requirements are owned by the agent prompt.
-Application output validation only rejects missing or blank required fields, leaving the persisted
-response visible for human review instead of duplicating editorial judgement in Java.
+Application validation rejects missing or blank required fields and output that does not contain
+ten stories. It does not duplicate editorial judgement such as importance or neutrality in Java.
 
 Each LangChain4j agent keeps its system prompt and output requirements in separate Markdown
 resources under `prompts`. The auto-post agent uses the same direct typed AI-service structure as
 the working Unwrapped agent, with raw response metadata captured separately from the structured
-draft.
+draft. Provider output represents `publishedAt` as an explicitly described ISO-8601 UTC string,
+then maps it to `Instant` after deserialisation. This keeps the generated JSON schema scalar and
+prevents providers from returning a timestamp object that LangChain4j cannot parse.
+
+Discovery output contains only the ten populated stories and cannot declare its own operational
+success or failure. The application owns that decision and rejects missing or invalid output. The
+adapter also checks raw Responses API metadata for a completed `web_search_call`. This prevents
+provider failure text or search placeholders from being persisted as selectable news.
+
+Auto-post does not force low reasoning effort. Live verification showed that Grok returned
+structured placeholders without calling its required server-side search tool at low effort, while
+the same model, prompt and schema completed live searches when using the provider default. This
+matches the working Unwrapped agent configuration.
+
+The public service implementation only coordinates the domain contract. Focused internal services
+own access policy, candidate selection and draft synchronisation, publication, SSE delivery, DTO
+assembly, discovery execution and publication-request mapping. Complex workflow methods read as a
+summary of these named operations rather than mixing their implementation details.
 
 Persist three related records:
 
@@ -85,13 +102,46 @@ be created for that selection, and one final post can be linked to the run. Inva
 output, unavailable providers, stale or conflicting selections, missing official-account authority,
 invalid drafts and publication failures fail closed.
 
+Manual discovery runs make one provider attempt. A provider or output-contract fault moves the run
+directly to `FAILED`, allowing the admin UI to show the persisted failure without a hidden retry
+window. A later scheduled workflow may adopt a different retry policy as an explicit operational
+decision.
+
 Use the shared operation telemetry with `domain="autopost"`. Measure the public API, discovery job,
 provider dependency, candidate validation, SSE lifetime, post-agent handoff and publication using
 exactly one terminal `success`, `error` or `fault` outcome per undertaken operation. Logs contain
 stable error or fault codes and trace correlation, but no tokens, email addresses, source text,
 headlines, summaries, user IDs, run IDs, candidate IDs or post IDs as metric labels.
 Each SSE event payload is also measured as the low-cardinality `sseEvent` I/O operation, including
-its outcome and creation latency.
+its outcome and creation latency. Discovery and publication logs also contain a bounded `stage`
+field so operators can distinguish provider request, structured-output parsing, candidate
+persistence, post-agent handoff, draft generation, post persistence and finalisation failures.
+
+### Failure analysis - why searched responses failed
+
+The failed discovery responses were not caused by an empty news index. The provider returned HTTP
+`200` with finish reason `STOP`, but the raw Responses API output contained no `web_search_call`.
+Provider usage also reported `num_server_side_tools_used=0` and `num_sources_used=0`. Grok then
+returned either a structured `FAILED` result or placeholder story content claiming that live search
+had found no qualifying news. That wording was misleading because no search had been attempted.
+
+The specific cause was the auto-post-only
+`quarkus.langchain4j.openai.autopost.chat-model.reasoning-effort=low` setting. Reproduction with the
+same Grok model, current-time window, prompt, web-search tool and strict JSON schema produced:
+
+- low reasoning effort: zero web-search calls and fabricated failure or placeholder content;
+- provider-default reasoning effort: 22 completed web-search calls and exactly ten stories.
+
+The working Unwrapped agent already used provider-default reasoning effort. Auto-post therefore
+removes the low-effort override and follows the same configuration. Its provider DTO also contains
+only the required stories, so the model cannot classify its own operation as failed. Operational
+failure belongs to Java.
+
+The application does not trust response wording as evidence of research. It inspects the raw
+provider output and requires at least one completed `web_search_call`. A response with no completed
+search fails with `AUTO_POST_WEB_SEARCH_MISSING` or `AUTO_POST_WEB_SEARCH_FAILED`; no candidates are
+persisted or presented as selectable. This distinguishes a successful HTTP response from a
+successful researched response.
 
 ## Reason
 

@@ -220,22 +220,48 @@ class AutoPostControllerTest {
     }
 
     @Test
-    void retryableProviderFailureStopsAfterTheConfiguredThirdAttempt() throws Exception {
+    void providerFailurePresentedAsAStoryFailsTheRunWithoutBecomingSelectable() throws Exception {
+        Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
+                .thenAnswer(invocation -> {
+                    Instant windowEnd = invocation.getArgument(1);
+                    DiscoveredStory failurePresentedAsStory = new DiscoveredStory(
+                            1,
+                            AutoPostRegion.GLOBAL,
+                            "No qualified stories in supplied window",
+                            "Live search could not be completed with verifiable primary sources.",
+                            "no-qualified-stories",
+                            windowEnd,
+                            List.of(new DiscoveredStorySource(
+                                    "https://www.bbc.com/news", "BBC News", "BBC")));
+                    return new StoryDiscoveryResult(
+                            List.of(failurePresentedAsStory),
+                            "grok-4.5",
+                            "provider-failure-response",
+                            List.of());
+                });
+
+        String runId = startRun();
+        worker.processNext();
+
+        given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200)
+                .body("status", equalTo("FAILED"))
+                .body("errorCode", equalTo("AUTO_POST_INVALID_PROVIDER_OUTPUT"))
+                .body("candidates", hasSize(0));
+        assertEquals(0, count("auto_post_candidate"));
+    }
+
+    @Test
+    void retryableProviderFailureStopsAfterTheFirstAttempt() throws Exception {
         Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
                 .thenThrow(new AutoPostDiscoveryException(
                         "AUTO_POST_PROVIDER_UNAVAILABLE", "Temporary provider outage", true));
         String runId = startRun();
 
         worker.processNext();
-        assertRunState(runId, "QUEUED", 1);
-        makeRetryDue(runId);
-        worker.processNext();
-        assertRunState(runId, "QUEUED", 2);
-        makeRetryDue(runId);
-        worker.processNext();
-        assertRunState(runId, "FAILED", 3);
+        assertRunState(runId, "FAILED", 1);
 
-        Mockito.verify(discoveryAgent, Mockito.times(3)).discover(Mockito.any(), Mockito.any());
+        Mockito.verify(discoveryAgent).discover(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -304,6 +330,67 @@ class AutoPostControllerTest {
                 .body("publishedPostId", equalTo(Math.toIntExact(publishedPostId)));
         Mockito.verify(postService, Mockito.times(1)).createForPublisher(
                 Mockito.eq(officialUserId), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void postPersistenceFailureRestoresTheDraftAndRecordsTheExactStage() throws Exception {
+        Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
+                .thenAnswer(invocation -> discoveryResult(
+                        invocation.getArgument(0), invocation.getArgument(1)));
+        Mockito.when(postAgentService.startForPublisher(Mockito.anyLong(), Mockito.anyString()))
+                .thenReturn(POST_AGENT_JOB_ID);
+        String runId = startRun();
+        worker.processNext();
+        String candidateId = given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200).extract().path("candidates[0].id");
+        long officialUserId = officialAccountId();
+        insertPepperDraft(POST_AGENT_JOB_ID, officialUserId);
+        given().when().post("/api/admin/auto-post/runs/" + runId
+                        + "/candidates/" + candidateId + "/select")
+                .then().statusCode(202);
+
+        PepperPostDraftDto content = new PepperPostDraftDto(
+                "A balanced publication-ready article.",
+                "Do you support the revised budget rules?",
+                "Supporters cite fiscal stability.",
+                "Opponents cite reduced flexibility.",
+                VotingType.BINARY,
+                List.of("Agree", "Disagree"),
+                List.of(new AgentSourceDto(
+                        "https://www.bbc.com/news/uk-budget", "Budget rules", "BBC News")));
+        PepperDraftDto draft = new PepperDraftDto(
+                POST_AGENT_JOB_ID, "prompt", "local", PepperDraftStatus.FINISHED, true,
+                content, null, null, 1);
+        Mockito.when(postAgentService.getForPublisher(POST_AGENT_JOB_ID, officialUserId))
+                .thenReturn(Optional.of(draft));
+        Mockito.when(postAgentService.preparePublicationForPublisher(
+                        POST_AGENT_JOB_ID, officialUserId, content.citations()))
+                .thenReturn(new AgentPublicationDto(POST_AGENT_JOB_ID, content.citations()));
+        Mockito.when(postService.createForPublisher(
+                        Mockito.eq(officialUserId), Mockito.any(), Mockito.any()))
+                .thenReturn(Uni.createFrom().failure(
+                        new IllegalStateException("Representative post persistence failure")));
+
+        given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200)
+                .body("status", equalTo("DRAFT_READY"));
+        given().when().post("/api/admin/auto-post/runs/" + runId + "/approve")
+                .then().statusCode(502)
+                .body("code", equalTo("AUTO_POST_PUBLICATION_FAILED"));
+        given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200)
+                .body("status", equalTo("DRAFT_READY"))
+                .body("errorCode", equalTo("AUTO_POST_PUBLICATION_FAILED"));
+
+        Mockito.verify(metrics).recordOperation(
+                Mockito.eq("autopost"),
+                Mockito.eq("postPersistence"),
+                Mockito.eq("fault"),
+                Mockito.eq("downstream_domain"),
+                Mockito.eq("AUTO_POST_POST_PERSISTENCE_FAILED"),
+                Mockito.anyLong());
+        Mockito.verify(postAgentService, Mockito.never())
+                .markPublished(Mockito.any(), Mockito.anyLong());
     }
 
     @Test
@@ -413,15 +500,6 @@ class AutoPostControllerTest {
              ResultSet result = statement.executeQuery()) {
             result.next();
             return result.getLong(1);
-        }
-    }
-
-    private void makeRetryDue(String runId) throws Exception {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     "update auto_post_run set next_attempt_at = now() where id = ?")) {
-            statement.setObject(1, UUID.fromString(runId));
-            assertEquals(1, statement.executeUpdate());
         }
     }
 

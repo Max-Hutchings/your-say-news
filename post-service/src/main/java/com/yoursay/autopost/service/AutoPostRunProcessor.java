@@ -10,15 +10,16 @@ import com.yoursay.autopost.model.AutoPostCandidateSource;
 import com.yoursay.autopost.model.AutoPostCandidateSourceRepository;
 import com.yoursay.autopost.model.AutoPostRun;
 import com.yoursay.autopost.model.AutoPostRunRepository;
+import com.yoursay.autopost.observability.AutoPostLog;
 import com.yoursay.autopost.validation.AutoPostCandidateValidator;
+import com.yoursay.autopost.validation.AutoPostValidationException;
+import com.yoursay.observability.DomainMetrics;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import com.yoursay.observability.DomainMetrics;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,69 +41,102 @@ public class AutoPostRunProcessor {
     @Inject
     DomainMetrics metrics;
 
-    @ConfigProperty(name = "autopost.jobs.max-attempts", defaultValue = "3")
-    int maxAttempts;
-
     @Transactional
-    public Optional<RunWork> claimNext() {
-        return runs.claimable(Instant.now()).map(run -> {
+    public Optional<DiscoveryWork> claimNextDiscovery() {
+        return runs.claimable().map(run -> {
             run.markDiscovering();
             runs.flush();
-            return new RunWork(run.getId(), run.getWindowStart(), run.getWindowEnd(), run.getAttemptCount());
+            return new DiscoveryWork(run.getId(), run.getWindowStart(), run.getWindowEnd());
         });
     }
 
     @Transactional
-    public void complete(UUID runId, StoryDiscoveryResult result) {
+    public void completeDiscovery(UUID runId, StoryDiscoveryResult result) {
         AutoPostRun run = runs.findForUpdate(runId)
                 .orElseThrow(() -> new IllegalStateException("Auto-post run disappeared"));
+        validateCandidates(result);
+        persistCandidates(run, result);
+    }
+
+    private void validateCandidates(StoryDiscoveryResult result) {
         long validationStarted = System.nanoTime();
+        AutoPostLog.started("candidateValidation", "candidate_validation");
         try {
-            validator.validate(result, run.getWindowStart(), run.getWindowEnd());
+            validator.validateRequiredFields(result);
             metrics.recordOperation("autopost", "candidateValidation", "success", "none", "none",
                     System.nanoTime() - validationStarted);
-        } catch (RuntimeException error) {
-            String code = error instanceof com.yoursay.autopost.validation.AutoPostValidationException validation
-                    ? validation.code() : "AUTO_POST_VALIDATION_FAILURE";
+            AutoPostLog.succeeded("candidateValidation", "candidate_validation");
+        } catch (AutoPostValidationException error) {
             metrics.recordOperation("autopost", "candidateValidation", "fault",
-                    "provider_contract", code, System.nanoTime() - validationStarted);
+                    "provider_contract", error.code(), System.nanoTime() - validationStarted);
+            AutoPostLog.failed("candidateValidation", "candidate_validation", "provider_contract",
+                    error.code(), error);
             throw error;
         }
-        for (DiscoveredStory story : result.stories()) {
+    }
+
+    private void persistCandidates(AutoPostRun run, StoryDiscoveryResult result) {
+        long persistenceStarted = System.nanoTime();
+        AutoPostLog.started("candidatePersistence", "candidate_persistence");
+        try {
+            persistStories(run.getId(), result.stories());
+            run.markCandidatesReady(result.model(), result.providerResponseId());
+            runs.flush();
+            metrics.recordOperation("autopost", "candidatePersistence", "success", "none", "none",
+                    System.nanoTime() - persistenceStarted);
+            AutoPostLog.succeeded("candidatePersistence", "candidate_persistence");
+        } catch (RuntimeException error) {
+            metrics.recordOperation("autopost", "candidatePersistence", "fault", "database",
+                    "AUTO_POST_CANDIDATE_PERSISTENCE_FAILED",
+                    System.nanoTime() - persistenceStarted);
+            AutoPostLog.failed("candidatePersistence", "candidate_persistence", "database",
+                    "AUTO_POST_CANDIDATE_PERSISTENCE_FAILED", error);
+            throw new AutoPostDiscoveryException(
+                    "AUTO_POST_CANDIDATE_PERSISTENCE_FAILED",
+                    "database",
+                    "candidate_persistence",
+                    "Discovered stories could not be persisted",
+                    false,
+                    error);
+        }
+    }
+
+    private void persistStories(UUID runId, List<DiscoveredStory> stories) {
+        for (DiscoveredStory story : stories) {
             AutoPostCandidate candidate = new AutoPostCandidate(runId, story.rank(), story.region(),
                     story.headline(), story.summary(), story.deduplicationKey(), story.publishedAt());
             candidates.persist(candidate);
-            int ordinal = 0;
-            for (DiscoveredStorySource source : story.sources()) {
-                sources.persist(new AutoPostCandidateSource(candidate.getId(), ordinal++,
-                        source.url(), source.title(), source.publisher()));
-            }
+            persistSources(candidate.getId(), story.sources());
         }
-        run.markCandidatesReady(result.model(), result.providerResponseId());
-        runs.flush();
+    }
+
+    private void persistSources(UUID candidateId, List<DiscoveredStorySource> storySources) {
+        for (int ordinal = 0; ordinal < storySources.size(); ordinal++) {
+            DiscoveredStorySource source = storySources.get(ordinal);
+            sources.persist(new AutoPostCandidateSource(candidateId, ordinal,
+                    source.url(), source.title(), source.publisher()));
+        }
     }
 
     @Transactional
-    public void fail(UUID runId, int attempt, AutoPostDiscoveryException error) {
+    public void failDiscovery(UUID runId, AutoPostDiscoveryException error) {
         AutoPostRun run = runs.findForUpdate(runId)
                 .orElseThrow(() -> new IllegalStateException("Auto-post run disappeared"));
-        if (error.retryable() && attempt < maxAttempts) {
-            long delayMinutes = 1L << Math.max(0, attempt - 1);
-            run.markRetry(error.code(), Instant.now().plus(delayMinutes, ChronoUnit.MINUTES));
-            return;
-        }
         run.markFailed(error.code(), publicMessage(error.code()));
     }
 
     private static String publicMessage(String code) {
         return switch (code) {
             case "AUTO_POST_PROVIDER_NOT_CONFIGURED" -> "Story discovery is not configured.";
+            case "AUTO_POST_WEB_SEARCH_MISSING", "AUTO_POST_WEB_SEARCH_FAILED",
+                    "AUTO_POST_PROVIDER_EVIDENCE_MISSING" ->
+                    "The story provider could not complete live research.";
             case "AUTO_POST_PROVIDER_RESPONSE_INVALID", "AUTO_POST_INVALID_PROVIDER_OUTPUT" ->
                     "The discovered story list did not pass validation.";
             default -> "Story discovery failed. Try again.";
         };
     }
 
-    public record RunWork(UUID id, Instant windowStart, Instant windowEnd, int attempt) {
+    public record DiscoveryWork(UUID id, Instant windowStart, Instant windowEnd) {
     }
 }

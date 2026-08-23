@@ -9,15 +9,19 @@ import java.util.UUID;
 
 public interface AutoPostService {
 
-    AutoPostRunDto start(String administratorEmail);
+    AutoPostRunDto startDiscoveryRun(String administratorEmail);
 
-    List<AutoPostRunDto> list(String administratorEmail);
+    List<AutoPostRunDto> listRecentRuns(String administratorEmail);
 
-    AutoPostRunDto get(UUID runId, String administratorEmail);
+    AutoPostRunDto getRun(UUID runId, String administratorEmail);
 
-    AutoPostRunDto select(UUID runId, UUID candidateId, String administratorEmail);
+    AutoPostRunDto selectCandidateForDrafting(
+            UUID runId,
+            UUID candidateId,
+            String administratorEmail
+    );
 
-    AutoPostRunDto approve(UUID runId, String administratorEmail);
+    AutoPostRunDto approveAndPublishDraft(UUID runId, String administratorEmail);
 
-    Multi<AutoPostEventDto> events(UUID runId, String administratorEmail);
+    Multi<AutoPostEventDto> streamRunEvents(UUID runId, String administratorEmail);
 }

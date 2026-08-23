@@ -37,9 +37,6 @@ public class AutoPostRun extends PanacheEntityBase {
     @Column(name = "attempt_count", nullable = false)
     private int attemptCount;
 
-    @Column(name = "next_attempt_at")
-    private Instant nextAttemptAt;
-
     @Column(name = "selected_candidate_id")
     private UUID selectedCandidateId;
 
@@ -84,7 +81,6 @@ public class AutoPostRun extends PanacheEntityBase {
         this.windowEnd = windowEnd;
         this.promptVersion = promptVersion;
         this.status = AutoPostRunStatus.QUEUED;
-        this.nextAttemptAt = Instant.now();
     }
 
     @PrePersist
@@ -104,7 +100,6 @@ public class AutoPostRun extends PanacheEntityBase {
     public void markDiscovering() {
         status = AutoPostRunStatus.DISCOVERING;
         attemptCount++;
-        nextAttemptAt = null;
         errorCode = null;
         errorMessage = null;
     }
@@ -113,24 +108,15 @@ public class AutoPostRun extends PanacheEntityBase {
         status = AutoPostRunStatus.CANDIDATES_READY;
         this.model = bounded(model, 128);
         this.providerResponseId = bounded(providerResponseId, 160);
-        this.nextAttemptAt = null;
         this.errorCode = null;
         this.errorMessage = null;
         this.completedAt = Instant.now();
-    }
-
-    public void markRetry(String code, Instant retryAt) {
-        status = AutoPostRunStatus.QUEUED;
-        errorCode = bounded(code, 80);
-        errorMessage = "Story discovery will be retried.";
-        nextAttemptAt = retryAt;
     }
 
     public void markFailed(String code, String message) {
         status = AutoPostRunStatus.FAILED;
         errorCode = bounded(code, 80);
         errorMessage = bounded(message, 512);
-        nextAttemptAt = null;
         completedAt = Instant.now();
     }
 
@@ -190,7 +176,6 @@ public class AutoPostRun extends PanacheEntityBase {
     public Instant getWindowEnd() { return windowEnd; }
     public AutoPostRunStatus getStatus() { return status; }
     public int getAttemptCount() { return attemptCount; }
-    public Instant getNextAttemptAt() { return nextAttemptAt; }
     public UUID getSelectedCandidateId() { return selectedCandidateId; }
     public UUID getPepperDraftId() { return pepperDraftId; }
     public Long getPublishedPostId() { return publishedPostId; }
