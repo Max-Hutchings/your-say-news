@@ -18,12 +18,17 @@ class AutoPostProviderResponseInspector {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    AutoPostProviderResponseLog providerResponseLog;
+
     void requireCompletedWebSearch(ChatResponse response) {
-        JsonNode output = readProviderOutput(response);
+        ProviderResponse providerResponse = readProviderResponse(response);
+        JsonNode output = providerResponse.output();
         long webSearchCalls = StreamSupport.stream(output.spliterator(), false)
                 .filter(AutoPostProviderResponseInspector::isWebSearchCall)
                 .count();
         if (webSearchCalls == 0) {
+            providerResponseLog.missingWebSearch(providerResponse.body());
             throw fault(
                     "AUTO_POST_WEB_SEARCH_MISSING",
                     "provider_contract",
@@ -41,7 +46,7 @@ class AutoPostProviderResponseInspector {
         }
     }
 
-    private JsonNode readProviderOutput(ChatResponse response) {
+    private ProviderResponse readProviderResponse(ChatResponse response) {
         SuccessfulHttpResponse rawResponse = rawResponse(response);
         if (rawResponse == null || rawResponse.body() == null || rawResponse.body().isBlank()) {
             throw fault(
@@ -57,7 +62,7 @@ class AutoPostProviderResponseInspector {
                         "provider_contract",
                         "The provider response contained no inspectable research output");
             }
-            return output;
+            return new ProviderResponse(rawResponse.body(), output);
         } catch (JsonProcessingException error) {
             throw new AutoPostDiscoveryException(
                     "AUTO_POST_PROVIDER_RESPONSE_INVALID",
@@ -79,6 +84,9 @@ class AutoPostProviderResponseInspector {
 
     private static boolean isWebSearchCall(JsonNode item) {
         return "web_search_call".equals(item.path("type").asText());
+    }
+
+    private record ProviderResponse(String body, JsonNode output) {
     }
 
     private static AutoPostDiscoveryException fault(

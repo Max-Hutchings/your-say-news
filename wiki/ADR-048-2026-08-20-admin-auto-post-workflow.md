@@ -112,6 +112,10 @@ provider dependency, candidate validation, SSE lifetime, post-agent handoff and 
 exactly one terminal `success`, `error` or `fault` outcome per undertaken operation. Logs contain
 stable error or fault codes and trace correlation, but no tokens, email addresses, source text,
 headlines, summaries, user IDs, run IDs, candidate IDs or post IDs as metric labels.
+As a temporary provider diagnostic exception, an `AUTO_POST_WEB_SEARCH_MISSING` fault logs the
+complete xAI response body once before the run fails. This response may contain generated headlines,
+summaries and source URLs, but does not contain the API credential or request headers. Remove this
+diagnostic after xAI's missing required-tool behaviour has been captured and resolved.
 Each SSE event payload is also measured as the low-cardinality `sseEvent` I/O operation, including
 its outcome and creation latency. Discovery and publication logs also contain a bounded `stage`
 field so operators can distinguish provider request, structured-output parsing, candidate
