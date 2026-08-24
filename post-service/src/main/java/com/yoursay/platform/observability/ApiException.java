@@ -1,4 +1,4 @@
-package com.yoursay.observability;
+package com.yoursay.platform.observability;
 
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;

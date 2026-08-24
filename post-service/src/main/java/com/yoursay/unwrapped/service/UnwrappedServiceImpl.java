@@ -1,5 +1,6 @@
 package com.yoursay.unwrapped.service;
 
+import com.yoursay.platform.ai.AiConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.posts.dto.PostVotingConfigurationDto;
@@ -45,7 +46,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -61,7 +61,6 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     private static final String OBSERVED_NOTICE =
             "This analysis describes people who voted on this post; it is not a population survey.";
     private static final long MINIMUM_OBSERVED_VOTES = 100;
-    private static final String API_KEY_NOT_CONFIGURED = "__not_configured__";
 
     @Inject
     VoteService voteService;
@@ -89,8 +88,8 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     UnwrappedResearchPreparation researchPreparation;
     @Inject
     EntityManager entityManager;
-    @ConfigProperty(name = "unwrapped.agent.api-key", defaultValue = API_KEY_NOT_CONFIGURED)
-    String apiKey;
+    @Inject
+    AiConfig aiConfig;
 
     @Override
     public UnwrappedResponseDto get(Long postId, String callerEmail, String authorization) {
@@ -388,7 +387,7 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     }
 
     private boolean workerAvailable() {
-        return apiKey != null && !apiKey.isBlank() && !API_KEY_NOT_CONFIGURED.equals(apiKey);
+        return aiConfig.unwrapped().configured();
     }
 
     private static int compareActivity(Instant left, Instant right) {

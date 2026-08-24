@@ -1,6 +1,6 @@
 package com.yoursay.topics.service;
 
-import com.yoursay.observability.ApiException;
+import com.yoursay.platform.observability.ApiException;
 import com.yoursay.topics.dto.CreateTopicRequest;
 import com.yoursay.topics.dto.TopicTagDto;
 import com.yoursay.topics.model.PostTopicTagRepository;

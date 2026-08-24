@@ -1,6 +1,7 @@
 package com.yoursay.autopost.agent;
 
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.observability.DomainMetrics;
 import dev.langchain4j.exception.InvalidRequestException;
 import dev.langchain4j.exception.RateLimitException;
 import dev.langchain4j.service.output.OutputParsingException;
@@ -29,7 +30,7 @@ class LangChain4jStoryDiscoveryAgentTest {
         agent = new LangChain4jStoryDiscoveryAgent();
         agent.client = client;
         agent.metrics = metrics;
-        agent.apiKey = "configured-key";
+        agent.aiConfig = aiConfig("configured-key");
     }
 
     @Test
@@ -58,12 +59,13 @@ class LangChain4jStoryDiscoveryAgentTest {
         StoryDiscoveryResult expected = new StoryDiscoveryResult(
                 java.util.List.of(), "gpt-5.6", "response-42", java.util.List.of());
         Mockito.when(client.discover(Mockito.any(), Mockito.any())).thenReturn(expected);
+        Instant windowStart = Instant.parse("2026-08-22T12:00:00Z");
+        Instant windowEnd = Instant.parse("2026-08-23T12:00:00Z");
 
-        StoryDiscoveryResult actual = agent.discover(
-                Instant.parse("2026-08-22T12:00:00Z"),
-                Instant.parse("2026-08-23T12:00:00Z"));
+        StoryDiscoveryResult actual = agent.discover(windowStart, windowEnd);
 
         assertSame(expected, actual);
+        Mockito.verify(client).discover(windowStart, windowEnd);
         Mockito.verify(metrics).recordOperation(
                 Mockito.eq("autopost"), Mockito.eq("providerResearch"), Mockito.eq("success"),
                 Mockito.eq("none"), Mockito.eq("none"), Mockito.anyLong());
@@ -72,7 +74,7 @@ class LangChain4jStoryDiscoveryAgentTest {
     @Test
     void rejectsEveryMissingApiKeyFormBeforeCallingTheProvider() {
         for (String missingKey : new String[]{null, "", "   ", "__not_configured__"}) {
-            agent.apiKey = missingKey;
+            agent.aiConfig = aiConfig(missingKey);
             AutoPostDiscoveryException error = assertThrows(AutoPostDiscoveryException.class,
                     () -> agent.discover(
                             Instant.parse("2026-08-22T12:00:00Z"),
@@ -112,6 +114,10 @@ class LangChain4jStoryDiscoveryAgentTest {
         assertEquals("AUTO_POST_PROVIDER_UNAVAILABLE", error.code());
         assertEquals("provider_request", error.stage());
         assertTrue(error.retryable());
+        Mockito.verify(metrics).recordOperation(
+                Mockito.eq("autopost"), Mockito.eq("providerResearch"), Mockito.eq("fault"),
+                Mockito.eq("dependency"), Mockito.eq("AUTO_POST_PROVIDER_UNAVAILABLE"),
+                Mockito.anyLong());
     }
 
     @Test
@@ -125,6 +131,10 @@ class LangChain4jStoryDiscoveryAgentTest {
         assertEquals("AUTO_POST_PROVIDER_RESPONSE_INVALID", error.code());
         assertEquals("provider_response", error.stage());
         assertFalse(error.retryable());
+        Mockito.verify(metrics).recordOperation(
+                Mockito.eq("autopost"), Mockito.eq("providerResearch"), Mockito.eq("fault"),
+                Mockito.eq("provider_contract"),
+                Mockito.eq("AUTO_POST_PROVIDER_RESPONSE_INVALID"), Mockito.anyLong());
     }
 
     @Test
@@ -139,11 +149,29 @@ class LangChain4jStoryDiscoveryAgentTest {
         assertEquals("provider_response", error.stage());
         assertEquals("Auto-post discovery response processing failed", error.getMessage());
         assertFalse(error.retryable());
+        Mockito.verify(metrics).recordOperation(
+                Mockito.eq("autopost"), Mockito.eq("providerResearch"), Mockito.eq("fault"),
+                Mockito.eq("application"),
+                Mockito.eq("AUTO_POST_PROVIDER_PROCESSING_FAILED"), Mockito.anyLong());
     }
 
     private StoryDiscoveryResult discover() {
         return agent.discover(
                 Instant.parse("2026-08-22T12:00:00Z"),
                 Instant.parse("2026-08-23T12:00:00Z"));
+    }
+
+    private static AiConfig aiConfig(String autoPostApiKey) {
+        return new AiConfig(
+                "openai",
+                "pepper-key",
+                "pepper-model",
+                "test-replica",
+                autoPostApiKey,
+                "autopost-model",
+                "top-stories-v3",
+                "unwrapped-key",
+                "unwrapped-model",
+                false);
     }
 }

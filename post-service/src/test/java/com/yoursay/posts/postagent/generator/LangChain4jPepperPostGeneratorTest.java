@@ -1,5 +1,6 @@
 package com.yoursay.posts.postagent.generator;
 
+import com.yoursay.platform.ai.AiConfig;
 import com.yoursay.posts.postagent.dto.AgentDraftDto;
 import com.yoursay.posts.postagent.dto.AgentSourceDto;
 import com.yoursay.posts.postagent.dto.SourcedClaimDto;
@@ -33,8 +34,7 @@ class LangChain4jPepperPostGeneratorTest {
         generator = new LangChain4jPepperPostGenerator();
         generator.client = client;
         generator.validator = new AgentDraftValidator();
-        generator.apiKey = "xai-test-key";
-        generator.model = "grok-4.3";
+        generator.aiConfig = aiConfig("xai-test-key", "grok-4.3");
     }
 
     @Test
@@ -66,7 +66,7 @@ class LangChain4jPepperPostGeneratorTest {
     @Test
     void generateUsesConfiguredModelWhenProviderMetadataHasNoModel() {
         AgentDraftDto draft = validDraft(STATISTICS_URL, PARLIAMENT_URL);
-        generator.model = "gpt-5.6-configured";
+        generator.aiConfig = aiConfig("xai-test-key", "gpt-5.6-configured");
         for (String missingModel : new String[]{null, "   "}) {
             Mockito.when(client.research(Mockito.anyString())).thenReturn(new PepperAiResponse(
                     draft,
@@ -143,7 +143,7 @@ class LangChain4jPepperPostGeneratorTest {
     @Test
     void generateFailsBeforeCallingLangChain4jWhenApiKeyIsMissing() {
         for (String missingKey : new String[]{null, "", "   ", "__not_configured__"}) {
-            generator.apiKey = missingKey;
+            generator.aiConfig = aiConfig(missingKey, "grok-4.3");
             GenerationException error = assertThrows(GenerationException.class,
                     () -> generator.generate("Cover a current policy dispute."));
             assertEquals("AGENT_PROVIDER_NOT_CONFIGURED", error.code());
@@ -172,5 +172,19 @@ class LangChain4jPepperPostGeneratorTest {
                 "A neutral photograph of a polling station sign without identifiable voters.",
                 "UK polling station sign reusable licensed image"
         );
+    }
+
+    private static AiConfig aiConfig(String apiKey, String model) {
+        return new AiConfig(
+                "grok",
+                apiKey,
+                model,
+                "test-replica",
+                "autopost-key",
+                "autopost-model",
+                "top-stories-v3",
+                "unwrapped-key",
+                "unwrapped-model",
+                false);
     }
 }

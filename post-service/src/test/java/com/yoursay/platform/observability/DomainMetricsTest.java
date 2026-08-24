@@ -1,5 +1,4 @@
-package com.yoursay.observability;
-
+package com.yoursay.platform.observability;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;

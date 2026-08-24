@@ -1,5 +1,6 @@
 package com.yoursay.autopost.service;
 
+import com.yoursay.platform.ai.AiConfig;
 import com.yoursay.autopost.AutoPostService;
 import com.yoursay.autopost.dto.AutoPostEventDto;
 import com.yoursay.autopost.dto.AutoPostRunDto;
@@ -11,7 +12,6 @@ import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -40,8 +40,8 @@ public class AutoPostServiceImpl implements AutoPostService {
     @Inject
     AutoPostEventStream eventStream;
 
-    @ConfigProperty(name = "autopost.agent.prompt-version", defaultValue = "top-stories-v2")
-    String promptVersion;
+    @Inject
+    AiConfig aiConfig;
 
     @Override
     @Transactional
@@ -97,7 +97,7 @@ public class AutoPostServiceImpl implements AutoPostService {
                 administratorUserId,
                 windowEnd.minus(24, ChronoUnit.HOURS),
                 windowEnd,
-                promptVersion);
+                aiConfig.autoPost().promptVersion());
     }
 
     private AutoPostRun requireRun(UUID runId) {

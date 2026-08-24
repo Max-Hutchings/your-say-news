@@ -1,9 +1,9 @@
 package com.yoursay.autopost.agent;
 
+import com.yoursay.platform.ai.AiConfig;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -21,8 +21,8 @@ class AutoPostAiClient {
     @Inject
     AutoPostProviderResponseInspector responseInspector;
 
-    @ConfigProperty(name = "autopost.agent.model", defaultValue = "configured-model")
-    String configuredModel;
+    @Inject
+    AiConfig aiConfig;
 
     StoryDiscoveryResult discover(Instant windowStart, Instant windowEnd) {
         String instruction = """
@@ -45,9 +45,9 @@ class AutoPostAiClient {
             responseInspector.requireCompletedWebSearch(response);
             return new StoryDiscoveryResult(
                     mapStories(draft.stories()),
-                    response == null || response.modelName() == null
-                            ? configuredModel
-                            : response.modelName(),
+                    response == null
+                            ? aiConfig.autoPost().model()
+                            : valueOr(response.modelName(), aiConfig.autoPost().model()),
                     response == null ? null : response.id(),
                     List.of());
         } finally {
@@ -62,6 +62,10 @@ class AutoPostAiClient {
                 message,
                 false,
                 null);
+    }
+
+    private static String valueOr(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private static List<DiscoveredStory> mapStories(List<DiscoveredStoryDraft> stories) {

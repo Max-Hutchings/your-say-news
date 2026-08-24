@@ -2,7 +2,8 @@ package com.yoursay.unwrapped.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.unwrapped.SourceClassification;
 import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
@@ -88,7 +89,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         LangChain4jUnwrappedResearchGenerator generator =
                 new LangChain4jUnwrappedResearchGenerator();
         generator.aiService = aiService;
-        generator.stubbed = true;
+        generator.aiConfig = unwrappedConfig("test-key", "stubbed-unwrapped", true);
 
         UnwrappedResearchResult result = generator.generate(request);
 
@@ -132,7 +133,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         LangChain4jUnwrappedResearchGenerator generator =
                 new LangChain4jUnwrappedResearchGenerator();
         generator.aiService = aiService;
-        generator.stubbed = true;
+        generator.aiConfig = unwrappedConfig("test-key", "stubbed-unwrapped", true);
 
         UnwrappedResearchResult result = generator.generate(request);
 
@@ -176,7 +177,8 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         DomainMetrics metrics = mock(DomainMetrics.class);
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                 aiService, capture, objectMapper, metrics);
-        generator.configuredModel = "configured-fallback-model";
+        generator.aiConfig = unwrappedConfig(
+                "test-key", "configured-fallback-model", false);
 
         UnwrappedResearchResult result = generator.generate(request);
 
@@ -248,7 +250,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
 
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                 aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
-        generator.configuredModel = "grok-test";
+        generator.aiConfig = unwrappedConfig("test-key", "grok-test", false);
 
         generator.generate(request, "Use a deliberately terse editorial voice.");
 
@@ -307,7 +309,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                 aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
                 mock(DomainMetrics.class));
-        generator.configuredModel = "configured-grok-model";
+        generator.aiConfig = unwrappedConfig("test-key", "configured-grok-model", false);
 
         UnwrappedResearchResult result = generator.generate(request, "Benchmark prompt");
 
@@ -331,7 +333,8 @@ class LangChain4jUnwrappedResearchGeneratorTest {
 
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                 aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
-        generator.configuredModel = "configured-fallback-model";
+        generator.aiConfig = unwrappedConfig(
+                "test-key", "configured-fallback-model", false);
 
         IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> generator.generate(request, "Write a concise researched comparison."));
@@ -678,7 +681,8 @@ class LangChain4jUnwrappedResearchGeneratorTest {
             LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                     aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
                     metrics);
-            generator.apiKey = apiKey;
+            generator.aiConfig = unwrappedConfig(
+                    apiKey, "configured-fallback-model", false);
 
             IllegalStateException failure = assertThrows(IllegalStateException.class,
                     () -> generator.generate(requestWithoutCohorts()));
@@ -806,14 +810,19 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
         when(aiService.research(anyString(), anyString(), anyString()))
                 .thenReturn(validDraft(request, "https://www.ons.gov.uk/source"));
+        DomainMetrics metrics = mock(DomainMetrics.class);
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                 aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
-                mock(DomainMetrics.class));
+                metrics);
 
         IllegalStateException failure = assertThrows(IllegalStateException.class,
                 () -> generator.generate(request));
 
         assertEquals("UNWRAPPED_PROVIDER_RESPONSE_MISSING", failure.getMessage());
+        verify(metrics).recordOperation(eq("unwrapped"), eq("research_provider"),
+                eq("dependency_error"), eq("provider_contract"),
+                eq("UNWRAPPED_PROVIDER_RESPONSE_MISSING"),
+                org.mockito.ArgumentMatchers.anyLong());
     }
 
     @Test
@@ -830,7 +839,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         });
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                 aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
-        generator.configuredModel = "configured-grok-model";
+        generator.aiConfig = unwrappedConfig("test-key", "configured-grok-model", false);
 
         assertEquals("configured-grok-model", generator.generate(request).model());
     }
@@ -956,9 +965,23 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         generator.objectMapper = objectMapper;
         generator.validator = new UnwrappedDraftValidator(new SourceUrlPolicy());
         generator.metrics = metrics;
-        generator.apiKey = "test-key";
-        generator.configuredModel = "configured-fallback-model";
+        generator.aiConfig = unwrappedConfig(
+                "test-key", "configured-fallback-model", false);
         return generator;
+    }
+
+    private static AiConfig unwrappedConfig(String apiKey, String model, boolean stubbed) {
+        return new AiConfig(
+                "openai",
+                "pepper-key",
+                "pepper-model",
+                "test-replica",
+                "autopost-key",
+                "autopost-model",
+                "top-stories-v3",
+                apiKey,
+                model,
+                stubbed);
     }
 
     private static UnwrappedResearchDraftV1 validDraft(
@@ -1028,10 +1051,15 @@ class LangChain4jUnwrappedResearchGeneratorTest {
                     ModelProvider.OPEN_AI, new HashMap<>()));
             return validDraft(request, "https://www.ons.gov.uk/source");
         });
+        DomainMetrics metrics = mock(DomainMetrics.class);
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
-                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
-        return assertThrows(IllegalStateException.class, () -> generator.generate(request))
-                .getMessage();
+                aiService, capture, new ObjectMapper(), metrics);
+        String errorCode = assertThrows(IllegalStateException.class,
+                () -> generator.generate(request)).getMessage();
+        verify(metrics).recordOperation(eq("unwrapped"), eq("research_provider"),
+                eq("dependency_error"), eq("provider_contract"), eq(errorCode),
+                org.mockito.ArgumentMatchers.anyLong());
+        return errorCode;
     }
 
     private static String expectedOutputInstructions() {

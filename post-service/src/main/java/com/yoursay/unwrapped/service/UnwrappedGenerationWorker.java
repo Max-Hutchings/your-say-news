@@ -1,15 +1,15 @@
 package com.yoursay.unwrapped.service;
 
+import com.yoursay.platform.ai.AiConfig;
 import com.yoursay.unwrapped.agent.UnwrappedResearchGenerator;
 import com.yoursay.unwrapped.agent.UnwrappedResearchRequest;
 import com.yoursay.unwrapped.agent.UnwrappedResearchResult;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import io.quarkus.logging.Log;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.Optional;
 
@@ -17,8 +17,6 @@ import static io.quarkus.scheduler.Scheduled.ConcurrentExecution.SKIP;
 
 @ApplicationScoped
 public class UnwrappedGenerationWorker {
-    private static final String NOT_CONFIGURED = "__not_configured__";
-
     @Inject
     UnwrappedJobProcessor processor;
     @Inject
@@ -27,14 +25,14 @@ public class UnwrappedGenerationWorker {
     UnwrappedResearchGenerator generator;
     @Inject
     DomainMetrics metrics;
-    @ConfigProperty(name = "unwrapped.agent.api-key", defaultValue = NOT_CONFIGURED)
-    String apiKey;
+    @Inject
+    AiConfig aiConfig;
 
     @Scheduled(identity = "unwrapped-generation-worker",
             every = "${unwrapped.jobs.poll-interval:2s}", concurrentExecution = SKIP)
     @RunOnVirtualThread
     public void processNext() {
-        if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
+        if (!aiConfig.unwrapped().configured()) {
             return;
         }
         Optional<UnwrappedJobProcessor.JobWork> claimed = processor.claimNext();

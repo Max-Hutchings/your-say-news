@@ -3,7 +3,7 @@ package com.yoursay.autopost.service;
 import com.yoursay.autopost.dto.AutoPostEventDto;
 import com.yoursay.autopost.dto.AutoPostRunDto;
 import com.yoursay.autopost.observability.AutoPostLog;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;

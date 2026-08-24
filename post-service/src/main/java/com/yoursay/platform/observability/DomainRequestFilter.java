@@ -1,4 +1,4 @@
-package com.yoursay.observability;
+package com.yoursay.platform.observability;
 
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;

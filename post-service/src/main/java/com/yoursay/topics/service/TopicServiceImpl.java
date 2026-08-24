@@ -1,6 +1,6 @@
 package com.yoursay.topics.service;
 
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.topics.TopicService;
 import com.yoursay.topics.dto.CreateTopicRequest;
 import com.yoursay.topics.dto.TopicTagDto;

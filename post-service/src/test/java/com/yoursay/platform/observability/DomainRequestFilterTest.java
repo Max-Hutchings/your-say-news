@@ -1,5 +1,4 @@
-package com.yoursay.observability;
-
+package com.yoursay.platform.observability;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -1,6 +1,6 @@
 package com.yoursay.posts.error;
 
-import com.yoursay.observability.ApiException;
+import com.yoursay.platform.observability.ApiException;
 import com.yoursay.posts.MediaType;
 import jakarta.ws.rs.core.Response;
 

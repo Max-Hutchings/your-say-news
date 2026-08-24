@@ -8,7 +8,7 @@ import com.yoursay.votes.client.UserCharacteristicView;
 import com.yoursay.votes.error.VoteApiException;
 import com.yoursay.votes.model.Vote;
 import com.yoursay.votes.model.VoteRepository;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.dto.PostVotingConfigurationDto;
 import com.yoursay.posts.PostVotingConfigurationService;
 import io.quarkus.logging.Log;

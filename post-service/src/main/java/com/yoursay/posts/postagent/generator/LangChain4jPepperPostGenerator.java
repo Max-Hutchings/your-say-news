@@ -1,15 +1,13 @@
 package com.yoursay.posts.postagent.generator;
 
+import com.yoursay.platform.ai.AiConfig;
 import dev.langchain4j.exception.NonRetriableException;
 import dev.langchain4j.exception.RetriableException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
 public class LangChain4jPepperPostGenerator implements PepperPostGenerator {
-
-    private static final String API_KEY_NOT_CONFIGURED = "__not_configured__";
 
     @Inject
     PepperAiClient client;
@@ -17,15 +15,12 @@ public class LangChain4jPepperPostGenerator implements PepperPostGenerator {
     @Inject
     AgentDraftValidator validator;
 
-    @ConfigProperty(name = "pepper.agent.api-key")
-    String apiKey;
-
-    @ConfigProperty(name = "pepper.agent.model", defaultValue = "configured-model")
-    String model;
+    @Inject
+    AiConfig aiConfig;
 
     @Override
     public GenerationResult generate(String request) {
-        if (apiKey == null || apiKey.isBlank() || API_KEY_NOT_CONFIGURED.equals(apiKey)) {
+        if (!aiConfig.pepper().configured()) {
             throw new GenerationException("AGENT_PROVIDER_NOT_CONFIGURED",
                     "The selected AI provider API key is not configured", false);
         }
@@ -33,7 +28,8 @@ public class LangChain4jPepperPostGenerator implements PepperPostGenerator {
         try {
             PepperAiResponse response = client.research(request);
             validator.validate(response.draft(), response.citations());
-            return new GenerationResult(response.draft(), valueOr(response.model(), model),
+            return new GenerationResult(response.draft(),
+                    valueOr(response.model(), aiConfig.pepper().model()),
                     response.providerResponseId());
         } catch (GenerationException e) {
             throw e;

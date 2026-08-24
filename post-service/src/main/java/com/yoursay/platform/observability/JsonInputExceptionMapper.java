@@ -1,4 +1,4 @@
-package com.yoursay.observability;
+package com.yoursay.platform.observability;
 
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import jakarta.annotation.Priority;

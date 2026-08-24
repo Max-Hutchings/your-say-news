@@ -1,4 +1,4 @@
-package com.yoursay.observability;
+package com.yoursay.platform.observability;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;

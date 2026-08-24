@@ -1,6 +1,7 @@
 package com.yoursay.autopost.agent;
 
 import com.yoursay.autopost.AutoPostRegion;
+import com.yoursay.platform.ai.AiConfig;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
@@ -31,7 +32,7 @@ class AutoPostAiClientTest {
         client.service = service;
         client.responseCapture = responseCapture;
         client.responseInspector = responseInspector;
-        client.configuredModel = "configured-grok";
+        client.aiConfig = aiConfig("configured-grok");
     }
 
     @Test
@@ -69,13 +70,14 @@ class AutoPostAiClientTest {
                         AutoPostSystemPrompt.OUTPUT_INSTRUCTIONS,
                         instruction))
                 .thenReturn(new StoryDiscoveryDraft(List.of(providerStory)));
-        Mockito.when(responseCapture.take()).thenReturn(ChatResponse.builder()
+        ChatResponse providerResponse = ChatResponse.builder()
                 .aiMessage(AiMessage.from("structured output"))
                 .metadata(ChatResponseMetadata.builder()
                         .id("response-42")
                         .modelName("grok-4.5")
                         .build())
-                .build());
+                .build();
+        Mockito.when(responseCapture.take()).thenReturn(providerResponse);
 
         StoryDiscoveryResult result = client.discover(start, end);
 
@@ -88,6 +90,7 @@ class AutoPostAiClientTest {
                 AutoPostSystemPrompt.DEFAULT,
                 AutoPostSystemPrompt.OUTPUT_INSTRUCTIONS,
                 instruction);
+        Mockito.verify(responseInspector).requireCompletedWebSearch(providerResponse);
     }
 
     @Test
@@ -105,6 +108,28 @@ class AutoPostAiClientTest {
     }
 
     @Test
+    void discoverUsesConfiguredModelWhenProviderMetadataHasABlankModel() {
+        Instant start = Instant.parse("2026-08-19T12:00:00Z");
+        Instant end = Instant.parse("2026-08-20T12:00:00Z");
+        Mockito.when(service.discover(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(new StoryDiscoveryDraft(List.of()));
+        ChatResponse providerResponse = ChatResponse.builder()
+                .aiMessage(AiMessage.from("structured output"))
+                .metadata(ChatResponseMetadata.builder()
+                        .id("response-with-blank-model")
+                        .modelName("   ")
+                        .build())
+                .build();
+        Mockito.when(responseCapture.take()).thenReturn(providerResponse);
+
+        StoryDiscoveryResult result = client.discover(start, end);
+
+        assertEquals("configured-grok", result.model());
+        assertEquals("response-with-blank-model", result.providerResponseId());
+        Mockito.verify(responseInspector).requireCompletedWebSearch(providerResponse);
+    }
+
+    @Test
     void discoverRejectsANullDraftAndAlwaysClearsResponseCapture() {
         Mockito.when(service.discover(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
                 .thenReturn(null);
@@ -117,6 +142,20 @@ class AutoPostAiClientTest {
         assertEquals("AUTO_POST_PROVIDER_RESPONSE_INVALID", error.code());
         assertEquals("The model returned no discovery response", error.getMessage());
         Mockito.verify(responseCapture).clear();
+    }
+
+    private static AiConfig aiConfig(String autoPostModel) {
+        return new AiConfig(
+                "grok",
+                "pepper-key",
+                "pepper-model",
+                "test-replica",
+                "autopost-key",
+                autoPostModel,
+                "top-stories-v3",
+                "unwrapped-key",
+                "unwrapped-model",
+                false);
     }
 
     @Test

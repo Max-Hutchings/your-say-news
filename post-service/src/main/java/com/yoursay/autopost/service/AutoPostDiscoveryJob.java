@@ -5,7 +5,7 @@ import com.yoursay.autopost.agent.StoryDiscoveryAgent;
 import com.yoursay.autopost.agent.StoryDiscoveryResult;
 import com.yoursay.autopost.observability.AutoPostLog;
 import com.yoursay.autopost.validation.AutoPostValidationException;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.instrumentation.annotations.WithSpan;

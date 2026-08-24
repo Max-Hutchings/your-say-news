@@ -1,6 +1,6 @@
 package com.yoursay.user.user.service;
 
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.user.user.AccountType;
 import com.yoursay.user.user.dto.AdminUserDto;
 import com.yoursay.user.user.dto.AdminUserUpdateDto;

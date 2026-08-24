@@ -3,7 +3,7 @@ package com.yoursay.feed.service;
 import com.yoursay.feed.dto.FeedContext;
 import com.yoursay.feed.FeedRanker;
 import com.yoursay.feed.dto.RankablePost;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 

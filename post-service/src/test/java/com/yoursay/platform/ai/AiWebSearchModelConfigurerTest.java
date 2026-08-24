@@ -1,4 +1,4 @@
-package com.yoursay.ai;
+package com.yoursay.platform.ai;
 
 import dev.langchain4j.model.chat.request.ToolChoice;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
@@ -41,7 +41,7 @@ class AiWebSearchModelConfigurerTest {
     }
 
     @Test
-    void rejectsAnUnsupportedProviderBeforeCallingIt() {
+    void rejectsAnUnsupportedProviderBeforeCallingTheBuilder() {
         OpenAiResponsesChatModel.Builder builder =
                 Mockito.mock(OpenAiResponsesChatModel.Builder.class);
 
@@ -54,7 +54,17 @@ class AiWebSearchModelConfigurerTest {
 
     private static AiWebSearchModelConfigurer configurer(String provider) {
         AiWebSearchModelConfigurer configurer = new AiWebSearchModelConfigurer();
-        configurer.provider = provider;
+        configurer.config = new AiConfig(
+                provider,
+                "pepper-key",
+                "pepper-model",
+                "pepper-replica",
+                "autopost-key",
+                "autopost-model",
+                "top-stories-v3",
+                "unwrapped-key",
+                "unwrapped-model",
+                false);
         return configurer;
     }
 

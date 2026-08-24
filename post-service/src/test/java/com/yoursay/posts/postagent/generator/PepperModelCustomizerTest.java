@@ -1,6 +1,6 @@
 package com.yoursay.posts.postagent.generator;
 
-import com.yoursay.ai.AiWebSearchModelConfigurer;
+import com.yoursay.platform.ai.AiWebSearchModelConfigurer;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
 import io.quarkiverse.langchain4j.ModelName;
 import org.junit.jupiter.api.Test;

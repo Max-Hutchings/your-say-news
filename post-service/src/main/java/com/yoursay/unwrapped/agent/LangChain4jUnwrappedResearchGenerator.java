@@ -2,7 +2,8 @@ package com.yoursay.unwrapped.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.unwrapped.SourceClassification;
 import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
@@ -23,7 +24,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 import io.quarkus.logging.Log;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,8 +33,6 @@ import java.util.Locale;
 @ApplicationScoped
 @ActivateRequestContext
 public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchGenerator {
-    private static final String NOT_CONFIGURED = "__not_configured__";
-
     @Inject
     UnwrappedResearchAiService aiService;
 
@@ -50,14 +48,8 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     @Inject
     DomainMetrics metrics;
 
-    @ConfigProperty(name = "unwrapped.agent.api-key", defaultValue = "__not_configured__")
-    String apiKey;
-
-    @ConfigProperty(name = "unwrapped.agent.model", defaultValue = "configured-model")
-    String configuredModel;
-
-    @ConfigProperty(name = "unwrapped.agent.stubbed", defaultValue = "false")
-    boolean stubbed;
+    @Inject
+    AiConfig aiConfig;
 
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request) {
@@ -74,7 +66,7 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
             String systemPrompt,
             boolean enforcePublicationContract
     ) {
-        if (stubbed) return stubbedResult(request);
+        if (aiConfig.unwrapped().stubbed()) return stubbedResult(request);
         long started = System.nanoTime();
         try {
             UnwrappedResearchResult result = generateWithProvider(
@@ -109,8 +101,8 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
             logDraftReceived(draft, citations);
             return new UnwrappedResearchResult(draft, citations,
                     response == null
-                            ? configuredModel
-                            : valueOr(response.modelName(), configuredModel),
+                            ? aiConfig.unwrapped().model()
+                            : valueOr(response.modelName(), aiConfig.unwrapped().model()),
                     response == null ? null : response.id());
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw e;
@@ -143,7 +135,14 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
 
     private static String failureType(String errorCode, RuntimeException failure) {
         if ("UNWRAPPED_PROVIDER_NOT_CONFIGURED".equals(errorCode)) return "configuration";
-        return failure instanceof IllegalArgumentException ? "provider_contract" : "provider";
+        return failure instanceof IllegalArgumentException || providerContractFailure(errorCode)
+                ? "provider_contract"
+                : "provider";
+    }
+
+    private static boolean providerContractFailure(String errorCode) {
+        return "UNWRAPPED_PROVIDER_RESPONSE_MISSING".equals(errorCode)
+                || errorCode.startsWith("UNWRAPPED_PROVIDER_CITATIONS_");
     }
 
     private static String stableErrorCode(RuntimeException failure) {
@@ -156,7 +155,7 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     }
 
     private void requireProviderConfigured() {
-        if (apiKey == null || apiKey.isBlank() || NOT_CONFIGURED.equals(apiKey)) {
+        if (!aiConfig.unwrapped().configured()) {
             throw new IllegalStateException("UNWRAPPED_PROVIDER_NOT_CONFIGURED");
         }
     }

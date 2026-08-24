@@ -24,6 +24,10 @@ Keep one provider-neutral `@RegisterAiService` interface per agent. The applicat
 credential, model and Responses metadata settings sit behind that selection. Each agent keeps its
 own named model, token budget and prompt cache.
 
+Application-level AI settings are injected once by `com.yoursay.platform.ai.AiConfig`. Pepper,
+AutoPost, Unwrapped and the shared web-search customizer consume its typed groups instead of
+scattering `@ConfigProperty` fields across domain implementations.
+
 All agent models require the server-side `web_search` tool. OpenAI source evidence is read only
 from web-search actions and message URL annotations. Grok's documented top-level citations remain
 supported. Provider response evidence is never trusted from unrelated output nodes.
@@ -45,6 +49,8 @@ provides a reversible fallback.
   provider credential in the service environment.
 - `PEPPER_*`, `AUTOPOST_*` and `UNWRAPPED_*` properties can override the selected defaults for one
   agent.
+- New application-level AI settings belong in `platform.ai.AiConfig`; domain implementations must
+  consume that central configuration rather than inject the property directly.
 - Existing operation metrics, fault classification, structured logs and LangChain4j GenAI traces
   continue unchanged. Provider and model remain visible through the existing GenAI telemetry.
 - A live provider contract test remains opt-in because it consumes paid external APIs.

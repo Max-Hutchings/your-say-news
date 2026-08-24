@@ -1,9 +1,10 @@
 package com.yoursay.posts.postagent.service;
 
+import com.yoursay.platform.ai.AiConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.VotingType;
 import com.yoursay.posts.postagent.AgentService;
 import com.yoursay.posts.postagent.AutoPostAgentService;
@@ -32,7 +33,6 @@ import jakarta.enterprise.context.control.RequestContextController;
 import jakarta.inject.Inject;
 import jakarta.validation.Validator;
 import jakarta.ws.rs.WebApplicationException;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.HashSet;
 import java.util.List;
@@ -76,8 +76,8 @@ public class AgentServiceImpl implements AgentService, AutoPostAgentService {
     @Inject
     YourSayUserService yourSayUserService;
 
-    @ConfigProperty(name = "pepper.replica-id", defaultValue = "local")
-    String replicaId;
+    @Inject
+    AiConfig aiConfig;
 
     @Override
     public Multi<AgentGenerationEventDto> start(
@@ -140,7 +140,7 @@ public class AgentServiceImpl implements AgentService, AutoPostAgentService {
         PepperAiDraftPost draft = owned(draftId, userId);
         if (requestedReplicaId == null
                 || !requestedReplicaId.equals(draft.getReplicaId())
-                || !replicaId.equals(draft.getReplicaId())) {
+                || !aiConfig.pepper().replicaId().equals(draft.getReplicaId())) {
             throw AgentApiException.replicaUnavailable();
         }
         Optional<Multi<AgentGenerationEventDto>> live = streams.subscribe(draftId);
@@ -209,7 +209,8 @@ public class AgentServiceImpl implements AgentService, AutoPostAgentService {
 
     private PepperAiDraftPost createDraft(Long userId, String prompt) {
         return QuarkusTransaction.requiringNew().call(() -> {
-            PepperAiDraftPost draft = new PepperAiDraftPost(userId, prompt, replicaId);
+            PepperAiDraftPost draft = new PepperAiDraftPost(
+                    userId, prompt, aiConfig.pepper().replicaId());
             repository.persist(draft);
             repository.flush();
             return draft;

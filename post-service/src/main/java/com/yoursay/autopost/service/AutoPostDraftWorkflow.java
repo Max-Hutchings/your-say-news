@@ -9,7 +9,7 @@ import com.yoursay.autopost.model.AutoPostCandidateSourceRepository;
 import com.yoursay.autopost.model.AutoPostRun;
 import com.yoursay.autopost.model.AutoPostRunRepository;
 import com.yoursay.autopost.observability.AutoPostLog;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.postagent.AutoPostAgentService;
 import com.yoursay.posts.postagent.PepperDraftStatus;
 import com.yoursay.posts.postagent.dto.PepperDraftDto;

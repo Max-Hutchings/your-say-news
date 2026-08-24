@@ -1,20 +1,18 @@
 package com.yoursay.autopost.agent;
 
 import com.yoursay.autopost.observability.AutoPostLog;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.observability.DomainMetrics;
 import dev.langchain4j.exception.NonRetriableException;
 import dev.langchain4j.exception.RetriableException;
 import dev.langchain4j.service.output.OutputParsingException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 
 @ApplicationScoped
 public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
-
-    private static final String API_KEY_NOT_CONFIGURED = "__not_configured__";
 
     @Inject
     AutoPostAiClient client;
@@ -22,14 +20,14 @@ public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
     @Inject
     DomainMetrics metrics;
 
-    @ConfigProperty(name = "autopost.agent.api-key")
-    String apiKey;
+    @Inject
+    AiConfig aiConfig;
 
     @Override
     public StoryDiscoveryResult discover(Instant windowStart, Instant windowEnd) {
         long started = System.nanoTime();
         AutoPostLog.started("providerResearch", "provider_request");
-        if (apiKey == null || apiKey.isBlank() || API_KEY_NOT_CONFIGURED.equals(apiKey)) {
+        if (!aiConfig.autoPost().configured()) {
             record("fault", "configuration", "AUTO_POST_PROVIDER_NOT_CONFIGURED", started);
             AutoPostDiscoveryException fault = new AutoPostDiscoveryException(
                     "AUTO_POST_PROVIDER_NOT_CONFIGURED",

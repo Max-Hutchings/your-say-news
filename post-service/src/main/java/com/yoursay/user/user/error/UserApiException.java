@@ -1,6 +1,6 @@
 package com.yoursay.user.user.error;
 
-import com.yoursay.observability.ApiException;
+import com.yoursay.platform.observability.ApiException;
 import jakarta.ws.rs.core.Response;
 
 public class UserApiException extends ApiException {

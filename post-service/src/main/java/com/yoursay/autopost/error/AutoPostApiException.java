@@ -1,6 +1,6 @@
 package com.yoursay.autopost.error;
 
-import com.yoursay.observability.ApiException;
+import com.yoursay.platform.observability.ApiException;
 import jakarta.ws.rs.core.Response;
 
 public class AutoPostApiException extends ApiException {

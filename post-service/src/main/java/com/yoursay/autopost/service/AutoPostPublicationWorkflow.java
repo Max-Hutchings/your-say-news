@@ -7,7 +7,7 @@ import com.yoursay.autopost.model.AutoPostCandidateRepository;
 import com.yoursay.autopost.model.AutoPostRun;
 import com.yoursay.autopost.model.AutoPostRunRepository;
 import com.yoursay.autopost.observability.AutoPostLog;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.PostService;
 import com.yoursay.posts.dto.PostDto;
 import com.yoursay.posts.postagent.AutoPostAgentService;

@@ -13,7 +13,7 @@ import com.yoursay.autopost.model.AutoPostRunRepository;
 import com.yoursay.autopost.observability.AutoPostLog;
 import com.yoursay.autopost.validation.AutoPostCandidateValidator;
 import com.yoursay.autopost.validation.AutoPostValidationException;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;

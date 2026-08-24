@@ -1,6 +1,6 @@
 package com.yoursay.votes.service;
 
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.user.usercharacteristic.IncomeRangeDisplayService;
 import com.yoursay.user.usercharacteristic.dto.IncomeRangeDisplayDto;
 import com.yoursay.votes.dto.BucketSentiment;

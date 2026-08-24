@@ -1,6 +1,6 @@
 package com.yoursay.user.usercharacteristic.service;
 
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.user.usercharacteristic.IncomeRangeDisplayService;
 import com.yoursay.user.usercharacteristic.dto.IncomeAnswerDto;
 import com.yoursay.user.usercharacteristic.dto.IncomeBandDto;

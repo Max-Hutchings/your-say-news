@@ -1,4 +1,4 @@
-package com.yoursay.ai;
+package com.yoursay.platform.ai;
 
 import io.smallrye.config.PropertiesConfigSource;
 import io.smallrye.config.SmallRyeConfig;
@@ -8,13 +8,18 @@ import org.junit.jupiter.api.Test;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AgentProviderConfigurationTest {
 
-    private static final String[] REGISTERED_MODELS = {"pepper", "autopost", "unwrapped"};
+    private static final Pattern MODEL_NAME =
+            Pattern.compile("modelName\\s*=\\s*\"([^\"]+)\"");
 
     @Test
     void openAiSelectionConfiguresEveryRegisteredAgent() throws Exception {
@@ -57,13 +62,32 @@ class AgentProviderConfigurationTest {
         return repositoryRoot.resolve("src/main/resources/application.properties");
     }
 
+    private static Set<String> registeredModels() throws Exception {
+        Path repositoryRoot = Path.of(System.getProperty("user.dir"));
+        Path mainJava = repositoryRoot.resolve("post-service/src/main/java");
+        if (!Files.exists(mainJava)) mainJava = repositoryRoot.resolve("src/main/java");
+
+        Set<String> modelNames = new HashSet<>();
+        try (var files = Files.walk(mainJava)) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
+                String source = Files.readString(file);
+                if (!source.contains("@RegisterAiService")) continue;
+                Matcher matcher = MODEL_NAME.matcher(source);
+                while (matcher.find()) modelNames.add(matcher.group(1));
+            }
+        }
+        assertEquals(3, modelNames.size(),
+                "Every @RegisterAiService model must be intentionally covered here");
+        return modelNames;
+    }
+
     private static void assertEveryModelUses(
             SmallRyeConfig config,
             String expectedBaseUrl,
             String expectedApiKey,
             String expectedModel
-    ) {
-        for (String registeredModel : REGISTERED_MODELS) {
+    ) throws Exception {
+        for (String registeredModel : registeredModels()) {
             String prefix = "quarkus.langchain4j.openai." + registeredModel;
             assertEquals(expectedBaseUrl, config.getValue(prefix + ".base-url", String.class));
             assertEquals(expectedApiKey, config.getValue(prefix + ".api-key", String.class));

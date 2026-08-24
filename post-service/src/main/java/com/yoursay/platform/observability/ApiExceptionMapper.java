@@ -1,4 +1,4 @@
-package com.yoursay.observability;
+package com.yoursay.platform.observability;
 
 import io.quarkus.logging.Log;
 import jakarta.inject.Inject;
@@ -88,7 +88,7 @@ public class ApiExceptionMapper implements ExceptionMapper<Throwable> {
     private static SourceLocation sourceLocation(Throwable exception) {
         for (StackTraceElement element : exception.getStackTrace()) {
             if (element.getClassName().startsWith("com.yoursay.")
-                    && !element.getClassName().startsWith("com.yoursay.observability.")
+                    && !element.getClassName().startsWith("com.yoursay.platform.observability.")
                     && !element.getClassName().contains(".error.")) {
                 String file = element.getFileName() == null ? "unknown" : element.getFileName();
                 return new SourceLocation(file, element.getLineNumber());

@@ -6,7 +6,7 @@ import com.yoursay.autopost.agent.AutoPostDiscoveryException;
 import com.yoursay.autopost.agent.StoryDiscoveryAgent;
 import com.yoursay.autopost.agent.StoryDiscoveryResult;
 import com.yoursay.autopost.service.AutoPostWorker;
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.postagent.AutoPostAgentService;
 import com.yoursay.posts.postagent.PepperDraftStatus;
 import com.yoursay.posts.postagent.dto.AgentPublicationDto;
