@@ -2,6 +2,7 @@ package com.yoursay.autopost.agent;
 
 import com.yoursay.platform.ai.AiConfig;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.FinishReason;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -34,10 +35,15 @@ class AutoPostAiClient {
                 """.formatted(windowEnd, windowStart, windowEnd).strip();
         responseCapture.begin();
         try {
-            StoryDiscoveryDraft draft = service.discover(
-                    AutoPostSystemPrompt.DEFAULT,
-                    AutoPostSystemPrompt.OUTPUT_INSTRUCTIONS,
-                    instruction);
+            StoryDiscoveryDraft draft;
+            try {
+                draft = service.discover(
+                        AutoPostSystemPrompt.DEFAULT,
+                        AutoPostSystemPrompt.OUTPUT_INSTRUCTIONS,
+                        instruction);
+            } catch (RuntimeException error) {
+                throw classifyIncompleteResponse(responseCapture.take(), error);
+            }
             ChatResponse response = responseCapture.take();
             if (draft == null) {
                 throw invalid("The model returned no discovery response");
@@ -62,6 +68,22 @@ class AutoPostAiClient {
                 message,
                 false,
                 null);
+    }
+
+    private static RuntimeException classifyIncompleteResponse(
+            ChatResponse response,
+            RuntimeException error
+    ) {
+        if (response != null && response.finishReason() == FinishReason.LENGTH) {
+            return new AutoPostDiscoveryException(
+                    "AUTO_POST_MODEL_RESPONSE_TOO_LARGE",
+                    "provider_contract",
+                    "structured_output_truncated",
+                    "The model response was too large and was rejected. Try a new run.",
+                    false,
+                    error);
+        }
+        return error;
     }
 
     private static String valueOr(String value, String fallback) {

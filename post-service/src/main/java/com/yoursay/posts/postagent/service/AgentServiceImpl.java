@@ -14,6 +14,7 @@ import com.yoursay.posts.postagent.dto.AgentDraftDto;
 import com.yoursay.posts.postagent.dto.AgentGenerationEventDto;
 import com.yoursay.posts.postagent.dto.AgentPublicationDto;
 import com.yoursay.posts.postagent.dto.AgentSourceDto;
+import com.yoursay.posts.postagent.dto.AutoPostAgentDraftDto;
 import com.yoursay.posts.postagent.dto.GenerateAgentPostRequest;
 import com.yoursay.posts.postagent.dto.PepperDraftDto;
 import com.yoursay.posts.postagent.dto.PepperPostDraftDto;
@@ -112,10 +113,10 @@ public class AgentServiceImpl implements AgentService, AutoPostAgentService {
     }
 
     @Override
-    public Optional<PepperDraftDto> getForPublisher(UUID draftId, long publisherUserId) {
+    public Optional<AutoPostAgentDraftDto> getForPublisher(UUID draftId, long publisherUserId) {
         requireTrustedPublisher(publisherUserId);
         return QuarkusTransaction.requiringNew().call(
-                () -> repository.findOwned(draftId, publisherUserId)).map(this::toDto);
+                () -> repository.findOwned(draftId, publisherUserId)).map(this::toAutoPostDto);
     }
 
     @Override
@@ -362,6 +363,16 @@ public class AgentServiceImpl implements AgentService, AutoPostAgentService {
                 draft.getId(), draft.getPrompt(), draft.getReplicaId(), draft.getStatus(),
                 draft.getSuccess(), content(draft), draft.getErrorMessage(),
                 draft.getPublishedPostId(), draft.getVersion());
+    }
+
+    private AutoPostAgentDraftDto toAutoPostDto(PepperAiDraftPost draft) {
+        return new AutoPostAgentDraftDto(
+                draft.getId(),
+                draft.getStatus(),
+                draft.getSuccess(),
+                content(draft),
+                draft.getErrorCode(),
+                draft.getVersion());
     }
 
     private PepperPostDraftDto generatedContent(PepperAiDraftPost draft) {

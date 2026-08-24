@@ -12,7 +12,7 @@ import com.yoursay.autopost.observability.AutoPostLog;
 import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.postagent.AutoPostAgentService;
 import com.yoursay.posts.postagent.PepperDraftStatus;
-import com.yoursay.posts.postagent.dto.PepperDraftDto;
+import com.yoursay.posts.postagent.dto.AutoPostAgentDraftDto;
 import com.yoursay.user.user.dto.UserAccessDto;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -69,13 +69,14 @@ public class AutoPostDraftWorkflow {
 
         long synchronizationStarted = System.nanoTime();
         UserAccessDto official = accessPolicy.requireOfficialAccount();
-        PepperDraftDto draft = readDraftStatus(run.getPepperDraftId(), official.userId());
+        AutoPostAgentDraftDto draft = readDraftStatus(run.getPepperDraftId(), official.userId());
         if (draftGenerationFailed(draft)) {
+            String faultCode = draftFailureCode(draft);
             recordOperation("draftSynchronization", "fault", "dependency",
-                    "AUTO_POST_DRAFT_FAILED", synchronizationStarted);
+                    faultCode, synchronizationStarted);
             AutoPostLog.failed("draftSynchronization", "post_agent_generation", "dependency",
-                    "AUTO_POST_DRAFT_FAILED", null);
-            return markDraftFailed(run.getId());
+                    faultCode, null);
+            return markDraftFailed(run.getId(), faultCode);
         }
         if (draftGenerationCompleted(draft)) {
             recordOperation("draftSynchronization", "success", "none", "none",
@@ -124,10 +125,10 @@ public class AutoPostDraftWorkflow {
         }
     }
 
-    private PepperDraftDto readDraftStatus(UUID draftId, long officialUserId) {
+    private AutoPostAgentDraftDto readDraftStatus(UUID draftId, long officialUserId) {
         long started = System.nanoTime();
         try {
-            PepperDraftDto draft = postAgentService.getForPublisher(draftId, officialUserId)
+            AutoPostAgentDraftDto draft = postAgentService.getForPublisher(draftId, officialUserId)
                     .orElse(null);
             recordOperation("draftStatusCheck", "success", "none", "none", started);
             return draft;
@@ -144,28 +145,43 @@ public class AutoPostDraftWorkflow {
         return run.getStatus() == AutoPostRunStatus.DRAFTING && run.getPepperDraftId() != null;
     }
 
-    private static boolean draftGenerationFailed(PepperDraftDto draft) {
+    private static boolean draftGenerationFailed(AutoPostAgentDraftDto draft) {
         return draft == null
                 || draft.status() == PepperDraftStatus.FAILED
                 || (draft.status() == PepperDraftStatus.FINISHED
                 && (!Boolean.TRUE.equals(draft.success()) || draft.content() == null));
     }
 
-    private static boolean draftGenerationCompleted(PepperDraftDto draft) {
+    private static boolean draftGenerationCompleted(AutoPostAgentDraftDto draft) {
         return draft.status() == PepperDraftStatus.FINISHED
                 && Boolean.TRUE.equals(draft.success())
                 && draft.content() != null;
     }
 
-    private AutoPostRun markDraftFailed(UUID runId) {
+    private static String draftFailureCode(AutoPostAgentDraftDto draft) {
+        if (draft != null
+                && "AGENT_PROVIDER_RESPONSE_TOO_LARGE".equals(draft.errorCode())) {
+            return "AUTO_POST_MODEL_RESPONSE_TOO_LARGE";
+        }
+        return "AUTO_POST_DRAFT_FAILED";
+    }
+
+    private AutoPostRun markDraftFailed(UUID runId, String faultCode) {
         return QuarkusTransaction.requiringNew().call(() -> {
             AutoPostRun run = requireRunForUpdate(runId);
             if (run.getStatus() == AutoPostRunStatus.DRAFTING) {
-                run.markDraftFailed();
+                run.markDraftFailed(faultCode, draftFailureMessage(faultCode));
                 runs.flush();
             }
             return run;
         });
+    }
+
+    private static String draftFailureMessage(String faultCode) {
+        if ("AUTO_POST_MODEL_RESPONSE_TOO_LARGE".equals(faultCode)) {
+            return "The model response was too large and was rejected. Try a new run.";
+        }
+        return "Post agent could not create the draft. Try a new run.";
     }
 
     private AutoPostRun markDraftReady(UUID runId) {

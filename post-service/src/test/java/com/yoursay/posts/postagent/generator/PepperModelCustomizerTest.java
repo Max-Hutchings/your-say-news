@@ -21,6 +21,7 @@ class PepperModelCustomizerTest {
         customizer.customize(builder);
 
         Mockito.verify(webSearch).configure(builder);
+        Mockito.verify(builder).textVerbosity("low");
         assertEquals("pepper", PepperModelCustomizer.class.getAnnotation(ModelName.class).value());
     }
 }

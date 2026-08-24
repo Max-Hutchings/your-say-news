@@ -6,7 +6,7 @@ import java.util.List;
 
 @Description("The ten most important non-duplicate stories in the requested 24-hour window")
 public record StoryDiscoveryDraft(
-        @Description("Exactly ten stories found through live web research")
+        @Description("Return exactly 10 stories, ordered by rank, with no duplicate underlying events.")
         List<DiscoveredStoryDraft> stories
 ) {
 }

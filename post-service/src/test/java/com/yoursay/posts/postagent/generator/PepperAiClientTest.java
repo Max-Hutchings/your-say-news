@@ -12,8 +12,10 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.http.client.SuccessfulHttpResponse;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
+import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
 import dev.langchain4j.service.Result;
+import dev.langchain4j.service.output.OutputParsingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -27,13 +29,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class PepperAiClientTest {
 
     private PepperAiService service;
+    private PepperChatResponseCapture responseCapture;
     private PepperAiClient client;
 
     @BeforeEach
     void setUp() {
         service = Mockito.mock(PepperAiService.class);
+        responseCapture = Mockito.mock(PepperChatResponseCapture.class);
         client = new PepperAiClient();
         client.service = service;
+        client.responseCapture = responseCapture;
         client.objectMapper = new ObjectMapper();
     }
 
@@ -266,6 +271,26 @@ class PepperAiClientTest {
         assertEquals("AGENT_PROVIDER_RESPONSE_INVALID", error.code());
         assertFalse(error.retryable());
         assertEquals("LangChain4j returned no final provider response", error.getMessage());
+    }
+
+    @Test
+    void researchClassifiesOutputTruncatedByTheModelLimit() {
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenThrow(new OutputParsingException(
+                        "Incomplete JSON", new IllegalArgumentException("truncated")));
+        Mockito.when(responseCapture.take()).thenReturn(ChatResponse.builder()
+                .aiMessage(AiMessage.from("incomplete structured output"))
+                .finishReason(FinishReason.LENGTH)
+                .build());
+
+        GenerationException error = assertThrows(GenerationException.class,
+                () -> client.research("Compare the UK voting-age proposal."));
+
+        assertEquals("AGENT_PROVIDER_RESPONSE_TOO_LARGE", error.code());
+        assertFalse(error.retryable());
+        assertEquals("The model response exceeded the configured output limit",
+                error.getMessage());
+        Mockito.verify(responseCapture).clear();
     }
 
     private static Result<AgentDraftDto> result(AgentDraftDto draft, String rawBody) {

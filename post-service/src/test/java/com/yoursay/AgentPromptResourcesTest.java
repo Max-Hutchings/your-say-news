@@ -41,8 +41,10 @@ class AgentPromptResourcesTest {
                         "You are Pepper", "live web search", "neutral factual", "case for",
                         "case against", "Only cite URLs")),
                 Arguments.of("/prompts/postagent/output-instructions.md", List.of(
-                        "support question", "BINARY", "MULTIPLE_CHOICE", "exact source URLs",
-                        "web search")),
+                        "exactly three `summaryClaims`", "exactly two `caseForClaims`",
+                        "exactly two `caseAgainstClaims`", "at most 30 words",
+                        "one or two exact source URLs", "two to six sources",
+                        "support question", "BINARY", "MULTIPLE_CHOICE", "web search")),
                 Arguments.of("/prompts/unwrapped/system-prompt.md", List.of(
                         "Post Unwrapped", "privacy-safe cohort", "aggregate voting pattern",
                         "British English")),

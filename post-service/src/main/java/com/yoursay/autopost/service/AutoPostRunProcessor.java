@@ -133,6 +133,8 @@ public class AutoPostRunProcessor {
                     "The story provider could not complete live research.";
             case "AUTO_POST_PROVIDER_RESPONSE_INVALID", "AUTO_POST_INVALID_PROVIDER_OUTPUT" ->
                     "The discovered story list did not pass validation.";
+            case "AUTO_POST_MODEL_RESPONSE_TOO_LARGE" ->
+                    "The model response was too large and was rejected. Try a new run.";
             default -> "Story discovery failed. Try again.";
         };
     }

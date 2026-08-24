@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   approveAutoPostRun,
   AutoPostAdminApiError,
-  getAutoPostRun,
   getAutoPostRuns,
   selectAutoPostCandidate,
   startAutoPostRun,
@@ -61,7 +60,7 @@ export function useAutoPosts() {
         controller.abort();
       }
     };
-    const stream = streamAutoPostRun(
+    void streamAutoPostRun(
       runId,
       (event) => applyRun(event.run),
       controller.signal,
@@ -70,18 +69,10 @@ export function useAutoPosts() {
         throw new Error("The story discovery stream closed before the run finished.");
       }
     }).catch((reason) => {
-      if (!terminalRunSeen) throw reason;
-    });
-    const poll = pollAutoPostRun(runId, controller.signal, applyRun).catch((reason) => {
-      if (!terminalRunSeen) throw reason;
-    });
-
-    void Promise.any([stream, poll])
-      .catch((reason) => {
-        if (!terminalRunSeen && !controller.signal.aborted) {
-          setError(toAutoPostError(reason));
-        }
-      })
+      if (!terminalRunSeen && !controller.signal.aborted) {
+        setError(toAutoPostError(reason));
+      }
+    })
       .finally(() => {
         controller.abort();
         if (streams.current.get(runId) === controller) {
@@ -133,20 +124,6 @@ export function useAutoPosts() {
   }, [replaceRun]);
 
   return { runs, activeRun, error, creating, selectingCandidateId, approving, load, create, select, approve };
-}
-
-async function pollAutoPostRun(
-  runId: string,
-  signal: AbortSignal,
-  onRun: (run: AutoPostRun) => void,
-): Promise<void> {
-  while (!signal.aborted) {
-    const run = await getAutoPostRun(runId, signal);
-    if (signal.aborted) return;
-    onRun(run);
-    if (isTerminal(run)) return;
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
-  }
 }
 
 function isTerminal(run: AutoPostRun): boolean {

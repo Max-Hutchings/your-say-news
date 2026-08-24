@@ -19,6 +19,7 @@ vi.mock("../services/autoPostAdminApi", () => ({
 }));
 
 import { useAutoPosts } from "./useAutoPosts";
+import { AutoPostAdminApiError } from "../services/autoPostAdminApi";
 
 const queuedRun: AutoPostRun = {
   id: "50b05ab6-a324-4fb4-bab6-e7c14bc5ce83",
@@ -47,9 +48,14 @@ describe("useAutoPosts", () => {
   it("loads history, starts discovery, and applies streamed run updates", async () => {
     api.startAutoPostRun.mockResolvedValue(queuedRun);
     let sendEvent: ((event: { run: AutoPostRun }) => void) | undefined;
-    api.streamAutoPostRun.mockImplementation((_id, onEvent) => {
+    let streamSignal: AbortSignal | undefined;
+    api.streamAutoPostRun.mockImplementation((_id, onEvent, suppliedSignal) => {
       sendEvent = onEvent;
-      return new Promise(() => undefined);
+      streamSignal = suppliedSignal;
+      return new Promise((_resolve, reject) => suppliedSignal.addEventListener(
+        "abort",
+        () => reject(new DOMException("Aborted", "AbortError")),
+      ));
     });
     const { result } = renderHook(() => useAutoPosts());
     await waitFor(() => expect(result.current.runs).toEqual([]));
@@ -62,10 +68,107 @@ describe("useAutoPosts", () => {
       expect.any(AbortSignal),
     );
 
-    const readyRun = { ...queuedRun, status: "CANDIDATES_READY" as const };
+    const discoveringRun = { ...queuedRun, status: "DISCOVERING" as const };
+    act(() => sendEvent?.({ run: discoveringRun }));
+    expect(result.current.activeRun).toEqual(discoveringRun);
+    expect(streamSignal?.aborted).toBe(false);
+
+    const readyRun = { ...discoveringRun, status: "CANDIDATES_READY" as const };
     act(() => sendEvent?.({ run: readyRun }));
+    await act(async () => Promise.resolve());
     expect(result.current.activeRun).toEqual(readyRun);
     expect(result.current.runs).toEqual([readyRun]);
+    expect(streamSignal?.aborted).toBe(true);
+    act(() => sendEvent?.({ run: queuedRun }));
+    expect(result.current.activeRun).toEqual(readyRun);
+    expect(result.current.error).toBeNull();
+    expect(api.streamAutoPostRun).toHaveBeenCalledTimes(1);
+    expect(api.getAutoPostRun).not.toHaveBeenCalled();
+  });
+
+  it("uses SSE without polling after a candidate is selected", async () => {
+    const candidateId = "202d93e8-3d66-4a38-817d-cd11ab2de3c5";
+    const draftId = "29d1a8e9-d432-4754-ac9e-b102a44eec13";
+    const draftingRun: AutoPostRun = {
+      ...queuedRun,
+      status: "DRAFTING",
+      selectedCandidateId: candidateId,
+      pepperDraftId: draftId,
+    };
+    const readyRun: AutoPostRun = {
+      ...draftingRun,
+      status: "DRAFT_READY",
+      draft: {
+        id: draftId,
+        summary: "European leaders pledged further support for Ukraine.",
+        supportQuestion: "Should allies increase military support for Ukraine?",
+        caseFor: "Supporters say stronger aid improves Ukraine's defence.",
+        caseAgainst: "Critics warn that escalation could widen the conflict.",
+        votingType: "BINARY",
+        voteOptions: ["Agree", "Disagree"],
+        citations: [{
+          url: "https://example.org/world/ukraine-support",
+          title: "Leaders discuss support for Ukraine",
+          publisher: "Example News",
+        }],
+        version: 0,
+      },
+    };
+    api.selectAutoPostCandidate.mockResolvedValue(draftingRun);
+    let sendEvent: ((event: { run: AutoPostRun }) => void) | undefined;
+    let streamSignal: AbortSignal | undefined;
+    api.streamAutoPostRun.mockImplementation((_id, onEvent, suppliedSignal) => {
+      sendEvent = onEvent;
+      streamSignal = suppliedSignal;
+      return new Promise(() => undefined);
+    });
+    const { result } = renderHook(() => useAutoPosts());
+    await waitFor(() => expect(result.current.runs).toEqual([]));
+
+    await act(async () => result.current.select(queuedRun.id, candidateId));
+    act(() => sendEvent?.({ run: readyRun }));
+
+    expect(api.selectAutoPostCandidate).toHaveBeenCalledWith(queuedRun.id, candidateId);
+    expect(api.streamAutoPostRun).toHaveBeenCalledWith(
+      queuedRun.id,
+      expect.any(Function),
+      expect.any(AbortSignal),
+    );
+    expect(result.current.activeRun).toEqual(readyRun);
+    expect(streamSignal?.aborted).toBe(true);
+    expect(api.getAutoPostRun).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      ...queuedRun,
+      status: "FAILED" as const,
+      errorCode: "AUTO_POST_DRAFT_FAILED",
+      errorMessage: "Post agent could not create the draft. Try a new run.",
+    },
+    {
+      ...queuedRun,
+      status: "PUBLISHED" as const,
+      publishedPostId: 4102,
+    },
+  ])("stops the SSE stream when a run becomes $status", async (terminalRun) => {
+    api.startAutoPostRun.mockResolvedValue(queuedRun);
+    let sendEvent: ((event: { run: AutoPostRun }) => void) | undefined;
+    let streamSignal: AbortSignal | undefined;
+    api.streamAutoPostRun.mockImplementation((_id, onEvent, suppliedSignal) => {
+      sendEvent = onEvent;
+      streamSignal = suppliedSignal;
+      return new Promise(() => undefined);
+    });
+    const { result } = renderHook(() => useAutoPosts());
+    await waitFor(() => expect(result.current.runs).toEqual([]));
+    await act(async () => result.current.create());
+
+    act(() => sendEvent?.({ run: terminalRun }));
+
+    expect(result.current.activeRun).toEqual(terminalRun);
+    expect(streamSignal?.aborted).toBe(true);
+    expect(api.getAutoPostRun).not.toHaveBeenCalled();
   });
 
   it("aborts an active authenticated stream when the desk unmounts", async () => {
@@ -84,45 +187,47 @@ describe("useAutoPosts", () => {
     expect(signal?.aborted).toBe(true);
   });
 
-  it("shows a failed run when the stream never connects", async () => {
-    const failedRun: AutoPostRun = {
-      ...queuedRun,
-      status: "FAILED",
-      errorCode: "AUTO_POST_PROVIDER_RESPONSE_INVALID",
-      errorMessage: "Story discovery failed.",
-    };
+  it("shows an error when the SSE stream closes before the run finishes", async () => {
     api.startAutoPostRun.mockResolvedValue(queuedRun);
-    api.getAutoPostRun.mockResolvedValue(failedRun);
-    const { result } = renderHook(() => useAutoPosts());
-    await waitFor(() => expect(result.current.runs).toEqual([]));
-
-    await act(async () => result.current.create());
-
-    await waitFor(() => expect(result.current.activeRun).toEqual(failedRun));
-    expect(api.getAutoPostRun).toHaveBeenCalledWith(queuedRun.id, expect.any(AbortSignal));
-    expect(result.current.error).toBeNull();
-  });
-
-  it("does not replace a terminal SSE update with a stale polling response", async () => {
-    api.startAutoPostRun.mockResolvedValue(queuedRun);
-    let resolvePoll: ((run: AutoPostRun) => void) | undefined;
-    api.getAutoPostRun.mockImplementation(() => new Promise<AutoPostRun>((resolve) => {
-      resolvePoll = resolve;
-    }));
-    let sendEvent: ((event: { run: AutoPostRun }) => void) | undefined;
-    api.streamAutoPostRun.mockImplementation((_id, onEvent) => {
-      sendEvent = onEvent;
-      return new Promise(() => undefined);
+    let streamSignal: AbortSignal | undefined;
+    api.streamAutoPostRun.mockImplementation((_id, _onEvent, suppliedSignal) => {
+      streamSignal = suppliedSignal;
+      return Promise.resolve();
     });
     const { result } = renderHook(() => useAutoPosts());
     await waitFor(() => expect(result.current.runs).toEqual([]));
+
     await act(async () => result.current.create());
 
-    const readyRun = { ...queuedRun, status: "CANDIDATES_READY" as const };
-    act(() => sendEvent?.({ run: readyRun }));
-    await act(async () => resolvePoll?.(queuedRun));
+    await waitFor(() => expect(result.current.error).toEqual({
+      status: null,
+      message: "The story discovery stream closed before the run finished.",
+    }));
+    expect(result.current.activeRun).toEqual(queuedRun);
+    expect(streamSignal?.aborted).toBe(true);
+    expect(api.getAutoPostRun).not.toHaveBeenCalled();
+  });
 
-    expect(result.current.activeRun).toEqual(readyRun);
-    expect(result.current.runs).toEqual([readyRun]);
+  it("shows the authenticated API error when the SSE connection is rejected", async () => {
+    api.startAutoPostRun.mockResolvedValue(queuedRun);
+    let streamSignal: AbortSignal | undefined;
+    api.streamAutoPostRun.mockImplementation((_id, _onEvent, suppliedSignal) => {
+      streamSignal = suppliedSignal;
+      return Promise.reject(
+        new AutoPostAdminApiError(503, "The auto-post stream is unavailable."),
+      );
+    });
+    const { result } = renderHook(() => useAutoPosts());
+    await waitFor(() => expect(result.current.runs).toEqual([]));
+
+    await act(async () => result.current.create());
+
+    await waitFor(() => expect(result.current.error).toEqual({
+      status: 503,
+      message: "The auto-post stream is unavailable.",
+    }));
+    expect(result.current.activeRun).toEqual(queuedRun);
+    expect(streamSignal?.aborted).toBe(true);
+    expect(api.getAutoPostRun).not.toHaveBeenCalled();
   });
 });

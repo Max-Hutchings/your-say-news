@@ -13,7 +13,7 @@ import com.yoursay.posts.dto.PostDto;
 import com.yoursay.posts.postagent.AutoPostAgentService;
 import com.yoursay.posts.postagent.PepperDraftStatus;
 import com.yoursay.posts.postagent.dto.AgentPublicationDto;
-import com.yoursay.posts.postagent.dto.PepperDraftDto;
+import com.yoursay.posts.postagent.dto.AutoPostAgentDraftDto;
 import com.yoursay.user.user.dto.UserAccessDto;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -93,7 +93,7 @@ public class AutoPostPublicationWorkflow {
         long publicationStarted = System.nanoTime();
         AutoPostLog.started("publication", "publication_workflow");
         try {
-            PepperDraftDto draft = loadCompletedDraft(work);
+            AutoPostAgentDraftDto draft = loadCompletedDraft(work);
             AgentPublicationDto provenance = preparePublication(work, draft);
             AutoPostCandidate candidate = loadPublicationCandidate(work);
             PostDto post = createPost(work, candidate, draft, provenance);
@@ -119,9 +119,9 @@ public class AutoPostPublicationWorkflow {
         }
     }
 
-    private PepperDraftDto loadCompletedDraft(ApprovalWork work) {
+    private AutoPostAgentDraftDto loadCompletedDraft(ApprovalWork work) {
         return executePublicationStage(PublicationStage.DRAFT_READ, () -> {
-            PepperDraftDto draft = postAgentService
+            AutoPostAgentDraftDto draft = postAgentService
                     .getForPublisher(work.draftId(), work.publisherUserId())
                     .orElseThrow(AutoPostApiException::approvalConflict);
             requireCompletedDraftContent(draft);
@@ -129,7 +129,7 @@ public class AutoPostPublicationWorkflow {
         });
     }
 
-    private static void requireCompletedDraftContent(PepperDraftDto draft) {
+    private static void requireCompletedDraftContent(AutoPostAgentDraftDto draft) {
         if (draft.status() != PepperDraftStatus.FINISHED
                 || !Boolean.TRUE.equals(draft.success())
                 || draft.content() == null) {
@@ -137,7 +137,10 @@ public class AutoPostPublicationWorkflow {
         }
     }
 
-    private AgentPublicationDto preparePublication(ApprovalWork work, PepperDraftDto draft) {
+    private AgentPublicationDto preparePublication(
+            ApprovalWork work,
+            AutoPostAgentDraftDto draft
+    ) {
         return executePublicationStage(PublicationStage.PUBLICATION_PREPARATION,
                 () -> postAgentService.preparePublicationForPublisher(
                         work.draftId(),
@@ -154,7 +157,7 @@ public class AutoPostPublicationWorkflow {
     private PostDto createPost(
             ApprovalWork work,
             AutoPostCandidate candidate,
-            PepperDraftDto draft,
+            AutoPostAgentDraftDto draft,
             AgentPublicationDto provenance
     ) {
         return executePublicationStage(PublicationStage.POST_PERSISTENCE,

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.posts.postagent.dto.AgentDraftDto;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
 import dev.langchain4j.service.Result;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -21,22 +22,49 @@ class PepperAiClient {
     @Inject
     ObjectMapper objectMapper;
 
-    PepperAiResponse research(String request) {
-        Result<AgentDraftDto> result = service.research(
-                PepperSystemPrompt.DEFAULT,
-                PepperSystemPrompt.OUTPUT_INSTRUCTIONS,
-                request.trim());
-        ChatResponse response = result.finalResponse();
-        if (response == null) {
-            throw invalid("LangChain4j returned no final provider response");
-        }
+    @Inject
+    PepperChatResponseCapture responseCapture;
 
-        return new PepperAiResponse(
-                result.content(),
-                citations(response),
-                response.modelName(),
-                response.id()
-        );
+    PepperAiResponse research(String request) {
+        responseCapture.begin();
+        try {
+            Result<AgentDraftDto> result;
+            try {
+                result = service.research(
+                        PepperSystemPrompt.DEFAULT,
+                        PepperSystemPrompt.OUTPUT_INSTRUCTIONS,
+                        request.trim());
+            } catch (RuntimeException error) {
+                throw classifyIncompleteResponse(responseCapture.take(), error);
+            }
+            ChatResponse response = result.finalResponse();
+            if (response == null) {
+                throw invalid("LangChain4j returned no final provider response");
+            }
+
+            return new PepperAiResponse(
+                    result.content(),
+                    citations(response),
+                    response.modelName(),
+                    response.id()
+            );
+        } finally {
+            responseCapture.clear();
+        }
+    }
+
+    private static RuntimeException classifyIncompleteResponse(
+            ChatResponse response,
+            RuntimeException error
+    ) {
+        if (response != null && response.finishReason() == FinishReason.LENGTH) {
+            return new GenerationException(
+                    "AGENT_PROVIDER_RESPONSE_TOO_LARGE",
+                    "The model response exceeded the configured output limit",
+                    false,
+                    error);
+        }
+        return error;
     }
 
     private List<String> citations(ChatResponse response) {

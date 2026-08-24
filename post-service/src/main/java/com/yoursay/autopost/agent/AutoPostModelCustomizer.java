@@ -18,5 +18,6 @@ public class AutoPostModelCustomizer
     @Override
     public void customize(OpenAiResponsesChatModel.Builder builder) {
         webSearch.configure(builder);
+        builder.textVerbosity("low");
     }
 }

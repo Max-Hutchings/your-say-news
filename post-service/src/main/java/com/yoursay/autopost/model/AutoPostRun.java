@@ -136,8 +136,8 @@ public class AutoPostRun extends PanacheEntityBase {
         errorMessage = null;
     }
 
-    public void markDraftFailed() {
-        markFailed("AUTO_POST_DRAFT_FAILED", "Post agent could not create the draft. Try a new run.");
+    public void markDraftFailed(String code, String message) {
+        markFailed(code, message);
     }
 
     public void markPublishing() {

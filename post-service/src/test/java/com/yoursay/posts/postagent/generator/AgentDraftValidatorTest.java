@@ -26,7 +26,10 @@ class AgentDraftValidatorTest {
     void claimWithoutAnySourceFailsClosed() {
         AgentDraftDto draft = validDraft();
         AgentDraftDto missingClaimSource = new AgentDraftDto(
-                List.of(new SourcedClaimDto(draft.summaryClaims().getFirst().text(), List.of())),
+                List.of(
+                        new SourcedClaimDto(draft.summaryClaims().getFirst().text(), List.of()),
+                        draft.summaryClaims().get(1),
+                        draft.summaryClaims().get(2)),
                 draft.caseForClaims(),
                 draft.caseAgainstClaims(),
                 draft.supportQuestion(),
@@ -37,9 +40,52 @@ class AgentDraftValidatorTest {
         GenerationException error = assertThrows(GenerationException.class,
                 () -> validator.validate(missingClaimSource, List.of(GOVERNMENT_URL, RESEARCH_URL)));
 
-        assertEquals("AGENT_INVALID_PROVIDER_OUTPUT", error.code());
+        assertEquals("AGENT_CLAIM_SOURCES", error.code());
         assertFalse(error.retryable());
-        assertEquals("summaryClaims claim has no sources", error.getMessage());
+        assertEquals("summaryClaims claim must contain one or two sources", error.getMessage());
+    }
+
+    @Test
+    void wrongClaimCountFailsWithTheExactContractCode() {
+        AgentDraftDto base = validDraft();
+        AgentDraftDto draft = new AgentDraftDto(
+                base.summaryClaims().subList(0, 2),
+                base.caseForClaims(),
+                base.caseAgainstClaims(),
+                base.supportQuestion(),
+                base.votingType(),
+                base.voteOptions(),
+                base.sources(),
+                base.imageBrief(),
+                base.imageSearchQuery());
+
+        GenerationException error = assertThrows(GenerationException.class,
+                () -> validator.validate(draft, List.of(GOVERNMENT_URL, RESEARCH_URL)));
+
+        assertEquals("AGENT_SUMMARY_CLAIM_COUNT", error.code());
+    }
+
+    @Test
+    void claimOverThirtyWordsFailsWithTheExactContractCode() {
+        AgentDraftDto base = validDraft();
+        SourcedClaimDto overlong = new SourcedClaimDto(
+                "This deliberately overlong claim contains far more than thirty words so the validator rejects model output that ignores the bounded writing contract instead of allowing unexpectedly verbose material into the human review workflow.",
+                List.of(GOVERNMENT_URL));
+        AgentDraftDto draft = new AgentDraftDto(
+                List.of(overlong, base.summaryClaims().get(1), base.summaryClaims().get(2)),
+                base.caseForClaims(),
+                base.caseAgainstClaims(),
+                base.supportQuestion(),
+                base.votingType(),
+                base.voteOptions(),
+                base.sources(),
+                base.imageBrief(),
+                base.imageSearchQuery());
+
+        GenerationException error = assertThrows(GenerationException.class,
+                () -> validator.validate(draft, List.of(GOVERNMENT_URL, RESEARCH_URL)));
+
+        assertEquals("AGENT_CLAIM_WORDS", error.code());
     }
 
     @Test
@@ -86,7 +132,7 @@ class AgentDraftValidatorTest {
         GenerationException error = assertThrows(GenerationException.class,
                 () -> validator.validate(duplicateSources, List.of(GOVERNMENT_URL, RESEARCH_URL)));
 
-        assertEquals("Draft must contain at least two distinct sources", error.getMessage());
+        assertEquals("Draft must contain distinct sources", error.getMessage());
     }
 
     @Test
@@ -112,7 +158,7 @@ class AgentDraftValidatorTest {
 
         GenerationException error = assertThrows(GenerationException.class,
                 () -> validator.validate(draft, List.of(GOVERNMENT_URL, RESEARCH_URL)));
-        assertEquals("AGENT_INVALID_PROVIDER_OUTPUT", error.code());
+        assertEquals("AGENT_VOTE_OPTIONS_INVALID", error.code());
     }
 
     private static AgentDraftDto withVoting(AgentDraftDto base, VotingType type,
@@ -123,15 +169,30 @@ class AgentDraftValidatorTest {
 
     private static AgentDraftDto validDraft() {
         return new AgentDraftDto(
-                List.of(new SourcedClaimDto(
-                        "The government published a proposal with a defined implementation timetable.",
-                        List.of(GOVERNMENT_URL))),
-                List.of(new SourcedClaimDto(
-                        "Supporters argue the proposal could improve access to the service.",
-                        List.of(GOVERNMENT_URL, RESEARCH_URL))),
-                List.of(new SourcedClaimDto(
-                        "Critics argue delivery costs and capacity assumptions remain uncertain.",
-                        List.of(RESEARCH_URL))),
+                List.of(
+                        new SourcedClaimDto(
+                                "The government published a proposal with a defined implementation timetable.",
+                                List.of(GOVERNMENT_URL)),
+                        new SourcedClaimDto(
+                                "The proposal identifies the public bodies responsible for delivery.",
+                                List.of(GOVERNMENT_URL)),
+                        new SourcedClaimDto(
+                                "Independent researchers assessed the proposal's likely fiscal effects.",
+                                List.of(RESEARCH_URL))),
+                List.of(
+                        new SourcedClaimDto(
+                                "Supporters argue the proposal could improve access to the service.",
+                                List.of(GOVERNMENT_URL, RESEARCH_URL)),
+                        new SourcedClaimDto(
+                                "Proponents cite the published timetable as evidence that delivery is measurable.",
+                                List.of(GOVERNMENT_URL))),
+                List.of(
+                        new SourcedClaimDto(
+                                "Critics argue delivery costs and capacity assumptions remain uncertain.",
+                                List.of(RESEARCH_URL)),
+                        new SourcedClaimDto(
+                                "Researchers warn that the projected benefits depend on implementation choices.",
+                                List.of(RESEARCH_URL))),
                 "Should the government implement this proposal?",
                 List.of(
                         new AgentSourceDto(GOVERNMENT_URL, "Policy proposal", "UK Government"),

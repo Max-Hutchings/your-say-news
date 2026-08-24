@@ -21,6 +21,7 @@ class AutoPostModelCustomizerTest {
         customizer.customize(builder);
 
         Mockito.verify(webSearch).configure(builder);
+        Mockito.verify(builder).textVerbosity("low");
         assertEquals("autopost", AutoPostModelCustomizer.class.getAnnotation(ModelName.class).value());
     }
 }

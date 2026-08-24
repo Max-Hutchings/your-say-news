@@ -11,7 +11,7 @@ import com.yoursay.posts.postagent.AutoPostAgentService;
 import com.yoursay.posts.postagent.PepperDraftStatus;
 import com.yoursay.posts.postagent.dto.AgentPublicationDto;
 import com.yoursay.posts.postagent.dto.AgentSourceDto;
-import com.yoursay.posts.postagent.dto.PepperDraftDto;
+import com.yoursay.posts.postagent.dto.AutoPostAgentDraftDto;
 import com.yoursay.posts.postagent.dto.PepperPostDraftDto;
 import com.yoursay.posts.PostService;
 import com.yoursay.posts.VotingType;
@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
@@ -126,6 +128,31 @@ class AutoPostControllerTest {
         Mockito.verify(metrics).recordOperation(
                 Mockito.eq("autopost"), Mockito.eq("sseEvent"), Mockito.eq("success"),
                 Mockito.eq("none"), Mockito.eq("none"), Mockito.anyLong());
+    }
+
+    @Test
+    void sseStreamObservesAQueuedRunCompletingAfterTheConnectionOpens() throws Exception {
+        Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
+                .thenAnswer(invocation -> discoveryResult(
+                        invocation.getArgument(0), invocation.getArgument(1)));
+        String runId = startRun();
+
+        CompletableFuture<String> streamedEvents = CompletableFuture.supplyAsync(() ->
+                given().accept("text/event-stream")
+                        .when().get("/api/admin/auto-post/runs/" + runId + "/events")
+                        .then().statusCode(200)
+                        .extract().asString());
+        Mockito.verify(metrics, Mockito.timeout(5_000).atLeastOnce()).recordOperation(
+                Mockito.eq("autopost"), Mockito.eq("sseEvent"), Mockito.eq("success"),
+                Mockito.eq("none"), Mockito.eq("none"), Mockito.anyLong());
+
+        Thread.sleep(2_200);
+        worker.processNext();
+
+        String events = streamedEvents.get(10, TimeUnit.SECONDS);
+        assertTrue(events.contains("QUEUED"));
+        assertTrue(events.contains("CANDIDATES_READY"));
+        assertEquals(1, occurrencesOf(events, "\"status\":\"QUEUED\""));
     }
 
     @Test
@@ -285,9 +312,8 @@ class AutoPostControllerTest {
                 VotingType.BINARY, List.of("Agree", "Disagree"),
                 List.of(new AgentSourceDto(
                         "https://www.bbc.com/news/uk-budget", "Budget rules", "BBC News")));
-        PepperDraftDto draft = new PepperDraftDto(
-                POST_AGENT_JOB_ID, "prompt", "local", PepperDraftStatus.FINISHED, true,
-                content, null, null, 1);
+        AutoPostAgentDraftDto draft = new AutoPostAgentDraftDto(
+                POST_AGENT_JOB_ID, PepperDraftStatus.FINISHED, true, content, null, 1);
         Mockito.when(postAgentService.getForPublisher(POST_AGENT_JOB_ID, officialUserId))
                 .thenReturn(Optional.of(draft));
         Mockito.when(postAgentService.preparePublicationForPublisher(
@@ -333,6 +359,47 @@ class AutoPostControllerTest {
     }
 
     @Test
+    void oversizedPepperResponseReturnsASpecificFailureToTheAdminFrontend() throws Exception {
+        Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
+                .thenAnswer(invocation -> discoveryResult(
+                        invocation.getArgument(0), invocation.getArgument(1)));
+        Mockito.when(postAgentService.startForPublisher(Mockito.anyLong(), Mockito.anyString()))
+                .thenReturn(POST_AGENT_JOB_ID);
+        String runId = startRun();
+        worker.processNext();
+        String candidateId = given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200).extract().path("candidates[0].id");
+        long officialUserId = officialAccountId();
+        insertPepperDraft(POST_AGENT_JOB_ID, officialUserId);
+        given().when().post("/api/admin/auto-post/runs/" + runId
+                        + "/candidates/" + candidateId + "/select")
+                .then().statusCode(202);
+        Mockito.when(postAgentService.getForPublisher(POST_AGENT_JOB_ID, officialUserId))
+                .thenReturn(Optional.of(new AutoPostAgentDraftDto(
+                        POST_AGENT_JOB_ID,
+                        PepperDraftStatus.FAILED,
+                        false,
+                        null,
+                        "AGENT_PROVIDER_RESPONSE_TOO_LARGE",
+                        0)));
+
+        given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200)
+                .body("status", equalTo("FAILED"))
+                .body("errorCode", equalTo("AUTO_POST_MODEL_RESPONSE_TOO_LARGE"))
+                .body("errorMessage", equalTo(
+                        "The model response was too large and was rejected. Try a new run."));
+
+        Mockito.verify(metrics).recordOperation(
+                Mockito.eq("autopost"),
+                Mockito.eq("draftSynchronization"),
+                Mockito.eq("fault"),
+                Mockito.eq("dependency"),
+                Mockito.eq("AUTO_POST_MODEL_RESPONSE_TOO_LARGE"),
+                Mockito.anyLong());
+    }
+
+    @Test
     void postPersistenceFailureRestoresTheDraftAndRecordsTheExactStage() throws Exception {
         Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
                 .thenAnswer(invocation -> discoveryResult(
@@ -358,9 +425,8 @@ class AutoPostControllerTest {
                 List.of("Agree", "Disagree"),
                 List.of(new AgentSourceDto(
                         "https://www.bbc.com/news/uk-budget", "Budget rules", "BBC News")));
-        PepperDraftDto draft = new PepperDraftDto(
-                POST_AGENT_JOB_ID, "prompt", "local", PepperDraftStatus.FINISHED, true,
-                content, null, null, 1);
+        AutoPostAgentDraftDto draft = new AutoPostAgentDraftDto(
+                POST_AGENT_JOB_ID, PepperDraftStatus.FINISHED, true, content, null, 1);
         Mockito.when(postAgentService.getForPublisher(POST_AGENT_JOB_ID, officialUserId))
                 .thenReturn(Optional.of(draft));
         Mockito.when(postAgentService.preparePublicationForPublisher(
@@ -416,6 +482,10 @@ class AutoPostControllerTest {
                 .body("status", equalTo("QUEUED"))
                 .body("candidates", hasSize(0))
                 .extract().path("id");
+    }
+
+    private static int occurrencesOf(String value, String token) {
+        return value.split(java.util.regex.Pattern.quote(token), -1).length - 1;
     }
 
     private StoryDiscoveryResult discoveryResult(Instant windowStart, Instant windowEnd) {

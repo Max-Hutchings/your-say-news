@@ -5,6 +5,8 @@ import com.yoursay.platform.ai.AiConfig;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
+import dev.langchain4j.model.output.FinishReason;
+import dev.langchain4j.service.output.OutputParsingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -141,6 +143,29 @@ class AutoPostAiClientTest {
 
         assertEquals("AUTO_POST_PROVIDER_RESPONSE_INVALID", error.code());
         assertEquals("The model returned no discovery response", error.getMessage());
+        Mockito.verify(responseCapture).clear();
+    }
+
+    @Test
+    void discoveryClassifiesOutputTruncatedByTheModelLimit() {
+        OutputParsingException parsingFailure = new OutputParsingException(
+                "Incomplete JSON", new IllegalArgumentException("truncated"));
+        Mockito.when(service.discover(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenThrow(parsingFailure);
+        Mockito.when(responseCapture.take()).thenReturn(ChatResponse.builder()
+                .aiMessage(AiMessage.from("incomplete structured output"))
+                .finishReason(FinishReason.LENGTH)
+                .build());
+
+        AutoPostDiscoveryException error = assertThrows(AutoPostDiscoveryException.class,
+                () -> client.discover(
+                        Instant.parse("2026-08-19T12:00:00Z"),
+                        Instant.parse("2026-08-20T12:00:00Z")));
+
+        assertEquals("AUTO_POST_MODEL_RESPONSE_TOO_LARGE", error.code());
+        assertEquals("structured_output_truncated", error.stage());
+        assertEquals("The model response was too large and was rejected. Try a new run.",
+                error.getMessage());
         Mockito.verify(responseCapture).clear();
     }
 

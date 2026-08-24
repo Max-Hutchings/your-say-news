@@ -6,9 +6,9 @@ import java.util.List;
 
 @Description("A factual or attributed claim and the exact web sources supporting it")
 public record SourcedClaimDto(
-        @Description("The claim text, distinguishing fact, forecast, allegation or opinion")
+        @Description("Exactly one sentence of at most 30 words, distinguishing fact, forecast, allegation or opinion.")
         String text,
-        @Description("One or more exact source URLs found through live web search")
+        @Description("Return 1 or 2 exact source URLs that directly support this claim.")
         List<String> sourceUrls
 ) {
 }

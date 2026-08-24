@@ -98,7 +98,7 @@ class LangChain4jPepperPostGeneratorTest {
         GenerationException error = assertThrows(GenerationException.class,
                 () -> generator.generate("Cover voting age."));
 
-        assertEquals("AGENT_INVALID_PROVIDER_OUTPUT", error.code());
+        assertEquals("AGENT_SOURCE_NOT_PROVIDER_CITATION", error.code());
         assertFalse(error.retryable());
         assertTrue(error.getMessage().contains("not returned in provider citations"));
     }
@@ -174,15 +174,30 @@ class LangChain4jPepperPostGeneratorTest {
 
     private static AgentDraftDto validDraft(String statisticsUrl, String parliamentUrl) {
         return new AgentDraftDto(
-                List.of(new SourcedClaimDto(
-                        "The proposal would extend voting rights to 16- and 17-year-olds.",
-                        List.of(statisticsUrl, parliamentUrl))),
-                List.of(new SourcedClaimDto(
-                        "Supporters argue that people affected by public policy should gain a vote earlier.",
-                        List.of(parliamentUrl))),
-                List.of(new SourcedClaimDto(
-                        "Opponents argue that the existing age threshold remains a clearer national standard.",
-                        List.of(statisticsUrl))),
+                List.of(
+                        new SourcedClaimDto(
+                                "The proposal would extend voting rights to 16- and 17-year-olds.",
+                                List.of(statisticsUrl, parliamentUrl)),
+                        new SourcedClaimDto(
+                                "Parliament is considering legislation to change the voting-age threshold.",
+                                List.of(parliamentUrl)),
+                        new SourcedClaimDto(
+                                "Official statistics describe participation across existing voter age groups.",
+                                List.of(statisticsUrl))),
+                List.of(
+                        new SourcedClaimDto(
+                                "Supporters argue that people affected by public policy should gain a vote earlier.",
+                                List.of(parliamentUrl)),
+                        new SourcedClaimDto(
+                                "Proponents say earlier participation could establish lasting voting habits.",
+                                List.of(statisticsUrl, parliamentUrl))),
+                List.of(
+                        new SourcedClaimDto(
+                                "Opponents argue that the existing age threshold remains a clearer national standard.",
+                                List.of(statisticsUrl)),
+                        new SourcedClaimDto(
+                                "Critics question whether changing the threshold would increase sustained participation.",
+                                List.of(statisticsUrl, parliamentUrl))),
                 "Should the UK voting age be lowered to 16?",
                 List.of(
                         new AgentSourceDto(statisticsUrl, "Election participation data",

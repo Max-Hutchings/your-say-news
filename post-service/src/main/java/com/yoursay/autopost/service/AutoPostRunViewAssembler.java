@@ -10,7 +10,7 @@ import com.yoursay.autopost.model.AutoPostCandidateSource;
 import com.yoursay.autopost.model.AutoPostCandidateSourceRepository;
 import com.yoursay.autopost.model.AutoPostRun;
 import com.yoursay.posts.postagent.AutoPostAgentService;
-import com.yoursay.posts.postagent.dto.PepperDraftDto;
+import com.yoursay.posts.postagent.dto.AutoPostAgentDraftDto;
 import com.yoursay.posts.postagent.dto.PepperPostDraftDto;
 import com.yoursay.user.user.dto.UserAccessDto;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -101,7 +101,7 @@ public class AutoPostRunViewAssembler {
                 .orElse(null);
     }
 
-    private static AutoPostDraftDto toDraftDto(PepperDraftDto draft) {
+    private static AutoPostDraftDto toDraftDto(AutoPostAgentDraftDto draft) {
         PepperPostDraftDto content = draft.content();
         List<AutoPostSourceDto> citations = content.citations().stream()
                 .map(source -> new AutoPostSourceDto(

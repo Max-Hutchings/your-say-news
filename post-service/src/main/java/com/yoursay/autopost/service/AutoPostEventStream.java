@@ -4,11 +4,13 @@ import com.yoursay.autopost.dto.AutoPostEventDto;
 import com.yoursay.autopost.dto.AutoPostRunDto;
 import com.yoursay.autopost.observability.AutoPostLog;
 import com.yoursay.platform.observability.DomainMetrics;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -21,12 +23,16 @@ public class AutoPostEventStream {
     @Inject
     DomainMetrics metrics;
 
+    @Inject
+    EntityManager entityManager;
+
     public Multi<AutoPostEventDto> openRunEventStream(Supplier<AutoPostRunDto> currentRun) {
         long streamStarted = System.nanoTime();
         AtomicBoolean streamOutcomeRecorded = new AtomicBoolean();
         Multi<AutoPostRunDto> updates = pollUntilStreamTerminal(currentRun);
 
         return appendTerminalState(updates, currentRun)
+                .skip().repetitions()
                 .map(this::toMeasuredEvent)
                 .onCompletion().invoke(() -> recordStreamOutcome(
                         streamOutcomeRecorded, "success", "none", "none", streamStarted))
@@ -48,8 +54,15 @@ public class AutoPostEventStream {
 
     private Uni<AutoPostRunDto> pollRun(Supplier<AutoPostRunDto> currentRun) {
         return Uni.createFrom()
-                .item(currentRun)
+                .item(() -> readFreshSnapshot(currentRun))
                 .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    private AutoPostRunDto readFreshSnapshot(Supplier<AutoPostRunDto> currentRun) {
+        return QuarkusTransaction.requiringNew().call(() -> {
+            entityManager.clear();
+            return currentRun.get();
+        });
     }
 
     private Multi<AutoPostRunDto> appendTerminalState(

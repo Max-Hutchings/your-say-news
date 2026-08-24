@@ -7,23 +7,23 @@ import java.util.List;
 
 @Description("A sourced, balanced post draft for human review")
 public record AgentDraftDto(
-        @Description("Neutral factual overview claims")
+        @Description("Return exactly 3 neutral overview claims.")
         List<SourcedClaimDto> summaryClaims,
-        @Description("Strongest material claims supporting the motion")
+        @Description("Return exactly 2 strongest material claims supporting the motion.")
         List<SourcedClaimDto> caseForClaims,
-        @Description("Strongest material claims opposing the motion")
+        @Description("Return exactly 2 strongest material claims opposing the motion.")
         List<SourcedClaimDto> caseAgainstClaims,
-        @Description("One concise, neutral question asking whether the reader supports the motion")
+        @Description("One neutral question of at most 20 words asking whether the reader supports the motion.")
         String supportQuestion,
-        @Description("BINARY for an Agree/Disagree motion or MULTIPLE_CHOICE when several distinct answers are useful")
+        @Description("BINARY for a genuine Agree or Disagree motion; otherwise MULTIPLE_CHOICE.")
         VotingType votingType,
-        @Description("Agree and Disagree for BINARY, or two to five ordered neutral answers for MULTIPLE_CHOICE")
+        @Description("For BINARY return exactly Agree then Disagree; otherwise return 2 to 5 neutral options of at most 6 words each.")
         List<AgentVoteOptionDto> voteOptions,
-        @Description("Every source referenced by any claim, with no unused sources")
+        @Description("Return 2 to 6 sources referenced by the claims, with no unused or duplicate sources.")
         List<AgentSourceDto> sources,
-        @Description("A neutral factual image brief for a human editor")
+        @Description("One neutral factual image sentence of at most 25 words for a human editor.")
         String imageBrief,
-        @Description("A search query to help a human find an owned or reusable licensed image")
+        @Description("A search query of 3 to 8 words for an owned or reusable licensed image.")
         String imageSearchQuery
 ) {
     public AgentDraftDto(List<SourcedClaimDto> summaryClaims, List<SourcedClaimDto> caseForClaims,
