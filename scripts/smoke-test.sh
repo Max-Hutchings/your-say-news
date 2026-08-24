@@ -246,7 +246,9 @@ wait_for_completed_service "keycloak-seed-users" 120
 wait_for_completed_service "liquibase-migrate" 120
 wait_for_completed_service "liquibase-seed" 120
 wait_for_url "LocalStack" "http://localhost:${storage_port}/_localstack/health" 180
-wait_for_storage_object "post-videos" "posts/seed-1046-video.mp4" 180
+# Must name a key localstack/init-aws.sh actually uploads, and the one the video journey asserts
+# on (see expectedFeed.video.mediaKey in smoke-tests/fixtures/test-data.ts). Keep the three in step.
+wait_for_storage_object "post-videos" "posts/seed-2003-video.mp4" 180
 
 echo "Starting post-service..."
 (
@@ -303,6 +305,7 @@ exec_status=0
 SMOKE_BASE_URL="$application_url" \
 SMOKE_AUTH_ORIGIN="$authentication_url" \
 SMOKE_ADMIN_URL="$admin_url" \
+SMOKE_API_ORIGIN="http://localhost:${backend_port}" \
 bunx playwright test \
   --config smoke-tests/playwright.config.ts || exec_status=$?
 

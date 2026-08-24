@@ -57,7 +57,14 @@ export class AdminAccountsPage {
     expect(response.status()).toBe(200);
 
     const accounts = await response.json() as PersistedAccount[];
-    expect(accounts).toHaveLength(11);
+    // 12 hand-maintained development accounts (including the application-owned
+    // official@yoursay.com author) plus the 20-strong smoke voting population
+    // (0010-seed-smoke-vote-population.yaml). Update this when the seeded account set changes.
+    expect(accounts).toHaveLength(32);
+    expect(
+      accounts.filter((account) => account.email.startsWith("smoke.voter.")),
+      "the seeded voting population should be administrable like any other account"
+    ).toHaveLength(20);
     expect(accounts.find((account) => account.email === identity.email)).toEqual({
       id: 11,
       email: identity.email,

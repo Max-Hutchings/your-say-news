@@ -122,6 +122,8 @@ export function CreatePostScreen() {
                 <View style={styles.quoteRow}>
                   <Text style={[styles.quoteMark, { color: e.lime }]}>{"“"}</Text>
                   <TextInput
+                    testID="compose-support-question"
+                    accessibilityLabel="Support question"
                     value={supportQuestion}
                     onChangeText={setSupportQuestion}
                     maxLength={SUPPORT_QUESTION_MAX}
@@ -212,6 +214,8 @@ export function CreatePostScreen() {
               </View>
               <View style={[styles.field, { backgroundColor: e.surface, borderColor: e.border }]}>
                 <TextInput
+                  testID="compose-summary"
+                  accessibilityLabel="Summary"
                   value={summary}
                   onChangeText={setSummary}
                   maxLength={SUMMARY_MAX}

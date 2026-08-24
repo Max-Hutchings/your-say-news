@@ -185,7 +185,7 @@ export function PostCard({
       <PostImageCarousel images={images} width={mediaBox.w} height={mediaBox.h} />
     );
     return (
-      <View style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
+      <View testID={`post-card-${post.id}`} style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
         {/* Media fills the leftover space above the body and is measured so it never leaves a gap.
             The story panel slides up over it on "See more" — kept mounted so the read is instant. */}
         <View
@@ -262,7 +262,7 @@ export function PostCard({
 
   // ── Stacked: landscape media (16:9) or text-only, with everything visible at once. ──────────────
   return (
-    <View style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
+    <View testID={`post-card-${post.id}`} style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
       {hasMedia && (
         <View testID="post-media-stage" style={{ width: window.width, height: mediaBoxHeight }}>
           {mediaContent}

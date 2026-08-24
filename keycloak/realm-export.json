@@ -42,7 +42,9 @@
         "description": "${role_default-roles}",
         "composite": true,
         "composites": {
-          "realm": ["user"]
+          "realm": [
+            "user"
+          ]
         },
         "clientRole": false,
         "containerId": "your-say-news"
@@ -57,8 +59,12 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "qicn9w2mfO9U6m7SyZsND33e6k9osCYl",
-      "redirectUris": ["*"],
-      "webOrigins": ["*"],
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
       "bearerOnly": false,
       "consentRequired": false,
       "standardFlowEnabled": true,
@@ -217,7 +223,11 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "admin", "offline_access"]
+      "realmRoles": [
+        "user",
+        "admin",
+        "offline_access"
+      ]
     },
     {
       "username": "john.doe",
@@ -234,7 +244,11 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "admin", "offline_access"]
+      "realmRoles": [
+        "user",
+        "admin",
+        "offline_access"
+      ]
     },
     {
       "username": "jane.smith",
@@ -251,7 +265,10 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "offline_access"]
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
     },
     {
       "username": "bob.johnson",
@@ -268,7 +285,10 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "offline_access"]
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
     },
     {
       "username": "alice.williams",
@@ -285,7 +305,10 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "offline_access"]
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
     },
     {
       "username": "maya.patel",
@@ -302,7 +325,10 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "offline_access"]
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
     },
     {
       "username": "theo.campbell",
@@ -319,7 +345,10 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "offline_access"]
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
     },
     {
       "username": "casey.morgan",
@@ -336,7 +365,10 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "offline_access"]
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
     },
     {
       "username": "riley.reader",
@@ -353,8 +385,410 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "offline_access"]
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.01",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 01",
+      "email": "smoke.voter.01@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.02",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 02",
+      "email": "smoke.voter.02@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.03",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 03",
+      "email": "smoke.voter.03@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.04",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 04",
+      "email": "smoke.voter.04@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.05",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 05",
+      "email": "smoke.voter.05@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.06",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 06",
+      "email": "smoke.voter.06@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.07",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 07",
+      "email": "smoke.voter.07@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.08",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 08",
+      "email": "smoke.voter.08@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.09",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 09",
+      "email": "smoke.voter.09@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.10",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 10",
+      "email": "smoke.voter.10@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.11",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 11",
+      "email": "smoke.voter.11@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.12",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 12",
+      "email": "smoke.voter.12@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.13",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 13",
+      "email": "smoke.voter.13@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.14",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 14",
+      "email": "smoke.voter.14@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.15",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 15",
+      "email": "smoke.voter.15@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.16",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 16",
+      "email": "smoke.voter.16@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.17",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 17",
+      "email": "smoke.voter.17@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.18",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 18",
+      "email": "smoke.voter.18@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.19",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 19",
+      "email": "smoke.voter.19@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
+      "username": "smoke.voter.20",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Smoke",
+      "lastName": "Voter 20",
+      "email": "smoke.voter.20@example.com",
+      "createdTimestamp": 1754006400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
     }
   ]
 }
-

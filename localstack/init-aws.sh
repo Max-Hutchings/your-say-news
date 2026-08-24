@@ -9,6 +9,23 @@ BUCKET="post-videos"
 echo "Creating S3 bucket for post media..."
 awslocal s3 mb "s3://${BUCKET}" 2>/dev/null || true
 
+# The web app uploads media straight to S3 with a presigned PUT, which is a cross-origin request
+# from the Expo dev server to this bucket. Without a CORS policy the browser's preflight fails and
+# the upload hangs before it starts — publishing an image or video is impossible locally. Real
+# buckets need the same policy for their own origins; this mirrors it for local development.
+echo "Applying bucket CORS so the browser can upload media..."
+awslocal s3api put-bucket-cors --bucket "${BUCKET}" --cors-configuration '{
+  "CORSRules": [
+    {
+      "AllowedOrigins": ["*"],
+      "AllowedMethods": ["GET", "HEAD", "PUT"],
+      "AllowedHeaders": ["*"],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}' >/dev/null 2>&1 && echo "  CORS applied" || echo "  (warning) could not apply CORS"
+
 # Put a placeholder image under a key at the given dimensions. Landscape posts use 1600x900 (16:9),
 # portrait posts use 1080x1920 — matching how the feed sizes each orientation.
 #   put_image <key> <seed> <width> <height>
