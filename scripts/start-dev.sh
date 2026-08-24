@@ -31,12 +31,28 @@ EOF
   exit 1
 fi
 
-if [[ -z "${YOUR_SAY_NEWS_GROK_API_KEY:-}" ]]; then
-  cat >&2 <<'EOF'
-The Grok API key is not configured.
+agent_provider=${AGENT_PROVIDER:-openai}
+case "$agent_provider" in
+  openai)
+    agent_api_key=${OPENAI_API_KEY:-}
+    agent_api_key_name=OPENAI_API_KEY
+    ;;
+  grok)
+    agent_api_key=${YOUR_SAY_NEWS_GROK_API_KEY:-${XAI_API_KEY:-}}
+    agent_api_key_name=YOUR_SAY_NEWS_GROK_API_KEY
+    ;;
+  *)
+    echo 'AGENT_PROVIDER must be either openai or grok.' >&2
+    exit 1
+    ;;
+esac
+
+if [[ -z "$agent_api_key" ]]; then
+  cat >&2 <<EOF
+The $agent_provider API key is not configured.
 
 Export it before starting the development stack, then run:
-  export YOUR_SAY_NEWS_GROK_API_KEY="your-api-key"
+  export $agent_api_key_name="your-api-key"
   bun run dev
 EOF
   exit 1

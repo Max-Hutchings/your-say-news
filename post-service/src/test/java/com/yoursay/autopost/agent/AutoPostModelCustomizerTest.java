@@ -1,29 +1,26 @@
 package com.yoursay.autopost.agent;
 
-import dev.langchain4j.model.chat.request.ToolChoice;
+import com.yoursay.ai.AiWebSearchModelConfigurer;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
+import io.quarkiverse.langchain4j.ModelName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-
-import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AutoPostModelCustomizerTest {
 
     @Test
-    void requiresServerSideWebSearchForTheNamedAutoPostModel() {
+    void delegatesTheAutoPostNamedModelToSharedWebSearchConfiguration() {
         OpenAiResponsesChatModel.Builder builder =
                 Mockito.mock(OpenAiResponsesChatModel.Builder.class);
+        AiWebSearchModelConfigurer webSearch = Mockito.mock(AiWebSearchModelConfigurer.class);
+        AutoPostModelCustomizer customizer = new AutoPostModelCustomizer();
+        customizer.webSearch = webSearch;
 
-        new AutoPostModelCustomizer().customize(builder);
+        customizer.customize(builder);
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<Map<String, Object>>> tools = ArgumentCaptor.forClass(List.class);
-        Mockito.verify(builder).serverTools(tools.capture());
-        assertEquals(List.of(Map.of("type", "web_search")), tools.getValue());
-        Mockito.verify(builder).toolChoice(ToolChoice.REQUIRED);
+        Mockito.verify(webSearch).configure(builder);
+        assertEquals("autopost", AutoPostModelCustomizer.class.getAnnotation(ModelName.class).value());
     }
 }

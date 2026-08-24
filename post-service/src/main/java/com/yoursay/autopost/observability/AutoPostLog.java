@@ -25,14 +25,9 @@ public final class AutoPostLog {
             Throwable fault
     ) {
         String message = "domain=autopost operation=%s outcome=fault event=operation_failed "
-                + "stage=%s fault_type=%s fault_code=%s trace_id=%s";
-        if (fault == null) {
-            Log.warnf(message, operation, stage, faultType, faultCode, traceId());
-            return;
-        }
-        Log.warnf(fault,
-                message,
-                operation, stage, faultType, faultCode, traceId());
+                + "stage=%s fault_type=%s fault_code=%s exception_type=%s trace_id=%s";
+        Log.warnf(message,
+                operation, stage, faultType, faultCode, exceptionType(fault), traceId());
     }
 
     public static void rejected(String operation, String stage, String errorCode) {
@@ -44,6 +39,10 @@ public final class AutoPostLog {
     private static String traceId() {
         SpanContext context = Span.current().getSpanContext();
         return context.isValid() ? context.getTraceId() : "none";
+    }
+
+    private static String exceptionType(Throwable fault) {
+        return fault == null ? "none" : fault.getClass().getSimpleName();
     }
 
     private AutoPostLog() {

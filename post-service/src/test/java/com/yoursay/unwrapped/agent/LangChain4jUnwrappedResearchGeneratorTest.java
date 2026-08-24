@@ -533,7 +533,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         String body = """
                 {
                   "citations":["%s","%s","http://unsafe.example/source"],
-                  "output":[{"content":[{"annotations":[
+                  "output":[{"type":"message","content":[{"annotations":[
                     {"type":"url_citation","url":"%s"},
                     {"type":"url_citation","url":"%s"},
                     {"type":"file_citation","url":"https://files.example/not-a-web-citation"}
@@ -556,6 +556,62 @@ class LangChain4jUnwrappedResearchGeneratorTest {
 
         assertEquals(List.of(sourceUrl, supportingUrl), result.providerCitations());
         assertFalse(result.providerCitations().contains("http://unsafe.example/source"));
+    }
+
+    @Test
+    void extractsOpenAiWebSearchActionSourcesForStructuredOutput() {
+        String sourceUrl = "https://www.ons.gov.uk/source";
+        String body = """
+                {"output":[{
+                  "type":"web_search_call",
+                  "status":"completed",
+                  "action":{"sources":[{"url":"%s"}]}
+                }]}
+                """.formatted(sourceUrl);
+        UnwrappedResearchRequest request = requestWithoutCohorts();
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        UnwrappedChatResponseCapture capture = new UnwrappedChatResponseCapture();
+        ChatResponse response = response(body, "gpt-5.6");
+        when(aiService.research(anyString(), anyString(), anyString())).thenAnswer(ignored -> {
+            capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
+                    ModelProvider.OPEN_AI, new HashMap<>()));
+            return validDraft(request, sourceUrl);
+        });
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
+
+        assertEquals(List.of(sourceUrl), generator.generate(request).providerCitations());
+    }
+
+    @Test
+    void ignoresCitationShapedDataOutsideOpenAiSearchAndMessageOutput() {
+        String body = """
+                {"output":[{
+                  "type":"reasoning",
+                  "sources":[{"url":"https://www.ons.gov.uk/source"}],
+                  "annotations":[{
+                    "type":"url_citation",
+                    "url":"https://www.ons.gov.uk/source"
+                  }]
+                }]}
+                """;
+
+        assertEquals("UNWRAPPED_PROVIDER_CITATIONS_MISSING",
+                providerFailure(requestWithoutCohorts(), response(body, "gpt-5.6")));
+    }
+
+    @Test
+    void ignoresSourcesFromAFailedOpenAiWebSearchCall() {
+        String body = """
+                {"output":[{
+                  "type":"web_search_call",
+                  "status":"failed",
+                  "action":{"sources":[{"url":"https://www.ons.gov.uk/source"}]}
+                }]}
+                """;
+
+        assertEquals("UNWRAPPED_PROVIDER_CITATIONS_MISSING",
+                providerFailure(requestWithoutCohorts(), response(body, "gpt-5.6")));
     }
 
     @Test
@@ -864,7 +920,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
 
     private static ChatResponse responseWithCitation(String citation, String modelName) {
         return response("""
-                {"output":[{"content":[{"annotations":[
+                {"output":[{"type":"message","content":[{"annotations":[
                   {"type":"url_citation","url":"%s"}
                 ]}]}]}
                 """.formatted(citation), modelName);

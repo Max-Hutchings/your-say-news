@@ -35,7 +35,10 @@ export S3_ENDPOINT='https://9538d45e127bdb7d6b1bf1ecf9020146.eu.r2.cloudflaresto
 export S3_ACCESS_KEY_ID='development-r2-access-key'
 export S3_SECRET_ACCESS_KEY="representative'r2\$secret"
 export POSTS_MEDIA_BUCKET='your-say-news-media-development'
-export XAI_API_KEY='xai-representative-development-key'
+export AGENT_PROVIDER='openai'
+export OPENAI_API_KEY='openai-representative-development-key'
+export OPENAI_MODEL='gpt-5.6-custom'
+export XAI_API_KEY='xai-unselected-development-key'
 export GRAFANA_CLOUD_OTLP_ENDPOINT='https://otlp-gateway-prod-eu-west.grafana.net/otlp'
 export GRAFANA_CLOUD_OTLP_AUTHORIZATION='Basic representative-authorization=='
 
@@ -47,6 +50,14 @@ assert_file_contains "$runtime_env" "POST_SERVICE_IMAGE=$POST_SERVICE_IMAGE"
 assert_file_contains "$runtime_env" "MIGRATION_IMAGE=$MIGRATION_IMAGE"
 assert_file_contains "$runtime_env" "ALLOY_IMAGE=$ALLOY_IMAGE"
 assert_file_contains "$runtime_env" "DB_PASSWORD='representative\'password\$with # symbols'"
+assert_file_contains "$runtime_env" 'AGENT_PROVIDER=openai'
+assert_file_contains "$runtime_env" "AGENT_API_KEY='openai-representative-development-key'"
+assert_file_contains "$runtime_env" 'AGENT_MODEL=gpt-5.6-custom'
+if grep -Fq -- 'XAI_API_KEY=' "$runtime_env" \
+  || grep -Fq -- 'OPENAI_API_KEY=' "$runtime_env" \
+  || grep -Fq -- 'xai-unselected-development-key' "$runtime_env"; then
+  fail 'runtime.env exposes provider-specific or unselected AI credentials'
+fi
 assert_file_contains "$runtime_env" 'VOTE_SUPPRESSION_THRESHOLD=5'
 docker compose --env-file "$runtime_env" --file "$deploy_root/compose.yaml" config --quiet
 compose_config="$test_directory/compose-config.yaml"
@@ -58,6 +69,66 @@ grep -Fq -- "image: $POST_SERVICE_IMAGE" "$compose_config" \
   || fail 'Compose does not use the exact post-service snapshot digest'
 grep -Fq -- "image: $MIGRATION_IMAGE" "$compose_config" \
   || fail 'Compose does not use the exact migration snapshot digest'
+grep -Fq -- 'AGENT_PROVIDER: openai' "$compose_config" \
+  || fail 'Compose does not pass the selected AI provider'
+grep -Fq -- 'AGENT_API_KEY: openai-representative-development-key' "$compose_config" \
+  || fail 'Compose does not pass the selected AI credential'
+grep -Fq -- 'AGENT_MODEL: gpt-5.6-custom' "$compose_config" \
+  || fail 'Compose does not pass the selected AI model'
+if grep -Fq -- 'XAI_API_KEY:' "$compose_config" \
+  || grep -Fq -- 'OPENAI_API_KEY:' "$compose_config" \
+  || grep -Fq -- 'xai-unselected-development-key' "$compose_config"; then
+  fail 'Compose exposes provider-specific or unselected AI credentials'
+fi
+
+grok_runtime_env="$test_directory/grok-runtime.env"
+AGENT_PROVIDER='grok' OPENAI_API_KEY='openai-unselected-development-key' \
+  XAI_API_KEY='xai-representative-development-key' \
+  GROK_MODEL='grok-4.6-custom' \
+  "$deploy_root/scripts/render-runtime-env.sh" "$grok_runtime_env"
+assert_file_contains "$grok_runtime_env" 'AGENT_PROVIDER=grok'
+assert_file_contains "$grok_runtime_env" "AGENT_API_KEY='xai-representative-development-key'"
+assert_file_contains "$grok_runtime_env" 'AGENT_MODEL=grok-4.6-custom'
+if grep -Fq -- 'openai-unselected-development-key' "$grok_runtime_env"; then
+  fail 'Grok runtime.env exposes the unselected OpenAI credential'
+fi
+
+default_openai_runtime_env="$test_directory/default-openai-runtime.env"
+env -u AGENT_PROVIDER -u OPENAI_MODEL \
+  OPENAI_API_KEY='openai-default-model-key' \
+  "$deploy_root/scripts/render-runtime-env.sh" "$default_openai_runtime_env"
+assert_file_contains "$default_openai_runtime_env" 'AGENT_PROVIDER=openai'
+assert_file_contains "$default_openai_runtime_env" 'AGENT_MODEL=gpt-5.6'
+
+default_grok_runtime_env="$test_directory/default-grok-runtime.env"
+env -u GROK_MODEL AGENT_PROVIDER='grok' \
+  XAI_API_KEY='grok-default-model-key' \
+  "$deploy_root/scripts/render-runtime-env.sh" "$default_grok_runtime_env"
+assert_file_contains "$default_grok_runtime_env" 'AGENT_MODEL=grok-4.5'
+
+if AGENT_PROVIDER='openai' OPENAI_API_KEY='' \
+  "$deploy_root/scripts/render-runtime-env.sh" "$test_directory/missing-provider-key.env" \
+  >/dev/null 2>&1; then
+  fail 'render-runtime-env accepted a missing OpenAI key for the selected provider'
+fi
+
+if AGENT_PROVIDER='grok' XAI_API_KEY='' \
+  "$deploy_root/scripts/render-runtime-env.sh" "$test_directory/missing-grok-key.env" \
+  >/dev/null 2>&1; then
+  fail 'render-runtime-env accepted a missing Grok key for the selected provider'
+fi
+
+if AGENT_PROVIDER='unsupported' \
+  "$deploy_root/scripts/render-runtime-env.sh" "$test_directory/invalid-provider.env" \
+  >/dev/null 2>&1; then
+  fail 'render-runtime-env accepted an unsupported AI provider'
+fi
+
+if OPENAI_MODEL=$'gpt-5.6\nINJECTED=value' \
+  "$deploy_root/scripts/render-runtime-env.sh" "$test_directory/multiline-model.env" \
+  >/dev/null 2>&1; then
+  fail 'render-runtime-env accepted a multiline AI model value'
+fi
 
 if POST_SERVICE_IMAGE='mutable-image:latest' \
   "$deploy_root/scripts/render-runtime-env.sh" "$test_directory/invalid-digest.env" >/dev/null 2>&1; then

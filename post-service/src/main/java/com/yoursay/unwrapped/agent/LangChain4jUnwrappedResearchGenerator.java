@@ -342,16 +342,43 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
                 if (item.isTextual()) values.add(item.asText());
             });
         }
-        root.findValues("annotations").stream()
-                .filter(JsonNode::isArray)
-                .forEach(annotations -> annotations.forEach(annotation -> {
+        JsonNode output = root.path("output");
+        if (!output.isArray()) return values;
+        output.forEach(item -> {
+            if ("message".equals(item.path("type").asText())) {
+                addMessageAnnotationUrls(item, values);
+            }
+            if ("web_search_call".equals(item.path("type").asText())
+                    && "completed".equals(item.path("status").asText())) {
+                addWebSearchActionUrls(item, values);
+            }
+        });
+        return values;
+    }
+
+    private static void addMessageAnnotationUrls(JsonNode message, List<String> values) {
+        JsonNode content = message.path("content");
+        if (!content.isArray()) return;
+        content.forEach(part -> {
+            JsonNode annotations = part.path("annotations");
+            if (!annotations.isArray()) return;
+            annotations.forEach(annotation -> {
                     JsonNode url = annotation.path("url");
                     if ("url_citation".equals(annotation.path("type").asText())
                             && url.isTextual()) {
                         values.add(url.asText());
                     }
-                }));
-        return values;
+            });
+        });
+    }
+
+    private static void addWebSearchActionUrls(JsonNode searchCall, List<String> values) {
+        JsonNode sources = searchCall.path("action").path("sources");
+        if (!sources.isArray()) return;
+        sources.forEach(source -> {
+            JsonNode url = source.path("url");
+            if (url.isTextual()) values.add(url.asText());
+        });
     }
 
     private static String valueOr(String value, String fallback) {

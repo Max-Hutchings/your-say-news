@@ -166,8 +166,8 @@ jobs:
       OIDC_CLIENT_ID: ${{ secrets.DEV_OIDC_CLIENT_ID }}
       S3_ACCESS_KEY_ID: ${{ secrets.DEV_R2_ACCESS_KEY_ID }}
       S3_SECRET_ACCESS_KEY: ${{ secrets.DEV_R2_SECRET_ACCESS_KEY }}
-      XAI_API_KEY: ${{ secrets.DEV_XAI_API_KEY }}
-      UNWRAPPED_API_KEY: ${{ secrets.DEV_UNWRAPPED_API_KEY }}
+      AGENT_PROVIDER: openai
+      OPENAI_API_KEY: ${{ secrets.DEV_OPENAI_API_KEY }}
       GRAFANA_CLOUD_OTLP_ENDPOINT: ${{ secrets.DEV_GRAFANA_CLOUD_OTLP_ENDPOINT }}
       GRAFANA_CLOUD_OTLP_AUTHORIZATION: ${{ secrets.DEV_GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
       S3_ENDPOINT: https://9538d45e127bdb7d6b1bf1ecf9020146.eu.r2.cloudflarestorage.com

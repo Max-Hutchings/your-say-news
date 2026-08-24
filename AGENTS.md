@@ -69,7 +69,8 @@ bun run test                          # backend Testcontainers + frontend Jest, 
 Compose with `--build`, `post-service` (:8082) and the Expo frontend (:5173), each in its own pane.
 Rebuilding on startup ensures the Liquibase migration and seed images always contain the current
 changelog files. Its startup script first verifies that Docker Desktop's daemon and Docker Compose
-are available and that `YOUR_SAY_NEWS_GROK_API_KEY` is present. The application panes wait for
+are available and that the API key for `AGENT_PROVIDER` is present. OpenAI is the default provider;
+set `OPENAI_API_KEY`, or select Grok and set `YOUR_SAY_NEWS_GROK_API_KEY`. The application panes wait for
 Compose to become ready. When the Compose process is
 selected, `r` runs `docker compose down` and brings the stack back up with a rebuild; on other
 selected processes, `r` retains mprocs' normal focused-process restart behavior. `q` quits all

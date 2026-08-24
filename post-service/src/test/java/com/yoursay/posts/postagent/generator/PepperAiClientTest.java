@@ -66,6 +66,121 @@ class PepperAiClientTest {
     }
 
     @Test
+    void researchReturnsOpenAiAnnotationAndSearchActionSourcesWithoutDuplicates() {
+        AgentDraftDto draft = draft();
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(result(draft, """
+                        {
+                          "output": [
+                            {
+                              "type": "web_search_call",
+                              "status": "completed",
+                              "action": {
+                                "sources": [
+                                  {"url": "https://www.ons.gov.uk/releases/electiondata"},
+                                  {"url": "https://www.ons.gov.uk/releases/electiondata"}
+                                ]
+                              }
+                            },
+                            {
+                              "type": "message",
+                              "content": [{
+                                "annotations": [{
+                                  "type": "url_citation",
+                                  "url": "https://www.parliament.uk/bills/voting-age"
+                                }]
+                              }]
+                            }
+                          ]
+                        }
+                        """));
+
+        PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
+
+        assertEquals(List.of(
+                "https://www.parliament.uk/bills/voting-age",
+                "https://www.ons.gov.uk/releases/electiondata"), response.citations());
+    }
+
+    @Test
+    void researchIgnoresCitationShapedDataOutsideWebSearchAndMessageOutput() {
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(result(draft(), """
+                        {
+                          "output": [{
+                            "type": "reasoning",
+                            "sources": [{"url": "https://decoy.example/source"}],
+                            "annotations": [{
+                              "type": "url_citation",
+                              "url": "https://decoy.example/annotation"
+                            }]
+                          }]
+                        }
+                        """));
+
+        PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
+
+        assertEquals(List.of(), response.citations());
+    }
+
+    @Test
+    void researchIgnoresSourcesFromAFailedOpenAiWebSearchCall() {
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(result(draft(), """
+                        {"output":[{
+                          "type":"web_search_call",
+                          "status":"failed",
+                          "action":{"sources":[{
+                            "url":"https://fabricated.example/failed-search"
+                          }]}
+                        }]}
+                        """));
+
+        PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
+
+        assertEquals(List.of(), response.citations());
+    }
+
+    @Test
+    void researchPreservesHttpProviderCitationsAcceptedByTheDraftValidator() {
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(result(draft(), """
+                        {"citations":["http://public-record.example/archive"]}
+                        """));
+
+        PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
+
+        assertEquals(List.of("http://public-record.example/archive"), response.citations());
+    }
+
+    @Test
+    void researchRejectsNonHttpValuesFromRecognisedCitationLocations() {
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(result(draft(), """
+                        {
+                          "citations": [
+                            "https://www.ons.gov.uk/releases/electiondata",
+                            "file:///etc/passwd",
+                            "javascript:alert(1)",
+                            42
+                          ],
+                          "output": [{
+                            "type": "web_search_call",
+                            "status": "completed",
+                            "action": {"sources": [
+                              {"url": "data:text/plain,not-a-source"}
+                            ]}
+                          }]
+                        }
+                        """));
+
+        PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
+
+        assertEquals(List.of("https://www.ons.gov.uk/releases/electiondata"),
+                response.citations());
+    }
+
+    @Test
     void researchFailsClosedWhenRawResponseCannotProveCitations() {
         Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
                 .thenReturn(Result.<AgentDraftDto>builder()
@@ -84,8 +199,73 @@ class PepperAiClientTest {
 
         assertEquals("AGENT_PROVIDER_RESPONSE_INVALID", error.code());
         assertFalse(error.retryable());
-        assertEquals("LangChain4j returned no raw Grok response for citation verification",
+        assertEquals("LangChain4j returned no raw provider response for citation verification",
                 error.getMessage());
+    }
+
+    @Test
+    void researchFailsClosedWhenOpenAiMetadataHasNoRawResponse() {
+        OpenAiResponsesChatResponseMetadata metadata =
+                OpenAiResponsesChatResponseMetadata.builder()
+                        .id("resp_without_raw_response")
+                        .modelName("gpt-5.6")
+                        .build();
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(result(draft(), metadata));
+
+        GenerationException error = assertThrows(GenerationException.class,
+                () -> client.research("Compare the UK voting-age proposal."));
+
+        assertEquals("AGENT_PROVIDER_RESPONSE_INVALID", error.code());
+        assertFalse(error.retryable());
+        assertEquals("LangChain4j returned no raw provider response for citation verification",
+                error.getMessage());
+    }
+
+    @Test
+    void researchFailsClosedWhenOpenAiRawResponseHasNoBody() {
+        OpenAiResponsesChatResponseMetadata metadata =
+                Mockito.mock(OpenAiResponsesChatResponseMetadata.class);
+        SuccessfulHttpResponse rawResponse = Mockito.mock(SuccessfulHttpResponse.class);
+        Mockito.when(metadata.rawHttpResponse()).thenReturn(rawResponse);
+        Mockito.when(rawResponse.body()).thenReturn(null);
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(result(draft(), metadata));
+
+        GenerationException error = assertThrows(GenerationException.class,
+                () -> client.research("Compare the UK voting-age proposal."));
+
+        assertEquals("AGENT_PROVIDER_RESPONSE_INVALID", error.code());
+        assertFalse(error.retryable());
+        assertEquals("LangChain4j returned no raw provider response for citation verification",
+                error.getMessage());
+    }
+
+    @Test
+    void researchMapsMalformedProviderJsonToASafeStableFailure() {
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(result(draft(), "{not-json"));
+
+        GenerationException error = assertThrows(GenerationException.class,
+                () -> client.research("Compare the UK voting-age proposal."));
+
+        assertEquals("AGENT_PROVIDER_RESPONSE_INVALID", error.code());
+        assertFalse(error.retryable());
+        assertEquals("Could not read provider citations from the LangChain4j response",
+                error.getMessage());
+    }
+
+    @Test
+    void researchRejectsAMissingFinalResponseBeforeReadingProviderEvidence() {
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(Result.<AgentDraftDto>builder().content(draft()).build());
+
+        GenerationException error = assertThrows(GenerationException.class,
+                () -> client.research("Compare the UK voting-age proposal."));
+
+        assertEquals("AGENT_PROVIDER_RESPONSE_INVALID", error.code());
+        assertFalse(error.retryable());
+        assertEquals("LangChain4j returned no final provider response", error.getMessage());
     }
 
     private static Result<AgentDraftDto> result(AgentDraftDto draft, String rawBody) {
@@ -99,6 +279,13 @@ class PepperAiClientTest {
                         .modelName("grok-4.3")
                         .rawHttpResponse(rawResponse)
                         .build();
+        return result(draft, metadata);
+    }
+
+    private static Result<AgentDraftDto> result(
+            AgentDraftDto draft,
+            ChatResponseMetadata metadata
+    ) {
         ChatResponse response = ChatResponse.builder()
                 .aiMessage(AiMessage.from("structured output"))
                 .metadata(metadata)

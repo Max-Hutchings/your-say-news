@@ -113,7 +113,7 @@ export function UnwrappedAnalysisPosts({
           </strong>
           <p>
             {generationMonitor?.workerAvailable === false
-              ? "Queued work will not start until post-service is restarted with UNWRAPPED_API_KEY, YOUR_SAY_NEWS_GROK_API_KEY or XAI_API_KEY."
+              ? "Queued work will not start until post-service is restarted with the selected AI provider key or UNWRAPPED_API_KEY."
               : "This page checks progress automatically every four seconds."}
           </p>
         </div>

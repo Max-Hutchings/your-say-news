@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class GrokPepperPostGeneratorTest {
+class LangChain4jPepperPostGeneratorTest {
 
     private static final String STATISTICS_URL =
             "https://www.ons.gov.uk/releases/electiondata";
@@ -25,12 +25,12 @@ class GrokPepperPostGeneratorTest {
             "https://www.parliament.uk/bills/voting-age";
 
     private PepperAiClient client;
-    private GrokPepperPostGenerator generator;
+    private LangChain4jPepperPostGenerator generator;
 
     @BeforeEach
     void setUp() {
         client = Mockito.mock(PepperAiClient.class);
-        generator = new GrokPepperPostGenerator();
+        generator = new LangChain4jPepperPostGenerator();
         generator.client = client;
         generator.validator = new AgentDraftValidator();
         generator.apiKey = "xai-test-key";
@@ -64,7 +64,26 @@ class GrokPepperPostGeneratorTest {
     }
 
     @Test
-    void generateRejectsClaimUrlThatGrokDidNotReturnAsASearchCitation() {
+    void generateUsesConfiguredModelWhenProviderMetadataHasNoModel() {
+        AgentDraftDto draft = validDraft(STATISTICS_URL, PARLIAMENT_URL);
+        generator.model = "gpt-5.6-configured";
+        for (String missingModel : new String[]{null, "   "}) {
+            Mockito.when(client.research(Mockito.anyString())).thenReturn(new PepperAiResponse(
+                    draft,
+                    List.of(STATISTICS_URL, PARLIAMENT_URL),
+                    missingModel,
+                    "resp_without_model"
+            ));
+
+            GenerationResult result = generator.generate("Cover voting age.");
+
+            assertEquals("gpt-5.6-configured", result.model());
+            assertEquals("resp_without_model", result.providerResponseId());
+        }
+    }
+
+    @Test
+    void generateRejectsClaimUrlThatTheProviderDidNotReturnAsASearchCitation() {
         String fabricated = "https://fabricated.example/evidence";
         Mockito.when(client.research(Mockito.anyString())).thenReturn(new PepperAiResponse(
                 validDraft(STATISTICS_URL, fabricated),
@@ -91,7 +110,7 @@ class GrokPepperPostGeneratorTest {
 
         assertEquals("AGENT_PROVIDER_UNAVAILABLE", error.code());
         assertTrue(error.retryable());
-        assertEquals("Grok request failed and may be retried", error.getMessage());
+        assertEquals("AI provider request failed and may be retried", error.getMessage());
     }
 
     @Test
@@ -104,18 +123,32 @@ class GrokPepperPostGeneratorTest {
 
         assertEquals("AGENT_PROVIDER_RESPONSE_INVALID", error.code());
         assertFalse(error.retryable());
-        assertEquals("Grok rejected the request or returned invalid output", error.getMessage());
+        assertEquals("AI provider rejected the request or returned invalid output", error.getMessage());
     }
 
     @Test
-    void generateFailsBeforeCallingLangChain4jWhenApiKeyIsMissing() {
-        generator.apiKey = "__not_configured__";
+    void generateMapsUnexpectedProviderFailureWithoutExposingProviderDetail() {
+        Mockito.when(client.research(Mockito.anyString()))
+                .thenThrow(new IllegalStateException("api-key=sensitive-provider-detail"));
 
         GenerationException error = assertThrows(GenerationException.class,
                 () -> generator.generate("Cover a current policy dispute."));
 
-        assertEquals("AGENT_PROVIDER_NOT_CONFIGURED", error.code());
-        assertFalse(error.retryable());
+        assertEquals("AGENT_PROVIDER_UNAVAILABLE", error.code());
+        assertTrue(error.retryable());
+        assertEquals("AI provider request failed", error.getMessage());
+        assertFalse(error.getMessage().contains("sensitive-provider-detail"));
+    }
+
+    @Test
+    void generateFailsBeforeCallingLangChain4jWhenApiKeyIsMissing() {
+        for (String missingKey : new String[]{null, "", "   ", "__not_configured__"}) {
+            generator.apiKey = missingKey;
+            GenerationException error = assertThrows(GenerationException.class,
+                    () -> generator.generate("Cover a current policy dispute."));
+            assertEquals("AGENT_PROVIDER_NOT_CONFIGURED", error.code());
+            assertFalse(error.retryable());
+        }
         Mockito.verifyNoInteractions(client);
     }
 

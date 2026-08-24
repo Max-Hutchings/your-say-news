@@ -12,7 +12,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Instant;
 
 @ApplicationScoped
-public class GrokStoryDiscoveryAgent implements StoryDiscoveryAgent {
+public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
 
     private static final String API_KEY_NOT_CONFIGURED = "__not_configured__";
 

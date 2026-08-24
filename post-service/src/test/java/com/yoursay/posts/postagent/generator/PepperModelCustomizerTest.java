@@ -1,4 +1,4 @@
-package com.yoursay.unwrapped.agent;
+package com.yoursay.posts.postagent.generator;
 
 import com.yoursay.ai.AiWebSearchModelConfigurer;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
@@ -8,18 +8,19 @@ import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class UnwrappedModelCustomizerTest {
+class PepperModelCustomizerTest {
+
     @Test
-    void delegatesTheUnwrappedNamedModelToSharedWebSearchConfiguration() {
+    void delegatesThePepperNamedModelToSharedWebSearchConfiguration() {
         OpenAiResponsesChatModel.Builder builder =
                 Mockito.mock(OpenAiResponsesChatModel.Builder.class);
         AiWebSearchModelConfigurer webSearch = Mockito.mock(AiWebSearchModelConfigurer.class);
-        UnwrappedModelCustomizer customizer = new UnwrappedModelCustomizer();
+        PepperModelCustomizer customizer = new PepperModelCustomizer();
         customizer.webSearch = webSearch;
 
         customizer.customize(builder);
 
         Mockito.verify(webSearch).configure(builder);
-        assertEquals("unwrapped", UnwrappedModelCustomizer.class.getAnnotation(ModelName.class).value());
+        assertEquals("pepper", PepperModelCustomizer.class.getAnnotation(ModelName.class).value());
     }
 }

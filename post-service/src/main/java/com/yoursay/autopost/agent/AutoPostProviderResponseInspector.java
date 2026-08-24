@@ -11,7 +11,7 @@ import jakarta.inject.Inject;
 
 import java.util.stream.StreamSupport;
 
-/** Verifies that xAI actually completed the required server-side web-search operation. */
+/** Verifies that the selected provider completed the required server-side web-search operation. */
 @ApplicationScoped
 class AutoPostProviderResponseInspector {
 

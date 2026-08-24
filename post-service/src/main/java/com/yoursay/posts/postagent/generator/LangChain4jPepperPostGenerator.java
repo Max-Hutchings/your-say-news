@@ -7,7 +7,7 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
-public class GrokPepperPostGenerator implements PepperPostGenerator {
+public class LangChain4jPepperPostGenerator implements PepperPostGenerator {
 
     private static final String API_KEY_NOT_CONFIGURED = "__not_configured__";
 
@@ -17,17 +17,17 @@ public class GrokPepperPostGenerator implements PepperPostGenerator {
     @Inject
     AgentDraftValidator validator;
 
-    @ConfigProperty(name = "agent.grok.api-key")
+    @ConfigProperty(name = "pepper.agent.api-key")
     String apiKey;
 
-    @ConfigProperty(name = "agent.grok.model", defaultValue = "grok-4.3")
+    @ConfigProperty(name = "pepper.agent.model", defaultValue = "configured-model")
     String model;
 
     @Override
     public GenerationResult generate(String request) {
         if (apiKey == null || apiKey.isBlank() || API_KEY_NOT_CONFIGURED.equals(apiKey)) {
             throw new GenerationException("AGENT_PROVIDER_NOT_CONFIGURED",
-                    "XAI_API_KEY is not configured", false);
+                    "The selected AI provider API key is not configured", false);
         }
 
         try {
@@ -39,13 +39,13 @@ public class GrokPepperPostGenerator implements PepperPostGenerator {
             throw e;
         } catch (RetriableException e) {
             throw new GenerationException("AGENT_PROVIDER_UNAVAILABLE",
-                    "Grok request failed and may be retried", true, e);
+                    "AI provider request failed and may be retried", true, e);
         } catch (NonRetriableException e) {
             throw new GenerationException("AGENT_PROVIDER_RESPONSE_INVALID",
-                    "Grok rejected the request or returned invalid output", false, e);
+                    "AI provider rejected the request or returned invalid output", false, e);
         } catch (RuntimeException e) {
             throw new GenerationException("AGENT_PROVIDER_UNAVAILABLE",
-                    "Grok request failed", true, e);
+                    "AI provider request failed", true, e);
         }
     }
 

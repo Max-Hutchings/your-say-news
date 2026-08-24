@@ -28,7 +28,7 @@ class PepperAiClient {
                 request.trim());
         ChatResponse response = result.finalResponse();
         if (response == null) {
-            throw invalid("LangChain4j returned no final Grok response");
+            throw invalid("LangChain4j returned no final provider response");
         }
 
         return new PepperAiResponse(
@@ -43,28 +43,77 @@ class PepperAiClient {
         if (!(response.metadata() instanceof OpenAiResponsesChatResponseMetadata metadata)
                 || metadata.rawHttpResponse() == null
                 || metadata.rawHttpResponse().body() == null) {
-            throw invalid("LangChain4j returned no raw Grok response for citation verification");
+            throw invalid("LangChain4j returned no raw provider response for citation verification");
         }
 
         try {
-            JsonNode array = objectMapper.readTree(metadata.rawHttpResponse().body()).path("citations");
+            JsonNode root = objectMapper.readTree(metadata.rawHttpResponse().body());
             List<String> values = new ArrayList<>();
-            if (array.isArray()) {
-                for (JsonNode item : array) {
-                    if (item.isTextual()) {
-                        values.add(item.asText());
-                    }
-                }
-            }
-            return List.copyOf(values);
+            addTextValues(root.path("citations"), values);
+            addOpenAiAnnotationUrls(root, values);
+            addOpenAiSearchActionUrls(root, values);
+            return values.stream()
+                    .filter(PepperAiClient::isHttpUrl)
+                    .distinct()
+                    .toList();
         } catch (Exception e) {
             throw new GenerationException(
                     "AGENT_PROVIDER_RESPONSE_INVALID",
-                    "Could not read Grok citations from the LangChain4j response",
+                    "Could not read provider citations from the LangChain4j response",
                     false,
                     e
             );
         }
+    }
+
+    private static void addTextValues(JsonNode array, List<String> values) {
+        if (!array.isArray()) return;
+        array.forEach(item -> {
+            if (item.isTextual()) values.add(item.asText());
+        });
+    }
+
+    private static void addOpenAiAnnotationUrls(JsonNode root, List<String> values) {
+        providerOutput(root).stream()
+                .filter(item -> "message".equals(item.path("type").asText()))
+                .flatMap(item -> streamArray(item.path("content")))
+                .flatMap(content -> streamArray(content.path("annotations")))
+                .forEach(annotation -> {
+                    JsonNode url = annotation.path("url");
+                    if ("url_citation".equals(annotation.path("type").asText())
+                            && url.isTextual()) {
+                        values.add(url.asText());
+                    }
+                });
+    }
+
+    private static void addOpenAiSearchActionUrls(JsonNode root, List<String> values) {
+        providerOutput(root).stream()
+                .filter(item -> "web_search_call".equals(item.path("type").asText()))
+                .filter(item -> "completed".equals(item.path("status").asText()))
+                .flatMap(item -> streamArray(item.path("action").path("sources")))
+                .forEach(source -> {
+                    JsonNode url = source.path("url");
+                    if (url.isTextual()) values.add(url.asText());
+                });
+    }
+
+    private static List<JsonNode> providerOutput(JsonNode root) {
+        JsonNode output = root.path("output");
+        if (!output.isArray()) return List.of();
+        List<JsonNode> values = new ArrayList<>();
+        output.forEach(values::add);
+        return values;
+    }
+
+    private static java.util.stream.Stream<JsonNode> streamArray(JsonNode node) {
+        if (!node.isArray()) return java.util.stream.Stream.empty();
+        return java.util.stream.StreamSupport.stream(node.spliterator(), false);
+    }
+
+    private static boolean isHttpUrl(String value) {
+        return value.regionMatches(true, 0, "https://", 0, 8)
+                || value.regionMatches(true, 0, "http://", 0, 7);
     }
 
     private static GenerationException invalid(String message) {

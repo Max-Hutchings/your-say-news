@@ -59,12 +59,24 @@ runs:
           DB_URL DB_REACTIVE_URL MIGRATION_DB_USERNAME MIGRATION_DB_PASSWORD \
           DB_USERNAME DB_PASSWORD \
           OIDC_AUTH_SERVER_URL OIDC_CLIENT_ID \
-          S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY XAI_API_KEY \
+          S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY \
           GRAFANA_CLOUD_OTLP_ENDPOINT GRAFANA_CLOUD_OTLP_AUTHORIZATION; do
           if [[ -z "${!variable_name:-}" ]]; then
             missing+=("$variable_name")
           fi
         done
+
+        case "${AGENT_PROVIDER:-openai}" in
+          openai) provider_key_name=OPENAI_API_KEY ;;
+          grok) provider_key_name=XAI_API_KEY ;;
+          *)
+            echo "::error title=Invalid AI provider::AGENT_PROVIDER must be openai or grok"
+            exit 1
+            ;;
+        esac
+        if [[ -z "${!provider_key_name:-}" ]]; then
+          missing+=("$provider_key_name")
+        fi
 
         if (( ${#missing[@]} > 0 )); then
           echo "::error title=Missing application deployment credentials::Configure repository secrets for: ${missing[*]}"

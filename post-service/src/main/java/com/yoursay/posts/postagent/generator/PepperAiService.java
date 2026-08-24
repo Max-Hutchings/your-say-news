@@ -8,7 +8,7 @@ import dev.langchain4j.service.V;
 import io.quarkiverse.langchain4j.RegisterAiService;
 
 @RegisterAiService(
-        modelName = "grok",
+        modelName = "pepper",
         chatMemoryProviderSupplier = RegisterAiService.NoChatMemoryProviderSupplier.class
 )
 public interface PepperAiService {
