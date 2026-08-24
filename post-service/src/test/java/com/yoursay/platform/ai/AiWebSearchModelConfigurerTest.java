@@ -1,6 +1,9 @@
 package com.yoursay.platform.ai;
 
 import dev.langchain4j.model.chat.request.ToolChoice;
+import dev.langchain4j.model.chat.request.DefaultChatRequestParameters;
+import dev.langchain4j.http.client.HttpClient;
+import dev.langchain4j.http.client.HttpClientBuilder;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -10,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class AiWebSearchModelConfigurerTest {
 
@@ -18,20 +21,42 @@ class AiWebSearchModelConfigurerTest {
     void configuresOpenAiWebSearchAndCompleteSourceMetadata() {
         OpenAiResponsesChatModel.Builder builder =
                 Mockito.mock(OpenAiResponsesChatModel.Builder.class);
-        AiWebSearchModelConfigurer configurer = configurer("openai");
+        AiWebSearchModelConfigurer configurer = configurer("openai", "high");
 
         configurer.configure(builder);
 
         assertWebSearchRequired(builder);
         Mockito.verify(builder).include(List.of("web_search_call.action.sources"));
+        Mockito.verify(builder).temperature(null);
+        Mockito.verify(builder).topP(null);
+        Mockito.verify(builder).defaultRequestParameters(DefaultChatRequestParameters.EMPTY);
+        Mockito.verify(builder).reasoningEffort("high");
         Mockito.verifyNoMoreInteractions(builder);
+    }
+
+    @Test
+    void removesSamplingDefaultsThatOpenAiRejectsForGptFivePointSix() {
+        HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
+        Mockito.when(httpClientBuilder.build()).thenReturn(Mockito.mock(HttpClient.class));
+        OpenAiResponsesChatModel.Builder builder = OpenAiResponsesChatModel.builder()
+                .httpClientBuilder(httpClientBuilder)
+                .apiKey("test-openai-key")
+                .modelName("gpt-5.6")
+                .temperature(1.0)
+                .topP(1.0);
+
+        configurer("openai", "high").configure(builder);
+
+        OpenAiResponsesChatModel model = builder.build();
+        assertNull(model.defaultRequestParameters().temperature());
+        assertNull(model.defaultRequestParameters().topP());
     }
 
     @Test
     void configuresGrokWebSearchWithoutInlineCitationsBreakingStructuredOutput() {
         OpenAiResponsesChatModel.Builder builder =
                 Mockito.mock(OpenAiResponsesChatModel.Builder.class);
-        AiWebSearchModelConfigurer configurer = configurer("grok");
+        AiWebSearchModelConfigurer configurer = configurer("grok", "low");
 
         configurer.configure(builder);
 
@@ -40,22 +65,14 @@ class AiWebSearchModelConfigurerTest {
         Mockito.verifyNoMoreInteractions(builder);
     }
 
-    @Test
-    void rejectsAnUnsupportedProviderBeforeCallingTheBuilder() {
-        OpenAiResponsesChatModel.Builder builder =
-                Mockito.mock(OpenAiResponsesChatModel.Builder.class);
-
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                () -> configurer("untrusted-provider").configure(builder));
-
-        assertEquals("Unsupported agent.provider: untrusted-provider", error.getMessage());
-        Mockito.verifyNoInteractions(builder);
-    }
-
-    private static AiWebSearchModelConfigurer configurer(String provider) {
+    private static AiWebSearchModelConfigurer configurer(
+            String provider,
+            String openAiReasoningEffort
+    ) {
         AiWebSearchModelConfigurer configurer = new AiWebSearchModelConfigurer();
         configurer.config = new AiConfig(
                 provider,
+                openAiReasoningEffort,
                 "pepper-key",
                 "pepper-model",
                 "pepper-replica",

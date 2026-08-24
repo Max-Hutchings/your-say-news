@@ -13,6 +13,7 @@ public class AiConfig {
     private static final String NOT_CONFIGURED = "__not_configured__";
 
     private final Provider provider;
+    private final OpenAi openAi;
     private final Pepper pepper;
     private final AutoPost autoPost;
     private final Unwrapped unwrapped;
@@ -20,6 +21,8 @@ public class AiConfig {
     @Inject
     public AiConfig(
             @ConfigProperty(name = "agent.provider", defaultValue = "openai") String provider,
+            @ConfigProperty(name = "agent.providers.openai.reasoning-effort", defaultValue = "low")
+            String openAiReasoningEffort,
             @ConfigProperty(name = "pepper.agent.api-key", defaultValue = NOT_CONFIGURED)
             String pepperApiKey,
             @ConfigProperty(name = "pepper.agent.model", defaultValue = "configured-model")
@@ -40,6 +43,7 @@ public class AiConfig {
             boolean unwrappedStubbed
     ) {
         this.provider = Provider.from(provider);
+        this.openAi = new OpenAi(openAiReasoningEffort);
         this.pepper = new Pepper(pepperApiKey, pepperModel, pepperReplicaId);
         this.autoPost = new AutoPost(autoPostApiKey, autoPostModel, autoPostPromptVersion);
         this.unwrapped = new Unwrapped(unwrappedApiKey, unwrappedModel, unwrappedStubbed);
@@ -47,6 +51,10 @@ public class AiConfig {
 
     public Provider provider() {
         return provider;
+    }
+
+    public OpenAi openAi() {
+        return openAi;
     }
 
     public Pepper pepper() {
@@ -75,6 +83,9 @@ public class AiConfig {
             }
             throw new IllegalArgumentException("Unsupported agent.provider: " + value);
         }
+    }
+
+    public record OpenAi(String reasoningEffort) {
     }
 
     public static final class Pepper {

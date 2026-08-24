@@ -2,6 +2,7 @@ package com.yoursay.autopost.agent;
 
 import com.yoursay.autopost.observability.AutoPostLog;
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiProviderFailureLog;
 import com.yoursay.platform.observability.DomainMetrics;
 import dev.langchain4j.exception.NonRetriableException;
 import dev.langchain4j.exception.RetriableException;
@@ -22,6 +23,9 @@ public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
 
     @Inject
     AiConfig aiConfig;
+
+    @Inject
+    AiProviderFailureLog providerFailureLog;
 
     @Override
     public StoryDiscoveryResult discover(Instant windowStart, Instant windowEnd) {
@@ -47,11 +51,13 @@ public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
             return result;
         } catch (AutoPostDiscoveryException error) {
             record("fault", error.faultType(), error.code(), started);
+            logProviderHttpFailure(error.code(), error);
             AutoPostLog.failed("providerResearch", error.stage(), error.faultType(),
                     error.code(), error);
             throw error;
         } catch (OutputParsingException error) {
             record("fault", "provider_contract", "AUTO_POST_PROVIDER_RESPONSE_INVALID", started);
+            logProviderHttpFailure("AUTO_POST_PROVIDER_RESPONSE_INVALID", error);
             AutoPostDiscoveryException fault = new AutoPostDiscoveryException(
                     "AUTO_POST_PROVIDER_RESPONSE_INVALID",
                     "structured_output_parsing",
@@ -63,6 +69,7 @@ public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
             throw fault;
         } catch (RetriableException error) {
             record("fault", "dependency", "AUTO_POST_PROVIDER_UNAVAILABLE", started);
+            logProviderHttpFailure("AUTO_POST_PROVIDER_UNAVAILABLE", error);
             AutoPostDiscoveryException fault = new AutoPostDiscoveryException(
                     "AUTO_POST_PROVIDER_UNAVAILABLE", "dependency", "provider_request",
                     "Auto-post discovery provider is unavailable", true, error);
@@ -71,6 +78,7 @@ public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
             throw fault;
         } catch (NonRetriableException error) {
             record("fault", "provider_contract", "AUTO_POST_PROVIDER_RESPONSE_INVALID", started);
+            logProviderHttpFailure("AUTO_POST_PROVIDER_RESPONSE_INVALID", error);
             AutoPostDiscoveryException fault = new AutoPostDiscoveryException(
                     "AUTO_POST_PROVIDER_RESPONSE_INVALID", "provider_contract", "provider_response",
                     "Auto-post discovery provider returned invalid output", false, error);
@@ -79,6 +87,7 @@ public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
             throw fault;
         } catch (RuntimeException error) {
             record("fault", "application", "AUTO_POST_PROVIDER_PROCESSING_FAILED", started);
+            logProviderHttpFailure("AUTO_POST_PROVIDER_PROCESSING_FAILED", error);
             AutoPostDiscoveryException fault = new AutoPostDiscoveryException(
                     "AUTO_POST_PROVIDER_PROCESSING_FAILED", "application", "provider_response",
                     "Auto-post discovery response processing failed", false, error);
@@ -91,5 +100,10 @@ public class LangChain4jStoryDiscoveryAgent implements StoryDiscoveryAgent {
     private void record(String outcome, String type, String code, long started) {
         metrics.recordOperation("autopost", "providerResearch", outcome, type, code,
                 System.nanoTime() - started);
+    }
+
+    private void logProviderHttpFailure(String faultCode, RuntimeException failure) {
+        providerFailureLog.logNonSuccessResponse(aiConfig.provider(), "autopost",
+                "providerResearch", faultCode, failure);
     }
 }

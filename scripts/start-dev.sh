@@ -34,8 +34,8 @@ fi
 agent_provider=${AGENT_PROVIDER:-openai}
 case "$agent_provider" in
   openai)
-    agent_api_key=${OPENAI_API_KEY:-}
-    agent_api_key_name=OPENAI_API_KEY
+    agent_api_key=${YOUR_SAY_NEWS_OPENAI_API_KEY:-}
+    agent_api_key_name=YOUR_SAY_NEWS_OPENAI_API_KEY
     ;;
   grok)
     agent_api_key=${YOUR_SAY_NEWS_GROK_API_KEY:-${XAI_API_KEY:-}}

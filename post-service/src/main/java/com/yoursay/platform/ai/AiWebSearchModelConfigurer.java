@@ -1,5 +1,6 @@
 package com.yoursay.platform.ai;
 
+import dev.langchain4j.model.chat.request.DefaultChatRequestParameters;
 import dev.langchain4j.model.chat.request.ToolChoice;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -19,10 +20,21 @@ public class AiWebSearchModelConfigurer {
     AiConfig config;
 
     public void configure(OpenAiResponsesChatModel.Builder builder) {
+        removeUnsupportedOpenAiSamplingParameters(builder);
         List<String> responseIncludes = responseIncludes();
         builder.serverTools(WEB_SEARCH);
         builder.toolChoice(ToolChoice.REQUIRED);
         builder.include(responseIncludes);
+    }
+
+    private void removeUnsupportedOpenAiSamplingParameters(
+            OpenAiResponsesChatModel.Builder builder
+    ) {
+        if (config.provider() != AiConfig.Provider.OPENAI) return;
+        builder.temperature(null);
+        builder.topP(null);
+        builder.defaultRequestParameters(DefaultChatRequestParameters.EMPTY);
+        builder.reasoningEffort(config.openAi().reasoningEffort());
     }
 
     private List<String> responseIncludes() {

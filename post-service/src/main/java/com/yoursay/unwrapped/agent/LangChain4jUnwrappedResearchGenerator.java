@@ -3,6 +3,7 @@ package com.yoursay.unwrapped.agent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiProviderFailureLog;
 import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.unwrapped.SourceClassification;
 import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
@@ -50,6 +51,9 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
 
     @Inject
     AiConfig aiConfig;
+
+    @Inject
+    AiProviderFailureLog providerFailureLog;
 
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request) {
@@ -119,6 +123,8 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
         String errorType = failureType(errorCode, failure);
         metrics.recordOperation("unwrapped", "research_provider", outcome, errorType,
                 errorCode, System.nanoTime() - started);
+        providerFailureLog.logNonSuccessResponse(aiConfig.provider(), "unwrapped",
+                "research_provider", errorCode, failure);
         Log.warn(failureLogMessage(outcome, errorType, errorCode));
     }
 

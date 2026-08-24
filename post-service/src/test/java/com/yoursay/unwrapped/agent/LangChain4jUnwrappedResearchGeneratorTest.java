@@ -3,6 +3,7 @@ package com.yoursay.unwrapped.agent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiProviderFailureLog;
 import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.dto.VoteOptionDto;
 import com.yoursay.unwrapped.SourceClassification;
@@ -21,6 +22,7 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.exception.AuthenticationException;
 import dev.langchain4j.exception.ContentFilteredException;
 import dev.langchain4j.exception.InternalServerException;
+import dev.langchain4j.exception.HttpException;
 import dev.langchain4j.exception.InvalidRequestException;
 import dev.langchain4j.exception.RateLimitException;
 import dev.langchain4j.exception.TimeoutException;
@@ -508,7 +510,16 @@ class LangChain4jUnwrappedResearchGeneratorTest {
     }
 
     @Test
-    void rejectsIdentityBearingProviderProseBeforePersistence() {
+    void rejectsPersonalNamesInProviderProseBeforePersistence() {
+        assertIdentityBearingProseRejected("Jane Smith voted for this option.");
+    }
+
+    @Test
+    void rejectsEmailAddressesInProviderProseBeforePersistence() {
+        assertIdentityBearingProseRejected("A voter can be contacted at jane@example.com.");
+    }
+
+    private static void assertIdentityBearingProseRejected(String identityBearingProse) {
         String sourceUrl = "https://www.ons.gov.uk/provider-source";
         UnwrappedResearchRequest request = requestWithoutCohorts();
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
@@ -518,7 +529,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
             capture.onResponse(new ChatModelResponseContext(response, mock(ChatRequest.class),
                     ModelProvider.OPEN_AI, new HashMap<>()));
             return withFirstParagraphPrefix(validDraft(request, sourceUrl),
-                    "Jane Smith voted for this option and can be contacted at jane@example.com.");
+                    identityBearingProse);
         });
         LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
                 aiService, capture, new ObjectMapper(), mock(DomainMetrics.class));
@@ -787,6 +798,53 @@ class LangChain4jUnwrappedResearchGeneratorTest {
     }
 
     @Test
+    void logsTheHttpStatusForAnOpenAiRequestRejection() {
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        InvalidRequestException providerFailure = new InvalidRequestException(
+                new HttpException(400, "provider response must stay private"));
+        when(aiService.research(anyString(), anyString(), anyString()))
+                .thenThrow(providerFailure);
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                mock(DomainMetrics.class));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> generator.generate(requestWithoutCohorts(), "Benchmark prompt"));
+
+        assertEquals("UNWRAPPED_PROVIDER_REQUEST_INVALID", failure.getMessage());
+        verify(generator.providerFailureLog).logNonSuccessResponse(
+                AiConfig.Provider.OPENAI,
+                "unwrapped",
+                "research_provider",
+                "UNWRAPPED_PROVIDER_REQUEST_INVALID",
+                failure);
+    }
+
+    @Test
+    void logsTheHttpStatusForAnOpenAiRateLimit() {
+        UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
+        RateLimitException providerFailure = new RateLimitException(
+                new HttpException(429, "provider quota response must stay private"));
+        when(aiService.research(anyString(), anyString(), anyString()))
+                .thenThrow(providerFailure);
+        LangChain4jUnwrappedResearchGenerator generator = liveGenerator(
+                aiService, new UnwrappedChatResponseCapture(), new ObjectMapper(),
+                mock(DomainMetrics.class));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> generator.generate(requestWithoutCohorts(), "Benchmark prompt"));
+
+        assertEquals("UNWRAPPED_PROVIDER_RATE_LIMITED", failure.getMessage());
+        assertFalse(failure.getMessage().contains("provider quota response"));
+        verify(generator.providerFailureLog).logNonSuccessResponse(
+                AiConfig.Provider.OPENAI,
+                "unwrapped",
+                "research_provider",
+                "UNWRAPPED_PROVIDER_RATE_LIMITED",
+                failure);
+    }
+
+    @Test
     void emitsOnlyTheStableProviderFailureCodeToTheActualLog() {
         UnwrappedResearchAiService aiService = mock(UnwrappedResearchAiService.class);
         when(aiService.research(anyString(), anyString(), anyString()))
@@ -967,12 +1025,14 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         generator.metrics = metrics;
         generator.aiConfig = unwrappedConfig(
                 "test-key", "configured-fallback-model", false);
+        generator.providerFailureLog = mock(AiProviderFailureLog.class);
         return generator;
     }
 
     private static AiConfig unwrappedConfig(String apiKey, String model, boolean stubbed) {
         return new AiConfig(
                 "openai",
+                "low",
                 "pepper-key",
                 "pepper-model",
                 "test-replica",

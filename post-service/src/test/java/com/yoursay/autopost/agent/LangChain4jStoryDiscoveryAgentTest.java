@@ -1,7 +1,9 @@
 package com.yoursay.autopost.agent;
 
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiProviderFailureLog;
 import com.yoursay.platform.observability.DomainMetrics;
+import dev.langchain4j.exception.HttpException;
 import dev.langchain4j.exception.InvalidRequestException;
 import dev.langchain4j.exception.RateLimitException;
 import dev.langchain4j.service.output.OutputParsingException;
@@ -31,6 +33,7 @@ class LangChain4jStoryDiscoveryAgentTest {
         agent.client = client;
         agent.metrics = metrics;
         agent.aiConfig = aiConfig("configured-key");
+        agent.providerFailureLog = Mockito.mock(AiProviderFailureLog.class);
     }
 
     @Test
@@ -47,6 +50,9 @@ class LangChain4jStoryDiscoveryAgentTest {
 
         assertEquals("AUTO_POST_PROVIDER_RESPONSE_INVALID", error.code());
         assertEquals("structured_output_parsing", error.stage());
+        assertEquals("Auto-post discovery provider returned invalid structured output",
+                error.getMessage());
+        assertFalse(error.getMessage().contains("timestamp object"));
         assertFalse(error.retryable());
         Mockito.verify(metrics).recordOperation(
                 Mockito.eq("autopost"), Mockito.eq("providerResearch"), Mockito.eq("fault"),
@@ -105,36 +111,56 @@ class LangChain4jStoryDiscoveryAgentTest {
 
     @Test
     void mapsRetriableProviderFailuresToRetryableDependencyFaults() {
+        RateLimitException providerFailure = new RateLimitException(
+                new HttpException(429, "provider account detail"));
         Mockito.when(client.discover(Mockito.any(), Mockito.any()))
-                .thenThrow(new RateLimitException("provider account detail"));
+                .thenThrow(providerFailure);
 
         AutoPostDiscoveryException error = assertThrows(AutoPostDiscoveryException.class,
                 () -> discover());
 
         assertEquals("AUTO_POST_PROVIDER_UNAVAILABLE", error.code());
         assertEquals("provider_request", error.stage());
+        assertEquals("Auto-post discovery provider is unavailable", error.getMessage());
+        assertFalse(error.getMessage().contains("provider account detail"));
         assertTrue(error.retryable());
         Mockito.verify(metrics).recordOperation(
                 Mockito.eq("autopost"), Mockito.eq("providerResearch"), Mockito.eq("fault"),
                 Mockito.eq("dependency"), Mockito.eq("AUTO_POST_PROVIDER_UNAVAILABLE"),
                 Mockito.anyLong());
+        Mockito.verify(agent.providerFailureLog).logNonSuccessResponse(
+                AiConfig.Provider.OPENAI,
+                "autopost",
+                "providerResearch",
+                "AUTO_POST_PROVIDER_UNAVAILABLE",
+                providerFailure);
     }
 
     @Test
     void mapsNonRetriableProviderFailuresToFinalContractFaults() {
+        InvalidRequestException providerFailure = new InvalidRequestException(
+                new HttpException(400, "provider request detail"));
         Mockito.when(client.discover(Mockito.any(), Mockito.any()))
-                .thenThrow(new InvalidRequestException("provider request detail"));
+                .thenThrow(providerFailure);
 
         AutoPostDiscoveryException error = assertThrows(AutoPostDiscoveryException.class,
                 () -> discover());
 
         assertEquals("AUTO_POST_PROVIDER_RESPONSE_INVALID", error.code());
         assertEquals("provider_response", error.stage());
+        assertEquals("Auto-post discovery provider returned invalid output", error.getMessage());
+        assertFalse(error.getMessage().contains("provider request detail"));
         assertFalse(error.retryable());
         Mockito.verify(metrics).recordOperation(
                 Mockito.eq("autopost"), Mockito.eq("providerResearch"), Mockito.eq("fault"),
                 Mockito.eq("provider_contract"),
                 Mockito.eq("AUTO_POST_PROVIDER_RESPONSE_INVALID"), Mockito.anyLong());
+        Mockito.verify(agent.providerFailureLog).logNonSuccessResponse(
+                AiConfig.Provider.OPENAI,
+                "autopost",
+                "providerResearch",
+                "AUTO_POST_PROVIDER_RESPONSE_INVALID",
+                providerFailure);
     }
 
     @Test
@@ -164,6 +190,7 @@ class LangChain4jStoryDiscoveryAgentTest {
     private static AiConfig aiConfig(String autoPostApiKey) {
         return new AiConfig(
                 "openai",
+                "low",
                 "pepper-key",
                 "pepper-model",
                 "test-replica",

@@ -14,6 +14,7 @@ class AiConfigTest {
         AiConfig config = config("GROK", "pepper-key", "autopost-key", "unwrapped-key");
 
         assertEquals(AiConfig.Provider.GROK, config.provider());
+        assertEquals("high", config.openAi().reasoningEffort());
         assertEquals("pepper-key", config.pepper().apiKey());
         assertEquals("pepper-model", config.pepper().model());
         assertEquals("pepper-replica", config.pepper().replicaId());
@@ -55,6 +56,7 @@ class AiConfigTest {
     ) {
         return new AiConfig(
                 provider,
+                "high",
                 pepperApiKey,
                 "pepper-model",
                 "pepper-replica",

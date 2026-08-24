@@ -1,11 +1,13 @@
 package com.yoursay.posts.postagent.generator;
 
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiProviderFailureLog;
 import com.yoursay.posts.postagent.dto.AgentDraftDto;
 import com.yoursay.posts.postagent.dto.AgentSourceDto;
 import com.yoursay.posts.postagent.dto.SourcedClaimDto;
 import com.yoursay.posts.postagent.generator.*;
 import dev.langchain4j.exception.InvalidRequestException;
+import dev.langchain4j.exception.HttpException;
 import dev.langchain4j.exception.RateLimitException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,7 @@ class LangChain4jPepperPostGeneratorTest {
         generator.client = client;
         generator.validator = new AgentDraftValidator();
         generator.aiConfig = aiConfig("xai-test-key", "grok-4.3");
+        generator.providerFailureLog = Mockito.mock(AiProviderFailureLog.class);
     }
 
     @Test
@@ -102,8 +105,10 @@ class LangChain4jPepperPostGeneratorTest {
 
     @Test
     void generateMapsLangChain4jRateLimitToRetryableFailure() {
+        RateLimitException providerFailure = new RateLimitException(
+                new HttpException(429, "provider-specific account detail"));
         Mockito.when(client.research(Mockito.anyString()))
-                .thenThrow(new RateLimitException("provider-specific account detail"));
+                .thenThrow(providerFailure);
 
         GenerationException error = assertThrows(GenerationException.class,
                 () -> generator.generate("Cover a current policy dispute."));
@@ -111,12 +116,21 @@ class LangChain4jPepperPostGeneratorTest {
         assertEquals("AGENT_PROVIDER_UNAVAILABLE", error.code());
         assertTrue(error.retryable());
         assertEquals("AI provider request failed and may be retried", error.getMessage());
+        assertFalse(error.getMessage().contains("provider-specific account detail"));
+        Mockito.verify(generator.providerFailureLog).logNonSuccessResponse(
+                AiConfig.Provider.GROK,
+                "postagent",
+                "generation",
+                "AGENT_PROVIDER_UNAVAILABLE",
+                providerFailure);
     }
 
     @Test
     void generateMapsLangChain4jInvalidRequestToFinalFailure() {
+        InvalidRequestException providerFailure = new InvalidRequestException(
+                new HttpException(400, "provider-specific request detail"));
         Mockito.when(client.research(Mockito.anyString()))
-                .thenThrow(new InvalidRequestException("provider-specific request detail"));
+                .thenThrow(providerFailure);
 
         GenerationException error = assertThrows(GenerationException.class,
                 () -> generator.generate("Cover a current policy dispute."));
@@ -124,6 +138,12 @@ class LangChain4jPepperPostGeneratorTest {
         assertEquals("AGENT_PROVIDER_RESPONSE_INVALID", error.code());
         assertFalse(error.retryable());
         assertEquals("AI provider rejected the request or returned invalid output", error.getMessage());
+        Mockito.verify(generator.providerFailureLog).logNonSuccessResponse(
+                AiConfig.Provider.GROK,
+                "postagent",
+                "generation",
+                "AGENT_PROVIDER_RESPONSE_INVALID",
+                providerFailure);
     }
 
     @Test
@@ -177,6 +197,7 @@ class LangChain4jPepperPostGeneratorTest {
     private static AiConfig aiConfig(String apiKey, String model) {
         return new AiConfig(
                 "grok",
+                "low",
                 apiKey,
                 model,
                 "test-replica",

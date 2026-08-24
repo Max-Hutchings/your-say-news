@@ -147,6 +147,7 @@ class AutoPostAiClientTest {
     private static AiConfig aiConfig(String autoPostModel) {
         return new AiConfig(
                 "grok",
+                "low",
                 "pepper-key",
                 "pepper-model",
                 "test-replica",
