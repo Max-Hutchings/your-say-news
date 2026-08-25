@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   approveAutoPostRun,
   AutoPostAdminApiError,
+  getAutoPostRun,
   getAutoPostRuns,
   selectAutoPostCandidate,
   retryAutoPostDraft,
@@ -18,13 +19,21 @@ export function useAutoPosts() {
   const [selectingCandidateId, setSelectingCandidateId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [retryingRunId, setRetryingRunId] = useState<string | null>(null);
+  const [publishedPostId, setPublishedPostId] = useState<number | null>(null);
+  const [viewedRun, setViewedRun] = useState<AutoPostRun | null>(null);
+  const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
   const streams = useRef(new Map<string, AbortController>());
 
   const replaceRun = useCallback((run: AutoPostRun) => {
     setRuns((current) => current === null
       ? [run]
       : [run, ...current.filter((candidate) => candidate.id !== run.id)]);
-    setActiveRun(run);
+    if (run.status === "PUBLISHED") {
+      setActiveRun(null);
+      setPublishedPostId(run.publishedPostId);
+    } else {
+      setActiveRun(run);
+    }
   }, []);
 
   const load = useCallback(async () => {
@@ -32,9 +41,14 @@ export function useAutoPosts() {
     try {
       const loaded = await getAutoPostRuns();
       setRuns(loaded);
-      setActiveRun((current) => current
-        ? loaded.find((run) => run.id === current.id) ?? current
-        : loaded.find((run) => !["PUBLISHED", "FAILED"].includes(run.status)) ?? null);
+      setActiveRun((current) => {
+        const currentRun = current
+          ? loaded.find((run) => run.id === current.id)
+          : null;
+        return currentRun && currentRun.status !== "PUBLISHED"
+          ? currentRun
+          : loaded.find((run) => !["PUBLISHED", "FAILED"].includes(run.status)) ?? null;
+      });
     } catch (reason) {
       setError(toAutoPostError(reason));
     }
@@ -86,6 +100,8 @@ export function useAutoPosts() {
   const create = useCallback(async () => {
     setCreating(true);
     setError(null);
+    setPublishedPostId(null);
+    setViewedRun(null);
     try {
       const run = await startAutoPostRun();
       replaceRun(run);
@@ -139,9 +155,22 @@ export function useAutoPosts() {
     }
   }, [monitor, replaceRun]);
 
+  const viewRun = useCallback(async (runId: string) => {
+    setLoadingRunId(runId);
+    setError(null);
+    try {
+      setViewedRun(await getAutoPostRun(runId));
+    } catch (reason) {
+      setError(toAutoPostError(reason));
+    } finally {
+      setLoadingRunId(null);
+    }
+  }, []);
+
   return {
-    runs, activeRun, error, creating, selectingCandidateId, approving, retryingRunId,
-    load, create, select, approve, retry,
+    runs, activeRun, viewedRun, error, creating, selectingCandidateId, approving,
+    retryingRunId, publishedPostId, loadingRunId,
+    load, create, select, approve, retry, viewRun,
   };
 }
 

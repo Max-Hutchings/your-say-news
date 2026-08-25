@@ -16,10 +16,10 @@ import com.yoursay.posts.postagent.dto.AgentPublicationDto;
 import com.yoursay.posts.postagent.dto.AutoPostAgentDraftDto;
 import com.yoursay.user.user.dto.UserAccessDto;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.vertx.VertxContextSupport;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.time.Duration;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -161,12 +161,26 @@ public class AutoPostPublicationWorkflow {
             AgentPublicationDto provenance
     ) {
         return executePublicationStage(PublicationStage.POST_PERSISTENCE,
-                () -> postService.createForPublisher(
-                                work.publisherUserId(),
-                                AutoPostPublicationRequestFactory.createRequest(
-                                        candidate, draft.content(), work.draftId()),
-                                AutoPostPublicationRequestFactory.createProvenance(provenance))
-                        .await().atMost(Duration.ofSeconds(30)));
+                () -> createPostOnManagedContext(work, candidate, draft, provenance));
+    }
+
+    private PostDto createPostOnManagedContext(
+            ApprovalWork work,
+            AutoPostCandidate candidate,
+            AutoPostAgentDraftDto draft,
+            AgentPublicationDto provenance
+    ) {
+        try {
+            return VertxContextSupport.subscribeAndAwait(() -> postService.createForPublisher(
+                    work.publisherUserId(),
+                    AutoPostPublicationRequestFactory.createRequest(
+                            candidate, draft.content(), work.draftId()),
+                    AutoPostPublicationRequestFactory.createProvenance(provenance)));
+        } catch (RuntimeException error) {
+            throw error;
+        } catch (Throwable error) {
+            throw new IllegalStateException("Post persistence failed", error);
+        }
     }
 
     private void markPostAgentDraftPublished(ApprovalWork work, long postId) {

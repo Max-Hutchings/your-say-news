@@ -66,6 +66,12 @@ const draftReadyRun: AutoPostRun = {
   },
 };
 
+const publishedRun: AutoPostRun = {
+  ...draftReadyRun,
+  status: "PUBLISHED",
+  publishedPostId: 4102,
+};
+
 describe("AutoPostDesk", () => {
   it("shows the exact 24-hour window, ten ranked stories and prior workflow history", () => {
     render(<AutoPostDesk
@@ -136,6 +142,61 @@ describe("AutoPostDesk", () => {
       .toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create new" }));
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows publication success without keeping the published workflow at the top", () => {
+    render(<AutoPostDesk
+      runs={[publishedRun]}
+      activeRun={null}
+      publishedPostId={publishedRun.publishedPostId}
+      error={null}
+      creating={false}
+      selectingCandidateId={null}
+      onCreate={vi.fn()}
+      onSelect={vi.fn()}
+      onReload={vi.fn()}
+    />);
+
+    expect(screen.queryByLabelText("Current official-post workflow")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Published");
+    expect(screen.getByRole("status")).toHaveTextContent("Post 4102 is live");
+  });
+
+  it("requests and displays the full run when any history row is clicked", async () => {
+    const user = userEvent.setup();
+    const viewRun = vi.fn().mockResolvedValue(undefined);
+    const view = render(<AutoPostDesk
+      runs={[publishedRun]}
+      activeRun={null}
+      viewedRun={null}
+      loadingRunId={null}
+      error={null}
+      creating={false}
+      selectingCandidateId={null}
+      onCreate={vi.fn()}
+      onSelect={vi.fn()}
+      onViewRun={viewRun}
+      onReload={vi.fn()}
+    />);
+
+    await user.click(screen.getByRole("button", { name: /Representative current story 4/ }));
+    expect(viewRun).toHaveBeenCalledWith(publishedRun.id);
+
+    view.rerender(<AutoPostDesk
+      runs={[publishedRun]}
+      activeRun={null}
+      viewedRun={publishedRun}
+      loadingRunId={null}
+      error={null}
+      creating={false}
+      selectingCandidateId={null}
+      onCreate={vi.fn()}
+      onSelect={vi.fn()}
+      onViewRun={viewRun}
+      onReload={vi.fn()}
+    />);
+    expect(screen.getByRole("region", { name: "Loaded official post" }))
+      .toHaveTextContent(publishedRun.draft!.summary);
   });
 
   it("locks selection after handoff and explains drafting progress", () => {
@@ -247,5 +308,30 @@ describe("AutoPostDesk", () => {
     expect(screen.getByRole("dialog", { name: "Approve and publish?" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Approve and publish" }));
     expect(approve).toHaveBeenCalledWith(draftReadyRun.id);
+  });
+
+  it("closes the approval dialog when publication fails so the error alert is visible", async () => {
+    const user = userEvent.setup();
+    const approve = vi.fn().mockRejectedValue(new Error("Publication failed"));
+    render(<AutoPostDesk
+      runs={[draftReadyRun]}
+      activeRun={draftReadyRun}
+      error={{ status: 502, message: "The approved post could not be published. Try again." }}
+      creating={false}
+      selectingCandidateId={null}
+      approving={false}
+      onCreate={vi.fn()}
+      onSelect={vi.fn()}
+      onApprove={approve}
+      onReload={vi.fn()}
+    />);
+
+    await user.click(screen.getByRole("button", { name: "Approve draft" }));
+    await user.click(screen.getByRole("button", { name: "Approve and publish" }));
+
+    expect(screen.queryByRole("dialog", { name: "Approve and publish?" })).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The approved post could not be published. Try again.",
+    );
   });
 });

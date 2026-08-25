@@ -38,6 +38,14 @@ const queuedRun: AutoPostRun = {
   updatedAt: "2026-08-20T12:00:00Z",
 };
 
+const publishedRun: AutoPostRun = {
+  ...queuedRun,
+  status: "PUBLISHED",
+  selectedCandidateId: "candidate-1",
+  pepperDraftId: "draft-1",
+  publishedPostId: 4102,
+};
+
 describe("useAutoPosts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -169,6 +177,31 @@ describe("useAutoPosts", () => {
     expect(result.current.retryingRunId).toBeNull();
   });
 
+  it("clears the current workflow and exposes a clean publication notice after approval", async () => {
+    api.approveAutoPostRun.mockResolvedValue(publishedRun);
+    const { result } = renderHook(() => useAutoPosts());
+    await waitFor(() => expect(result.current.runs).toEqual([]));
+
+    await act(async () => result.current.approve(publishedRun.id));
+
+    expect(api.approveAutoPostRun).toHaveBeenCalledWith(publishedRun.id);
+    expect(result.current.activeRun).toBeNull();
+    expect(result.current.publishedPostId).toBe(4102);
+    expect(result.current.runs).toEqual([publishedRun]);
+  });
+
+  it("loads any selected history row from the single-run GET endpoint", async () => {
+    api.getAutoPostRun.mockResolvedValue(publishedRun);
+    const { result } = renderHook(() => useAutoPosts());
+    await waitFor(() => expect(result.current.runs).toEqual([]));
+
+    await act(async () => result.current.viewRun(publishedRun.id));
+
+    expect(api.getAutoPostRun).toHaveBeenCalledWith(publishedRun.id);
+    expect(result.current.viewedRun).toEqual(publishedRun);
+    expect(result.current.loadingRunId).toBeNull();
+  });
+
   it.each([
     {
       ...queuedRun,
@@ -196,7 +229,12 @@ describe("useAutoPosts", () => {
 
     act(() => sendEvent?.({ run: terminalRun }));
 
-    expect(result.current.activeRun).toEqual(terminalRun);
+    expect(result.current.activeRun).toEqual(
+      terminalRun.status === "PUBLISHED" ? null : terminalRun,
+    );
+    expect(result.current.publishedPostId).toBe(
+      terminalRun.status === "PUBLISHED" ? terminalRun.publishedPostId : null,
+    );
     expect(streamSignal?.aborted).toBe(true);
     expect(api.getAutoPostRun).not.toHaveBeenCalled();
   });

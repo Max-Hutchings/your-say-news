@@ -6,6 +6,7 @@ import com.yoursay.posts.dto.PostCreationProvenance;
 import com.yoursay.posts.dto.PostSourceDto;
 import com.yoursay.posts.postagent.dto.AgentPublicationDto;
 import com.yoursay.posts.postagent.dto.PepperPostDraftDto;
+import com.yoursay.posts.VotingType;
 
 import java.util.List;
 import java.util.UUID;
@@ -18,9 +19,11 @@ public final class AutoPostPublicationRequestFactory {
             PepperPostDraftDto draft,
             UUID draftId
     ) {
-        List<CreatePostRequest.VoteOption> voteOptions = draft.voteOptions().stream()
-                .map(CreatePostRequest.VoteOption::new)
-                .toList();
+        List<CreatePostRequest.VoteOption> voteOptions = draft.votingType() == VotingType.BINARY
+                ? List.of()
+                : draft.voteOptions().stream()
+                        .map(CreatePostRequest.VoteOption::new)
+                        .toList();
         List<CreatePostRequest.Citation> citations = draft.citations().stream()
                 .map(source -> new CreatePostRequest.Citation(
                         source.url(), source.title(), source.publisher()))

@@ -24,6 +24,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.mockito.InjectSpy;
 import io.quarkus.test.security.TestSecurity;
 import io.smallrye.mutiny.Uni;
+import io.vertx.core.Vertx;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -339,10 +340,18 @@ class AutoPostControllerTest {
         long publishedPostId = insertPublishedPost(officialUserId);
         Mockito.when(postService.createForPublisher(
                         Mockito.eq(officialUserId), Mockito.any(), Mockito.any()))
-                .thenReturn(Uni.createFrom().item(new PostDto(
-                        publishedPostId, officialUserId, content.summary(), content.supportQuestion(),
-                        content.caseFor(), content.caseAgainst(), "GB", VotingType.BINARY,
-                        List.of(), true, Instant.now(), List.of(), List.of(), List.of())));
+                .thenReturn(Uni.createFrom().deferred(() -> {
+                    if (Vertx.currentContext() == null
+                            || !Vertx.currentContext().isEventLoopContext()) {
+                        return Uni.createFrom().failure(new IllegalStateException(
+                                "Post persistence did not start on a Vert.x event-loop context"));
+                    }
+                    return Uni.createFrom().item(new PostDto(
+                            publishedPostId, officialUserId, "yoursaynews", content.summary(),
+                            content.supportQuestion(), content.caseFor(), content.caseAgainst(),
+                            "GB", VotingType.BINARY, List.of(), true, Instant.now(),
+                            List.of(), List.of(), List.of()));
+                }));
 
         given().when().get("/api/admin/auto-post/runs/" + runId)
                 .then().statusCode(200)
@@ -363,8 +372,7 @@ class AutoPostControllerTest {
                 Mockito.eq(officialUserId), request.capture(), provenance.capture());
         assertEquals("GB", request.getValue().jurisdiction());
         assertEquals(POST_AGENT_JOB_ID, request.getValue().pepperDraftId());
-        assertEquals(List.of("Agree", "Disagree"), request.getValue().voteOptions().stream()
-                .map(CreatePostRequest.VoteOption::label).toList());
+        assertEquals(List.of(), request.getValue().voteOptions());
         assertEquals(POST_AGENT_JOB_ID, provenance.getValue().pepperDraftId());
         Mockito.verify(postAgentService).markPublished(POST_AGENT_JOB_ID, publishedPostId);
 

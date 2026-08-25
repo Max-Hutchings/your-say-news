@@ -5,35 +5,44 @@ import "./auto-post-desk.css";
 interface AutoPostDeskProps {
   runs: AutoPostRun[] | null;
   activeRun: AutoPostRun | null;
+  viewedRun?: AutoPostRun | null;
   error: AutoPostError | null;
   creating: boolean;
   selectingCandidateId: string | null;
   approving?: boolean;
   retryingRunId?: string | null;
+  publishedPostId?: number | null;
+  loadingRunId?: string | null;
   onCreate: () => Promise<void>;
   onSelect: (runId: string, candidateId: string) => Promise<void>;
   onApprove?: (runId: string) => Promise<void>;
   onRetry?: (runId: string) => Promise<void>;
+  onViewRun?: (runId: string) => Promise<void>;
   onReload: () => Promise<void>;
 }
 
 export function AutoPostDesk({
   runs,
   activeRun,
+  viewedRun = null,
   error,
   creating,
   selectingCandidateId,
   approving = false,
   retryingRunId = null,
+  publishedPostId = null,
+  loadingRunId = null,
   onCreate,
   onSelect,
   onApprove = async () => undefined,
   onRetry = async () => undefined,
+  onViewRun = async () => undefined,
   onReload,
 }: AutoPostDeskProps) {
   const [expanded, setExpanded] = useState(new Set<string>());
   const [confirming, setConfirming] = useState<AutoPostCandidate | null>(null);
   const [confirmingApproval, setConfirmingApproval] = useState(false);
+  const historyRuns = runs?.filter((run) => run.id !== activeRun?.id) ?? null;
 
   const toggle = (candidateId: string) => setExpanded((current) => {
     const next = new Set(current);
@@ -50,8 +59,13 @@ export function AutoPostDesk({
 
   const confirmApproval = async () => {
     if (!activeRun) return;
-    await onApprove(activeRun.id);
-    setConfirmingApproval(false);
+    try {
+      await onApprove(activeRun.id);
+    } catch {
+      // The hook owns the error alert; closing the dialog makes it visible.
+    } finally {
+      setConfirmingApproval(false);
+    }
   };
 
   return (
@@ -74,6 +88,11 @@ export function AutoPostDesk({
         <button type="button" onClick={() => void onReload()}>Reload</button>
       </div> : null}
 
+      {publishedPostId ? <div className="auto-post-published" role="status">
+        <strong>Published</strong>
+        <span>Post {publishedPostId} is live and has moved to Previous official posts.</span>
+      </div> : null}
+
       {activeRun ? <ActiveRun
         run={activeRun}
         expanded={expanded}
@@ -89,16 +108,19 @@ export function AutoPostDesk({
           <p>Publication ledger</p>
           <h2 id="auto-post-history-title">Previous official posts</h2>
         </div>
-        {runs === null ? <p className="auto-post-empty" aria-live="polite">Reading the publication ledger…</p>
-          : runs.length === 0 ? <p className="auto-post-empty">
+        {historyRuns === null ? <p className="auto-post-empty" aria-live="polite">Reading the publication ledger…</p>
+          : historyRuns.length === 0 ? <p className="auto-post-empty">
             No official posts have been created through this desk yet.
           </p> : <ol>
-            {runs.map((run) => <HistoryRow
+            {historyRuns.map((run) => <HistoryRow
               key={run.id}
               run={run}
+              viewedRun={viewedRun?.id === run.id ? viewedRun : null}
+              loading={loadingRunId === run.id}
               retrying={retryingRunId === run.id}
               retryDisabled={retryingRunId !== null}
               onRetry={onRetry}
+              onView={onViewRun}
             />)}
           </ol>}
       </section>
@@ -248,28 +270,70 @@ function DraftReview({ run, approving, onApprove }: {
   </section>;
 }
 
-function HistoryRow({ run, retrying, retryDisabled, onRetry }: {
+function HistoryRow({ run, viewedRun, loading, retrying, retryDisabled, onRetry, onView }: {
   run: AutoPostRun;
+  viewedRun: AutoPostRun | null;
+  loading: boolean;
   retrying: boolean;
   retryDisabled: boolean;
   onRetry: (runId: string) => Promise<void>;
+  onView: (runId: string) => Promise<void>;
 }) {
   const selected = run.candidates.find((candidate) => candidate.id === run.selectedCandidateId);
   const canRetryDraft = run.status === "FAILED"
     && run.selectedCandidateId !== null
     && run.pepperDraftId !== null;
-  return <li>
-    <time dateTime={run.createdAt}>{formatHistoryDate(run.createdAt)}</time>
-    <div><strong>{selected?.headline ?? statusLabel(run.status)}</strong>
-      <span>{statusLabel(run.status)}</span></div>
-    {canRetryDraft ? <button
-      type="button"
-      className="auto-post-history__retry"
-      disabled={retryDisabled}
-      onClick={() => void onRetry(run.id)}
-    >{retrying ? "Retrying…" : "Retry draft"}</button>
-      : <span>{run.publishedPostId ? `Post ${run.publishedPostId}` : "-"}</span>}
+  return <li className="auto-post-history__item">
+    <div className="auto-post-history__row">
+      <button type="button" className="auto-post-history__open"
+        disabled={loading} onClick={() => void onView(run.id)}>
+        <time dateTime={run.createdAt}>{formatHistoryDate(run.createdAt)}</time>
+        <span className="auto-post-history__copy">
+          <strong>{selected?.headline ?? statusLabel(run.status)}</strong>
+          <span>{statusLabel(run.status)}</span>
+        </span>
+        <span>{loading ? "Loading…" : run.publishedPostId ? `Post ${run.publishedPostId}` : "View"}</span>
+      </button>
+      {canRetryDraft ? <button
+        type="button"
+        className="auto-post-history__retry"
+        disabled={retryDisabled}
+        onClick={() => void onRetry(run.id)}
+      >{retrying ? "Retrying…" : "Retry draft"}</button> : null}
+    </div>
+    {viewedRun ? <HistoryRunDetails run={viewedRun} /> : null}
   </li>;
+}
+
+function HistoryRunDetails({ run }: { run: AutoPostRun }) {
+  const selected = run.candidates.find((candidate) => candidate.id === run.selectedCandidateId);
+  return <section className="auto-post-history__details" aria-label="Loaded official post">
+    <div className="auto-post-history__details-heading">
+      <div>
+        <p>{run.publishedPostId ? `Published post ${run.publishedPostId}` : statusLabel(run.status)}</p>
+        <h3>{selected?.headline ?? "Official-post workflow"}</h3>
+      </div>
+      <span>{statusLabel(run.status)}</span>
+    </div>
+    {run.draft ? <>
+      <p>{run.draft.summary}</p>
+      {run.draft.caseFor ? <div><strong>Case for</strong><p>{run.draft.caseFor}</p></div> : null}
+      {run.draft.caseAgainst ? <div><strong>Case against</strong><p>{run.draft.caseAgainst}</p></div> : null}
+      <div className="auto-post-draft__vote">
+        <strong>{run.draft.supportQuestion}</strong>
+        <ul>{run.draft.voteOptions.map((option) => <li key={option}>{option}</li>)}</ul>
+      </div>
+      <div className="auto-post-draft__sources">
+        <strong>Sources</strong>
+        <ul>{run.draft.citations.map((source) => <li key={source.url}>
+          <a href={source.url} target="_blank" rel="noreferrer">
+            {source.publisher}: {source.title}
+          </a>
+        </li>)}</ul>
+      </div>
+    </> : selected ? <p>{selected.summary}</p>
+      : <p>{run.errorMessage ?? "No post draft was created for this workflow."}</p>}
+  </section>;
 }
 
 function statusLabel(status: AutoPostRun["status"]) {
