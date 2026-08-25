@@ -9,6 +9,7 @@ import com.yoursay.user.user.dto.YourSayUserDto;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Public contract for the user domain. Controllers and other domains depend on this
@@ -28,6 +29,12 @@ public interface YourSayUserService {
 
     /** Users for the given ids, in the same order as {@code ids} (unknown ids are dropped). */
     List<YourSayUserDto> getByIds(List<Long> ids);
+
+    /**
+     * Public handles for the given ids, keyed by user id (unknown ids are absent). PII-free, so
+     * other domains can label content with its author without ever seeing name, email or DOB.
+     */
+    Map<Long, String> usernamesByIds(List<Long> ids);
 
     YourSayUserDto getByEmail(String email);
 

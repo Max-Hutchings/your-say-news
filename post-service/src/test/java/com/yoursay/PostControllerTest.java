@@ -45,6 +45,8 @@ public class PostControllerTest {
     private static final long AUTHOR_ID = 42L;
     // A different author who never posts — used to prove getByUser actually filters by author.
     private static final long OTHER_AUTHOR_ID = 7L;
+    // The author's public handle, which the feed shows in place of an anonymous "Author 42".
+    private static final String AUTHOR_USERNAME = "official.desk";
 
     @InjectMock
     UserServiceClient userServiceClient;
@@ -66,6 +68,15 @@ public class PostControllerTest {
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
                         AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
+
+        // Posts are labelled with their author's public handle, resolved from the user domain.
+        Mockito.when(userServiceClient.usernamesByIds(Mockito.anyList()))
+                .thenAnswer(invocation -> {
+                    java.util.List<Long> ids = invocation.getArgument(0);
+                    return Uni.createFrom().item(ids.stream()
+                            .filter(id -> id == AUTHOR_ID)
+                            .collect(java.util.stream.Collectors.toMap(id -> id, id -> AUTHOR_USERNAME)));
+                });
 
         PresignedPutObjectRequest put = Mockito.mock(PresignedPutObjectRequest.class);
         Mockito.when(put.url()).thenReturn(URI.create("https://s3.local/upload?sig=put").toURL());
@@ -216,6 +227,7 @@ public class PostControllerTest {
                 .then()
                 .statusCode(201)
                 .body("userId", is((int) AUTHOR_ID))
+                .body("authorUsername", is(AUTHOR_USERNAME))
                 .body("$", not(hasKey("title")))
                 .body("summary", is("Body summary"))
                 .body("supportQuestion", is("Should large platforms be accountable?"))
@@ -245,6 +257,7 @@ public class PostControllerTest {
                 .statusCode(200)
                 .body("id", is(id))
                 .body("userId", is((int) AUTHOR_ID))
+                .body("authorUsername", is(AUTHOR_USERNAME))
                 .body("$", not(hasKey("title")))
                 .body("summary", is("Body summary"))
                 .body("supportQuestion", is("Should large platforms be accountable?"))
@@ -378,6 +391,35 @@ public class PostControllerTest {
                 .then()
                 .statusCode(200)
                 .body("size()", is(0));
+    }
+
+    @Test
+    public void everyPostOnAPageCarriesItsAuthorsUsername() {
+        createPost("Should page labelling work " + UUID.randomUUID() + "?");
+        createPost("Should page labelling still work " + UUID.randomUUID() + "?");
+
+        given()
+                .when().get("/posts/user/" + AUTHOR_ID)
+                .then()
+                .statusCode(200)
+                .body("size()", greaterThanOrEqualTo(2))
+                .body("authorUsername", everyItem(is(AUTHOR_USERNAME)));
+    }
+
+    @Test
+    public void postFromAnAuthorTheUserDomainCannotResolveCarriesNoUsername() {
+        // A deleted or unknown author must not break the read — the card simply has no username.
+        Mockito.when(userServiceClient.usernamesByIds(Mockito.anyList()))
+                .thenReturn(Uni.createFrom().item(java.util.Map.of()));
+
+        int id = createPost("Should an unresolved author still read " + UUID.randomUUID() + "?");
+
+        given()
+                .when().get("/posts/" + id)
+                .then()
+                .statusCode(200)
+                .body("userId", is((int) AUTHOR_ID))
+                .body("authorUsername", nullValue());
     }
 
     @Test

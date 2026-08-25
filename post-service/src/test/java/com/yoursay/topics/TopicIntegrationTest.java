@@ -87,6 +87,8 @@ class TopicIntegrationTest {
                 .thenReturn(Uni.createFrom().item(new FeedUserClient.UserRef(AUTHOR_ID)));
         Mockito.when(socialClient.getFollowing(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new SocialClient.FollowingRef(Set.of())));
+        Mockito.when(userServiceClient.usernamesByIds(Mockito.anyList()))
+                .thenReturn(Uni.createFrom().item(java.util.Map.of(AUTHOR_ID, "official.desk")));
     }
 
     @Test

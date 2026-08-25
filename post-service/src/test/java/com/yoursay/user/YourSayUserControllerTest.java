@@ -1,6 +1,7 @@
 package com.yoursay.user;
 
 
+import com.yoursay.user.user.YourSayUserService;
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.SecurityAttribute;
@@ -15,9 +16,12 @@ import java.sql.ResultSet;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 @QuarkusTest
@@ -27,6 +31,9 @@ public class YourSayUserControllerTest {
 
     @Inject
     AgroalDataSource dataSource;
+
+    @Inject
+    YourSayUserService userService;
 
 
     @Test
@@ -269,6 +276,49 @@ public class YourSayUserControllerTest {
                         .compareTo(Duration.ofNanos(1_000)) < 0,
                 () -> "Stored stamp " + persisted + " must match the returned " + returned
                         + " to the microsecond Postgres can hold");
+    }
+
+    @Test
+    public void usernamesByIdsReturnsPublicHandlesForTheIdsAskedAndNothingElse() throws Exception {
+        // Other domains label content with the author's handle through this lookup, so it must
+        // return the handle for every id it knows and simply omit the ones it does not.
+        long amina = insertUserWithHandle("amina.lookup@example.com", "Amina", "Khan", "amina.k.lookup");
+        long sam = insertUserWithHandle("sam.lookup@example.com", "Sam", "Okafor", "sam.o.lookup");
+        try {
+            Map<Long, String> usernames = userService.usernamesByIds(List.of(amina, sam, 987654L));
+
+            assertEquals(Map.of(amina, "amina.k.lookup", sam, "sam.o.lookup"), usernames);
+        } finally {
+            deleteUserByEmail("amina.lookup@example.com");
+            deleteUserByEmail("sam.lookup@example.com");
+        }
+    }
+
+    @Test
+    public void usernamesByIdsIsEmptyWithoutIdsRatherThanQueryingEveryUser() {
+        assertEquals(Map.of(), userService.usernamesByIds(List.of()));
+        assertEquals(Map.of(), userService.usernamesByIds(null));
+    }
+
+    private long insertUserWithHandle(String email, String firstName, String lastName, String handle)
+            throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into your_say_user(
+                         email, first_name, last_name, display_name, handle, created_date, active)
+                     values (?, ?, ?, ?, ?, now(), true)
+                     returning id
+                     """)) {
+            statement.setString(1, email);
+            statement.setString(2, firstName);
+            statement.setString(3, lastName);
+            statement.setString(4, firstName + " " + lastName);
+            statement.setString(5, handle);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getLong(1);
+            }
+        }
     }
 
     private void deleteUserByEmail(String email) throws Exception {

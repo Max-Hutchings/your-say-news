@@ -44,6 +44,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -146,7 +147,8 @@ public class PostServiceImpl implements PostService {
                 .flatMap(options -> sourceRepository.listByPostIds(List.of(post.getId()))
                         .map(sources -> toDto(post, options, sources)))
                 .flatMap(dto -> topicService.effectiveTagsForPosts(List.of(post.getId()))
-                        .map(tags -> dto.withTopicTags(tags.getOrDefault(post.getId(), List.of()))));
+                        .map(tags -> dto.withTopicTags(tags.getOrDefault(post.getId(), List.of()))))
+                .flatMap(this::withAuthorUsername);
     }
 
     private static List<CreatePostRequest.Media> requestedMedia(CreatePostRequest request) {
@@ -221,7 +223,8 @@ public class PostServiceImpl implements PostService {
                 .assignCreatorTags(saved.getId(), topicTagIds)
                 .flatMap(tags -> sourceRepository.listByPostIds(List.of(saved.getId()))
                         .map(sources -> toDto(saved, saved.getVoteOptions(), sources)
-                                .withTopicTags(tags))));
+                                .withTopicTags(tags))))
+                .flatMap(this::withAuthorUsername);
     }
 
     @Override
@@ -234,7 +237,8 @@ public class PostServiceImpl implements PostService {
                                 .map(sources -> toDto(post, options, sources)))
                         .flatMap(dto -> topicService.effectiveTagsForPosts(List.of(id))
                                 .map(byPostId -> dto.withTopicTags(
-                                        byPostId.getOrDefault(id, List.of())))));
+                                        byPostId.getOrDefault(id, List.of()))))
+                        .flatMap(this::withAuthorUsername));
     }
 
     @Override
@@ -289,8 +293,33 @@ public class PostServiceImpl implements PostService {
                                     optionsByPostId.getOrDefault(post.getId(), List.of()),
                                     sourcesByPostId.getOrDefault(post.getId(), List.of()))
                             .withTopicTags(tagsByPostId.getOrDefault(post.getId(), List.of())))
-                    .toList());
+                    .toList())
+                    .flatMap(this::withAuthorUsernames);
         }));
+    }
+
+    /**
+     * Label a page of posts with their authors' public handles, resolved in one batched lookup so a
+     * page never costs a user query per card. The handle is public profile data — no PII crosses.
+     */
+    private Uni<List<PostDto>> withAuthorUsernames(List<PostDto> posts) {
+        List<Long> authorIds = posts.stream()
+                .map(PostDto::userId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        return userServiceClient.usernamesByIds(authorIds)
+                .map(usernamesByUserId -> posts.stream()
+                        .map(post -> post.withAuthorUsername(usernamesByUserId.get(post.userId())))
+                        .toList());
+    }
+
+    private Uni<PostDto> withAuthorUsername(PostDto post) {
+        if (post == null || post.userId() == null) {
+            return Uni.createFrom().item(post);
+        }
+        return userServiceClient.usernamesByIds(List.of(post.userId()))
+                .map(usernamesByUserId -> post.withAuthorUsername(usernamesByUserId.get(post.userId())));
     }
 
     private PostDto toDto(
@@ -305,6 +334,8 @@ public class PostServiceImpl implements PostService {
         return new PostDto(
                 post.getId(),
                 post.getUserId(),
+                // Decorated by the caller, alongside topic tags, from the user domain.
+                null,
                 post.getSummary(),
                 post.getSupportQuestion(),
                 post.getCaseFor(),

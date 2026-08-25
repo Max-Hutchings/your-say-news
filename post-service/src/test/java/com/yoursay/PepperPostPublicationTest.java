@@ -46,6 +46,8 @@ class PepperPostPublicationTest {
         Mockito.when(agentUserClient.getCurrentUserAccess(Mockito.eq(AUTHORIZATION)))
                 .thenReturn(new AgentUserClient.UserAccess(
                         AUTHOR_ID, "OFFICIAL", "ACTIVE", true));
+        Mockito.when(postUserClient.usernamesByIds(Mockito.anyList()))
+                .thenReturn(Uni.createFrom().item(java.util.Map.of(AUTHOR_ID, "official.desk")));
         try (Connection connection = dataSource.getConnection()) {
             try (PreparedStatement posts = connection.prepareStatement(
                     "delete from post where ai_draft_id in "

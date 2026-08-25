@@ -81,6 +81,17 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     }
 
     @Override
+    public Map<Long, String> usernamesByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        return yourSayUserRepository.findUsersByIds(ids).stream()
+                .filter(user -> user.getHandle() != null)
+                .collect(Collectors.toMap(YourSayUser::getId, YourSayUser::getHandle,
+                        (existing, duplicate) -> existing));
+    }
+
+    @Override
     public YourSayUserDto getByEmail(String email) {
         return toDto(yourSayUserRepository.findByEmail(email));
     }

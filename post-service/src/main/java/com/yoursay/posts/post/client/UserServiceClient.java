@@ -13,6 +13,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 
+import java.util.List;
+import java.util.Map;
+
 @ApplicationScoped
 public class UserServiceClient {
 
@@ -27,6 +30,17 @@ public class UserServiceClient {
             YourSayUserDto user = userService.getById(id);
             return user == null ? Response.noContent().build() : Response.ok(user).build();
         });
+    }
+
+    /**
+     * Public handles for a page of authors, keyed by user id, so posts can be labelled with their
+     * author's username in one lookup rather than one per card.
+     */
+    public Uni<Map<Long, String>> usernamesByIds(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Uni.createFrom().item(Map.of());
+        }
+        return blocking(() -> userService.usernamesByIds(userIds));
     }
 
     /** Resolve the authenticated subject and publishing capability without accepting caller identity. */
