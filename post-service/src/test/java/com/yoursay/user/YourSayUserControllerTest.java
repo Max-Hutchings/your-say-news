@@ -284,18 +284,25 @@ public class YourSayUserControllerTest {
         // return the handle for every id it knows and simply omit the ones it does not.
         long amina = insertUserWithHandle("amina.lookup@example.com", "Amina", "Khan", "amina.k.lookup");
         long sam = insertUserWithHandle("sam.lookup@example.com", "Sam", "Okafor", "sam.o.lookup");
+        long closed = insertUserWithHandle("theo.lookup@example.com", "Theo", "Adeyemi", "theo.a.lookup");
+        setUserActive(closed, false);
         try {
-            Map<Long, String> usernames = userService.usernamesByIds(List.of(amina, sam, 987654L));
+            Map<Long, String> usernames = userService.usernamesByIds(List.of(amina, sam, closed, 987654L));
 
-            assertEquals(Map.of(amina, "amina.k.lookup", sam, "sam.o.lookup"), usernames);
+            // A deactivated account keeps its handle, so its existing stories stay attributed
+            // rather than silently losing their author.
+            assertEquals(
+                    Map.of(amina, "amina.k.lookup", sam, "sam.o.lookup", closed, "theo.a.lookup"),
+                    usernames);
         } finally {
             deleteUserByEmail("amina.lookup@example.com");
             deleteUserByEmail("sam.lookup@example.com");
+            deleteUserByEmail("theo.lookup@example.com");
         }
     }
 
     @Test
-    public void usernamesByIdsIsEmptyWithoutIdsRatherThanQueryingEveryUser() {
+    public void usernamesByIdsReturnsNothingWhenAskedForNoIds() {
         assertEquals(Map.of(), userService.usernamesByIds(List.of()));
         assertEquals(Map.of(), userService.usernamesByIds(null));
     }

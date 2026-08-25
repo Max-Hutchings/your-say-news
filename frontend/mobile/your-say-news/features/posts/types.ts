@@ -47,6 +47,8 @@ export interface PostMedia {
 export interface Post {
   id: number;
   userId: number;
+  /** The author's public handle, shown on the card. Null when the service cannot resolve them. */
+  authorUsername: string | null;
   summary: string;
   supportQuestion: string;
   /** Optional one-line arguments shown as the "case for" / "case against" cards. */

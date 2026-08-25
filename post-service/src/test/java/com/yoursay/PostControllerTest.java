@@ -45,8 +45,9 @@ public class PostControllerTest {
     private static final long AUTHOR_ID = 42L;
     // A different author who never posts — used to prove getByUser actually filters by author.
     private static final long OTHER_AUTHOR_ID = 7L;
-    // The author's public handle, which the feed shows in place of an anonymous "Author 42".
+    // The public handles the feed shows in place of an anonymous "Author 42".
     private static final String AUTHOR_USERNAME = "official.desk";
+    private static final String OTHER_AUTHOR_USERNAME = "nadia.reports";
 
     @InjectMock
     UserServiceClient userServiceClient;
@@ -70,12 +71,16 @@ public class PostControllerTest {
                         AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
 
         // Posts are labelled with their author's public handle, resolved from the user domain.
+        // The stub answers only for the ids it is asked about, so a page that mixes authors is
+        // labelled from the real per-post lookup rather than from one blanket handle.
+        java.util.Map<Long, String> handlesByUserId =
+                java.util.Map.of(AUTHOR_ID, AUTHOR_USERNAME, OTHER_AUTHOR_ID, OTHER_AUTHOR_USERNAME);
         Mockito.when(userServiceClient.usernamesByIds(Mockito.anyList()))
                 .thenAnswer(invocation -> {
                     java.util.List<Long> ids = invocation.getArgument(0);
                     return Uni.createFrom().item(ids.stream()
-                            .filter(id -> id == AUTHOR_ID)
-                            .collect(java.util.stream.Collectors.toMap(id -> id, id -> AUTHOR_USERNAME)));
+                            .filter(handlesByUserId::containsKey)
+                            .collect(java.util.stream.Collectors.toMap(id -> id, handlesByUserId::get)));
                 });
 
         PresignedPutObjectRequest put = Mockito.mock(PresignedPutObjectRequest.class);
@@ -394,16 +399,33 @@ public class PostControllerTest {
     }
 
     @Test
-    public void everyPostOnAPageCarriesItsAuthorsUsername() {
-        createPost("Should page labelling work " + UUID.randomUUID() + "?");
-        createPost("Should page labelling still work " + UUID.randomUUID() + "?");
+    public void eachPostOnAPageIsLabelledWithItsOwnAuthorsUsername() {
+        // Two authors on one page: attributing either story to the other author is the failure
+        // this feature must never have, so the page has to be labelled post by post.
+        createPost("Should the desk's story be attributed to the desk " + UUID.randomUUID() + "?");
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        OTHER_AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
+        createPost("Should Nadia's story be attributed to Nadia " + UUID.randomUUID() + "?");
+
+        // Only the page read's lookup should be counted, not the two creates before it.
+        Mockito.clearInvocations(userServiceClient);
+        ArgumentCaptor<java.util.List<Long>> lookedUpIds = ArgumentCaptor.forClass(java.util.List.class);
 
         given()
-                .when().get("/posts/user/" + AUTHOR_ID)
+                .when().get("/posts?page=0&size=2")
                 .then()
                 .statusCode(200)
-                .body("size()", greaterThanOrEqualTo(2))
-                .body("authorUsername", everyItem(is(AUTHOR_USERNAME)));
+                .body("size()", is(2))
+                .body("find { it.userId == " + AUTHOR_ID + " }.authorUsername", is(AUTHOR_USERNAME))
+                .body("find { it.userId == " + OTHER_AUTHOR_ID + " }.authorUsername",
+                        is(OTHER_AUTHOR_USERNAME));
+
+        // One batched lookup for the whole page — a per-post lookup would be an N+1 on the feed.
+        Mockito.verify(userServiceClient, Mockito.times(1)).usernamesByIds(lookedUpIds.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Set.of(AUTHOR_ID, OTHER_AUTHOR_ID),
+                java.util.Set.copyOf(lookedUpIds.getValue()));
     }
 
     @Test

@@ -12,7 +12,6 @@ import { useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont, feedMediaHeight } from "@/constants/theme";
 import { VoteControls } from "@/features/votes";
 import type { Post } from "../types";
-import { AiGeneratedBadge } from "./AiGeneratedBadge";
 import { PostSources } from "./PostSources";
 import { PostVideo } from "./PostVideo";
 import { PostImageCarousel } from "./PostImageCarousel";
@@ -136,6 +135,9 @@ export function PostCard({
   // The vote — always visible. The votes domain owns the interaction, locked state and errors.
   const voteRow = <VoteControls postId={post.id} votingType={post.votingType}
     options={post.voteOptions} supportQuestion={post.supportQuestion} onNextPost={onNextPost} />;
+  // The author's public handle, served with the post. A post whose author the service cannot
+  // resolve still reads, so the pill falls back to a neutral label rather than an empty chip.
+  const authorLabel = post.authorUsername ? `@${post.authorUsername}` : "Unknown author";
   const authorLink = (overMedia = false) => (
     <Pressable
       style={[
@@ -151,7 +153,9 @@ export function PostCard({
       accessibilityLabel="Open author profile"
     >
       <Ionicons name="person-circle-outline" size={15} color={overMedia ? e.onMedia : e.ink} />
-      <Text style={[styles.authorText, { color: overMedia ? e.onMedia : e.ink }]}>Author {post.userId}</Text>
+      <Text style={[styles.authorText, { color: overMedia ? e.onMedia : e.ink }]}>
+        {authorLabel}
+      </Text>
     </Pressable>
   );
 
@@ -198,11 +202,6 @@ export function PostCard({
         >
           {mediaBox.h > 0 && immersiveMedia}
 
-          {post.isAiGenerated && (
-            <View style={styles.badgeOverlay}>
-              <AiGeneratedBadge />
-            </View>
-          )}
           <View style={[styles.timeOverlay, { backgroundColor: e.mediaScrim }]}>
             <Text style={[styles.timeOverlayText, { color: e.onMedia }]}>{timeAgo(post.createdAt)}</Text>
           </View>
@@ -267,12 +266,6 @@ export function PostCard({
         <View testID="post-media-stage" style={{ width: window.width, height: mediaBoxHeight }}>
           {mediaContent}
 
-          {post.isAiGenerated && (
-            <View style={styles.badgeOverlay}>
-              <AiGeneratedBadge />
-            </View>
-          )}
-
           {/* Time posted, over the media bottom-left. */}
           <View style={[styles.timeOverlay, { backgroundColor: e.mediaScrim }]}>
             <Text style={[styles.timeOverlayText, { color: e.onMedia }]}>{timeAgo(post.createdAt)}</Text>
@@ -285,7 +278,6 @@ export function PostCard({
         {/* Text-only posts have no media to overlay, so the meta shows here. */}
         {!hasMedia && (
           <View style={styles.metaRow}>
-            {post.isAiGenerated ? <AiGeneratedBadge /> : <View />}
             <Text style={[styles.meta, { color: e.muted }]}>{timeAgo(post.createdAt)}</Text>
           </View>
         )}
@@ -384,11 +376,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   // ── Stacked (landscape / text-only) ──
-  badgeOverlay: {
-    position: "absolute",
-    left: 11,
-    top: 11,
-  },
   timeOverlay: {
     position: "absolute",
     left: 11,
@@ -404,7 +391,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     minHeight: 18,
   },
   meta: {

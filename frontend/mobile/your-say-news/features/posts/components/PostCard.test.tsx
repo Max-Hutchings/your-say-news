@@ -47,6 +47,7 @@ function renderWithTheme(ui: React.ReactElement) {
 const basePost: Post = {
   id: 7,
   userId: 3,
+  authorUsername: "amina.k",
   summary:
     "The plan adds two miles of protected lane through the city centre.\n\nSupporters call it overdue; drivers worry about the lost road space.",
   supportQuestion: "Do you agree the cycle lane should go ahead?",
@@ -116,6 +117,17 @@ describe("PostCard", () => {
     renderWithTheme(<PostCard post={basePost} />);
     fireEvent.press(screen.getByLabelText("Open author profile"));
     expect(mockPush).toHaveBeenCalledWith("/profiles/3");
+  });
+
+  it("names the author by their username rather than their id", () => {
+    renderWithTheme(<PostCard post={basePost} />);
+    expect(screen.getByText("@amina.k")).toBeOnTheScreen();
+    expect(screen.queryByText("Author 3")).toBeNull();
+  });
+
+  it("falls back to a neutral label when the author has no username", () => {
+    renderWithTheme(<PostCard post={{ ...basePost, authorUsername: null }} />);
+    expect(screen.getByText("Unknown author")).toBeOnTheScreen();
   });
 
   it("renders topic chips and sends the canonical id when one is selected", () => {
@@ -196,14 +208,17 @@ describe("PostCard", () => {
     expect(screen.queryByTestId("post-card-video")).toBeNull();
   });
 
-  it("hides the AI label when the post was written manually", () => {
-    renderWithTheme(<PostCard post={basePost} />);
-    expect(screen.queryByText("AI GENERATED")).toBeNull();
-  });
+  it("renders a post published from a Pepper draft exactly like a hand-written one", () => {
+    // Provenance is a server-side record, not a reader-facing label: the card must look the same
+    // either way, so any AI-conditional UI reintroduced here fails this comparison.
+    // Handlers are compared away (JSON drops functions); the rendered structure and copy are not.
+    const structure = (tree: unknown) => JSON.parse(JSON.stringify(tree));
+    const aiPost = structure(renderWithTheme(<PostCard post={{ ...basePost, isAiGenerated: true }} />).toJSON());
+    screen.unmount();
+    const writtenPost = structure(renderWithTheme(<PostCard post={basePost} />).toJSON());
 
-  it("labels posts whose completed Pepper draft was published", () => {
-    renderWithTheme(<PostCard post={{ ...basePost, isAiGenerated: true }} />);
-    expect(screen.getByText("AI GENERATED")).toBeOnTheScreen();
+    expect(aiPost).toEqual(writtenPost);
+    expect(screen.queryByText("AI GENERATED")).toBeNull();
   });
 
   it("renders citations after the article text and supporting arguments", () => {

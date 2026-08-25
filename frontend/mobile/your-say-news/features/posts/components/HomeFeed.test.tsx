@@ -60,6 +60,7 @@ const mockGetFeed = getFeed as jest.Mock;
 const posts: Post[] = [1, 2].map((id) => ({
   id,
   userId: 10 + id,
+  authorUsername: `reader.${id}`,
   summary: `Summary ${id}`,
   supportQuestion: `Support story ${id}?`,
   caseFor: null,
