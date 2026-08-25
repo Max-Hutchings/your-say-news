@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react-native";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react-native";
 import { ThemeProvider } from "@/constants/theme";
 import { PostCard } from "./PostCard";
 import type { Post } from "../types";
@@ -7,6 +7,16 @@ import type { Post } from "../types";
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
+}));
+
+const mockCreateUrl = jest.fn();
+jest.mock("expo-linking", () => ({
+  createURL: (...args: unknown[]) => mockCreateUrl(...args),
+}));
+
+const mockSetStringAsync = jest.fn();
+jest.mock("expo-clipboard", () => ({
+  setStringAsync: (...args: unknown[]) => mockSetStringAsync(...args),
 }));
 
 // The vote controls (from @/features/votes) fetch the caller's vote on mount; stub the votes
@@ -98,6 +108,12 @@ describe("PostCard", () => {
     mockGetMine.mockReset().mockResolvedValue(null);
     mockCast.mockReset();
     mockUseVideoPlayer.mockReset();
+    mockCreateUrl.mockReset().mockReturnValue("yoursaynews://posts/7");
+    mockSetStringAsync.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it("uses the support question as the sole heading above the article", () => {
@@ -117,6 +133,32 @@ describe("PostCard", () => {
     renderWithTheme(<PostCard post={basePost} />);
     fireEvent.press(screen.getByLabelText("Open author profile"));
     expect(mockPush).toHaveBeenCalledWith("/profiles/3");
+  });
+
+  it("copies the post link and briefly confirms it", async () => {
+    jest.useFakeTimers();
+    renderWithTheme(<PostCard post={basePost} />);
+
+    fireEvent.press(screen.getByLabelText("Share post"));
+
+    await waitFor(() => {
+      expect(mockCreateUrl).toHaveBeenCalledWith("/posts/7");
+      expect(mockSetStringAsync).toHaveBeenCalledWith("yoursaynews://posts/7");
+      expect(screen.getByText("Link copied")).toBeOnTheScreen();
+    });
+
+    act(() => jest.runOnlyPendingTimers());
+    expect(screen.queryByText("Link copied")).toBeNull();
+  });
+
+  it("does not claim success when the clipboard rejects the copy", async () => {
+    mockSetStringAsync.mockRejectedValueOnce(new Error("clipboard unavailable"));
+    renderWithTheme(<PostCard post={basePost} />);
+
+    fireEvent.press(screen.getByLabelText("Share post"));
+
+    expect(await screen.findByText("Couldn't copy link")).toBeOnTheScreen();
+    expect(screen.queryByText("Link copied")).toBeNull();
   });
 
   it("names the author by their username rather than their id", () => {

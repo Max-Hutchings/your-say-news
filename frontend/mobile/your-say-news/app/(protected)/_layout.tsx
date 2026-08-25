@@ -1,6 +1,6 @@
 // app/(protected)/_layout.tsx
 import { Stack } from "expo-router";
-import { useTheme, getEditorial } from "@/constants/theme";
+import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 
 /**
  * Protected area layout.
@@ -30,6 +30,17 @@ export default function ProtectedLayout() {
             <Stack.Screen name="profiles/[userId]/index" />
             <Stack.Screen name="profiles/[userId]/connections" />
             <Stack.Screen name="profiles/me" />
+            <Stack.Screen
+                name="posts/[postId]/index"
+                options={{
+                    headerShown: true,
+                    title: "Story",
+                    headerStyle: { backgroundColor: e.bg },
+                    headerTintColor: e.ink,
+                    headerShadowVisible: false,
+                    headerTitleStyle: { fontFamily: EditorialFont.sansBold },
+                }}
+            />
             <Stack.Screen name="posts/[postId]/unwrapped" />
             <Stack.Screen name="account" options={{ presentation: "modal" }} />
             <Stack.Screen name="settings" />

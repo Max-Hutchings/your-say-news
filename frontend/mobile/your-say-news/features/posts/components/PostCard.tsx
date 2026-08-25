@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 import { useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont, feedMediaHeight } from "@/constants/theme";
 import { VoteControls } from "@/features/votes";
@@ -18,6 +20,7 @@ import { PostImageCarousel } from "./PostImageCarousel";
 import { ScrollableSummary } from "./ScrollableSummary";
 
 const VIDEO_SOUND_BOTTOM_INSET = 52;
+const SHARE_FEEDBACK_DURATION_MS = 1800;
 
 /**
  * One story, sized to fill a single screen in the immersive feed — the whole post is shown here,
@@ -62,6 +65,8 @@ export function PostCard({
 
   // Immersive portrait only: the story panel rises over the video on "See more".
   const [expanded, setExpanded] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const shareFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The media fills whatever height is left above the fixed question/vote block; we measure
   // that space so the media components (which need concrete pixel sizes) fill it exactly — no dead gap.
   const [mediaBox, setMediaBox] = useState({ w: 0, h: 0 });
@@ -69,6 +74,28 @@ export function PostCard({
   const toggle = (next: boolean) => {
     setExpanded(next);
     Animated.timing(reveal, { toValue: next ? 1 : 0, duration: 260, useNativeDriver: true }).start();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (shareFeedbackTimer.current) clearTimeout(shareFeedbackTimer.current);
+    };
+  }, []);
+
+  const showShareFeedback = (message: string) => {
+    setShareFeedback(message);
+    if (shareFeedbackTimer.current) clearTimeout(shareFeedbackTimer.current);
+    shareFeedbackTimer.current = setTimeout(() => setShareFeedback(null), SHARE_FEEDBACK_DURATION_MS);
+  };
+
+  const copyShareLink = async () => {
+    try {
+      const postUrl = Linking.createURL(`/posts/${post.id}`);
+      await Clipboard.setStringAsync(postUrl);
+      showShareFeedback("Link copied");
+    } catch {
+      showShareFeedback("Couldn't copy link");
+    }
   };
 
   // The case-for / case-against cards. Shared by both layouts.
@@ -158,6 +185,36 @@ export function PostCard({
       </Text>
     </Pressable>
   );
+  const shareButton = (overMedia = false) => (
+    <Pressable
+      style={[
+        styles.shareButton,
+        overMedia && styles.shareOverlay,
+        {
+          borderColor: overMedia ? e.mediaScrim : e.border,
+          backgroundColor: overMedia ? e.mediaScrim : e.surface,
+        },
+      ]}
+      onPress={() => void copyShareLink()}
+      accessibilityRole="button"
+      accessibilityLabel="Share post"
+    >
+      <Ionicons name="share-social-outline" size={18} color={overMedia ? e.onMedia : e.ink} />
+    </Pressable>
+  );
+  const shareToast = shareFeedback ? (
+    <View
+      style={[styles.shareToast, { backgroundColor: e.lime }]}
+      accessibilityLiveRegion="polite"
+    >
+      <Ionicons
+        name={shareFeedback === "Link copied" ? "checkmark" : "alert-circle-outline"}
+        size={15}
+        color={e.onLime}
+      />
+      <Text style={[styles.shareToastText, { color: e.onLime }]}>{shareFeedback}</Text>
+    </View>
+  ) : null;
 
   // Two fixed shapes: a tall 4:5 box for the immersive portrait layout, a wide 16:9 box otherwise.
   const mediaBoxHeight = feedMediaHeight(immersive ? "PORTRAIT" : "LANDSCAPE", window.width);
@@ -190,6 +247,7 @@ export function PostCard({
     );
     return (
       <View testID={`post-card-${post.id}`} style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
+        {shareToast}
         {/* Media fills the leftover space above the body and is measured so it never leaves a gap.
             The story panel slides up over it on "See more" — kept mounted so the read is instant. */}
         <View
@@ -206,6 +264,7 @@ export function PostCard({
             <Text style={[styles.timeOverlayText, { color: e.onMedia }]}>{timeAgo(post.createdAt)}</Text>
           </View>
           {authorLink(true)}
+          {shareButton(true)}
 
           {/* Falls back to cardHeight before the media area is measured so the panel stays hidden. */}
           <Animated.View
@@ -262,6 +321,7 @@ export function PostCard({
   // ── Stacked: landscape media (16:9) or text-only, with everything visible at once. ──────────────
   return (
     <View testID={`post-card-${post.id}`} style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
+      {shareToast}
       {hasMedia && (
         <View testID="post-media-stage" style={{ width: window.width, height: mediaBoxHeight }}>
           {mediaContent}
@@ -271,6 +331,7 @@ export function PostCard({
             <Text style={[styles.timeOverlayText, { color: e.onMedia }]}>{timeAgo(post.createdAt)}</Text>
           </View>
           {authorLink(true)}
+          {shareButton(true)}
         </View>
       )}
 
@@ -279,6 +340,7 @@ export function PostCard({
         {!hasMedia && (
           <View style={styles.metaRow}>
             <Text style={[styles.meta, { color: e.muted }]}>{timeAgo(post.createdAt)}</Text>
+            {shareButton()}
           </View>
         )}
 
@@ -391,7 +453,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
     minHeight: 18,
   },
   meta: {
@@ -418,6 +480,37 @@ const styles = StyleSheet.create({
     right: 12,
     bottom: 12,
     zIndex: 2,
+  },
+  shareButton: {
+    width: 34,
+    height: 34,
+    borderWidth: 1,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareOverlay: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 2,
+  },
+  shareToast: {
+    position: "absolute",
+    top: 12,
+    alignSelf: "center",
+    zIndex: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+  shareToastText: {
+    fontFamily: EditorialFont.sansSemiBold,
+    fontSize: 13,
+    fontWeight: "600",
   },
   motionBox: {
     flexDirection: "row",

@@ -8,6 +8,7 @@
 export { HomeFeed } from "./components/HomeFeed";
 export { CreatePostScreen } from "./components/CreatePostScreen";
 export { PostCard } from "./components/PostCard";
+export { PostScreen } from "./components/PostScreen";
 export { listByUser } from "./services/PostService";
 
 export type { Post, PostMedia, MediaType, FeedPage, FeedPostType, CreatePostInput, VoteOption, VotingType } from "./types";
