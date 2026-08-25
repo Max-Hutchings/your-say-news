@@ -7,7 +7,11 @@
 import { useEffect, useState } from "react";
 import { Platform, View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { Redirect } from "expo-router";
-import { completeKeycloakWebRedirectFromUrl, useAuthStore } from "@/features/auth";
+import {
+  completeKeycloakWebRedirectFromUrl,
+  useAuthStore,
+  type SessionRestoreResult,
+} from "@/features/auth";
 import { getEditorial, EditorialFont } from "@/constants/theme";
 
 // The pre-auth loading moment shares the sign-in screen's fixed dark brand palette.
@@ -25,33 +29,30 @@ function hasAuthRedirectParams(): boolean {
 const isWeb = Platform.OS === "web";
 
 export default function SplashScreen() {
-  const { completeLogin, isLoggedIn, _stateHydrated } = useAuthStore();
+  const { completeLogin, restoreSession, isLoggedIn, _stateHydrated } = useAuthStore();
+  // Captured once: completing the exchange strips the params from the URL, and the render gate
+  // below must not flip the moment that happens.
+  const [hadAuthRedirect] = useState(hasAuthRedirectParams);
   const [processingAuthRedirect, setProcessingAuthRedirect] = useState(hasAuthRedirectParams);
+  const [sessionResult, setSessionResult] = useState<SessionRestoreResult | null>(null);
 
+  // A sign-in redirect always wins. The user has just authenticated as somebody, and that identity
+  // replaces whatever was in storage outright. Deferring to a persisted session here is what made
+  // every sign-in land back on the stored user no matter who was entered at Keycloak.
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("code") || !url.searchParams.has("state")) {
-      return;
-    }
-
-    if (isLoggedIn) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-      queueMicrotask(() => setProcessingAuthRedirect(false));
+    if (typeof window === "undefined" || !hadAuthRedirect) {
       return;
     }
 
     let cancelled = false;
     completeKeycloakWebRedirectFromUrl(window.location.href)
       .then(async (tokens) => {
-        if (!cancelled && tokens) {
-          const loggedIn = await completeLogin(tokens);
-          if (loggedIn) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
+        if (cancelled || !tokens) {
+          return;
+        }
+        const loggedIn = await completeLogin(tokens);
+        if (loggedIn) {
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
       })
       .catch((error) => {
@@ -66,10 +67,42 @@ export default function SplashScreen() {
     return () => {
       cancelled = true;
     };
-  }, [completeLogin, isLoggedIn]);
+  }, [completeLogin, hadAuthRedirect]);
 
-  // Wait for auth state to be hydrated before redirecting
-  if ((!isWeb && !_stateHydrated) || processingAuthRedirect) {
+  // No sign-in in flight: whatever was restored from storage is only honoured once the server
+  // confirms it still accepts those credentials. restoreSession wipes a dead session itself, so it
+  // can never be served to the next person to open the app and nobody has to clear site data by hand.
+  useEffect(() => {
+    if (hadAuthRedirect || !_stateHydrated) {
+      return;
+    }
+
+    let cancelled = false;
+    restoreSession()
+      .then((result) => {
+        if (!cancelled) {
+          setSessionResult(result);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSessionResult("unverified");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [restoreSession, hadAuthRedirect, _stateHydrated]);
+
+  const checkingSession = hadAuthRedirect ? processingAuthRedirect : sessionResult === null;
+
+  // Only a session the server vouched for gets into the app. A restored session we could not verify
+  // is deliberately not admitted, even though its credentials are kept for a later attempt.
+  const admitted = hadAuthRedirect ? isLoggedIn : sessionResult === "signed-in";
+
+  // Wait for auth state to be hydrated, and for the stored session to be vouched for, before routing
+  if ((!isWeb && !_stateHydrated) || checkingSession) {
     return (
       <View style={[styles.container, { backgroundColor: e.bg }]}>
         {/* Brand lockup — lime badge + serif wordmark, matching sign-in */}
@@ -92,7 +125,7 @@ export default function SplashScreen() {
   }
 
   // Use Redirect component instead of programmatic navigation
-  if (isLoggedIn) {
+  if (admitted) {
     return <Redirect href="/(protected)" />;
   }
 

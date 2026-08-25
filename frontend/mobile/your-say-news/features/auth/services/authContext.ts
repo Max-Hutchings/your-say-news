@@ -1,10 +1,10 @@
 import {createJSONStorage, persist} from "zustand/middleware";
 import {Platform} from "react-native";
 import {create} from "zustand";
-import {User, UserState} from "../types";
+import {SessionRestoreResult, User, UserState} from "../types";
 import * as SecureStore from "expo-secure-store";
 import {KeycloakTokens, loginWithKeycloak, refreshTokens, revokeTokens} from "./keycloakService";
-import {getOnboardingStatus, getUser} from "./UserService";
+import {getOnboardingStatus, getUser, verifySession} from "./UserService";
 
 
 const isWeb = Platform.OS === "web";
@@ -39,6 +39,7 @@ export const useAuthStore = create(
 
             login,
             completeLogin,
+            restoreSession,
             logout,
             setHasOnboarded,
             setHasCharacteristics,
@@ -101,12 +102,42 @@ async function login(): Promise<boolean> {
     return completeLogin(tokens);
 }
 
+/**
+ * Identity fields reset to their signed-out defaults.
+ *
+ * Used whenever a new identity takes over or a session ends, so no field of the previous user
+ * (their consent, their onboarding flags, their account type) can survive into the next session.
+ */
+const SIGNED_OUT_IDENTITY = {
+    id: null,
+    email: null,
+    firstName: null,
+    lastName: null,
+    dateOfBirth: null,
+    consentedAt: null,
+    accountType: "USER",
+    publisherStatus: "NONE",
+    canPublish: false,
+    isLoggedIn: false,
+    hasOnboarded: false,
+    hasCharacteristics: false,
+} as const;
+
+const SIGNED_OUT_CREDENTIALS = {
+    accessToken: null,
+    refreshToken: null,
+    accessTokenExpiresAt: null,
+} as const;
+
 async function completeLogin(tokens: {
     accessToken: string;
     refreshToken: string | null;
     expiresIn: number | null;
 }): Promise<boolean> {
+    // Drop whoever was signed in before touching the new credentials. Signing in is a change of
+    // identity, so the previous user's details must never be left to blend with the new one's.
     useAuthStore.setState({
+        ...SIGNED_OUT_IDENTITY,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         accessTokenExpiresAt: expiresInToTimestamp(tokens.expiresIn),
@@ -118,21 +149,8 @@ async function completeLogin(tokens: {
 
     if (!user){
         useAuthStore.setState({
-            id: null,
-            email: null,
-            firstName: null,
-            lastName: null,
-            dateOfBirth: null,
-            consentedAt: null,
-            accountType: "USER",
-            publisherStatus: "NONE",
-            canPublish: false,
-            accessToken: null,
-            refreshToken: null,
-            accessTokenExpiresAt: null,
-            isLoggedIn: false,
-            hasOnboarded: false,
-            hasCharacteristics: false,
+            ...SIGNED_OUT_IDENTITY,
+            ...SIGNED_OUT_CREDENTIALS,
         });
         return false;
     }
@@ -159,6 +177,62 @@ async function completeLogin(tokens: {
     });
 
     return true;
+}
+
+/**
+ * Decide what a session restored from storage is actually worth, on startup.
+ *
+ * A persisted session must be one of two things and nothing in between: genuinely signed in, or
+ * gone. A stored identity whose token the server no longer accepts is wiped here — store, web
+ * storage and cookies — so it can never be handed to whoever opens the app next, and so nobody ever
+ * has to clear site data by hand to sign in as someone else.
+ *
+ * The one case we do not wipe is an unreachable server: that tells us nothing about the session, so
+ * throwing it away would sign people out every time the backend hiccups. It is reported as
+ * "unverified" and the caller keeps the user out of the app without destroying their credentials.
+ */
+async function restoreSession(): Promise<SessionRestoreResult> {
+    const { accessToken, refreshToken, isLoggedIn } = useAuthStore.getState();
+
+    // Any trace of a session has to be checked. Leftover tokens without an `isLoggedIn` flag (or the
+    // reverse) are exactly the half-written state this is meant to clean up, so they must not be
+    // waved through as "nothing stored".
+    if (!accessToken && !refreshToken && !isLoggedIn) {
+        return "signed-out";
+    }
+
+    const check = await verifySession();
+
+    if (check.state === "unauthenticated") {
+        await logout();
+        return "signed-out";
+    }
+
+    if (check.state === "unreachable") {
+        // Credentials are kept — they may still be good — but an unvouched-for session must not
+        // count as being signed in, or the route guards would admit it anyway.
+        useAuthStore.setState({ isLoggedIn: false });
+        return "unverified";
+    }
+
+    const status = await getOnboardingStatus();
+
+    useAuthStore.setState({
+        id: check.user.id,
+        email: check.user.email,
+        firstName: check.user.firstName,
+        lastName: check.user.lastName,
+        dateOfBirth: check.user.dateOfBirth,
+        consentedAt: check.user.consentedAt,
+        accountType: check.user.accountType,
+        publisherStatus: check.user.publisherStatus,
+        canPublish: check.user.canPublish,
+        hasCharacteristics: status?.hasCharacteristics ?? false,
+        hasOnboarded: status?.onboarded ?? false,
+        isLoggedIn: true,
+    });
+
+    return "signed-in";
 }
 
 /** Convert Keycloak's `expires_in` (seconds from now) to an absolute epoch-ms timestamp. */

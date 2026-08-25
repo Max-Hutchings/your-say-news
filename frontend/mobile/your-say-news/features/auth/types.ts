@@ -12,6 +12,9 @@ export type User = {
     canPublish: boolean;
 };
 
+/** Outcome of validating a session restored from storage — see `UserState.restoreSession`. */
+export type SessionRestoreResult = "signed-in" | "signed-out" | "unverified";
+
 /** Server's view of how far the user is through onboarding (GET /your-say-user/onboarding). */
 export type OnboardingStatus = {
     consented: boolean;
@@ -47,6 +50,13 @@ export interface UserState extends User {
         refreshToken: string | null;
         expiresIn: number | null;
     }) => Promise<boolean>;
+    /**
+     * Validate a session restored from storage on startup.
+     * - "signed-in"  — the server still recognises the stored credentials.
+     * - "signed-out" — nothing was stored, or what was stored is dead and has been wiped.
+     * - "unverified" — the server could not be reached, so the session was left untouched.
+     */
+    restoreSession: () => Promise<SessionRestoreResult>;
     logout: () => Promise<void>;
     setHasOnboarded: (onboarded: boolean) => void;
     setHasCharacteristics: (has: boolean) => void;
