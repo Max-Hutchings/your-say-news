@@ -11,6 +11,8 @@ sync by email**:
   `0001`, additional active accounts in `0003`, the clean onboarding account in `0004`, and
   official publisher classifications in `0005`. The profiled reader is in `0006`; the initial
   bootstrap assignment is in `0007`, and `0008` separates it into the dedicated admin account.
+  `0012` backfills consent for the four original accounts, and `0013` adds the profiled
+  account that deliberately has no consent.
 
 The join key between a Keycloak identity and its `YourSayUser` row is **email** (`YourSayUser.email`
 is unique, and the backend provisions users from token claims). Keep the email lists identical.
@@ -28,6 +30,7 @@ is unique, and the backend provisions users from token claims). Keep the email l
 | theo.campbell | theo.campbell@example.com | password123 | yes | **Official** | user | filled | 10 | Established-user/feed flows |
 | casey.morgan | casey.morgan@example.com | password123 | yes | User | user | **none** | 0 | Clean consent and characteristics onboarding |
 | riley.reader | riley.reader@example.com | password123 | yes | User | user | filled | 0 | Fully onboarded reader; cannot publish |
+| sam.okafor | sam.okafor@example.com | password123 | yes | User | user | filled | 0 | Profile filled but consent never recorded; stops on the privacy promise |
 
 Notes:
 

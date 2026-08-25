@@ -32,9 +32,12 @@ class AgentPromptResourcesTest {
 
     private static Stream<Arguments> promptResources() {
         return Stream.of(
+                // Recency is pinned as "last 24 hours", not the stricter "first reported or
+                // officially announced inside the supplied window" wording that ADR-048's
+                // reliability work deliberately dropped — see AutoPostAiClientTest.
                 Arguments.of("/prompts/autopost/system-prompt.md", List.of(
                         "current-story discovery editor", "live web search", "UK", "US", "GLOBAL",
-                        "duplicates", "neutral and factual", "supplied window")),
+                        "duplicates", "neutral and factual", "last 24 hours")),
                 Arguments.of("/prompts/autopost/output-instructions.md", List.of(
                         "exactly ten", "Rank", "`headline`", "at least one source", "web search")),
                 Arguments.of("/prompts/postagent/system-prompt.md", List.of(

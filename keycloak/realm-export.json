@@ -391,6 +391,26 @@
       ]
     },
     {
+      "username": "sam.okafor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Sam",
+      "lastName": "Okafor",
+      "email": "sam.okafor@example.com",
+      "createdTimestamp": 1717718400000,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user",
+        "offline_access"
+      ]
+    },
+    {
       "username": "smoke.voter.01",
       "enabled": true,
       "emailVerified": true,

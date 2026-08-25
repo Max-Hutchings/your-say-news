@@ -407,9 +407,10 @@ public class YourSayUserControllerTest {
     }
 
     @Test
-    @TestSecurity(user="john.doe@example.com", roles={"user"})
-    public void onboardingRequiresConsentToo_johnHasCharacteristicsButHasNotConsented() {
-        // John has a seeded characteristic profile but has never consented — so NOT onboarded.
+    @TestSecurity(user="sam.okafor@example.com", roles={"user"})
+    public void onboardingRequiresConsentToo_samHasCharacteristicsButHasNotConsented() {
+        // Sam has a seeded characteristic profile but has never consented — so NOT onboarded.
+        // (John was this fixture until seed 0012 gave ids 1-4 consent; 0013 seeds Sam for it.)
         given()
                 .when()
                 .get(BASE_URL + "/onboarding")
