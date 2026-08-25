@@ -45,6 +45,13 @@ export function selectAutoPostCandidate(runId: string, candidateId: string): Pro
   );
 }
 
+export function retryAutoPostDraft(runId: string): Promise<AutoPostRun> {
+  return autoPostRequest<AutoPostRun>(
+    `/api/admin/auto-post/runs/${runId}/retry-draft`,
+    { method: "POST" },
+  );
+}
+
 export function approveAutoPostRun(runId: string): Promise<AutoPostRun> {
   return autoPostRequest<AutoPostRun>(`/api/admin/auto-post/runs/${runId}/approve`, { method: "POST" });
 }

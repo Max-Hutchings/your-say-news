@@ -21,6 +21,8 @@ public interface AutoPostService {
             String administratorEmail
     );
 
+    AutoPostRunDto retryFailedDraft(UUID runId, String administratorEmail);
+
     AutoPostRunDto approveAndPublishDraft(UUID runId, String administratorEmail);
 
     Multi<AutoPostEventDto> streamRunEvents(UUID runId, String administratorEmail);

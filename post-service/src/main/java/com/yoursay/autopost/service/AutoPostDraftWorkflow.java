@@ -62,6 +62,18 @@ public class AutoPostDraftWorkflow {
         return run;
     }
 
+    @Transactional
+    public AutoPostRun retryFailedDraft(UUID runId) {
+        AutoPostRun run = requireRunForUpdate(runId);
+        requireFailedDraft(run);
+        UserAccessDto official = accessPolicy.requireOfficialAccount();
+        UUID retriedDraftId = retryPostAgentDraft(
+                run.getPepperDraftId(), official.userId());
+        run.markDrafting(run.getSelectedCandidateId(), retriedDraftId);
+        runs.flush();
+        return run;
+    }
+
     public AutoPostRun synchronizeDraft(AutoPostRun run) {
         if (!isDraftGenerationPending(run)) {
             return run;
@@ -102,6 +114,14 @@ public class AutoPostDraftWorkflow {
         }
     }
 
+    private static void requireFailedDraft(AutoPostRun run) {
+        if (run.getStatus() != AutoPostRunStatus.FAILED
+                || run.getSelectedCandidateId() == null
+                || run.getPepperDraftId() == null) {
+            throw AutoPostApiException.draftRetryConflict();
+        }
+    }
+
     private AutoPostCandidate requireCandidate(UUID candidateId, UUID runId) {
         return candidates.findInRun(candidateId, runId)
                 .orElseThrow(AutoPostApiException::candidateMissing);
@@ -121,6 +141,24 @@ public class AutoPostDraftWorkflow {
                     "AUTO_POST_HANDOFF_FAILED", started);
             AutoPostLog.failed("postAgentHandoff", "post_agent_handoff", "dependency",
                     "AUTO_POST_HANDOFF_FAILED", error);
+            throw error;
+        }
+    }
+
+    private UUID retryPostAgentDraft(UUID failedDraftId, long officialUserId) {
+        long started = System.nanoTime();
+        AutoPostLog.started("postAgentRetry", "post_agent_retry");
+        try {
+            UUID retriedDraftId = postAgentService.retryForPublisher(
+                    failedDraftId, officialUserId);
+            recordOperation("postAgentRetry", "success", "none", "none", started);
+            AutoPostLog.succeeded("postAgentRetry", "post_agent_retry");
+            return retriedDraftId;
+        } catch (RuntimeException error) {
+            recordOperation("postAgentRetry", "fault", "dependency",
+                    "AUTO_POST_DRAFT_RETRY_FAILED", started);
+            AutoPostLog.failed("postAgentRetry", "post_agent_retry", "dependency",
+                    "AUTO_POST_DRAFT_RETRY_FAILED", error);
             throw error;
         }
     }
@@ -179,9 +217,9 @@ public class AutoPostDraftWorkflow {
 
     private static String draftFailureMessage(String faultCode) {
         if ("AUTO_POST_MODEL_RESPONSE_TOO_LARGE".equals(faultCode)) {
-            return "The model response was too large and was rejected. Try a new run.";
+            return "The model response was too large and was rejected. Retry this draft.";
         }
-        return "Post agent could not create the draft. Try a new run.";
+        return "Post agent could not create the draft. Retry this draft.";
     }
 
     private AutoPostRun markDraftReady(UUID runId) {

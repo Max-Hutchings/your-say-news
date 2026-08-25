@@ -127,6 +127,8 @@ public class AutoPostRun extends PanacheEntityBase {
         selectedCandidateId = candidateId;
         pepperDraftId = draftId;
         status = AutoPostRunStatus.DRAFTING;
+        errorCode = null;
+        errorMessage = null;
         completedAt = null;
     }
 

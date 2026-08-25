@@ -18,9 +18,6 @@ class AutoPostProviderResponseInspector {
     @Inject
     ObjectMapper objectMapper;
 
-    @Inject
-    AutoPostProviderResponseLog providerResponseLog;
-
     void requireCompletedWebSearch(ChatResponse response) {
         ProviderResponse providerResponse = readProviderResponse(response);
         JsonNode output = providerResponse.output();
@@ -28,7 +25,6 @@ class AutoPostProviderResponseInspector {
                 .filter(AutoPostProviderResponseInspector::isWebSearchCall)
                 .count();
         if (webSearchCalls == 0) {
-            providerResponseLog.missingWebSearch(providerResponse.body());
             throw fault(
                     "AUTO_POST_WEB_SEARCH_MISSING",
                     "provider_contract",
@@ -62,7 +58,7 @@ class AutoPostProviderResponseInspector {
                         "provider_contract",
                         "The provider response contained no inspectable research output");
             }
-            return new ProviderResponse(rawResponse.body(), output);
+            return new ProviderResponse(output);
         } catch (JsonProcessingException error) {
             throw new AutoPostDiscoveryException(
                     "AUTO_POST_PROVIDER_RESPONSE_INVALID",
@@ -86,7 +82,7 @@ class AutoPostProviderResponseInspector {
         return "web_search_call".equals(item.path("type").asText());
     }
 
-    private record ProviderResponse(String body, JsonNode output) {
+    private record ProviderResponse(JsonNode output) {
     }
 
     private static AutoPostDiscoveryException fault(

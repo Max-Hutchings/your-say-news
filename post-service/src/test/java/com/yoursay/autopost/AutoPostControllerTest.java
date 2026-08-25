@@ -54,6 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AutoPostControllerTest {
 
     private static final UUID POST_AGENT_JOB_ID = UUID.fromString("495e2d43-08a4-4b20-a219-c2337174ab8f");
+    private static final UUID RETRIED_POST_AGENT_JOB_ID = UUID.fromString("11f66068-08bd-48bf-9cc8-4af8852a04a5");
 
     @InjectMock
     StoryDiscoveryAgent discoveryAgent;
@@ -82,8 +83,9 @@ class AutoPostControllerTest {
                 statement.executeUpdate();
             }
             try (PreparedStatement statement = connection.prepareStatement(
-                    "delete from pepper_ai_draft_post where id = ?")) {
+                    "delete from pepper_ai_draft_post where id in (?, ?)")) {
                 statement.setObject(1, POST_AGENT_JOB_ID);
+                statement.setObject(2, RETRIED_POST_AGENT_JOB_ID);
                 statement.executeUpdate();
             }
         }
@@ -212,6 +214,9 @@ class AutoPostControllerTest {
         given().when().post("/api/admin/auto-post/runs/" + runId + "/approve")
                 .then().statusCode(403)
                 .body("code", equalTo("ADMIN_ACCESS_REQUIRED"));
+        given().when().post("/api/admin/auto-post/runs/" + runId + "/retry-draft")
+                .then().statusCode(403)
+                .body("code", equalTo("ADMIN_ACCESS_REQUIRED"));
 
         assertEquals(0, count("auto_post_run"));
     }
@@ -289,6 +294,18 @@ class AutoPostControllerTest {
         assertRunState(runId, "FAILED", 1);
 
         Mockito.verify(discoveryAgent).discover(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void runWithoutAFailedPostAgentDraftCannotBeRetried() {
+        String runId = startRun();
+
+        given().when().post("/api/admin/auto-post/runs/" + runId + "/retry-draft")
+                .then().statusCode(409)
+                .body("code", equalTo("AUTO_POST_DRAFT_RETRY_CONFLICT"));
+
+        Mockito.verify(postAgentService, Mockito.never())
+                .retryForPublisher(Mockito.any(), Mockito.anyLong());
     }
 
     @Test
@@ -388,7 +405,7 @@ class AutoPostControllerTest {
                 .body("status", equalTo("FAILED"))
                 .body("errorCode", equalTo("AUTO_POST_MODEL_RESPONSE_TOO_LARGE"))
                 .body("errorMessage", equalTo(
-                        "The model response was too large and was rejected. Try a new run."));
+                        "The model response was too large and was rejected. Retry this draft."));
 
         Mockito.verify(metrics).recordOperation(
                 Mockito.eq("autopost"),
@@ -396,6 +413,81 @@ class AutoPostControllerTest {
                 Mockito.eq("fault"),
                 Mockito.eq("dependency"),
                 Mockito.eq("AUTO_POST_MODEL_RESPONSE_TOO_LARGE"),
+                Mockito.anyLong());
+    }
+
+    @Test
+    void failedPostAgentDraftCanBeRetriedWithoutRunningDiscoveryAgain() throws Exception {
+        Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
+                .thenAnswer(invocation -> discoveryResult(invocation.getArgument(0), invocation.getArgument(1)));
+        Mockito.when(postAgentService.startForPublisher(Mockito.anyLong(), Mockito.anyString()))
+                .thenReturn(POST_AGENT_JOB_ID);
+        Mockito.when(postAgentService.retryForPublisher(Mockito.eq(POST_AGENT_JOB_ID), Mockito.anyLong()))
+                .thenReturn(RETRIED_POST_AGENT_JOB_ID);
+        String runId = startRun();
+        worker.processNext();
+        String candidateId = given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200).extract().path("candidates[0].id");
+        long officialUserId = officialAccountId();
+        insertPepperDraft(POST_AGENT_JOB_ID, officialUserId);
+        insertPepperDraft(RETRIED_POST_AGENT_JOB_ID, officialUserId);
+        given().when().post("/api/admin/auto-post/runs/" + runId
+                        + "/candidates/" + candidateId + "/select")
+                .then().statusCode(202);
+        Mockito.when(postAgentService.getForPublisher(POST_AGENT_JOB_ID, officialUserId))
+                .thenReturn(Optional.of(new AutoPostAgentDraftDto(
+                        POST_AGENT_JOB_ID, PepperDraftStatus.FAILED, false, null,
+                        "AGENT_GENERATION_FAULT", 0)));
+        given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200).body("status", equalTo("FAILED"));
+
+        given().when().post("/api/admin/auto-post/runs/" + runId + "/retry-draft")
+                .then().statusCode(202)
+                .body("status", equalTo("DRAFTING"))
+                .body("selectedCandidateId", equalTo(candidateId))
+                .body("pepperDraftId", equalTo(RETRIED_POST_AGENT_JOB_ID.toString()))
+                .body("errorCode", equalTo(null));
+
+        Mockito.verify(postAgentService).retryForPublisher(POST_AGENT_JOB_ID, officialUserId);
+        Mockito.verify(discoveryAgent).discover(Mockito.any(), Mockito.any());
+        Mockito.verify(metrics).recordOperation(
+                Mockito.eq("autopost"), Mockito.eq("postAgentRetry"), Mockito.eq("success"),
+                Mockito.eq("none"), Mockito.eq("none"), Mockito.anyLong());
+    }
+
+    @Test
+    void retryDependencyFailureKeepsTheFailedDraftLinkedAndRecordsAFault() throws Exception {
+        Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
+                .thenAnswer(invocation -> discoveryResult(invocation.getArgument(0), invocation.getArgument(1)));
+        Mockito.when(postAgentService.startForPublisher(Mockito.anyLong(), Mockito.anyString()))
+                .thenReturn(POST_AGENT_JOB_ID);
+        String runId = startRun();
+        worker.processNext();
+        String candidateId = given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200).extract().path("candidates[0].id");
+        long officialUserId = officialAccountId();
+        insertPepperDraft(POST_AGENT_JOB_ID, officialUserId);
+        given().when().post("/api/admin/auto-post/runs/" + runId
+                        + "/candidates/" + candidateId + "/select")
+                .then().statusCode(202);
+        Mockito.when(postAgentService.getForPublisher(POST_AGENT_JOB_ID, officialUserId))
+                .thenReturn(Optional.of(new AutoPostAgentDraftDto(
+                        POST_AGENT_JOB_ID, PepperDraftStatus.FAILED, false, null,
+                        "AGENT_GENERATION_FAULT", 0)));
+        given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200).body("status", equalTo("FAILED"));
+        Mockito.when(postAgentService.retryForPublisher(POST_AGENT_JOB_ID, officialUserId))
+                .thenThrow(new IllegalStateException("Representative retry dependency fault"));
+
+        given().when().post("/api/admin/auto-post/runs/" + runId + "/retry-draft")
+                .then().statusCode(500);
+        given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200)
+                .body("status", equalTo("FAILED"))
+                .body("pepperDraftId", equalTo(POST_AGENT_JOB_ID.toString()));
+        Mockito.verify(metrics).recordOperation(
+                Mockito.eq("autopost"), Mockito.eq("postAgentRetry"), Mockito.eq("fault"),
+                Mockito.eq("dependency"), Mockito.eq("AUTO_POST_DRAFT_RETRY_FAILED"),
                 Mockito.anyLong());
     }
 

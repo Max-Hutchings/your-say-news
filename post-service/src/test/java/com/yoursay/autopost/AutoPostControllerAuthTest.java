@@ -24,6 +24,7 @@ class AutoPostControllerAuthTest {
         given().when().post("/api/admin/auto-post/runs/" + runId + "/candidates/" + candidateId + "/select")
                 .then().statusCode(401);
         given().when().post("/api/admin/auto-post/runs/" + runId + "/approve").then().statusCode(401);
+        given().when().post("/api/admin/auto-post/runs/" + runId + "/retry-draft").then().statusCode(401);
     }
 
     @Test
@@ -40,5 +41,6 @@ class AutoPostControllerAuthTest {
         given().when().post("/api/admin/auto-post/runs/" + runId + "/candidates/" + candidateId + "/select")
                 .then().statusCode(403);
         given().when().post("/api/admin/auto-post/runs/" + runId + "/approve").then().statusCode(403);
+        given().when().post("/api/admin/auto-post/runs/" + runId + "/retry-draft").then().statusCode(403);
     }
 }

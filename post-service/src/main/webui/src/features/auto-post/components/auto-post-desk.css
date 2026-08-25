@@ -339,6 +339,21 @@
 
 .auto-post-history li div { display: grid; gap: 0.25rem; }
 .auto-post-history li > span { text-align: right; }
+.auto-post-history__retry {
+  justify-self: end;
+  min-height: 2.35rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--editorial-coral);
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--editorial-coral);
+  font-weight: 700;
+}
+.auto-post-history__retry:hover:not(:disabled) {
+  background: var(--editorial-coral);
+  color: var(--editorial-surface);
+}
+.auto-post-history__retry:disabled { opacity: 0.5; }
 .auto-post-empty { padding: 2rem 0; border-block: 1px solid var(--editorial-border); color: var(--editorial-secondary); }
 
 .auto-post-modal {

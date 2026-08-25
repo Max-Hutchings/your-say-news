@@ -1,4 +1,4 @@
-package com.yoursay.posts.postagent.generator;
+package com.yoursay.posts.postagent.agent;
 
 public interface PepperPostGenerator {
 

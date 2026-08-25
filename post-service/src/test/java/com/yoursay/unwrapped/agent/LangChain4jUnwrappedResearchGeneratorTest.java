@@ -3,6 +3,7 @@ package com.yoursay.unwrapped.agent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiFailureResponseLog;
 import com.yoursay.platform.ai.AiProviderFailureLog;
 import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.posts.dto.VoteOptionDto;
@@ -343,6 +344,8 @@ class LangChain4jUnwrappedResearchGeneratorTest {
 
         assertEquals("UNWRAPPED_DRAFT_MISSING", failure.getMessage());
         verify(aiService).research(anyString(), anyString(), anyString());
+        verify(generator.failureResponseLog).log(
+                "unwrapped", "research_provider", "UNWRAPPED_DRAFT_MISSING", response);
     }
 
     @Test
@@ -1026,6 +1029,7 @@ class LangChain4jUnwrappedResearchGeneratorTest {
         generator.aiConfig = unwrappedConfig(
                 "test-key", "configured-fallback-model", false);
         generator.providerFailureLog = mock(AiProviderFailureLog.class);
+        generator.failureResponseLog = mock(AiFailureResponseLog.class);
         return generator;
     }
 

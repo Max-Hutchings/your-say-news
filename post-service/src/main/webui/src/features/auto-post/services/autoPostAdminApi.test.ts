@@ -7,6 +7,7 @@ import {
   getAutoPostRun,
   getAutoPostRuns,
   selectAutoPostCandidate,
+  retryAutoPostDraft,
   startAutoPostRun,
   streamAutoPostRun,
 } from "./autoPostAdminApi";
@@ -38,6 +39,7 @@ describe("autoPostAdminApi", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(run), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ...run, status: "QUEUED" }), { status: 202 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ...run, status: "DRAFTING" }), { status: 202 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...run, status: "DRAFTING" }), { status: 202 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ...run, status: "PUBLISHED" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -46,6 +48,7 @@ describe("autoPostAdminApi", () => {
     await expect(startAutoPostRun()).resolves.toEqual({ ...run, status: "QUEUED" });
     await expect(selectAutoPostCandidate(run.id, candidateId))
       .resolves.toEqual({ ...run, status: "DRAFTING" });
+    await expect(retryAutoPostDraft(run.id)).resolves.toEqual({ ...run, status: "DRAFTING" });
     await expect(approveAutoPostRun(run.id)).resolves.toEqual({ ...run, status: "PUBLISHED" });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/admin/auto-post/runs", expect.objectContaining({
@@ -73,6 +76,14 @@ describe("autoPostAdminApi", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
+      `/api/admin/auto-post/runs/${run.id}/retry-draft`,
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
       `/api/admin/auto-post/runs/${run.id}/approve`,
       expect.objectContaining({
         method: "POST",

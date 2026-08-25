@@ -1,12 +1,12 @@
-package com.yoursay.posts.postagent.generator;
+package com.yoursay.posts.postagent.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yoursay.platform.ai.AiFailureResponseLog;
 import com.yoursay.posts.postagent.dto.AgentDraftDto;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
-import dev.langchain4j.service.Result;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -17,7 +17,7 @@ import java.util.List;
 class PepperAiClient {
 
     @Inject
-    PepperAiService service;
+    PostAgentAiService service;
 
     @Inject
     ObjectMapper objectMapper;
@@ -25,29 +25,43 @@ class PepperAiClient {
     @Inject
     PepperChatResponseCapture responseCapture;
 
+    @Inject
+    AiFailureResponseLog failureResponseLog;
+
     PepperAiResponse research(String request) {
         responseCapture.begin();
         try {
-            Result<AgentDraftDto> result;
+            AgentDraftDto draft;
             try {
-                result = service.research(
+                draft = service.research(
                         PepperSystemPrompt.DEFAULT,
                         PepperSystemPrompt.OUTPUT_INSTRUCTIONS,
                         request.trim());
             } catch (RuntimeException error) {
-                throw classifyIncompleteResponse(responseCapture.take(), error);
+                ChatResponse failedResponse = responseCapture.take();
+                RuntimeException classified = classifyIncompleteResponse(failedResponse, error);
+                failureResponseLog.log("postagent", "generation",
+                        faultCode(classified), failedResponse);
+                throw classified;
             }
-            ChatResponse response = result.finalResponse();
+            ChatResponse response = responseCapture.take();
             if (response == null) {
                 throw invalid("LangChain4j returned no final provider response");
             }
 
-            return new PepperAiResponse(
-                    result.content(),
-                    citations(response),
-                    response.modelName(),
-                    response.id()
-            );
+            String rawResponse = failureResponseLog.responseBody(response);
+            try {
+                return new PepperAiResponse(
+                        draft,
+                        citations(response),
+                        response.modelName(),
+                        response.id(),
+                        rawResponse
+                );
+            } catch (RuntimeException error) {
+                failureResponseLog.log("postagent", "generation", faultCode(error), rawResponse);
+                throw error;
+            }
         } finally {
             responseCapture.clear();
         }
@@ -65,6 +79,12 @@ class PepperAiClient {
                     error);
         }
         return error;
+    }
+
+    private static String faultCode(RuntimeException error) {
+        return error instanceof GenerationException failure
+                ? failure.code()
+                : "AGENT_PROVIDER_RESPONSE_INVALID";
     }
 
     private List<String> citations(ChatResponse response) {

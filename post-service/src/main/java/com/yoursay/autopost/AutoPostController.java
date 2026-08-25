@@ -74,6 +74,13 @@ public class AutoPostController {
     }
 
     @POST
+    @Path("/runs/{runId}/retry-draft")
+    @ResponseStatus(202)
+    public AutoPostRunDto retryFailedDraft(@PathParam("runId") UUID runId) {
+        return service.retryFailedDraft(runId, subjectEmail());
+    }
+
+    @POST
     @Path("/runs/{runId}/approve")
     public AutoPostRunDto approveAndPublishDraft(@PathParam("runId") UUID runId) {
         return service.approveAndPublishDraft(runId, subjectEmail());

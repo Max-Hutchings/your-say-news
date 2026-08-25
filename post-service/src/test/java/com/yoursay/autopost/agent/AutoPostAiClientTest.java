@@ -2,6 +2,7 @@ package com.yoursay.autopost.agent;
 
 import com.yoursay.autopost.AutoPostRegion;
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiFailureResponseLog;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
@@ -23,6 +24,7 @@ class AutoPostAiClientTest {
     private AutoPostResearchAiService service;
     private AutoPostChatResponseCapture responseCapture;
     private AutoPostProviderResponseInspector responseInspector;
+    private AiFailureResponseLog failureResponseLog;
     private AutoPostAiClient client;
 
     @BeforeEach
@@ -30,11 +32,13 @@ class AutoPostAiClientTest {
         service = Mockito.mock(AutoPostResearchAiService.class);
         responseCapture = Mockito.mock(AutoPostChatResponseCapture.class);
         responseInspector = Mockito.mock(AutoPostProviderResponseInspector.class);
+        failureResponseLog = Mockito.mock(AiFailureResponseLog.class);
         client = new AutoPostAiClient();
         client.service = service;
         client.responseCapture = responseCapture;
         client.responseInspector = responseInspector;
         client.aiConfig = aiConfig("configured-grok");
+        client.failureResponseLog = failureResponseLog;
     }
 
     @Test
@@ -80,6 +84,8 @@ class AutoPostAiClientTest {
                         .build())
                 .build();
         Mockito.when(responseCapture.take()).thenReturn(providerResponse);
+        Mockito.when(failureResponseLog.responseBody(providerResponse))
+                .thenReturn("complete provider response");
 
         StoryDiscoveryResult result = client.discover(start, end);
 
@@ -87,6 +93,7 @@ class AutoPostAiClientTest {
         assertEquals("grok-4.5", result.model());
         assertEquals("response-42", result.providerResponseId());
         assertEquals(List.of(), result.providerCitations());
+        assertEquals("complete provider response", result.rawProviderResponse());
         Mockito.verify(responseCapture).begin();
         Mockito.verify(service).discover(
                 AutoPostSystemPrompt.DEFAULT,
@@ -191,6 +198,10 @@ class AutoPostAiClientTest {
                 List.of(new DiscoveredStorySource("url", "title", "publisher")));
         Mockito.when(service.discover(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
                 .thenReturn(new StoryDiscoveryDraft(List.of(providerStory)));
+        ChatResponse response = ChatResponse.builder()
+                .aiMessage(AiMessage.from("full failed discovery response"))
+                .build();
+        Mockito.when(responseCapture.take()).thenReturn(response);
 
         AutoPostDiscoveryException error = assertThrows(AutoPostDiscoveryException.class,
                 () -> client.discover(
@@ -199,6 +210,8 @@ class AutoPostAiClientTest {
 
         assertEquals("AUTO_POST_PROVIDER_RESPONSE_INVALID", error.code());
         assertEquals("structured_output_mapping", error.stage());
+        Mockito.verify(failureResponseLog).log(
+                "autopost", "providerResearch", error.code(), response);
         Mockito.verify(responseCapture).clear();
     }
 }

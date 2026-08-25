@@ -3,6 +3,7 @@ package com.yoursay.unwrapped.agent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiFailureResponseLog;
 import com.yoursay.platform.ai.AiProviderFailureLog;
 import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.unwrapped.SourceClassification;
@@ -55,6 +56,9 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     @Inject
     AiProviderFailureLog providerFailureLog;
 
+    @Inject
+    AiFailureResponseLog failureResponseLog;
+
     @Override
     public UnwrappedResearchResult generate(UnwrappedResearchRequest request) {
         return generate(request, null, true);
@@ -91,11 +95,12 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
     ) {
         requireProviderConfigured();
         responseCapture.begin();
+        ChatResponse response = null;
         try {
             UnwrappedResearchDraftV1 draft = requestDraft(request, systemPrompt);
             // The capture holds the raw provider response, which carries the citations and the
             // model actually used — neither is available on the deserialised draft.
-            ChatResponse response = responseCapture.take();
+            response = responseCapture.take();
             if (enforcePublicationContract && response == null) {
                 throw new IllegalStateException("UNWRAPPED_PROVIDER_RESPONSE_MISSING");
             }
@@ -109,12 +114,22 @@ public class LangChain4jUnwrappedResearchGenerator implements UnwrappedResearchG
                             : valueOr(response.modelName(), aiConfig.unwrapped().model()),
                     response == null ? null : response.id());
         } catch (IllegalStateException | IllegalArgumentException e) {
+            logFailureResponse(e, response);
             throw e;
         } catch (Exception e) {
-            throw new IllegalStateException("UNWRAPPED_PROVIDER_FAILURE", e);
+            IllegalStateException failure =
+                    new IllegalStateException("UNWRAPPED_PROVIDER_FAILURE", e);
+            logFailureResponse(failure, response);
+            throw failure;
         } finally {
             responseCapture.clear();
         }
+    }
+
+    private void logFailureResponse(RuntimeException failure, ChatResponse response) {
+        ChatResponse failedResponse = response == null ? responseCapture.take() : response;
+        failureResponseLog.log("unwrapped", "research_provider",
+                stableErrorCode(failure), failedResponse);
     }
 
     private void recordFailure(RuntimeException failure, long started) {

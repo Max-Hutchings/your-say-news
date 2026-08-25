@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,6 +57,44 @@ class AutoPostAgentServiceTest {
 
         assertEquals("AGENT_PUBLISHING_FORBIDDEN", error.errorCode());
         assertEquals(403, error.statusCode());
+    }
+
+    @Test
+    void retriesAFailedDraftWithItsExactPersistedPrompt() throws Exception {
+        long officialId = userId("yoursay");
+        UUID failedDraftId = UUID.randomUUID();
+        String exactPrompt = "Original story brief with exact spacing\nAnd source order.";
+        insertFailedDraft(failedDraftId, officialId, exactPrompt);
+
+        UUID retriedDraftId = service.retryForPublisher(failedDraftId, officialId);
+
+        assertFalse(failedDraftId.equals(retriedDraftId));
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select prompt from pepper_ai_draft_post where id = ?")) {
+            statement.setObject(1, retriedDraftId);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(exactPrompt, result.getString("prompt"));
+            }
+        }
+    }
+
+    private void insertFailedDraft(UUID id, long userId, String prompt) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into pepper_ai_draft_post
+                         (id, user_id, prompt, replica_id, status, success, error_code,
+                          error_message, version, created_at, updated_at, completed_at)
+                     values (?, ?, ?, 'local', 'FAILED', false, 'AGENT_GENERATION_FAULT',
+                             'Safe failure', 0, now(), now(), now())
+                     """)) {
+            statement.setObject(1, id);
+            statement.setLong(2, userId);
+            statement.setString(3, prompt);
+            assertEquals(1, statement.executeUpdate());
+        }
     }
 
     private long userId(String handle) throws Exception {

@@ -13,6 +13,8 @@ public interface AutoPostAgentService {
 
     UUID startForPublisher(long publisherUserId, String prompt);
 
+    UUID retryForPublisher(UUID failedDraftId, long publisherUserId);
+
     Optional<AutoPostAgentDraftDto> getForPublisher(UUID draftId, long publisherUserId);
 
     AgentPublicationDto preparePublicationForPublisher(

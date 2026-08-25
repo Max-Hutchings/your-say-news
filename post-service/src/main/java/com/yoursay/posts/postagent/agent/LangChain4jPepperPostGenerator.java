@@ -1,7 +1,9 @@
-package com.yoursay.posts.postagent.generator;
+package com.yoursay.posts.postagent.agent;
 
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiFailureResponseLog;
 import com.yoursay.platform.ai.AiProviderFailureLog;
+import com.yoursay.posts.postagent.validation.AgentDraftValidator;
 import dev.langchain4j.exception.NonRetriableException;
 import dev.langchain4j.exception.RetriableException;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -22,6 +24,9 @@ public class LangChain4jPepperPostGenerator implements PepperPostGenerator {
     @Inject
     AiProviderFailureLog providerFailureLog;
 
+    @Inject
+    AiFailureResponseLog failureResponseLog;
+
     @Override
     public GenerationResult generate(String request) {
         if (!aiConfig.pepper().configured()) {
@@ -29,13 +34,15 @@ public class LangChain4jPepperPostGenerator implements PepperPostGenerator {
                     "The selected AI provider API key is not configured", false);
         }
 
+        PepperAiResponse response = null;
         try {
-            PepperAiResponse response = client.research(request);
-            validator.validate(response.draft(), response.citations());
+            response = client.research(request);
+            validator.validate(response.draft());
             return new GenerationResult(response.draft(),
                     valueOr(response.model(), aiConfig.pepper().model()),
                     response.providerResponseId());
         } catch (GenerationException e) {
+            logFailureResponse(e.code(), response);
             logProviderHttpFailure(e.code(), e);
             throw e;
         } catch (RetriableException e) {
@@ -50,6 +57,13 @@ public class LangChain4jPepperPostGenerator implements PepperPostGenerator {
             logProviderHttpFailure("AGENT_PROVIDER_UNAVAILABLE", e);
             throw new GenerationException("AGENT_PROVIDER_UNAVAILABLE",
                     "AI provider request failed", true, e);
+        }
+    }
+
+    private void logFailureResponse(String faultCode, PepperAiResponse response) {
+        if (response != null) {
+            failureResponseLog.log(
+                    "postagent", "generation", faultCode, response.rawResponse());
         }
     }
 

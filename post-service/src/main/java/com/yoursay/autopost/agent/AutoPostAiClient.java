@@ -1,6 +1,8 @@
 package com.yoursay.autopost.agent;
 
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiFailureResponseLog;
+import dev.langchain4j.service.output.OutputParsingException;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.output.FinishReason;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -25,6 +27,9 @@ class AutoPostAiClient {
     @Inject
     AiConfig aiConfig;
 
+    @Inject
+    AiFailureResponseLog failureResponseLog;
+
     StoryDiscoveryResult discover(Instant windowStart, Instant windowEnd) {
         String instruction = """
                 Current UTC time: %s
@@ -34,6 +39,7 @@ class AutoPostAiClient {
                 Use live web search now before returning the ten stories.
                 """.formatted(windowEnd, windowStart, windowEnd).strip();
         responseCapture.begin();
+        ChatResponse response = null;
         try {
             StoryDiscoveryDraft draft;
             try {
@@ -42,9 +48,10 @@ class AutoPostAiClient {
                         AutoPostSystemPrompt.OUTPUT_INSTRUCTIONS,
                         instruction);
             } catch (RuntimeException error) {
-                throw classifyIncompleteResponse(responseCapture.take(), error);
+                response = responseCapture.take();
+                throw classifyIncompleteResponse(response, error);
             }
-            ChatResponse response = responseCapture.take();
+            response = responseCapture.take();
             if (draft == null) {
                 throw invalid("The model returned no discovery response");
             }
@@ -55,7 +62,11 @@ class AutoPostAiClient {
                             ? aiConfig.autoPost().model()
                             : valueOr(response.modelName(), aiConfig.autoPost().model()),
                     response == null ? null : response.id(),
-                    List.of());
+                    List.of(),
+                    failureResponseLog.responseBody(response));
+        } catch (RuntimeException error) {
+            failureResponseLog.log("autopost", "providerResearch", faultCode(error), response);
+            throw error;
         } finally {
             responseCapture.clear();
         }
@@ -84,6 +95,14 @@ class AutoPostAiClient {
                     error);
         }
         return error;
+    }
+
+    private static String faultCode(RuntimeException error) {
+        if (error instanceof AutoPostDiscoveryException failure) return failure.code();
+        if (error instanceof OutputParsingException) {
+            return "AUTO_POST_PROVIDER_RESPONSE_INVALID";
+        }
+        return "AUTO_POST_PROVIDER_PROCESSING_FAILED";
     }
 
     private static String valueOr(String value, String fallback) {

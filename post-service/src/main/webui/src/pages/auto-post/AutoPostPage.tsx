@@ -9,9 +9,11 @@ export function AutoPostPage() {
     creating={autoPost.creating}
     selectingCandidateId={autoPost.selectingCandidateId}
     approving={autoPost.approving}
+    retryingRunId={autoPost.retryingRunId}
     onCreate={autoPost.create}
     onSelect={autoPost.select}
     onApprove={autoPost.approve}
+    onRetry={autoPost.retry}
     onReload={autoPost.load}
   />;
 }

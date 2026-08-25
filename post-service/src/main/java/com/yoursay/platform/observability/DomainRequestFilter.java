@@ -65,7 +65,7 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
             "follow-up", "followers", "following",
             "follows", "generate", "generation-status", "id", "income-options", "latest", "live",
             "me", "media", "mine", "onboarding", "options", "posts", "presign", "profiles", "q",
-            "reject", "review", "runs", "save", "select", "sentiment", "social", "topic-tags", "unwrapped", "user",
+            "reject", "retry-draft", "review", "runs", "save", "select", "sentiment", "social", "topic-tags", "unwrapped", "user",
             "user-characteristics", "users", "votes", "your-say-user");
 
     private static final String PLACEHOLDER = "{id}";

@@ -3,21 +3,32 @@ package com.yoursay.autopost.validation;
 import com.yoursay.autopost.agent.DiscoveredStory;
 import com.yoursay.autopost.agent.DiscoveredStorySource;
 import com.yoursay.autopost.agent.StoryDiscoveryResult;
+import com.yoursay.platform.ai.AiFailureResponseLog;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 /** Checks only that the structured provider output contains values that persistence requires. */
 @ApplicationScoped
 public class AutoPostCandidateValidator {
 
+    @Inject
+    AiFailureResponseLog failureResponseLog;
+
     public void validateRequiredFields(StoryDiscoveryResult result) {
-        require(result != null && result.stories() != null && !result.stories().isEmpty(),
-                "AUTO_POST_STORIES_MISSING", "Discovery returned no stories.");
-        for (DiscoveredStory story : result.stories()) {
-            validateStory(story);
+        try {
+            require(result != null && result.stories() != null && !result.stories().isEmpty(),
+                    "AUTO_POST_STORIES_MISSING", "Discovery returned no stories.");
+            for (DiscoveredStory story : result.stories()) {
+                validateStory(story);
+            }
+            require(result.stories().size() == 10,
+                    "AUTO_POST_STORY_COUNT_INVALID",
+                    "Discovery must return exactly ten stories.");
+        } catch (AutoPostValidationException failure) {
+            failureResponseLog.log("autopost", "candidateValidation", failure.code(),
+                    result == null ? null : result.rawProviderResponse());
+            throw failure;
         }
-        require(result.stories().size() == 10,
-                "AUTO_POST_STORY_COUNT_INVALID",
-                "Discovery must return exactly ten stories.");
     }
 
     private static void validateStory(DiscoveredStory story) {

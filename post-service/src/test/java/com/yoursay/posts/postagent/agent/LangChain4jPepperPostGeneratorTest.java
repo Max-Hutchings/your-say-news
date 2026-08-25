@@ -1,11 +1,12 @@
-package com.yoursay.posts.postagent.generator;
+package com.yoursay.posts.postagent.agent;
 
 import com.yoursay.platform.ai.AiConfig;
+import com.yoursay.platform.ai.AiFailureResponseLog;
 import com.yoursay.platform.ai.AiProviderFailureLog;
 import com.yoursay.posts.postagent.dto.AgentDraftDto;
 import com.yoursay.posts.postagent.dto.AgentSourceDto;
 import com.yoursay.posts.postagent.dto.SourcedClaimDto;
-import com.yoursay.posts.postagent.generator.*;
+import com.yoursay.posts.postagent.validation.AgentDraftValidator;
 import dev.langchain4j.exception.InvalidRequestException;
 import dev.langchain4j.exception.HttpException;
 import dev.langchain4j.exception.RateLimitException;
@@ -38,10 +39,11 @@ class LangChain4jPepperPostGeneratorTest {
         generator.validator = new AgentDraftValidator();
         generator.aiConfig = aiConfig("xai-test-key", "grok-4.3");
         generator.providerFailureLog = Mockito.mock(AiProviderFailureLog.class);
+        generator.failureResponseLog = Mockito.mock(AiFailureResponseLog.class);
     }
 
     @Test
-    void generateReturnsTheLangChain4jDraftAfterSourceValidation() {
+    void generateReturnsTheLangChain4jDraftAfterRequiredFieldValidation() {
         AgentDraftDto draft = validDraft(STATISTICS_URL, PARLIAMENT_URL);
         Mockito.when(client.research(Mockito.anyString())).thenReturn(new PepperAiResponse(
                 draft,
@@ -86,7 +88,7 @@ class LangChain4jPepperPostGeneratorTest {
     }
 
     @Test
-    void generateRejectsClaimUrlThatTheProviderDidNotReturnAsASearchCitation() {
+    void generateDoesNotApplyCustomProviderCitationValidation() {
         String fabricated = "https://fabricated.example/evidence";
         Mockito.when(client.research(Mockito.anyString())).thenReturn(new PepperAiResponse(
                 validDraft(STATISTICS_URL, fabricated),
@@ -95,12 +97,33 @@ class LangChain4jPepperPostGeneratorTest {
                 "resp_untrusted_source"
         ));
 
+        GenerationResult result = generator.generate("Cover voting age.");
+
+        assertEquals(fabricated, result.draft().sources().get(1).url());
+    }
+
+    @Test
+    void generateLogsTheFullRawAiResponseWhenRequiredFieldValidationFails() {
+        AgentDraftDto base = validDraft(STATISTICS_URL, PARLIAMENT_URL);
+        AgentDraftDto blankImageBrief = new AgentDraftDto(
+                base.summaryClaims(), base.caseForClaims(), base.caseAgainstClaims(),
+                base.supportQuestion(), base.votingType(), base.voteOptions(), base.sources(),
+                " ", base.imageSearchQuery());
+        String rawResponse = "{\"output\":[{\"type\":\"message\",\"content\":[]}] }";
+        Mockito.when(client.research(Mockito.anyString())).thenReturn(new PepperAiResponse(
+                blankImageBrief,
+                List.of(STATISTICS_URL, PARLIAMENT_URL),
+                "gpt-5.6-sol",
+                "resp_blank_image_brief",
+                rawResponse
+        ));
+
         GenerationException error = assertThrows(GenerationException.class,
                 () -> generator.generate("Cover voting age."));
 
-        assertEquals("AGENT_SOURCE_NOT_PROVIDER_CITATION", error.code());
-        assertFalse(error.retryable());
-        assertTrue(error.getMessage().contains("not returned in provider citations"));
+        assertEquals("AGENT_REQUIRED_FIELD", error.code());
+        Mockito.verify(generator.failureResponseLog).log(
+                "postagent", "generation", error.code(), rawResponse);
     }
 
     @Test

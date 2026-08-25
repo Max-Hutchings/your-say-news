@@ -180,6 +180,47 @@ describe("AutoPostDesk", () => {
     expect(screen.getByText("The discovered story list did not pass validation.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Reload" }));
     expect(reload).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Retry draft" })).not.toBeInTheDocument();
+  });
+
+  it("offers retry for each failed post-agent draft in the history", async () => {
+    const user = userEvent.setup();
+    const retry = vi.fn().mockResolvedValue(undefined);
+    const failedDraftRun: AutoPostRun = {
+      ...draftingRun,
+      status: "FAILED",
+      errorCode: "AUTO_POST_DRAFT_FAILED",
+      errorMessage: "Post agent could not create the draft.",
+    };
+    const view = render(<AutoPostDesk
+      runs={[failedDraftRun]}
+      activeRun={null}
+      error={null}
+      creating={false}
+      selectingCandidateId={null}
+      retryingRunId={null}
+      onCreate={vi.fn()}
+      onSelect={vi.fn()}
+      onRetry={retry}
+      onReload={vi.fn()}
+    />);
+
+    await user.click(screen.getByRole("button", { name: "Retry draft" }));
+    expect(retry).toHaveBeenCalledWith(failedDraftRun.id);
+
+    view.rerender(<AutoPostDesk
+      runs={[failedDraftRun]}
+      activeRun={null}
+      error={null}
+      creating={false}
+      selectingCandidateId={null}
+      retryingRunId={failedDraftRun.id}
+      onCreate={vi.fn()}
+      onSelect={vi.fn()}
+      onRetry={retry}
+      onReload={vi.fn()}
+    />);
+    expect(screen.getByRole("button", { name: "Retrying…" })).toBeDisabled();
   });
 
   it("shows the returned draft and requires final confirmation before publication", async () => {

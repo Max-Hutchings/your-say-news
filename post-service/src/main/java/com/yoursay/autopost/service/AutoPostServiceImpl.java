@@ -80,6 +80,12 @@ public class AutoPostServiceImpl implements AutoPostService {
     }
 
     @Override
+    public AutoPostRunDto retryFailedDraft(UUID runId, String administratorEmail) {
+        accessPolicy.requireAdministrator(administratorEmail);
+        return viewAssembler.toDto(draftWorkflow.retryFailedDraft(runId));
+    }
+
+    @Override
     public AutoPostRunDto approveAndPublishDraft(UUID runId, String administratorEmail) {
         accessPolicy.requireAdministrator(administratorEmail);
         return viewAssembler.toDto(publicationWorkflow.approveAndPublishDraft(runId));

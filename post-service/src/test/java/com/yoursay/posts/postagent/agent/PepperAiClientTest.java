@@ -1,20 +1,16 @@
-package com.yoursay.posts.postagent.generator;
+package com.yoursay.posts.postagent.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yoursay.platform.ai.AiFailureResponseLog;
 import com.yoursay.posts.postagent.dto.AgentDraftDto;
 import com.yoursay.posts.postagent.dto.AgentSourceDto;
 import com.yoursay.posts.postagent.dto.SourcedClaimDto;
-import com.yoursay.posts.postagent.generator.GenerationException;
-import com.yoursay.posts.postagent.generator.PepperAiClient;
-import com.yoursay.posts.postagent.generator.PepperAiResponse;
-import com.yoursay.posts.postagent.generator.PepperAiService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.http.client.SuccessfulHttpResponse;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
-import dev.langchain4j.service.Result;
 import dev.langchain4j.service.output.OutputParsingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,34 +24,32 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PepperAiClientTest {
 
-    private PepperAiService service;
+    private PostAgentAiService service;
     private PepperChatResponseCapture responseCapture;
     private PepperAiClient client;
 
     @BeforeEach
     void setUp() {
-        service = Mockito.mock(PepperAiService.class);
+        service = Mockito.mock(PostAgentAiService.class);
         responseCapture = Mockito.mock(PepperChatResponseCapture.class);
         client = new PepperAiClient();
         client.service = service;
         client.responseCapture = responseCapture;
         client.objectMapper = new ObjectMapper();
+        client.failureResponseLog = new AiFailureResponseLog();
     }
 
     @Test
     void researchReturnsStructuredLangChain4jContentAndRawGrokCitations() {
         AgentDraftDto draft = draft();
-        Mockito.when(service.research(PepperSystemPrompt.DEFAULT,
-                        PepperSystemPrompt.OUTPUT_INSTRUCTIONS,
-                        "Compare the UK voting-age proposal."))
-                .thenReturn(result(draft, """
+        stubResearch(draft, """
                         {
                           "citations": [
                             "https://www.ons.gov.uk/releases/electiondata",
                             "https://www.parliament.uk/bills/voting-age"
                           ]
                         }
-                        """));
+                        """);
 
         PepperAiResponse response = client.research("  Compare the UK voting-age proposal.  ");
 
@@ -65,16 +59,41 @@ class PepperAiClientTest {
                 "https://www.parliament.uk/bills/voting-age"), response.citations());
         assertEquals("grok-4.3", response.model());
         assertEquals("resp_uk_voting_age", response.providerResponseId());
+        assertEquals("""
+                {
+                  "citations": [
+                    "https://www.ons.gov.uk/releases/electiondata",
+                    "https://www.parliament.uk/bills/voting-age"
+                  ]
+                }
+                """, response.rawResponse());
         Mockito.verify(service).research(PepperSystemPrompt.DEFAULT,
                 PepperSystemPrompt.OUTPUT_INSTRUCTIONS,
                 "Compare the UK voting-age proposal.");
     }
 
     @Test
-    void researchReturnsOpenAiAnnotationAndSearchActionSourcesWithoutDuplicates() {
+    void researchUsesTheCapturedProviderResponseWhenTheAiResultOmitsRawMetadata() {
         AgentDraftDto draft = draft();
         Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(result(draft, """
+                .thenReturn(draft);
+        ChatResponse capturedResponse = response("""
+                {"citations":["https://www.ons.gov.uk/releases/electiondata"]}
+                """);
+        Mockito.when(responseCapture.take()).thenReturn(capturedResponse);
+
+        PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
+
+        assertEquals(List.of("https://www.ons.gov.uk/releases/electiondata"),
+                response.citations());
+        assertEquals("grok-4.3", response.model());
+        assertEquals("resp_uk_voting_age", response.providerResponseId());
+    }
+
+    @Test
+    void researchReturnsOpenAiAnnotationAndSearchActionSourcesWithoutDuplicates() {
+        AgentDraftDto draft = draft();
+        stubResearch(draft, """
                         {
                           "output": [
                             {
@@ -98,7 +117,7 @@ class PepperAiClientTest {
                             }
                           ]
                         }
-                        """));
+                        """);
 
         PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
 
@@ -109,8 +128,7 @@ class PepperAiClientTest {
 
     @Test
     void researchIgnoresCitationShapedDataOutsideWebSearchAndMessageOutput() {
-        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(result(draft(), """
+        stubResearch(draft(), """
                         {
                           "output": [{
                             "type": "reasoning",
@@ -121,7 +139,7 @@ class PepperAiClientTest {
                             }]
                           }]
                         }
-                        """));
+                        """);
 
         PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
 
@@ -130,8 +148,7 @@ class PepperAiClientTest {
 
     @Test
     void researchIgnoresSourcesFromAFailedOpenAiWebSearchCall() {
-        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(result(draft(), """
+        stubResearch(draft(), """
                         {"output":[{
                           "type":"web_search_call",
                           "status":"failed",
@@ -139,7 +156,7 @@ class PepperAiClientTest {
                             "url":"https://fabricated.example/failed-search"
                           }]}
                         }]}
-                        """));
+                        """);
 
         PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
 
@@ -148,10 +165,9 @@ class PepperAiClientTest {
 
     @Test
     void researchPreservesHttpProviderCitationsAcceptedByTheDraftValidator() {
-        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(result(draft(), """
+        stubResearch(draft(), """
                         {"citations":["http://public-record.example/archive"]}
-                        """));
+                        """);
 
         PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
 
@@ -160,8 +176,7 @@ class PepperAiClientTest {
 
     @Test
     void researchRejectsNonHttpValuesFromRecognisedCitationLocations() {
-        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(result(draft(), """
+        stubResearch(draft(), """
                         {
                           "citations": [
                             "https://www.ons.gov.uk/releases/electiondata",
@@ -177,7 +192,7 @@ class PepperAiClientTest {
                             ]}
                           }]
                         }
-                        """));
+                        """);
 
         PepperAiResponse response = client.research("Compare the UK voting-age proposal.");
 
@@ -188,14 +203,12 @@ class PepperAiClientTest {
     @Test
     void researchFailsClosedWhenRawResponseCannotProveCitations() {
         Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(Result.<AgentDraftDto>builder()
-                .content(draft())
-                .finalResponse(ChatResponse.builder()
-                        .aiMessage(AiMessage.from("structured output"))
-                        .metadata(ChatResponseMetadata.builder()
-                                .id("resp_without_raw_response")
-                                .modelName("grok-4.3")
-                                .build())
+                .thenReturn(draft());
+        Mockito.when(responseCapture.take()).thenReturn(ChatResponse.builder()
+                .aiMessage(AiMessage.from("structured output"))
+                .metadata(ChatResponseMetadata.builder()
+                        .id("resp_without_raw_response")
+                        .modelName("grok-4.3")
                         .build())
                 .build());
 
@@ -216,7 +229,8 @@ class PepperAiClientTest {
                         .modelName("gpt-5.6")
                         .build();
         Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(result(draft(), metadata));
+                .thenReturn(draft());
+        Mockito.when(responseCapture.take()).thenReturn(response(metadata));
 
         GenerationException error = assertThrows(GenerationException.class,
                 () -> client.research("Compare the UK voting-age proposal."));
@@ -235,7 +249,8 @@ class PepperAiClientTest {
         Mockito.when(metadata.rawHttpResponse()).thenReturn(rawResponse);
         Mockito.when(rawResponse.body()).thenReturn(null);
         Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(result(draft(), metadata));
+                .thenReturn(draft());
+        Mockito.when(responseCapture.take()).thenReturn(response(metadata));
 
         GenerationException error = assertThrows(GenerationException.class,
                 () -> client.research("Compare the UK voting-age proposal."));
@@ -248,8 +263,7 @@ class PepperAiClientTest {
 
     @Test
     void researchMapsMalformedProviderJsonToASafeStableFailure() {
-        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(result(draft(), "{not-json"));
+        stubResearch(draft(), "{not-json");
 
         GenerationException error = assertThrows(GenerationException.class,
                 () -> client.research("Compare the UK voting-age proposal."));
@@ -263,7 +277,7 @@ class PepperAiClientTest {
     @Test
     void researchRejectsAMissingFinalResponseBeforeReadingProviderEvidence() {
         Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(Result.<AgentDraftDto>builder().content(draft()).build());
+                .thenReturn(draft());
 
         GenerationException error = assertThrows(GenerationException.class,
                 () -> client.research("Compare the UK voting-age proposal."));
@@ -293,7 +307,13 @@ class PepperAiClientTest {
         Mockito.verify(responseCapture).clear();
     }
 
-    private static Result<AgentDraftDto> result(AgentDraftDto draft, String rawBody) {
+    private void stubResearch(AgentDraftDto draft, String rawBody) {
+        Mockito.when(service.research(Mockito.anyString(), Mockito.anyString(), Mockito.anyString()))
+                .thenReturn(draft);
+        Mockito.when(responseCapture.take()).thenReturn(response(rawBody));
+    }
+
+    private static ChatResponse response(String rawBody) {
         SuccessfulHttpResponse rawResponse = SuccessfulHttpResponse.builder()
                 .statusCode(200)
                 .body(rawBody)
@@ -304,20 +324,13 @@ class PepperAiClientTest {
                         .modelName("grok-4.3")
                         .rawHttpResponse(rawResponse)
                         .build();
-        return result(draft, metadata);
+        return response(metadata);
     }
 
-    private static Result<AgentDraftDto> result(
-            AgentDraftDto draft,
-            ChatResponseMetadata metadata
-    ) {
-        ChatResponse response = ChatResponse.builder()
+    private static ChatResponse response(ChatResponseMetadata metadata) {
+        return ChatResponse.builder()
                 .aiMessage(AiMessage.from("structured output"))
                 .metadata(metadata)
-                .build();
-        return Result.<AgentDraftDto>builder()
-                .content(draft)
-                .finalResponse(response)
                 .build();
     }
 

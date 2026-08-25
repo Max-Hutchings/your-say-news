@@ -14,6 +14,9 @@ class DomainRequestFilterTest {
         assertEquals("GET.feed", DomainRequestFilter.operationFrom("GET", "/feed"));
         assertEquals("POST.votes", DomainRequestFilter.operationFrom("POST", "/votes"));
         assertEquals("GET.api.admin.users", DomainRequestFilter.operationFrom("GET", "/api/admin/users"));
+        assertEquals("POST.api.admin.auto-post.runs.{id}.retry-draft",
+                DomainRequestFilter.operationFrom("POST",
+                        "/api/admin/auto-post/runs/50b05ab6-a324-4fb4-bab6-e7c14bc5ce83/retry-draft"));
     }
 
     @Test

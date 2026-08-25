@@ -31,6 +31,12 @@ public class AutoPostApiException extends ApiException {
                 "This story list has already moved to the next step.");
     }
 
+    public static AutoPostApiException draftRetryConflict() {
+        return new AutoPostApiException("AUTO_POST_DRAFT_RETRY_CONFLICT", Response.Status.CONFLICT,
+                "The run does not have a failed post-agent draft to retry.",
+                "Only a failed post-agent draft can be retried.");
+    }
+
     public static AutoPostApiException officialAccountUnavailable() {
         return new AutoPostApiException("AUTO_POST_OFFICIAL_ACCOUNT_UNAVAILABLE",
                 Response.Status.SERVICE_UNAVAILABLE,

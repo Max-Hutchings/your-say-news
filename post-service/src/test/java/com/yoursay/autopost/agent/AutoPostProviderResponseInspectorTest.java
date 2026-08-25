@@ -9,7 +9,6 @@ import dev.langchain4j.model.chat.response.ChatResponseMetadata;
 import dev.langchain4j.model.openai.OpenAiResponsesChatResponseMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,14 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AutoPostProviderResponseInspectorTest {
 
     private AutoPostProviderResponseInspector inspector;
-    private AutoPostProviderResponseLog providerResponseLog;
-
     @BeforeEach
     void setUp() {
         inspector = new AutoPostProviderResponseInspector();
         inspector.objectMapper = new ObjectMapper();
-        providerResponseLog = Mockito.mock(AutoPostProviderResponseLog.class);
-        inspector.providerResponseLog = providerResponseLog;
     }
 
     @Test
@@ -38,7 +33,6 @@ class AutoPostProviderResponseInspectorTest {
                 """);
 
         assertDoesNotThrow(() -> inspector.requireCompletedWebSearch(response));
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     @Test
@@ -50,7 +44,6 @@ class AutoPostProviderResponseInspectorTest {
                 """);
 
         assertDoesNotThrow(() -> inspector.requireCompletedWebSearch(response));
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     @Test
@@ -67,7 +60,6 @@ class AutoPostProviderResponseInspectorTest {
         assertEquals("web_search", error.stage());
         assertEquals("provider_contract", error.faultType());
         assertFalse(error.retryable());
-        Mockito.verify(providerResponseLog).missingWebSearch(rawResponse);
     }
 
     @Test
@@ -82,7 +74,6 @@ class AutoPostProviderResponseInspectorTest {
         assertEquals("web_search", error.stage());
         assertEquals("dependency", error.faultType());
         assertFalse(error.retryable());
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     @Test
@@ -92,7 +83,6 @@ class AutoPostProviderResponseInspectorTest {
 
         assertFailure(error, "AUTO_POST_PROVIDER_EVIDENCE_MISSING",
                 "provider_contract", "web_search");
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     @Test
@@ -107,7 +97,6 @@ class AutoPostProviderResponseInspectorTest {
 
         assertFailure(error, "AUTO_POST_PROVIDER_EVIDENCE_MISSING",
                 "provider_contract", "web_search");
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     @Test
@@ -125,7 +114,6 @@ class AutoPostProviderResponseInspectorTest {
 
         assertFailure(error, "AUTO_POST_PROVIDER_EVIDENCE_MISSING",
                 "provider_contract", "web_search");
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     @Test
@@ -135,7 +123,6 @@ class AutoPostProviderResponseInspectorTest {
 
         assertFailure(error, "AUTO_POST_PROVIDER_EVIDENCE_MISSING",
                 "provider_contract", "web_search");
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     @Test
@@ -146,7 +133,6 @@ class AutoPostProviderResponseInspectorTest {
         assertFailure(error, "AUTO_POST_PROVIDER_RESPONSE_INVALID",
                 "provider_contract", "provider_evidence");
         assertInstanceOf(JsonProcessingException.class, error.getCause());
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     @Test
@@ -156,7 +142,6 @@ class AutoPostProviderResponseInspectorTest {
 
         assertFailure(error, "AUTO_POST_PROVIDER_EVIDENCE_MISSING",
                 "provider_contract", "web_search");
-        Mockito.verifyNoInteractions(providerResponseLog);
     }
 
     private static void assertFailure(

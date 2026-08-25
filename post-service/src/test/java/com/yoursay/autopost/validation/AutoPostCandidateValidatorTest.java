@@ -4,6 +4,8 @@ import com.yoursay.autopost.AutoPostRegion;
 import com.yoursay.autopost.agent.DiscoveredStory;
 import com.yoursay.autopost.agent.DiscoveredStorySource;
 import com.yoursay.autopost.agent.StoryDiscoveryResult;
+import com.yoursay.platform.ai.AiFailureResponseLog;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -16,6 +18,8 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class AutoPostCandidateValidatorTest {
 
@@ -24,7 +28,15 @@ class AutoPostCandidateValidatorTest {
     private static final DiscoveredStorySource VALID_SOURCE = new DiscoveredStorySource(
             "https://www.reuters.com/world/uk/example-story", "Example story", "Reuters");
 
-    private final AutoPostCandidateValidator validator = new AutoPostCandidateValidator();
+    private AiFailureResponseLog failureResponseLog;
+    private AutoPostCandidateValidator validator;
+
+    @BeforeEach
+    void setUp() {
+        failureResponseLog = mock(AiFailureResponseLog.class);
+        validator = new AutoPostCandidateValidator();
+        validator.failureResponseLog = failureResponseLog;
+    }
 
     @Test
     void acceptsPopulatedOutputWithoutRevalidatingEditorialRequirements() {
@@ -45,6 +57,18 @@ class AutoPostCandidateValidatorTest {
                 () -> validator.validateRequiredFields(result(List.of())));
 
         assertEquals("AUTO_POST_STORIES_MISSING", error.code());
+    }
+
+    @Test
+    void logsTheFullProviderResponseWhenRequiredFieldValidationFails() {
+        StoryDiscoveryResult result = new StoryDiscoveryResult(
+                List.of(), "grok-4.5", "response-42", List.of(), "complete raw response");
+
+        AutoPostValidationException error = assertThrows(AutoPostValidationException.class,
+                () -> validator.validateRequiredFields(result));
+
+        verify(failureResponseLog).log(
+                "autopost", "candidateValidation", error.code(), "complete raw response");
     }
 
     @Test

@@ -58,9 +58,14 @@ interface ExampleAiService {
 }
 ```
 
-Return `Result<ExampleDraft>` only when the adapter needs LangChain4j's final response metadata.
-The `Result` and all other LangChain4j types must remain inside the technical adapter and must not
-become domain or REST contracts.
+Return the structured-output record directly. Provider metadata, including token usage, must be
+captured through a request-scoped `ChatModelListener`; it is not a reason to expose LangChain4j's
+`Result` wrapper. LangChain4j types must remain inside the technical adapter and must not become
+domain or REST contracts.
+
+Agent implementations live in an internal `agent` technical package under the owning domain. This
+keeps Postagent aligned with Unwrapped: the generated AI service, response capture, provider
+configuration and adapter are together, while validation has its own `validation` package.
 
 ### Prompts and message roles
 
@@ -107,14 +112,16 @@ The three contract layers have different purposes and must remain aligned:
 1. `output-instructions.md` tells the model the full field and cross-field contract.
 2. `@Description` tells the generated schema the local meaning and bounds of each field. Keep these
    descriptions specific, but do not copy the entire output contract into every annotation.
-3. Deterministic Java validation enforces every rule the application must trust and returns a stable
-   error code for each failure category.
+3. Deterministic Java validation rejects only missing, empty or blank required fields. It must not
+   repeat model-facing counts, writing limits, ordering or editorial rules as application rejection
+   rules.
 
-Focused tests must pin important wording in the Markdown contract, field descriptions and validator
-outcomes so a later change cannot silently weaken one layer. Model text verbosity should be set to
-`low` for bounded agent output, but it is only a style control. It does not replace explicit field
-limits or deterministic validation. Likewise, the provider output-token limit is a final safety
-boundary, not the way to make individual fields concise.
+Focused tests must pin important wording in the Markdown contract and field descriptions. Validator
+tests must prove populated model output is accepted and missing or blank fields are rejected with a
+stable required-field error. Model text verbosity should be set to `low` for bounded agent output,
+but it is only a style control. It does not replace explicit field limits in the model instructions.
+Likewise, the provider output-token limit is a final safety boundary, not the way to make individual
+fields concise.
 
 ### Structured response records
 
@@ -131,9 +138,9 @@ specific language. They should state local semantics such as:
 - the allowed value set where the Java type does not already express it; and
 - whether a list is ordered or what its entries represent.
 
-Descriptions must not become a second copy of the full prompt or validator. Cross-field rules,
-editorial behaviour and workflow requirements belong in output instructions. Rules that must be
-trusted belong in deterministic Java validation.
+Descriptions must not become a second copy of the full prompt. Cross-field rules, editorial
+behaviour, cardinality and writing limits belong in output instructions. Java validation checks
+only that the required model fields are populated.
 
 Example:
 
@@ -154,20 +161,32 @@ The generated AI service must sit behind a provider-neutral domain interface. It
 responsible for:
 
 - assembling the prompt and invoking the AI service;
-- rejecting null, unparsable or incomplete output;
+- rejecting null, unparsable or blank required output fields;
 - mapping model-facing drafts into domain types;
-- validating all required field, ordering, cardinality, cross-field and privacy rules;
 - translating provider and parsing failures into stable domain faults; and
 - collecting model name, response ID, token usage or citations when the operation requires them.
 
 Structured output proves only that a response matches a schema. It does not prove that claims,
-URLs or relationships are true. For research agents, citations must be verified against the raw
-provider web-search response and the result must fail closed when required evidence is missing.
-Model-returned source strings alone are not trusted evidence.
+URLs or relationships are true. Evidence verification is a separate product or safety decision,
+not part of the default output validator. Read raw provider metadata from the `ChatModelListener`
+response capture because Quarkiverse can omit it from the ordinary AI service result.
+
+Every successful provider response records its reported input and output tokens in the shared
+`yoursay.ai.tokens.total` counter. Its bounded labels are `agent_type`, `token_type`, `model` and
+`environment`. `agent_type` is one of `autopost`, `postagent` or `unwrapped`; `token_type` is either
+`input` or `output`. This supports system-wide totals and per-agent totals without prompt text,
+user identifiers or other high-cardinality data in metrics.
 
 Provider configuration, response parsing and LangChain4j exceptions must not leak through the
 domain's public interface. Observability belongs around the adapter operation and must use bounded,
 PII-safe fields as defined by the repository's observability standard.
+
+Every agent adapter passes its captured provider response to the shared failure-response logger
+when response parsing, evidence inspection, mapping, or required-field validation fails. Local
+development enables an `ai_failure_response` event containing the complete raw response, stable
+fault code, and trace ID so malformed output can be diagnosed. The event is disabled by default,
+including production and tests, because model output is unbounded and may contain sensitive data.
+Response content must never be used in metric attributes or persisted domain errors.
 
 ## Reason
 
@@ -182,13 +201,13 @@ the configured AI provider change without altering domain contracts.
 ## Consequences and follow-up work
 
 - New agent reviews must check the service interface, prompt resources, annotated response records,
-  deterministic validator and adapter as one contract.
+  required-field validator and adapter as one contract.
 - A response-schema change requires focused tests that pin the generated shape and validation
   behaviour. Persisted or externally consumed shapes require an explicit version change.
 - Prompt tests should prove that stable instructions are in the system message and per-call data is
   in the user message, and that the output Markdown states every important measurable constraint.
-- Field-description tests and validator tests must cover the same trusted bounds without treating
-  schema acceptance as proof that the draft is valid.
+- Field-description tests must pin model-facing bounds. Validator tests must cover only missing,
+  empty and blank required fields.
 - Provider contract tests should cover invalid structured output, missing required metadata and
   missing or invented citations where research evidence is required.
 - Conversational agents that genuinely need memory require a separate decision defining memory

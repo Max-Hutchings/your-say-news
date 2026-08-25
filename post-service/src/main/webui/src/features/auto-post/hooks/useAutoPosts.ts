@@ -4,6 +4,7 @@ import {
   AutoPostAdminApiError,
   getAutoPostRuns,
   selectAutoPostCandidate,
+  retryAutoPostDraft,
   startAutoPostRun,
   streamAutoPostRun,
 } from "../services/autoPostAdminApi";
@@ -16,6 +17,7 @@ export function useAutoPosts() {
   const [creating, setCreating] = useState(false);
   const [selectingCandidateId, setSelectingCandidateId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  const [retryingRunId, setRetryingRunId] = useState<string | null>(null);
   const streams = useRef(new Map<string, AbortController>());
 
   const replaceRun = useCallback((run: AutoPostRun) => {
@@ -123,7 +125,24 @@ export function useAutoPosts() {
     }
   }, [replaceRun]);
 
-  return { runs, activeRun, error, creating, selectingCandidateId, approving, load, create, select, approve };
+  const retry = useCallback(async (runId: string) => {
+    setRetryingRunId(runId);
+    setError(null);
+    try {
+      replaceRun(await retryAutoPostDraft(runId));
+      monitor(runId);
+    } catch (reason) {
+      setError(toAutoPostError(reason));
+      throw reason;
+    } finally {
+      setRetryingRunId(null);
+    }
+  }, [monitor, replaceRun]);
+
+  return {
+    runs, activeRun, error, creating, selectingCandidateId, approving, retryingRunId,
+    load, create, select, approve, retry,
+  };
 }
 
 function isTerminal(run: AutoPostRun): boolean {

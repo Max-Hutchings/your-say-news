@@ -1,4 +1,4 @@
-package com.yoursay.posts.postagent.generator;
+package com.yoursay.posts.postagent.agent;
 
 import java.io.IOException;
 import java.io.InputStream;

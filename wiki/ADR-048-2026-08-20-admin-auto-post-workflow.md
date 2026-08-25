@@ -97,8 +97,10 @@ with display name **Your Say News** and handle `yoursay`. The account is seeded 
 `OFFICIAL` and an `ACTIVE` publisher. It has no interactive Keycloak login. The triggering admin is
 retained only in private audit data and is never shown as the post author.
 
-Runs and handoffs are idempotent. One candidate can be selected per run, one post-agent draft can
-be created for that selection, and one final post can be linked to the run. Invalid discovery
+Runs and handoffs are idempotent. One candidate can be selected per run and one final post can be
+linked to the run. A failed post-agent draft can be explicitly retried by an administrator. The
+post-agent creates a new job from the failed job's persisted prompt, so retry uses the exact same
+input without repeating discovery. Invalid discovery
 output, unavailable providers, stale or conflicting selections, missing official-account authority,
 invalid drafts and publication failures fail closed.
 
@@ -106,6 +108,10 @@ Manual discovery runs make one provider attempt. A provider or output-contract f
 directly to `FAILED`, allowing the admin UI to show the persisted failure without a hidden retry
 window. A later scheduled workflow may adopt a different retry policy as an explicit operational
 decision.
+
+Only failures after a candidate has been handed to the post agent expose **Retry draft**. Discovery
+failures remain non-retryable from this action. A retry returns the existing auto-post run to
+`DRAFTING`, points it at the replacement post-agent job and resumes the authenticated event stream.
 
 Use the shared operation telemetry with `domain="autopost"`. Measure the public API, discovery job,
 provider dependency, candidate validation, SSE lifetime, post-agent handoff and publication using

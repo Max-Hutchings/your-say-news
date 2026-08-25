@@ -1,4 +1,4 @@
-package com.yoursay.posts.postagent.generator;
+package com.yoursay.posts.postagent.agent;
 
 import com.yoursay.platform.ai.AiWebSearchModelConfigurer;
 import dev.langchain4j.model.openai.OpenAiResponsesChatModel;

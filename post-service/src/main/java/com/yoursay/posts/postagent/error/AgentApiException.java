@@ -49,6 +49,11 @@ public class AgentApiException extends ApiException {
                 "Pepper draft is not ready to publish or edit.");
     }
 
+    public static AgentApiException draftNotFailed() {
+        return new AgentApiException("AGENT_DRAFT_NOT_FAILED", Response.Status.CONFLICT,
+                "Only a failed Pepper draft can be retried.");
+    }
+
     public static AgentApiException draftInvalid() {
         return new AgentApiException("AGENT_DRAFT_INVALID", Response.Status.BAD_REQUEST,
                 "Pepper draft contains invalid post fields.");

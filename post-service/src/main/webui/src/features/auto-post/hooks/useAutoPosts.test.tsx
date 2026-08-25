@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   getAutoPostRuns: vi.fn(),
   approveAutoPostRun: vi.fn(),
   selectAutoPostCandidate: vi.fn(),
+  retryAutoPostDraft: vi.fn(),
   startAutoPostRun: vi.fn(),
   streamAutoPostRun: vi.fn(),
 }));
@@ -137,6 +138,35 @@ describe("useAutoPosts", () => {
     expect(result.current.activeRun).toEqual(readyRun);
     expect(streamSignal?.aborted).toBe(true);
     expect(api.getAutoPostRun).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed draft and monitors the replacement job", async () => {
+    const failedRun = {
+      ...queuedRun,
+      status: "FAILED" as const,
+      selectedCandidateId: "candidate-1",
+      pepperDraftId: "failed-draft-1",
+      errorCode: "AUTO_POST_DRAFT_FAILED",
+    };
+    const retryingRun = {
+      ...failedRun,
+      status: "DRAFTING" as const,
+      pepperDraftId: "retry-draft-2",
+      errorCode: null,
+      errorMessage: null,
+    };
+    api.retryAutoPostDraft.mockResolvedValue(retryingRun);
+    const { result } = renderHook(() => useAutoPosts());
+    await waitFor(() => expect(result.current.runs).toEqual([]));
+
+    await act(async () => result.current.retry(failedRun.id));
+
+    expect(api.retryAutoPostDraft).toHaveBeenCalledWith(failedRun.id);
+    expect(api.streamAutoPostRun).toHaveBeenCalledWith(
+      failedRun.id, expect.any(Function), expect.any(AbortSignal),
+    );
+    expect(result.current.activeRun).toEqual(retryingRun);
+    expect(result.current.retryingRunId).toBeNull();
   });
 
   it.each([

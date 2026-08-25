@@ -21,9 +21,9 @@ import com.yoursay.posts.postagent.dto.PepperPostDraftDto;
 import com.yoursay.posts.postagent.dto.SourcedClaimDto;
 import com.yoursay.posts.postagent.dto.UpdatePepperDraftRequest;
 import com.yoursay.posts.postagent.error.AgentApiException;
-import com.yoursay.posts.postagent.generator.GenerationException;
-import com.yoursay.posts.postagent.generator.GenerationResult;
-import com.yoursay.posts.postagent.generator.PepperPostGenerator;
+import com.yoursay.posts.postagent.agent.GenerationException;
+import com.yoursay.posts.postagent.agent.GenerationResult;
+import com.yoursay.posts.postagent.agent.PepperPostGenerator;
 import com.yoursay.posts.postagent.model.PepperAiDraftPost;
 import com.yoursay.posts.postagent.model.PepperAiDraftPostRepository;
 import io.quarkus.logging.Log;
@@ -91,6 +91,20 @@ public class AgentServiceImpl implements AgentService, AutoPostAgentService {
     public UUID startForPublisher(long publisherUserId, String prompt) {
         requireTrustedPublisher(publisherUserId);
         return launch(publisherUserId, prompt.trim()).draftId();
+    }
+
+    @Override
+    public UUID retryForPublisher(UUID failedDraftId, long publisherUserId) {
+        requireTrustedPublisher(publisherUserId);
+        String originalPrompt = QuarkusTransaction.requiringNew().call(() -> {
+            PepperAiDraftPost failedDraft = repository.findOwned(failedDraftId, publisherUserId)
+                    .orElseThrow(AgentApiException::draftMissing);
+            if (failedDraft.getStatus() != PepperDraftStatus.FAILED) {
+                throw AgentApiException.draftNotFailed();
+            }
+            return failedDraft.getPrompt();
+        });
+        return launch(publisherUserId, originalPrompt).draftId();
     }
 
     private StartedDraft launch(long userId, String prompt) {

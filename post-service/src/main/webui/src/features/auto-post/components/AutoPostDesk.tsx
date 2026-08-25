@@ -9,9 +9,11 @@ interface AutoPostDeskProps {
   creating: boolean;
   selectingCandidateId: string | null;
   approving?: boolean;
+  retryingRunId?: string | null;
   onCreate: () => Promise<void>;
   onSelect: (runId: string, candidateId: string) => Promise<void>;
   onApprove?: (runId: string) => Promise<void>;
+  onRetry?: (runId: string) => Promise<void>;
   onReload: () => Promise<void>;
 }
 
@@ -22,9 +24,11 @@ export function AutoPostDesk({
   creating,
   selectingCandidateId,
   approving = false,
+  retryingRunId = null,
   onCreate,
   onSelect,
   onApprove = async () => undefined,
+  onRetry = async () => undefined,
   onReload,
 }: AutoPostDeskProps) {
   const [expanded, setExpanded] = useState(new Set<string>());
@@ -89,7 +93,13 @@ export function AutoPostDesk({
           : runs.length === 0 ? <p className="auto-post-empty">
             No official posts have been created through this desk yet.
           </p> : <ol>
-            {runs.map((run) => <HistoryRow key={run.id} run={run} />)}
+            {runs.map((run) => <HistoryRow
+              key={run.id}
+              run={run}
+              retrying={retryingRunId === run.id}
+              retryDisabled={retryingRunId !== null}
+              onRetry={onRetry}
+            />)}
           </ol>}
       </section>
 
@@ -238,13 +248,27 @@ function DraftReview({ run, approving, onApprove }: {
   </section>;
 }
 
-function HistoryRow({ run }: { run: AutoPostRun }) {
+function HistoryRow({ run, retrying, retryDisabled, onRetry }: {
+  run: AutoPostRun;
+  retrying: boolean;
+  retryDisabled: boolean;
+  onRetry: (runId: string) => Promise<void>;
+}) {
   const selected = run.candidates.find((candidate) => candidate.id === run.selectedCandidateId);
+  const canRetryDraft = run.status === "FAILED"
+    && run.selectedCandidateId !== null
+    && run.pepperDraftId !== null;
   return <li>
     <time dateTime={run.createdAt}>{formatHistoryDate(run.createdAt)}</time>
     <div><strong>{selected?.headline ?? statusLabel(run.status)}</strong>
       <span>{statusLabel(run.status)}</span></div>
-    <span>{run.publishedPostId ? `Post ${run.publishedPostId}` : "-"}</span>
+    {canRetryDraft ? <button
+      type="button"
+      className="auto-post-history__retry"
+      disabled={retryDisabled}
+      onClick={() => void onRetry(run.id)}
+    >{retrying ? "Retrying…" : "Retry draft"}</button>
+      : <span>{run.publishedPostId ? `Post ${run.publishedPostId}` : "-"}</span>}
   </li>;
 }
 

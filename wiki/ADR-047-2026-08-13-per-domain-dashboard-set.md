@@ -59,6 +59,12 @@ failing operations, Top 10 error codes), one collapsed row per important operati
 subdomains of one product area; splitting them would have produced three near-empty dashboards.
 `domain-posts.json` includes `postagent` for the same reason.
 
+AI token usage is charted from the shared `yoursay_ai_tokens_total` counter. The service overview
+shows total input tokens, total output tokens and both values split by agent type. The Posts
+dashboard shows Postagent and Auto-post totals, while the Unwrapped dashboard filters to the
+Unwrapped agent. These panels use provider-reported token counts and never infer usage from prompt
+length.
+
 Service level targets, which set every threshold colour:
 
 | Signal | Green | Yellow | Red |
