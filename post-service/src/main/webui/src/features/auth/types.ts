@@ -4,8 +4,9 @@ export type AdminIdentity = {
 };
 
 export type AdminAuthState = {
-  status: "loading" | "authenticated" | "error";
+  status: "loading" | "unauthenticated" | "authenticated" | "error";
   identity: AdminIdentity | null;
   error: string | null;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };

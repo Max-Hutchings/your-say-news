@@ -3,8 +3,6 @@ import { votePopulation } from "../fixtures/test-data";
 
 const AUTH_ORIGIN = process.env.SMOKE_AUTH_ORIGIN ?? "http://localhost:8080";
 const API_ORIGIN = process.env.SMOKE_API_ORIGIN ?? "http://localhost:8082";
-const REALM = process.env.SMOKE_AUTH_REALM ?? "your-say-news";
-const CLIENT_ID = process.env.SMOKE_AUTH_CLIENT_ID ?? "frontend-client";
 
 type VoteOption = {
   id: number;
@@ -15,7 +13,7 @@ type VoteOption = {
 /**
  * Casts the seeded twenty-account population's votes on a post.
  *
- * This is deliberately *setup*, not the journey under test. Driving twenty Keycloak sign-ins
+ * This is deliberately *setup*, not the journey under test. Driving twenty Firebase sign-ins
  * through the browser would add minutes to a serial suite and make the population the most
  * fragile thing in it, while proving nothing the single-voter journeys do not already prove. The
  * votes still travel the real path — a real token per account, the real `POST /votes` endpoint,
@@ -85,21 +83,19 @@ export class VotePopulation {
 
   private async accessToken(username: string): Promise<string> {
     const response = await this.request.post(
-      `${AUTH_ORIGIN}/realms/${REALM}/protocol/openid-connect/token`,
+      `${AUTH_ORIGIN}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=local`,
       {
-        form: {
-          client_id: CLIENT_ID,
-          grant_type: "password",
-          username,
+        data: {
+          email: `${username}@example.com`,
           password: votePopulation.password,
-          scope: "openid profile email",
+          returnSecureToken: true,
         },
       }
     );
     expect(response.status(), `${username} should be a seeded account`).toBe(200);
 
-    const { access_token: accessToken } = (await response.json()) as {
-      access_token?: string;
+    const { idToken: accessToken } = (await response.json()) as {
+      idToken?: string;
     };
     expect(accessToken, `${username} should receive an access token`).toBeTruthy();
     return accessToken!;

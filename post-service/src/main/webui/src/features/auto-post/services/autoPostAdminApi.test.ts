@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../auth", () => ({ getAccessToken: vi.fn().mockResolvedValue("admin-auto-post-token") }));
+vi.mock("../../auth", () => ({ adminFetch: vi.fn((path, init) => fetch(path, init)) }));
 
 import {
   approveAutoPostRun,
@@ -52,26 +52,26 @@ describe("autoPostAdminApi", () => {
     await expect(approveAutoPostRun(run.id)).resolves.toEqual({ ...run, status: "PUBLISHED" });
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/admin/auto-post/runs", expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+      headers: expect.objectContaining({ Accept: "application/json" }),
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       `/api/admin/auto-post/runs/${run.id}`,
       expect.objectContaining({
         signal: pollingController.signal,
-        headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+        headers: expect.objectContaining({ Accept: "application/json" }),
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/admin/auto-post/runs", expect.objectContaining({
       method: "POST",
-      headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+      headers: expect.objectContaining({ Accept: "application/json" }),
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
       `/api/admin/auto-post/runs/${run.id}/candidates/${candidateId}/select`,
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+        headers: expect.objectContaining({ Accept: "application/json" }),
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -79,7 +79,7 @@ describe("autoPostAdminApi", () => {
       `/api/admin/auto-post/runs/${run.id}/retry-draft`,
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+        headers: expect.objectContaining({ Accept: "application/json" }),
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -87,7 +87,7 @@ describe("autoPostAdminApi", () => {
       `/api/admin/auto-post/runs/${run.id}/approve`,
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer admin-auto-post-token" }),
+        headers: expect.objectContaining({ Accept: "application/json" }),
       }),
     );
   });
@@ -118,7 +118,6 @@ describe("autoPostAdminApi", () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Accept: "text/event-stream",
-          Authorization: "Bearer admin-auto-post-token",
         }),
       }),
     );

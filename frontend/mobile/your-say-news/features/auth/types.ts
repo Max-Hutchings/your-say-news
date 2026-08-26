@@ -31,25 +31,8 @@ export interface UserState extends User {
     // user who has filled the wizard is never sent back through it.
     hasCharacteristics: boolean;
 
-    accessToken: string | null;
-    refreshToken: string | null;
-
-    getAccessToken: () => string | null;
-    setAccessToken: (token: string) => void;
-
-    getRefreshToken: () => string | null;
-    setRefreshToken: (token: string) => void;
-
-    accessTokenExpiresAt: number | null;
-    accessTokenExpired: () => boolean;
-    refreshAccessToken: () => Promise<string | null>;
-
-    login: () => Promise<boolean>; // true/false for success
-    completeLogin: (tokens: {
-        accessToken: string;
-        refreshToken: string | null;
-        expiresIn: number | null;
-    }) => Promise<boolean>;
+    login: (email: string, password: string) => Promise<boolean>;
+    completeLogin: () => Promise<boolean>;
     /**
      * Validate a session restored from storage on startup.
      * - "signed-in"  — the server still recognises the stored credentials.

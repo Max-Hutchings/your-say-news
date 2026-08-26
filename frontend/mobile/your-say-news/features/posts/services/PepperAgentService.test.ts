@@ -1,6 +1,6 @@
 import { fetch as expoFetch } from "expo/fetch";
 import * as SecureStore from "expo-secure-store";
-import { useAuthStore, YsnHttpClient } from "@/features/auth";
+import { getFirebaseIdToken, YsnHttpClient } from "@/features/auth";
 import {
   ACTIVE_PEPPER_GENERATION_KEY,
   getLatestPepperDraft,
@@ -17,7 +17,7 @@ jest.mock("expo-secure-store", () => ({
   deleteItemAsync: jest.fn(),
 }));
 jest.mock("@/features/auth", () => ({
-  useAuthStore: { getState: jest.fn() },
+  getFirebaseIdToken: jest.fn(),
   YsnHttpClient: { getSecure: jest.fn() },
 }));
 jest.mock("expo-constants", () => ({
@@ -28,7 +28,7 @@ jest.mock("expo-constants", () => ({
 }));
 
 const mockFetch = expoFetch as jest.Mock;
-const mockGetState = useAuthStore.getState as jest.Mock;
+const mockGetFirebaseIdToken = getFirebaseIdToken as jest.Mock;
 const mockGetSecure = YsnHttpClient.getSecure as jest.Mock;
 
 const generatedDraft: PepperPostDraft = {
@@ -79,11 +79,7 @@ function chunkedStreamResponse(chunks: string[]) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetState.mockReturnValue({
-    accessToken: "pepper-token",
-    accessTokenExpired: () => false,
-    refreshAccessToken: jest.fn(),
-  });
+  mockGetFirebaseIdToken.mockResolvedValue("pepper-token");
 });
 
 it("holds one authenticated SSE request through RECEIVED, GENERATING and FINISHED", async () => {

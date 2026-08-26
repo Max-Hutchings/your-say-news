@@ -105,6 +105,7 @@ describe("UsersPage", () => {
   const update = vi.fn();
   const load = vi.fn();
   const logout = vi.fn();
+  const login = vi.fn();
   const generate = vi.fn();
 
   beforeEach(() => {
@@ -114,6 +115,7 @@ describe("UsersPage", () => {
       status: "authenticated",
       identity: { email: "john.doe@example.com", name: "John Doe" },
       error: null,
+      login,
       logout,
     });
     vi.mocked(useAdminUsers).mockReturnValue({

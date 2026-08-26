@@ -29,6 +29,7 @@ describe("admin development routing", () => {
     ]);
     expect(config.server?.proxy).toEqual({
       "/api/admin": "http://localhost:8082",
+      "/api/auth": "http://localhost:8082",
     });
     expect(config.server.host).toBe("localhost");
     expect(config.server.port).toBe(8083);
@@ -58,6 +59,7 @@ describe("admin development routing", () => {
     expect(loadEnvironment).toHaveBeenCalledWith("smoke", ".", "");
     expect(config.server.proxy).toEqual({
       "/api/admin": "http://localhost:58082",
+      "/api/auth": "http://localhost:58082",
     });
     expect(config.server.port).toBe(58083);
     expect(configurationContract(config)).toEqual(
@@ -73,6 +75,7 @@ describe("admin development routing", () => {
 
     expect(config.server.proxy).toEqual({
       "/api/admin": "http://localhost:58084",
+      "/api/auth": "http://localhost:58084",
     });
     expect(config.server.port).toBe(58085);
   });

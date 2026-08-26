@@ -178,3 +178,26 @@ button:disabled {
   color: var(--editorial-bg);
   font-weight: 600;
 }
+
+.session-form {
+  display: grid;
+  width: min(24rem, 85vw);
+  gap: 1rem;
+  text-align: left;
+}
+
+.session-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--editorial-secondary);
+  font-size: 0.85rem;
+}
+
+.session-form input {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--editorial-border);
+  border-radius: 0.5rem;
+  background: var(--editorial-surface);
+  color: var(--editorial-ink);
+}

@@ -1,4 +1,4 @@
-import { getAccessToken } from "../../auth";
+import { adminFetch } from "../../auth";
 import type {
   UnwrappedAdminPost,
   UnwrappedGenerationTrigger,
@@ -18,12 +18,10 @@ export class UnwrappedAdminApiError extends Error {
 }
 
 async function unwrappedRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAccessToken();
-  const response = await fetch(path, {
+  const response = await adminFetch(path, {
     ...init,
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },

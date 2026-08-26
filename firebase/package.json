@@ -1,0 +1,12 @@
+{
+  "name": "your-say-news-local-firebase",
+  "private": true,
+  "scripts": {
+    "firebase": "firebase",
+    "seed": "bun seed-users.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "14.3.0",
+    "firebase-tools": "15.28.1"
+  }
+}

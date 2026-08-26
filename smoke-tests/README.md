@@ -70,14 +70,14 @@ card (`post-card-{id}`) and assert that post's content.
 | `smoke.voter.01` … `20` | The seeded voting population, with characteristic profiles spread across political leaning, age, region and income. |
 | `bob.johnson` / `nora.new` | Follow and unfollow targets. Both author no posts, so following one cannot reorder another journey's feed. |
 
-Seeded accounts live in both `keycloak/realm-export.json` and
+Seeded accounts live in both `firebase/test-accounts.json` and
 `liquibase/changelog/db/user-seeding/`. They must stay in sync; the Compose seed job reconciles the
-realm on every startup.
+Firebase Emulator on every startup.
 
 ## Authentication
 
 Specifications use the provider-neutral `AuthenticationPage` operations. The initial local driver
-uses the configured local provider's HTML form. A hosted provider should implement the same
+uses the application's local Firebase sign-in form. A hosted provider should implement the same
 register/sign-in operations rather than leaking provider-specific selectors into the journeys.
 
 The population journey casts its twenty background votes through the real `POST /votes` endpoint

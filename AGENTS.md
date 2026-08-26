@@ -40,10 +40,9 @@ personalisation data owned by the `post-service` `topics` domain. Never put them
 - **Mobile app:** Expo / React Native (TypeScript) under `frontend/mobile/your-say-news`.
   Routing via `expo-router` (file-based, with route groups like `(protected)`).
   Styling via NativeWind/Tailwind + a shared theme under `constants/theme`.
-- **Auth:** Keycloak. A realm with **real test data** is imported on first startup
-  (`keycloak/realm-export.json`); the `keycloak-seed-users` Compose job reconciles its users into
-  an already-persisted realm on later startups.
-- **Storage:** Postgres (one DB for the app, a separate DB for Keycloak).
+- **Auth:** Firebase Authentication Emulator locally. `firebase-auth-seed` reconciles the
+  repository's test accounts on every Compose startup.
+- **Storage:** Postgres for application data.
   S3 via LocalStack for post video/image assets.
 - **DB migrations:** Liquibase.
 - **Telemetry:** Quarkus exports OpenTelemetry traces/logs and Micrometer metrics via
@@ -84,8 +83,8 @@ ports; the test runner does not invoke Docker Compose. Select a pane and press `
 Completed panes remain open with an explicit PASS/FAIL result; `bun run tests` is supported as an
 alias.
 
-Seed data is injected automatically on Compose startup (see DB section). Keycloak comes up with
-its realm and test users imported or reconciled from the realm export.
+Seed data is injected automatically on Compose startup (see DB section). The Firebase Emulator
+comes up with test users reconciled from `firebase/test-accounts.json`.
 
 ## Architecture decision records
 
@@ -166,7 +165,7 @@ coverage number. After writing tests, run the `test-audit-for-after-changing-tes
   datastore. Fast and focused (e.g. `SentimentTallyTest`, `FeedRankerTest`, `CharacteristicSnapshotTest`
   are plain JUnit 5 over a single class). Reach for these for anything with branching/calculation.
 - **Integration tests** — controllers, persistence and wiring end-to-end. `@QuarkusTest` against a
-  real Postgres (and Keycloak/S3 where relevant) via **Testcontainers** — never mock the datastore.
+  real Postgres (and Firebase/S3 where relevant) via **Testcontainers** — never mock the datastore.
   Cover the happy path **and** the meaningful edges (not-found/`204`, invalid input, ownership).
 
 ### Backend testing
@@ -225,7 +224,7 @@ features/<domain>/           <- a DOMAIN (auth, user-characteristics, posts, vot
   index.ts                   <- PUBLIC FACE: the only thing routes / other features import
   components/                <- components specific to this domain        ── internal
   hooks/                     <- hooks specific to this domain             ── internal
-  services/ (or api/)        <- API calls, state, keycloak/token logic    ── internal
+  services/ (or api/)        <- API calls, state, Firebase/token logic    ── internal
   types.ts                   <- domain types / DTOs                       ── internal
 components/
   ui/                        <- SHARED, domain-agnostic primitives (Button, Card, Input, …)
@@ -253,8 +252,8 @@ The feature layout is now in place:
 
 ```
 features/
-  auth/                <- index.ts · types.ts · services/ (authContext store, keycloakService,
-                          UserService, requests [YsnHttpClient], tokenStorage) · hooks/ (use-fetch-with-auth)
+  auth/                <- index.ts · types.ts · services/ (authContext store, firebaseService,
+                          UserService, requests [YsnHttpClient]) · hooks/ (use-fetch-with-auth)
   posts/               <- index.ts · types.ts · hooks/ (use-posts-api)
   user-characteristics/ <- index.ts · components/ (SelectableChip)
 ```

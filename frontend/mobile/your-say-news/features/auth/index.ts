@@ -6,12 +6,7 @@
  */
 
 export { useAuthStore } from "./services/authContext";
-export {
-    completeKeycloakWebRedirectFromUrl,
-    exchangeKeycloakCodeAsync,
-    startKeycloakWebRedirect,
-    useKeycloakAuthRequest,
-} from "./services/keycloakService";
+export { getFirebaseIdToken } from "./services/firebaseService";
 export { default as YsnHttpClient } from "./services/requests";
 export { getOnboardingStatus } from "./services/UserService";
 export { resolveOnboardingDestination } from "./onboardingRoute";

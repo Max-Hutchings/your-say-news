@@ -17,7 +17,6 @@ import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.ResponseStatus;
 
 import java.time.LocalDate;
@@ -44,9 +43,8 @@ public class YourSayUserController {
     public YourSayUserDto getUser() {
         String email = securityIdentity.getPrincipal().getName();
 
-        JsonWebToken jwt = (JsonWebToken) securityIdentity.getPrincipal();
-        String firstName = jwt.getClaim("given_name");
-        String lastName = jwt.getClaim("family_name");
+        String firstName = securityIdentity.getAttribute("given_name");
+        String lastName = securityIdentity.getAttribute("family_name");
 
         return userService.getOrCreateFromIdentity(email, firstName, lastName);
     }

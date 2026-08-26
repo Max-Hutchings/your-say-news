@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../auth", () => ({
-  getAccessToken: vi.fn().mockResolvedValue("admin-token"),
+  adminFetch: vi.fn((path, init) => fetch(path, init)),
 }));
 
 import {
@@ -30,7 +30,7 @@ describe("unwrappedAdminApi", () => {
 
     await expect(getUnwrappedReviewQueue()).resolves.toEqual([]);
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/unwrapped/review", expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+      headers: expect.objectContaining({ Accept: "application/json" }),
     }));
   });
 
@@ -53,7 +53,7 @@ describe("unwrappedAdminApi", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/admin/unwrapped/posts?page=0&size=50",
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+        headers: expect.objectContaining({ Accept: "application/json" }),
       }),
     );
   });
@@ -74,7 +74,7 @@ describe("unwrappedAdminApi", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/admin/unwrapped/generation-status",
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+        headers: expect.objectContaining({ Accept: "application/json" }),
       }),
     );
   });
@@ -110,7 +110,6 @@ describe("unwrappedAdminApi", () => {
         method: "POST",
         body: JSON.stringify({ reason: "Needs a primary source." }),
         headers: expect.objectContaining({
-          Authorization: "Bearer admin-token",
           "Content-Type": "application/json",
         }),
       }),
@@ -152,7 +151,7 @@ describe("unwrappedAdminApi", () => {
       "/api/admin/unwrapped/posts/42/generate",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+        headers: expect.objectContaining({ Accept: "application/json" }),
       }),
     );
   });
@@ -222,7 +221,7 @@ describe("unwrappedAdminApi", () => {
       1,
       "/api/admin/unwrapped/posts/42/benchmark/context",
       expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+        headers: expect.objectContaining({ Accept: "application/json" }),
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -232,7 +231,6 @@ describe("unwrappedAdminApi", () => {
         method: "POST",
         body: JSON.stringify({ systemPrompts: ["Prompt A"] }),
         headers: expect.objectContaining({
-          Authorization: "Bearer admin-token",
           "Content-Type": "application/json",
         }),
       }),

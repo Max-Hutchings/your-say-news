@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import { fetch as expoFetch } from "expo/fetch";
 import * as SecureStore from "expo-secure-store";
-import { useAuthStore, YsnHttpClient } from "@/features/auth";
+import { getFirebaseIdToken, YsnHttpClient } from "@/features/auth";
 import type {
   PepperDraftRecord,
   PepperGenerationEvent,
@@ -17,9 +17,7 @@ export const ACTIVE_PEPPER_GENERATION_KEY = "active-pepper-generation";
 type ActiveGeneration = { draftId: string; replicaId: string };
 
 async function accessToken(): Promise<string> {
-  const state = useAuthStore.getState();
-  let token = state.accessToken;
-  if (state.accessTokenExpired()) token = await state.refreshAccessToken();
+  const token = await getFirebaseIdToken();
   if (!token) throw new Error(SAFE_FAILURE);
   return token;
 }

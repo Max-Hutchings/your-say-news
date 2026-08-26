@@ -1,4 +1,4 @@
-import { getAccessToken } from "../../auth";
+import { adminFetch } from "../../auth";
 import type { AutoPostEvent, AutoPostRun } from "../types";
 
 export class AutoPostAdminApiError extends Error {
@@ -11,12 +11,10 @@ export class AutoPostAdminApiError extends Error {
 }
 
 async function autoPostRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAccessToken();
-  const response = await fetch(path, {
+  const response = await adminFetch(path, {
     ...init,
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
       ...init?.headers,
     },
   });
@@ -61,11 +59,9 @@ export async function streamAutoPostRun(
   onEvent: (event: AutoPostEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const token = await getAccessToken();
-  const response = await fetch(`/api/admin/auto-post/runs/${runId}/events`, {
+  const response = await adminFetch(`/api/admin/auto-post/runs/${runId}/events`, {
     headers: {
       Accept: "text/event-stream",
-      Authorization: `Bearer ${token}`,
     },
     signal,
   });

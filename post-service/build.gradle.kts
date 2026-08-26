@@ -48,6 +48,7 @@ dependencies {
     implementation("io.quarkiverse.langchain4j:quarkus-langchain4j-openai")
     implementation("io.quarkiverse.amazonservices:quarkus-amazon-s3")
     implementation("org.jetbrains:annotations")
+    implementation("com.google.firebase:firebase-admin:9.10.0")
 
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.quarkus:quarkus-junit5-mockito")

@@ -3,7 +3,7 @@
 # Run: bun run dev
 #
 # Panes (focus with arrows / mouse):
-#   - compose      : Postgres, Keycloak, LocalStack, Liquibase, and telemetry
+#   - compose      : Postgres, Firebase Auth Emulator, LocalStack, Liquibase, and telemetry
 #   - post-service : Quarkus dev mode on :8082, with colorized JSON logs and its admin UI on :8083
 #   - expo         : Expo / React Native dev server on :5173
 #   - grafana      : Direct link to the local Your Say News overview dashboard
@@ -23,7 +23,7 @@ procs:
       cmd: "docker compose down"
 
   post-service:
-    shell: "set -o pipefail; ./scripts/free-service-port.sh 8082 post-service && ./scripts/free-service-port.sh 8083 admin-web-ui && ./scripts/check-compose-services.sh && ./gradlew :post-service:quarkusDev --console=plain 2>&1 | bun scripts/colorize-json-logs.ts"
+    shell: "set -o pipefail; ./scripts/free-service-port.sh 8082 post-service && ./scripts/free-service-port.sh 8083 admin-web-ui && ./scripts/check-compose-services.sh && FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 ./gradlew :post-service:quarkusDev --console=plain 2>&1 | bun scripts/colorize-json-logs.ts"
 
   expo:
     cwd: "frontend/mobile/your-say-news"

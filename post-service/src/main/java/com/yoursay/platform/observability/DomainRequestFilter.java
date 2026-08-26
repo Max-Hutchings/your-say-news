@@ -33,6 +33,7 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
             new DomainRoute("api/admin/unwrapped", "unwrapped"),
             new DomainRoute("api/admin/topic-tags", "topics"),
             new DomainRoute("api/admin/users", "user"),
+            new DomainRoute("api/auth/admin", "user"),
             new DomainRoute("topic-tags", "topics"),
             new DomainRoute("posts", "posts"),
             new DomainRoute("votes", "votes"),
@@ -60,12 +61,12 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
      * {@code {id}} rather than to an unbounded metric.
      */
     private static final Set<String> ROUTE_LITERALS = Set.of(
-            "access", "active", "admin", "agent", "api", "approve", "auto-post", "benchmark",
+            "access", "active", "admin", "agent", "api", "approve", "auth", "auto-post", "benchmark",
             "candidates", "consent", "context", "count", "data", "drafts", "email", "events", "feed",
             "follow-up", "followers", "following",
             "follows", "generate", "generation-status", "id", "income-options", "latest", "live",
             "me", "media", "mine", "onboarding", "options", "posts", "presign", "profiles", "q",
-            "reject", "retry-draft", "review", "runs", "save", "select", "sentiment", "social", "topic-tags", "unwrapped", "user",
+            "csrf", "logout", "reject", "retry-draft", "review", "runs", "save", "select", "sentiment", "session", "social", "topic-tags", "unwrapped", "user",
             "user-characteristics", "users", "votes", "your-say-user");
 
     private static final String PLACEHOLDER = "{id}";

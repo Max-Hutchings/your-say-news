@@ -70,6 +70,7 @@ class DomainRequestFilterTest {
         assertEquals("topics", DomainRequestFilter.domainFromPath("/topic-tags"));
         assertEquals("user", DomainRequestFilter.domainFromPath("/profiles/me"));
         assertEquals("user", DomainRequestFilter.domainFromPath("/your-say-user/onboarding"));
+        assertEquals("user", DomainRequestFilter.domainFromPath("/api/auth/admin/session"));
         assertEquals("usercharacteristic", DomainRequestFilter.domainFromPath("/user-characteristics/me"));
         assertEquals("social", DomainRequestFilter.domainFromPath("/social/following"));
         assertEquals("postagent", DomainRequestFilter.domainFromPath("/agent/drafts"));
