@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { currentIdentity, initializeAdminSession, logoutAdmin } from "../services/keycloak";
+import { initializeAdminSession, loginAdmin, logoutAdmin } from "../services/adminSession";
 import type { AdminAuthState, AdminIdentity } from "../types";
 
 const AdminAuthContext = createContext<AdminAuthState | null>(null);
@@ -13,14 +13,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     initializeAdminSession()
-      .then((authenticated) => {
+      .then((sessionIdentity) => {
         if (!mounted) {
           return;
         }
-        const sessionIdentity = authenticated ? currentIdentity() : null;
         if (!sessionIdentity) {
-          setError("The identity token did not include an email address.");
-          setStatus("error");
+          setStatus("unauthenticated");
           return;
         }
         setIdentity(sessionIdentity);
@@ -39,11 +37,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const login = async (email: string, password: string) => {
+    setError(null);
+    try {
+      const sessionIdentity = await loginAdmin(email, password);
+      setIdentity(sessionIdentity);
+      setStatus("authenticated");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Sign-in failed.");
+      setStatus("unauthenticated");
+    }
+  };
+
+  const logout = async () => {
+    await logoutAdmin();
+    setIdentity(null);
+    setStatus("unauthenticated");
+  };
+
   const value = useMemo<AdminAuthState>(() => ({
     status,
     identity,
     error,
-    logout: logoutAdmin,
+    login,
+    logout,
   }), [error, identity, status]);
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;

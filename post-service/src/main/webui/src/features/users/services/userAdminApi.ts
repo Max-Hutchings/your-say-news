@@ -1,4 +1,4 @@
-import { getAccessToken } from "../../auth";
+import { adminFetch } from "../../auth";
 import type { AdminUser, AdminUserUpdate } from "../types";
 
 export class AdminApiError extends Error {
@@ -11,12 +11,10 @@ export class AdminApiError extends Error {
 }
 
 async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAccessToken();
-  const response = await fetch(path, {
+  const response = await adminFetch(path, {
     ...init,
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },

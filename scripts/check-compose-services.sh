@@ -53,27 +53,6 @@ check_running_service() {
   fi
 }
 
-check_keycloak_service() {
-  local service="keycloak"
-  local container_id status
-
-  container_id="$(docker compose ps -a -q "$service" 2>/dev/null | head -n 1)"
-  if [[ -z "$container_id" ]]; then
-    missing+=("$service: not created")
-    return
-  fi
-
-  status="$(docker inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
-  if [[ "$status" != "running" ]]; then
-    missing+=("$service: $status")
-    return
-  fi
-
-  if ! curl -fsS "http://localhost:8080/realms/your-say-news/.well-known/openid-configuration" >/dev/null 2>&1; then
-    missing+=("$service: realm discovery endpoint is not reachable on localhost:8080")
-  fi
-}
-
 check_completed_service() {
   local service="$1"
   local container_id status exit_code
@@ -96,9 +75,8 @@ check_compose_services() {
   missing=()
 
   check_running_service "postgres"
-  check_running_service "keycloak-db"
-  check_keycloak_service
-  check_completed_service "keycloak-seed-users"
+  check_running_service "firebase-auth"
+  check_completed_service "firebase-auth-seed"
   check_running_service "localstack"
   check_running_service "otel-lgtm"
   check_completed_service "liquibase-migrate"

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../auth", () => ({ getAccessToken: vi.fn().mockResolvedValue("admin-token") }));
+vi.mock("../../auth", () => ({ adminFetch: vi.fn((path, init) => fetch(path, init)) }));
 
 import { createAdminTopic, getAdminTopics, setAdminTopicActive } from "./topicAdminApi";
 
@@ -23,7 +23,7 @@ describe("topicAdminApi", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/admin/topic-tags", expect.objectContaining({
       method: "POST",
       body: JSON.stringify({ label: "Public transport", displayGroup: "Transport & places" }),
-      headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+      headers: expect.objectContaining({ "Content-Type": "application/json" }),
     }));
     expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/admin/topic-tags/housing/active", expect.objectContaining({
       method: "PUT",

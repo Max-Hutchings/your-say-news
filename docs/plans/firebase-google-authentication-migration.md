@@ -1,9 +1,9 @@
 # Firebase Google authentication migration
 
-**Status:** ready for implementation handoff  
+**Status:** local Firebase Emulator transition implemented; hosted Google/Firebase migration pending
 **Decision source:** [ADR-028](../../wiki/ADR-028-2026-07-25-google-authentication-and-application-authorization.md)  
-**Current external state:** the Firebase project/account exists, but Firebase is not connected to
-the Expo application or `post-service`.
+**Current external state:** local development uses the Firebase Authentication Emulator. The hosted
+Firebase project remains outside this local-only implementation.
 
 ## Goal
 
@@ -42,7 +42,7 @@ API and all administrative data remain protected by the database `ADMIN` check.
 - No Firebase custom claim as the source of `ADMIN`, official-publisher or account-active state.
 - No email-only durable identity link.
 - No committed service-account key, Firebase UID, tester email or token.
-- Do not remove local Keycloak until Firebase migration and rollback testing are complete.
+- Local Keycloak has been replaced by the Firebase Authentication Emulator under ADR-053.
 
 ## Ownership and handoff
 

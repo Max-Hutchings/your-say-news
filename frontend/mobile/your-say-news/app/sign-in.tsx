@@ -1,53 +1,34 @@
 /**
  * Sign In / Welcome — the brand-forward editorial entry screen.
  *
- * Shows the value before asking for anything: a locked teaser split bar, then a single SSO primary
- * action (Keycloak), with the privacy promise stated in the sheet itself. Registration is enabled
- * in the realm, so "Create an account" runs the same secure flow and lands on Keycloak's sign-up.
+ * Shows the value before asking for anything, then signs local developers into the Firebase
+ * Authentication Emulator with one of the repository's seeded test accounts.
  */
 import { useState } from "react";
-import { Platform, View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-    exchangeKeycloakCodeAsync,
-    startKeycloakWebRedirect,
-    useAuthStore,
-    useKeycloakAuthRequest,
-} from "@/features/auth";
+import { useAuthStore } from "@/features/auth";
 import { getEditorial, EditorialFont } from "@/constants/theme";
 
 // The login screen is a fixed dark brand moment regardless of system theme.
 const e = getEditorial(true);
 
 export default function SignInScreen() {
-    const { completeLogin } = useAuthStore();
-    const { discovery, promptAsync, ready, redirectUri, request } = useKeycloakAuthRequest();
+    const { login } = useAuthStore();
+    const [email, setEmail] = useState("riley.reader@example.com");
+    const [password, setPassword] = useState("password123");
     const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const onContinue = async () => {
         try {
-            if (!ready || !request || !discovery) {
-                return;
-            }
-
-            if (Platform.OS === "web") {
-                startKeycloakWebRedirect(request, redirectUri);
-                return;
-            }
-
-            const authResult = await promptAsync();
             setBusy(true);
-
-            const tokens = await exchangeKeycloakCodeAsync(
-                authResult,
-                request,
-                discovery,
-                redirectUri,
-            );
-
-            if (tokens) {
-                await completeLogin(tokens);
+            setError(null);
+            if (!await login(email.trim(), password)) {
+                setError("That test account could not be signed in.");
             }
+        } catch {
+            setError("The local authentication service is not available.");
         } finally {
             setBusy(false);
         }
@@ -100,28 +81,39 @@ export default function SignInScreen() {
                 </View>
             </View>
 
-            {/* SSO sheet */}
+            {/* Local sign-in sheet */}
             <View style={[styles.sheet, { backgroundColor: e.surfaceAlt, borderTopColor: e.border }]}>
-                <Text style={[styles.sheetEyebrow, { color: e.lime }]}>SECURE SINGLE SIGN-ON</Text>
+                <Text style={[styles.sheetEyebrow, { color: e.lime }]}>LOCAL TEST ACCOUNT</Text>
+                <TextInput
+                    accessibilityLabel="Email"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    value={email}
+                    onChangeText={setEmail}
+                    style={[styles.input, { color: e.ink, borderColor: e.border }]}
+                />
+                <TextInput
+                    accessibilityLabel="Password"
+                    autoCapitalize="none"
+                    autoComplete="password"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                    style={[styles.input, { color: e.ink, borderColor: e.border }]}
+                />
                 <Pressable
                     accessibilityRole="button"
                     onPress={onContinue}
-                    disabled={busy || !ready}
-                    style={[styles.primary, { backgroundColor: e.lime, opacity: busy || !ready ? 0.7 : 1 }]}
+                    disabled={busy}
+                    style={[styles.primary, { backgroundColor: e.lime, opacity: busy ? 0.7 : 1 }]}
                 >
                     <Lock color={e.onLime} />
                     <Text style={[styles.primaryLabel, { color: e.onLime }]}>
-                        {!ready ? "Preparing..." : busy ? "Connecting..." : "Continue securely"}
+                        {busy ? "Signing in..." : "Sign in"}
                     </Text>
                 </Pressable>
-                <Pressable
-                    accessibilityRole="button"
-                    onPress={onContinue}
-                    disabled={busy || !ready}
-                    style={[styles.secondary, { borderColor: "#3A352D" }]}
-                >
-                    <Text style={[styles.secondaryLabel, { color: "#E7E1D4" }]}>Create an account</Text>
-                </Pressable>
+                {error ? <Text style={[styles.error, { color: e.coral }]}>{error}</Text> : null}
                 <View style={styles.privacyLine}>
                     <View style={[styles.limeDot, { backgroundColor: e.lime }]} />
                     <Text style={[styles.privacyLineText, { color: e.muted }]}>
@@ -181,6 +173,15 @@ const styles = StyleSheet.create({
         paddingBottom: 30,
     },
     sheetEyebrow: { fontFamily: EditorialFont.mono, fontSize: 10, letterSpacing: 1.6, marginBottom: 14 },
+    input: {
+        height: 48,
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        marginBottom: 10,
+        fontFamily: EditorialFont.sans,
+        fontSize: 15,
+    },
     primary: {
         height: 54,
         borderRadius: 14,
@@ -190,15 +191,7 @@ const styles = StyleSheet.create({
         gap: 9,
     },
     primaryLabel: { fontFamily: EditorialFont.sansBold, fontWeight: "700", fontSize: 16 },
-    secondary: {
-        height: 48,
-        marginTop: 10,
-        borderRadius: 14,
-        borderWidth: 1,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    secondaryLabel: { fontFamily: EditorialFont.sansSemiBold, fontWeight: "600", fontSize: 14 },
+    error: { fontFamily: EditorialFont.sans, fontSize: 13, marginTop: 10, textAlign: "center" },
     privacyLine: {
         flexDirection: "row",
         alignItems: "center",

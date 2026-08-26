@@ -2291,6 +2291,209 @@
       ]
     },
     {
+      "id": 39,
+      "type": "row",
+      "title": "Firebase authentication",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": [
+        {
+          "id": 40,
+          "type": "timeseries",
+          "title": "Authentication attempts per second",
+          "description": "Bearer verification, admin cookie verification and admin session creation by outcome.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 28
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_operations_total{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} · {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["mean", "max"]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 41,
+          "type": "timeseries",
+          "title": "Authentication failures per second",
+          "description": "Separates expected authentication errors from Firebase dependency faults.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 28
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome, error_code) (rate(yoursay_domain_errors_total{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} · {{outcome}} · {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["mean", "max"]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 42,
+          "type": "timeseries",
+          "title": "Authentication latency p50 / p95 / p99",
+          "description": "Time spent verifying Firebase credentials and creating admin sessions.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 28
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["mean", "max"]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
       "id": 38,
       "type": "row",
       "title": "Errors and logs",

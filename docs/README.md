@@ -8,7 +8,7 @@ Architecture designs and reference material for Your Say News.
   - [`plans/vote-aggregation.md`](plans/vote-aggregation.md) — the privacy aggregation contract (the PII boundary + `k`-anonymity lever).
   - [`plans/feed-ranking.md`](plans/feed-ranking.md) — the swappable `FeedRanker` contract.
 - **[`plans/`](./plans)** — individual feature implementation plans written before building.
-- **[`test-accounts.md`](./test-accounts.md)** — seeded Keycloak/DB login accounts for dev.
+- **[`test-accounts.md`](./test-accounts.md)** - seeded Firebase Emulator/DB login accounts for dev.
 
 ## Conventions
 

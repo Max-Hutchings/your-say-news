@@ -3,8 +3,6 @@ import type { SignInIdentity } from "../fixtures/test-data";
 
 const AUTH_ORIGIN = process.env.SMOKE_AUTH_ORIGIN ?? "http://localhost:8080";
 const API_ORIGIN = process.env.SMOKE_API_ORIGIN ?? "http://localhost:8082";
-const REALM = process.env.SMOKE_AUTH_REALM ?? "your-say-news";
-const CLIENT_ID = process.env.SMOKE_AUTH_CLIENT_ID ?? "frontend-client";
 
 /**
  * Direct API checks for guards a browser journey cannot prove.
@@ -19,19 +17,17 @@ export class ApiGuards {
 
   async accessToken(identity: SignInIdentity): Promise<string> {
     const response = await this.request.post(
-      `${AUTH_ORIGIN}/realms/${REALM}/protocol/openid-connect/token`,
+      `${AUTH_ORIGIN}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=local`,
       {
-        form: {
-          client_id: CLIENT_ID,
-          grant_type: "password",
-          username: identity.username,
+        data: {
+          email: identity.email,
           password: identity.password,
-          scope: "openid profile email",
+          returnSecureToken: true,
         },
       }
     );
     expect(response.status(), `${identity.username} should be a seeded account`).toBe(200);
-    const { access_token: token } = (await response.json()) as { access_token?: string };
+    const { idToken: token } = (await response.json()) as { idToken?: string };
     expect(token).toBeTruthy();
     return token!;
   }

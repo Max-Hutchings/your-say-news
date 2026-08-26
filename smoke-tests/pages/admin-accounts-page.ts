@@ -35,9 +35,7 @@ export class AdminAccountsPage {
   constructor(
     private readonly page: Page,
     private readonly adminOrigin = process.env.SMOKE_ADMIN_URL ??
-      "http://localhost:58083",
-    private readonly providerOrigin = process.env.SMOKE_AUTH_ORIGIN ??
-      "http://localhost:58080"
+      "http://localhost:58083"
   ) {}
 
   async signIn(
@@ -45,12 +43,12 @@ export class AdminAccountsPage {
     managedAccount: ManagedAccount
   ): Promise<void> {
     await this.page.goto(`${this.adminOrigin}/admin/`);
-    await this.expectProviderPage();
+    await expect(this.page.getByRole("heading", { name: "Admin sign-in" })).toBeVisible();
 
     const accountsResponse = this.waitForAccounts();
-    await this.page.locator("#username").fill(identity.username);
-    await this.page.locator("#password").fill(identity.password);
-    await this.page.locator("#kc-login").click();
+    await this.page.getByLabel("Email").fill(identity.email);
+    await this.page.getByLabel("Password").fill(identity.password);
+    await this.page.getByRole("button", { name: "Sign in" }).click();
 
     await this.expectAdminPage();
     const response = await accountsResponse;
@@ -174,11 +172,6 @@ export class AdminAccountsPage {
         response.request().method() === "GET" &&
         new URL(response.url()).pathname === "/api/admin/users"
     );
-  }
-
-  private async expectProviderPage(): Promise<void> {
-    const provider = new URL(this.providerOrigin);
-    await expect.poll(() => new URL(this.page.url()).origin).toBe(provider.origin);
   }
 
   private async expectAdminPage(): Promise<void> {

@@ -16,6 +16,7 @@
     "@expo-google-fonts/schibsted-grotesk": "^0.4.2",
     "@expo-google-fonts/spline-sans-mono": "^0.4.2",
     "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-navigation/bottom-tabs": "^7.18.0",
     "@react-navigation/elements": "^2.9.23",
     "@react-navigation/native": "^7.3.1",
@@ -39,6 +40,7 @@
     "expo-system-ui": "~56.0.5",
     "expo-video": "~56.1.4",
     "expo-web-browser": "~56.0.5",
+    "firebase": "^12.0.0",
     "nativewind": "^4.2.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -89,6 +91,10 @@
       "global": {
         "lines": 80
       }
+    },
+    "moduleNameMapper": {
+      "^firebase/app$": "<rootDir>/features/auth/services/test/firebaseAppMock.ts",
+      "^firebase/auth$": "<rootDir>/features/auth/services/test/firebaseAuthMock.ts"
     },
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|standard-navigation|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|nativewind|react-native-css-interop|zustand))"

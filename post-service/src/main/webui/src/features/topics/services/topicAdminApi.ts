@@ -1,4 +1,4 @@
-import { getAccessToken } from "../../auth";
+import { adminFetch } from "../../auth";
 import type { AdminTopic, CreateTopicInput } from "../types";
 
 export class TopicAdminApiError extends Error {
@@ -8,12 +8,10 @@ export class TopicAdminApiError extends Error {
 }
 
 async function topicRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAccessToken();
-  const response = await fetch(path, {
+  const response = await adminFetch(path, {
     ...init,
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
