@@ -1,21 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
-import { getApp, getApps, initializeApp } from "firebase/app";
+import { getApps, initializeApp } from "firebase/app";
 import { connectAuthEmulator, initializeAuth } from "firebase/auth";
 // Metro resolves Firebase's React Native entry, whose export is missing from the browser typings.
 // @ts-expect-error React Native-only Firebase export.
 import { getReactNativePersistence } from "firebase/auth";
+import { FIREBASE_AUTH_APP_NAME, firebaseClientConfig } from "./firebaseClientConfig";
 
 const extra = Constants.expoConfig?.extra ?? {};
-const projectId: string = extra.FIREBASE_PROJECT_ID ?? "demo-your-say-news";
-const app = getApps().length > 0 ? getApp() : initializeApp({
-    apiKey: extra.FIREBASE_API_KEY,
-    authDomain: `${projectId}.firebaseapp.com`,
-    projectId,
-    appId: extra.FIREBASE_APP_ID,
-});
-const configuredUrl: string = extra.FIREBASE_AUTH_EMULATOR_URL ?? "http://localhost:9099";
-const emulatorUrl = configuredUrl
+const config = firebaseClientConfig(extra);
+const app = getApps().find(({ name }) => name === FIREBASE_AUTH_APP_NAME)
+    ?? initializeApp(config.options, FIREBASE_AUTH_APP_NAME);
+const emulatorUrl = config.emulatorUrl
     .replace("localhost", "10.0.2.2")
     .replace("127.0.0.1", "10.0.2.2");
 
