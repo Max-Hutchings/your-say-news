@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react-native";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react-native";
 import { ThemeProvider } from "@/constants/theme";
 import { PostCard } from "./PostCard";
 import type { Post } from "../types";
@@ -7,6 +7,16 @@ import type { Post } from "../types";
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
+}));
+
+const mockCreateUrl = jest.fn();
+jest.mock("expo-linking", () => ({
+  createURL: (...args: unknown[]) => mockCreateUrl(...args),
+}));
+
+const mockSetStringAsync = jest.fn();
+jest.mock("expo-clipboard", () => ({
+  setStringAsync: (...args: unknown[]) => mockSetStringAsync(...args),
 }));
 
 // The vote controls (from @/features/votes) fetch the caller's vote on mount; stub the votes
@@ -47,6 +57,7 @@ function renderWithTheme(ui: React.ReactElement) {
 const basePost: Post = {
   id: 7,
   userId: 3,
+  authorUsername: "amina.k",
   summary:
     "The plan adds two miles of protected lane through the city centre.\n\nSupporters call it overdue; drivers worry about the lost road space.",
   supportQuestion: "Do you agree the cycle lane should go ahead?",
@@ -57,7 +68,8 @@ const basePost: Post = {
     { id: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE" },
     { id: 72, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE" },
   ],
-  isUnbiased: false,
+  isAiGenerated: false,
+  sources: [],
   createdAt: "2026-06-21T10:00:00Z",
   media: [
     {
@@ -69,6 +81,9 @@ const basePost: Post = {
       url: "https://s3.local/abc.jpg",
       posterUrl: null,
     },
+  ],
+  topicTags: [
+    { id: "transport", label: "Transport", displayGroup: "Transport & places", displayOrder: 18, active: true },
   ],
 };
 
@@ -93,6 +108,12 @@ describe("PostCard", () => {
     mockGetMine.mockReset().mockResolvedValue(null);
     mockCast.mockReset();
     mockUseVideoPlayer.mockReset();
+    mockCreateUrl.mockReset().mockReturnValue("yoursaynews://posts/7");
+    mockSetStringAsync.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it("uses the support question as the sole heading above the article", () => {
@@ -112,6 +133,51 @@ describe("PostCard", () => {
     renderWithTheme(<PostCard post={basePost} />);
     fireEvent.press(screen.getByLabelText("Open author profile"));
     expect(mockPush).toHaveBeenCalledWith("/profiles/3");
+  });
+
+  it("copies the post link and briefly confirms it", async () => {
+    jest.useFakeTimers();
+    renderWithTheme(<PostCard post={basePost} />);
+
+    fireEvent.press(screen.getByLabelText("Share post"));
+
+    await waitFor(() => {
+      expect(mockCreateUrl).toHaveBeenCalledWith("/posts/7");
+      expect(mockSetStringAsync).toHaveBeenCalledWith("yoursaynews://posts/7");
+      expect(screen.getByText("Link copied")).toBeOnTheScreen();
+    });
+
+    act(() => jest.runOnlyPendingTimers());
+    expect(screen.queryByText("Link copied")).toBeNull();
+  });
+
+  it("does not claim success when the clipboard rejects the copy", async () => {
+    mockSetStringAsync.mockRejectedValueOnce(new Error("clipboard unavailable"));
+    renderWithTheme(<PostCard post={basePost} />);
+
+    fireEvent.press(screen.getByLabelText("Share post"));
+
+    expect(await screen.findByText("Couldn't copy link")).toBeOnTheScreen();
+    expect(screen.queryByText("Link copied")).toBeNull();
+  });
+
+  it("names the author by their username rather than their id", () => {
+    renderWithTheme(<PostCard post={basePost} />);
+    expect(screen.getByText("@amina.k")).toBeOnTheScreen();
+    expect(screen.queryByText("Author 3")).toBeNull();
+  });
+
+  it("falls back to a neutral label when the author has no username", () => {
+    renderWithTheme(<PostCard post={{ ...basePost, authorUsername: null }} />);
+    expect(screen.getByText("Unknown author")).toBeOnTheScreen();
+  });
+
+  it("renders topic chips and sends the canonical id when one is selected", () => {
+    const onSelectTopic = jest.fn();
+    renderWithTheme(<PostCard post={basePost} onSelectTopic={onSelectTopic} />);
+
+    fireEvent.press(screen.getByLabelText("Show Transport stories"));
+    expect(onSelectTopic).toHaveBeenCalledWith("transport");
   });
 
   it("keeps the support question and case cards after voting (voting doesn't disrupt the story)", async () => {
@@ -184,14 +250,32 @@ describe("PostCard", () => {
     expect(screen.queryByTestId("post-card-video")).toBeNull();
   });
 
-  it("hides the unbiased badge when the post is not unbiased", () => {
-    renderWithTheme(<PostCard post={basePost} />);
-    expect(screen.queryByText("UNBIASED")).toBeNull();
+  it("renders a post published from a Pepper draft exactly like a hand-written one", () => {
+    // Provenance is a server-side record, not a reader-facing label: the card must look the same
+    // either way, so any AI-conditional UI reintroduced here fails this comparison.
+    // Handlers are compared away (JSON drops functions); the rendered structure and copy are not.
+    const structure = (tree: unknown) => JSON.parse(JSON.stringify(tree));
+    const aiPost = structure(renderWithTheme(<PostCard post={{ ...basePost, isAiGenerated: true }} />).toJSON());
+    screen.unmount();
+    const writtenPost = structure(renderWithTheme(<PostCard post={basePost} />).toJSON());
+
+    expect(aiPost).toEqual(writtenPost);
+    expect(screen.queryByText("AI GENERATED")).toBeNull();
   });
 
-  it("shows the unbiased badge only when the post is unbiased", () => {
-    renderWithTheme(<PostCard post={{ ...basePost, isUnbiased: true }} />);
-    expect(screen.getByText("UNBIASED")).toBeOnTheScreen();
+  it("renders citations after the article text and supporting arguments", () => {
+    renderWithTheme(<PostCard post={{
+      ...basePost,
+      sources: [
+        { url: "https://www.ons.gov.uk/work", title: "Working patterns", publisher: "ONS" },
+        { url: "https://www.acas.org.uk/hours", title: "Working hours", publisher: "Acas" },
+      ],
+    }} />);
+
+    expect(screen.getByText("SOURCES")).toBeOnTheScreen();
+    expect(screen.getByText("Working patterns")).toBeOnTheScreen();
+    expect(screen.getByText("ONS")).toBeOnTheScreen();
+    expect(screen.getByText("Working hours")).toBeOnTheScreen();
   });
 
   it("renders the case-for and case-against cards with their arguments", () => {

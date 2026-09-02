@@ -1,5 +1,10 @@
 # Currency-aware income bands
 
+> Storage, active-version lifecycle, vote-range preservation and Unwrapped delivery are superseded
+> by [ADR-045](../../wiki/ADR-045-2026-08-11-database-versioned-income-profiles.md) and the
+> [database-backed implementation plan](database-backed-country-income-profiles.md). This document
+> remains useful for the original product rationale, sourcing rules and legacy migration context.
+
 ## Goal
 
 Make annual personal and household income choices reasonable for the user's economic market and

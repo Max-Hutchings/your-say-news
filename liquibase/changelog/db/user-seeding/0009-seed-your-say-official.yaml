@@ -1,0 +1,22 @@
+databaseChangeLog:
+  # Application-owned official author for reviewed auto-post publications. It has no Keycloak
+  # identity because it never signs in; administrators trigger work under their own identities.
+  - changeSet:
+      id: 0009-seed-your-say-official
+      author: codex
+      logicalFilePath: db/seeding/0009-seed-your-say-official.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: email, value: "official@yoursay.com" } }
+              - { column: { name: first_name, value: "Your Say" } }
+              - { column: { name: last_name, value: "News" } }
+              - { column: { name: display_name, value: "Your Say News" } }
+              - { column: { name: handle, value: "yoursay" } }
+              - { column: { name: created_date, value: "2026-08-20" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "OFFICIAL" } }
+              - { column: { name: publisher_status, value: "ACTIVE" } }

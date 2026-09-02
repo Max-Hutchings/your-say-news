@@ -18,8 +18,10 @@ import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 class UnwrappedAdminControllerTest {
@@ -345,7 +347,7 @@ class UnwrappedAdminControllerTest {
                 .then()
                 .statusCode(403);
         given()
-                .when().get("/api/admin/unwrapped/benchmark/system-prompt")
+                .when().get("/api/admin/unwrapped/posts/2007/benchmark/context")
                 .then()
                 .statusCode(403);
         given()
@@ -358,12 +360,79 @@ class UnwrappedAdminControllerTest {
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "admin")
-    void benchmarkContractExposesTheDefaultPromptAndAcceptsUpToThreePrompts() {
-        given()
-                .when().get("/api/admin/unwrapped/benchmark/system-prompt")
-                .then()
-                .statusCode(200)
-                .body("systemPrompt", equalTo(UnwrappedSystemPrompt.DEFAULT));
+    void benchmarkContractExposesTheDefaultPromptAndAcceptsUpToThreePrompts() throws Exception {
+        TestPost post = createPost();
+        try {
+            insertVotesWithCharacteristic(post.id(), post.agreeOptionId(), 60, 0,
+                    "{\"gender\":\"MAN\"}");
+            insertVotesWithCharacteristic(post.id(), post.disagreeOptionId(), 40, 10_000,
+                    "{\"gender\":\"WOMAN\"}");
+            String contextJson = given()
+                    .when().get("/api/admin/unwrapped/posts/" + post.id() + "/benchmark/context")
+                    .then()
+                    .statusCode(200)
+                    .body("systemPrompt", equalTo(UnwrappedSystemPrompt.DEFAULT))
+                    .body("outputInstructions", equalTo(UnwrappedSystemPrompt.outputInstructions(
+                            List.of(post.agreeOptionId(), post.disagreeOptionId()))))
+                    .body("input.postId", equalTo((int) post.id()))
+                    .body("input.summary", equalTo("Forced generation summary"))
+                    .body("input.question", equalTo("Should this be generated?"))
+                    .body("input.jurisdiction", equalTo("GLOBAL"))
+                    .body("input.canonicalVoteCount", equalTo(100))
+                    .body("input.aggregateVersion", matchesPattern("sha256:[0-9a-f]{64}"))
+                    .body("input.options.size()", equalTo(2))
+                    .body("input.options[0].option.id", equalTo((int) post.agreeOptionId()))
+                    .body("input.options[0].option.label", equalTo("Agree"))
+                    .body("input.options[0].overallVoteCount", equalTo(60))
+                    .body("input.options[0].overallVotePercentage", equalTo(60.0F))
+                    .body("input.options[1].option.id", equalTo((int) post.disagreeOptionId()))
+                    .body("input.options[1].option.label", equalTo("Disagree"))
+                    .body("input.options[1].overallVoteCount", equalTo(40))
+                    .body("input.options[1].overallVotePercentage", equalTo(40.0F))
+                    // ADR-044: eligibility is privacy-only, so both gender groups reach every
+                    // option. The anchor is the largest privacy-safe group, the differentiator the
+                    // strongest remaining one, which flips their option affinity between options.
+                    .body("input.options[0].candidates.size()", equalTo(2))
+                    .body("input.options[0].candidates[0].cohortId", equalTo("gender=MAN"))
+                    .body("input.options[0].candidates[0].dimensions[0].axis", equalTo("gender"))
+                    .body("input.options[0].candidates[0].dimensions[0].bucket", equalTo("MAN"))
+                    .body("input.options[0].candidates[0].role", equalTo("CORE_ANCHOR"))
+                    .body("input.options[0].candidates[0].displayName", equalTo("Men"))
+                    .body("input.options[0].candidates[0].sampleSize", equalTo(60))
+                    .body("input.options[0].candidates[0].optionVoteCount", equalTo(60))
+                    .body("input.options[0].candidates[0].propensityPercentage", equalTo(100.0F))
+                    .body("input.options[0].candidates[1].cohortId", equalTo("gender=WOMAN"))
+                    .body("input.options[0].candidates[1].role", equalTo("CORE_DIFFERENTIATOR"))
+                    .body("input.options[0].candidates[1].displayName", equalTo("Women"))
+                    .body("input.options[0].candidates[1].sampleSize", equalTo(40))
+                    .body("input.options[0].candidates[1].optionVoteCount", equalTo(0))
+                    .body("input.options[0].candidates[1].propensityPercentage", equalTo(0.0F))
+                    .body("input.options[1].candidates.size()", equalTo(2))
+                    .body("input.options[1].candidates[0].cohortId", equalTo("gender=MAN"))
+                    .body("input.options[1].candidates[0].role", equalTo("CORE_ANCHOR"))
+                    .body("input.options[1].candidates[0].displayName", equalTo("Men"))
+                    .body("input.options[1].candidates[0].sampleSize", equalTo(60))
+                    .body("input.options[1].candidates[0].optionVoteCount", equalTo(0))
+                    .body("input.options[1].candidates[0].propensityPercentage", equalTo(0.0F))
+                    .body("input.options[1].candidates[1].cohortId", equalTo("gender=WOMAN"))
+                    .body("input.options[1].candidates[1].role", equalTo("CORE_DIFFERENTIATOR"))
+                    .body("input.options[1].candidates[1].displayName", equalTo("Women"))
+                    .body("input.options[1].candidates[1].sampleSize", equalTo(40))
+                    .body("input.options[1].candidates[1].optionVoteCount", equalTo(40))
+                    .body("input.options[1].candidates[1].propensityPercentage", equalTo(100.0F))
+                    .body("input.options[0].narrativeInstructions[0]", equalTo(
+                            "Explain why a selected cohort is likely to favour the option using researched context."))
+                    .extract().path("input").toString();
+            // Scope the PII guard to the aggregate actually sent to the model. The surrounding
+            // prompt prose legitimately mentions these words to forbid them ("Do not identify
+            // individual voters using personal names, email addresses, ..."), so asserting over
+            // the whole response would fail on the instruction that enforces the rule.
+            assertFalse(contextJson.contains("userId"), contextJson);
+            assertFalse(contextJson.contains("email"), contextJson);
+            assertFalse(contextJson.contains("dateOfBirth"), contextJson);
+        } finally {
+            deletePost(post.id());
+        }
 
         given()
                 .contentType("application/json")
@@ -438,11 +507,127 @@ class UnwrappedAdminControllerTest {
                 .body("code", equalTo("VALIDATION_FAILED"));
     }
 
+    /**
+     * The identity of a real voter must never reach the model. The aggregate is built from
+     * {@code (optionId, characteristicSnapshot)} pairs and structurally has nowhere to put a name,
+     * so this guards the boundary staying that way: a genuine account with a realistic name, email
+     * and date of birth casts a counted vote, and none of those literal values may appear in the
+     * payload sent to the provider. Asserting the values, not the field names, is the point —
+     * "jane.whitfield@example.com" contains no substring "email".
+     */
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
+    void modelInputCarriesNoVoterIdentityEvenWhenTheVoterHasFullProfileData() throws Exception {
+        TestPost post = createPost();
+        long voterId = 0;
+        try {
+            insertVotesWithCharacteristic(post.id(), post.agreeOptionId(), 60, 0,
+                    "{\"gender\":\"MAN\"}");
+            insertVotesWithCharacteristic(post.id(), post.disagreeOptionId(), 40, 10_000,
+                    "{\"gender\":\"WOMAN\"}");
+            voterId = insertIdentifiableUser();
+            insertVoteFor(post.id(), post.agreeOptionId(), voterId, "{\"gender\":\"WOMAN\"}");
+
+            Map<String, Object> input = given()
+                    .when().get("/api/admin/unwrapped/posts/" + post.id() + "/benchmark/context")
+                    .then()
+                    .statusCode(200)
+                    // The vote counted, so this voter really is inside the aggregate below.
+                    .body("input.canonicalVoteCount", equalTo(101))
+                    .extract().path("input");
+            String modelInput = input.toString();
+            // Positive control. Every other assertion here checks for absence, and absence passes
+            // just as happily against an empty map or a mistyped extraction path, so first prove
+            // this really is the populated payload.
+            assertTrue(modelInput.contains("Forced generation summary"),
+                    () -> "Scanned the wrong payload: " + modelInput);
+
+            // The handle is public profile data rather than PII, but tying it to how someone voted
+            // is the same disclosure, so it is forbidden here for the same reason.
+            for (String identity : List.of(
+                    "Jane", "Whitfield", "Jane Whitfield", "jane-whitfield",
+                    "jane.whitfield@example.com", "1987-04-23")) {
+                assertFalse(modelInput.contains(identity),
+                        () -> "Voter identity '" + identity + "' reached the model input: "
+                                + modelInput);
+            }
+            // A bare numeric id cannot be searched for as text — "12" occurs inside hashes, ids and
+            // counts — so pin the shape instead: no field anywhere in the payload may carry a
+            // per-person identifier, which is what would make a vote traceable to an account.
+            Set<String> identityKeys = new java.util.TreeSet<>();
+            collectKeys(input, identityKeys);
+            // Not displayName — that is the cohort's label ("Men"), and a person's display name is
+            // already covered by the value check above.
+            identityKeys.removeIf(key -> !key.toLowerCase(java.util.Locale.ROOT)
+                    .matches(".*(userid|user_id|voterid|voter_id|accountid|account_id"
+                            + "|email|handle|firstname|lastname|dateofbirth|birth).*"));
+            assertEquals(Set.of(), identityKeys,
+                    () -> "Model input exposes per-person fields: " + identityKeys);
+        } finally {
+            deletePost(post.id());
+            if (voterId != 0) {
+                deleteUser(voterId);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void collectKeys(Object node, Set<String> into) {
+        if (node instanceof Map<?, ?> map) {
+            map.forEach((key, value) -> {
+                into.add(String.valueOf(key));
+                collectKeys(value, into);
+            });
+        } else if (node instanceof Iterable<?> items) {
+            items.forEach(item -> collectKeys(item, into));
+        }
+    }
+
+    private long insertIdentifiableUser() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into your_say_user(
+                         email, first_name, last_name, display_name, handle, date_of_birth,
+                         created_date, active)
+                     values ('jane.whitfield@example.com', 'Jane', 'Whitfield', 'Jane Whitfield',
+                         'jane-whitfield', date '1987-04-23', now(), true)
+                     returning id
+                     """);
+             ResultSet result = statement.executeQuery()) {
+            result.next();
+            return result.getLong(1);
+        }
+    }
+
+    private void insertVoteFor(long postId, long optionId, long userId, String snapshot)
+            throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into votes(post_id, user_id, option_id, characteristic_snapshot)
+                     values (?, ?, ?, ?::jsonb)
+                     """)) {
+            statement.setLong(1, postId);
+            statement.setLong(2, userId);
+            statement.setLong(3, optionId);
+            statement.setString(4, snapshot);
+            assertEquals(1, statement.executeUpdate());
+        }
+    }
+
+    private void deleteUser(long userId) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "delete from your_say_user where id = ?")) {
+            statement.setLong(1, userId);
+            statement.executeUpdate();
+        }
+    }
+
     private TestPost createPost() throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement post = connection.prepareStatement("""
                      insert into post(
-                         user_id, summary, support_question, is_unbiased,
+                         user_id, summary, support_question, is_ai_generated,
                          created_at, updated_at, voting_type, jurisdiction, case_for, case_against
                      ) values (1, 'Forced generation summary', 'Should this be generated?',
                          false, now(), now(), 'BINARY', 'GLOBAL',
@@ -489,6 +674,23 @@ class UnwrappedAdminControllerTest {
             statement.setInt(2, userOffset);
             statement.setLong(3, optionId);
             statement.setInt(4, count);
+            assertEquals(count, statement.executeUpdate());
+        }
+    }
+
+    private void insertVotesWithCharacteristic(long postId, long optionId, int count,
+                                               int userOffset, String snapshot) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     insert into votes(post_id, user_id, option_id, characteristic_snapshot)
+                     select ?, 900000 + ? + generated.user_number, ?, ?::jsonb
+                     from generate_series(1, ?) as generated(user_number)
+                     """)) {
+            statement.setLong(1, postId);
+            statement.setInt(2, userOffset);
+            statement.setLong(3, optionId);
+            statement.setString(4, snapshot);
+            statement.setInt(5, count);
             assertEquals(count, statement.executeUpdate());
         }
     }

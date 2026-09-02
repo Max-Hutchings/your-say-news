@@ -10,16 +10,16 @@ export function SentimentCounts({ buckets, options }: { buckets: BucketSentiment
   const { isDark } = useTheme(); const e = getEditorial(isDark);
   const max = useMemo(() => buckets.flatMap((b) => b.choices).reduce((m, c) => Math.max(m, c.count), 0), [buckets]);
   return <ScrollView horizontal contentContainerStyle={styles.chart}>
-    {buckets.map((bucket) => <View key={bucket.bucket} style={styles.group}>
+    {buckets.map((bucket) => <View key={bucket.bucket} testID={`breakdown-bucket-${bucket.bucket}`} style={styles.group}>
       <View style={styles.columns}>{options.map((option, index) => {
         const count = bucket.choices.find((choice) => choice.optionId === option.id)?.count ?? 0;
         const height = max ? Math.max(2, Math.round(count / max * BAR_MAX_HEIGHT)) : 2;
         return <View key={option.id} style={styles.column}>
-          <Text style={[styles.count, { color: optionColor(option, index, e) }]}>{count}</Text>
+          <Text testID={`breakdown-count-${bucket.bucket}-${option.id}`} style={[styles.count, { color: optionColor(option, index, e) }]}>{count}</Text>
           <View style={[styles.bar, { height, backgroundColor: optionColor(option, index, e) }]} />
         </View>;
       })}</View>
-      <Text style={[styles.label, { color: e.secondary }]}>{prettifyBucket(bucket.bucket)}</Text>
+      <Text style={[styles.label, { color: e.secondary }]}>{bucket.label ?? prettifyBucket(bucket.bucket)}</Text>
     </View>)}
   </ScrollView>;
 }

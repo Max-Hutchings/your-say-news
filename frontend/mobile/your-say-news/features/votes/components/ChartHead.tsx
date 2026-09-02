@@ -13,7 +13,7 @@ export function ChartHead({ title, caption }: { title: string; caption: string }
 
   return (
     <View style={styles.row}>
-      <Text style={[styles.title, { color: e.ink }]}>{title}</Text>
+      <Text testID="breakdown-axis-title" style={[styles.title, { color: e.ink }]}>{title}</Text>
       <Text style={[styles.caption, { color: e.muted }]}>{caption}</Text>
     </View>
   );

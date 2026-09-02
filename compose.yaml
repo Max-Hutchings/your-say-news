@@ -20,79 +20,42 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2) Postgres for Keycloak
-  keycloak-db:
-    image: postgres:16
-    container_name: keycloak-postgres
-    environment:
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak_password
-      POSTGRES_DB: keycloak
-    volumes:
-      - keycloak-postgres-data:/var/lib/postgresql/data
+  # 2) Firebase Authentication Emulator for local mobile and admin sessions
+  firebase-auth:
+    build:
+      context: .
+      dockerfile: firebase/Dockerfile
+    container_name: firebase-auth
+    ports:
+      - "9099:9099"
+      - "4000:4000"
     networks:
       - app-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      test: ["CMD", "bun", "-e", "const r=await fetch('http://127.0.0.1:9099/emulator/v1/projects/demo-your-say-news/config');process.exit(r.ok?0:1)"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 20
+      start_period: 15s
 
-  # 3) Keycloak auth provider with auto-imported realm
-  keycloak:
-    image: quay.io/keycloak/keycloak:25.0
-    container_name: keycloak
+  # 3) Reconcile the repository's login fixtures into Firebase on every startup
+  firebase-auth-seed:
+    build:
+      context: .
+      dockerfile: firebase/Dockerfile
+    container_name: firebase-auth-seed
     depends_on:
-      keycloak-db:
+      firebase-auth:
         condition: service_healthy
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_DB: postgres
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloak_password
-      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
-      KC_HTTP_ENABLED: "true"
-      KC_PROXY_HEADERS: xforwarded
-      KC_HOSTNAME_STRICT: "false"
-      KC_HEALTH_ENABLED: "true"
-    command:
-      - "start-dev"
-      - "--import-realm"
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-      - ./keycloak/themes:/opt/keycloak/themes:ro
-    networks:
-      - app-net
-    healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000;echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3;grep -q '200 OK' <&3"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 30s
-
-  # 4) Reconcile seeded users after startup import (which skips an already-persisted realm)
-  keycloak-seed-users:
-    image: python:3.13-alpine
-    container_name: keycloak-seed-users
-    depends_on:
-      keycloak:
-        condition: service_healthy
-    environment:
-      KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-    command: ["python", "/config/sync-seed-users.py"]
-    volumes:
-      - ./keycloak/realm-export.json:/config/realm-export.json:ro
-      - ./keycloak/sync-seed-users.py:/config/sync-seed-users.py:ro
+      FIREBASE_AUTH_EMULATOR_HOST: firebase-auth:9099
+      FIREBASE_PROJECT_ID: demo-your-say-news
+    command: ["bun", "run", "seed"]
     networks:
       - app-net
     restart: "no"
 
-  # 5) Liquibase migrations - applies post-service schema, then exits
+  # 4) Liquibase migrations - applies post-service schema, then exits
   liquibase-migrate:
     build:
       context: .
@@ -109,7 +72,7 @@ services:
       - app-net
     restart: "no"
 
-  # 6) Liquibase seeding - applies seed data (seeding/, context "seed") after migrations, then exits
+  # 5) Liquibase seeding - applies seed data (seeding/, context "seed") after migrations, then exits
   liquibase-seed:
     build:
       context: .
@@ -126,7 +89,7 @@ services:
       - app-net
     restart: "no"
 
-  # 7) LocalStack for S3 (used by post-service for video storage)
+  # 6) LocalStack for S3 (used by post-service for video storage)
   localstack:
     image: localstack/localstack:3.0
     container_name: localstack
@@ -144,7 +107,7 @@ services:
     networks:
       - app-net
 
-  # 8) Local observability stack: Grafana UI, OTel Collector, Loki, Tempo, and Prometheus
+  # 7) Local observability stack: Grafana UI, OTel Collector, Loki, Tempo, and Prometheus
   otel-lgtm:
     image: grafana/otel-lgtm:latest
     container_name: otel-lgtm
@@ -164,6 +127,5 @@ networks:
 
 volumes:
   app-postgres-data:
-  keycloak-postgres-data:
   localstack-data:
   otel-lgtm-data:

@@ -1,0 +1,2659 @@
+{
+  "uid": "ysn-domain-user",
+  "title": "Your Say News - User",
+  "description": "The user domain and its subdomains: identity and onboarding, characteristics, income profiles and the social graph. No panel here groups by anything that identifies a person.",
+  "tags": [
+    "your-say-news",
+    "domain",
+    "user"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "Your Say News",
+      "tags": [
+        "your-say-news"
+      ],
+      "asDropdown": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values({__name__=~\"yoursay_domain_(requests|operations)_total\", domain=~\"user|usercharacteristic|social\"}, environment)",
+          "refId": "env"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        }
+      },
+      {
+        "name": "operation",
+        "label": "Operation",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values({__name__=~\"yoursay_domain_(requests|operations)_total\", domain=~\"user|usercharacteristic|social\", environment=~\"$environment\"}, operation)",
+          "refId": "op"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        }
+      },
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "custom",
+        "query": "post-service",
+        "options": [
+          {
+            "text": "post-service",
+            "value": "post-service",
+            "selected": true
+          }
+        ],
+        "current": {
+          "text": "post-service",
+          "value": "post-service",
+          "selected": true
+        },
+        "description": "post-service is the sole backend deployable."
+      },
+      {
+        "name": "logFilter",
+        "label": "Log filter",
+        "type": "textbox",
+        "query": "user|profile|characteristic|consent|income|follow",
+        "current": {
+          "text": "user|profile|characteristic|consent|income|follow",
+          "value": "user|profile|characteristic|consent|income|follow",
+          "selected": false
+        },
+        "description": "Case-insensitive regex matched against log lines in the errors and logs row."
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Overview",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Requests per second",
+      "description": "Externally facing traffic for this domain.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(yoursay_domain_requests_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Calls in selected period",
+      "description": "API requests plus internal domain operations across the dashboard time range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 4,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "clamp_min(sum(increase(yoursay_domain_requests_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) + sum(increase(yoursay_domain_operations_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 0)",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Errors in selected period",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 9,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__range]))",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [
+        {
+          "title": "Open failing traces",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+          "targetBlank": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Errors per second",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 14,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.01
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Error percentage",
+      "description": "Errors as a share of all instrumented work in this domain. Expected rejections are excluded from the error count.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * sum(increase(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) / clamp_min(sum(increase(yoursay_domain_requests_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) + sum(increase(yoursay_domain_operations_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 1)",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Traffic by operation and outcome",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "links": [],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisSoftMin": 0
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Latency p50 / p95 / p99",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p50 {{operation}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p95 {{operation}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p99 {{operation}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "links": [],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisSoftMin": 0
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Top 10 failing operations",
+      "description": "Grouped by stable operation and error code - never by raw message or stack trace.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(10, sum by (operation, outcome, error_type, error_code) (increase(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])))",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "links": [
+        {
+          "title": "Open failing traces",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+          "targetBlank": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Value"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Top 10 error codes",
+      "description": "Stable API error codes raised by this domain's exception mapper.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(10, sum by (error_code) (increase(yoursay_domain_errors_by_code_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])))",
+          "legendFormat": "{{error_code}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [
+        {
+          "title": "Open failing traces",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+          "targetBlank": true
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Identity and onboarding",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "panels": [
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Calls per second",
+          "description": "First-login provisioning from the Keycloak identity and account saves.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 22
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_operations_total{domain=~\"user|usercharacteristic|social\", operation=~\"getOrCreateFromIdentity|save|.*\\\\.your-say-user.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "Errors per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 22
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", operation=~\"getOrCreateFromIdentity|save|.*\\\\.your-say-user.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 13,
+          "type": "timeseries",
+          "title": "Latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 22
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"getOrCreateFromIdentity|save|.*\\\\.your-say-user.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"getOrCreateFromIdentity|save|.*\\\\.your-say-user.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"getOrCreateFromIdentity|save|.*\\\\.your-say-user.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 300
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "row",
+      "title": "Consent and data rights",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "panels": [
+        {
+          "id": 15,
+          "type": "timeseries",
+          "title": "Calls per second",
+          "description": "Consent stamps and the personal-data export path.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 23
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_operations_total{domain=~\"user|usercharacteristic|social\", operation=~\"recordConsent|.*\\\\.your-say-user\\\\.(consent|data).*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 16,
+          "type": "timeseries",
+          "title": "Errors per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 23
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", operation=~\"recordConsent|.*\\\\.your-say-user\\\\.(consent|data).*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 17,
+          "type": "timeseries",
+          "title": "Latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 23
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"recordConsent|.*\\\\.your-say-user\\\\.(consent|data).*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"recordConsent|.*\\\\.your-say-user\\\\.(consent|data).*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"recordConsent|.*\\\\.your-say-user\\\\.(consent|data).*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 300
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "row",
+      "title": "Characteristics",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "panels": [
+        {
+          "id": 19,
+          "type": "timeseries",
+          "title": "Calls per second",
+          "description": "Sentiment characteristic answers - the data aggregated into cohorts.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 24
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_operations_total{domain=~\"user|usercharacteristic|social\", operation=~\"saveForUser|.*\\\\.user-characteristics.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 20,
+          "type": "timeseries",
+          "title": "Errors per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 24
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", operation=~\"saveForUser|.*\\\\.user-characteristics.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 21,
+          "type": "timeseries",
+          "title": "Latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 24
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"saveForUser|.*\\\\.user-characteristics.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"saveForUser|.*\\\\.user-characteristics.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"saveForUser|.*\\\\.user-characteristics.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 300
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "type": "row",
+      "title": "Income profiles",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "panels": [
+        {
+          "id": 23,
+          "type": "timeseries",
+          "title": "Calls per second",
+          "description": "Country-specific versioned income bands and their display resolution.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 25
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_operations_total{domain=~\"user|usercharacteristic|social\", operation=~\"activate_profile|resolve_income_display|.*income-options.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 24,
+          "type": "timeseries",
+          "title": "Errors per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 25
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", operation=~\"activate_profile|resolve_income_display|.*income-options.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 25,
+          "type": "timeseries",
+          "title": "Latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 25
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"activate_profile|resolve_income_display|.*income-options.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"activate_profile|resolve_income_display|.*income-options.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\"activate_profile|resolve_income_display|.*income-options.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 300
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "Profiles and social graph",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "panels": [
+        {
+          "id": 27,
+          "type": "timeseries",
+          "title": "Requests per second",
+          "description": "Public profiles, follows and follower listings.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 26
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.(profiles|social).*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 28,
+          "type": "timeseries",
+          "title": "Errors per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 26
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.(profiles|social).*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 29,
+          "type": "timeseries",
+          "title": "Latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 26
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.(profiles|social).*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.(profiles|social).*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.(profiles|social).*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 300
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "row",
+      "title": "Admin user API",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "panels": [
+        {
+          "id": 31,
+          "type": "timeseries",
+          "title": "Requests per second",
+          "description": "Administrative user lookup and management.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 27
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.api\\\\.admin\\\\.users.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 32,
+          "type": "timeseries",
+          "title": "Errors per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 27
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.api\\\\.admin\\\\.users.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 33,
+          "type": "timeseries",
+          "title": "Latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 27
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.api\\\\.admin\\\\.users.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.api\\\\.admin\\\\.users.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=~\"user|usercharacteristic|social\", operation=~\".*\\\\.api\\\\.admin\\\\.users.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 300
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "type": "row",
+      "title": "Firebase authentication",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": [
+        {
+          "id": 40,
+          "type": "timeseries",
+          "title": "Authentication attempts per second",
+          "description": "Bearer verification, admin cookie verification and admin session creation by outcome.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 28
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_operations_total{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} · {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["mean", "max"]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 41,
+          "type": "timeseries",
+          "title": "Authentication failures per second",
+          "description": "Separates expected authentication errors from Firebase dependency faults.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 28
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome, error_code) (rate(yoursay_domain_errors_total{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} · {{outcome}} · {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["mean", "max"]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 42,
+          "type": "timeseries",
+          "title": "Authentication latency p50 / p95 / p99",
+          "description": "Time spent verifying Firebase credentials and creating admin sessions.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 28
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_operation_duration_seconds_bucket{domain=\"user\", operation=~\"authenticate_bearer|authenticate_session|create_admin_session\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": ["mean", "max"]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "type": "row",
+      "title": "Errors and logs",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": [
+        {
+          "id": 35,
+          "type": "timeseries",
+          "title": "Errors per second by operation and code",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 28
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_type, error_code) (rate(yoursay_domain_errors_total{domain=~\"user|usercharacteristic|social\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_type}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            },
+            {
+              "title": "Open matching logs",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22post-service%5C%22%7D%20%7C~%20%5C%22%28%3Fi%29%28warn%7Cerror%7Cexception%7Cfailed%29%5C%22%20%7C~%20%5C%22%28%3Fi%29%28user%7Cprofile%7Ccharacteristic%7Cconsent%7Cincome%7Cfollow%29%5C%22%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 36,
+          "type": "logs",
+          "title": "Warning and error logs",
+          "description": "Matches log text with the $logFilter variable. Widen it to see neighbouring context.",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 14,
+            "x": 0,
+            "y": 35
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "expr": "{service_name=~\"$service\"} |~ \"(?i)(warn|error|exception|failed)\" |~ \"(?i)($logFilter)\"",
+              "queryType": "range"
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "wrapLogMessage": true,
+            "sortOrder": "Descending",
+            "enableLogDetails": true,
+            "dedupStrategy": "none"
+          }
+        },
+        {
+          "id": 37,
+          "type": "table",
+          "title": "Failing traces",
+          "description": "Click a trace to jump from a dashboard error to the request that produced it.",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 10,
+            "x": 14,
+            "y": 35
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "tempo",
+                "uid": "tempo"
+              },
+              "queryType": "traceql",
+              "query": "{ resource.service.name =~ \"$service\" && status = error }",
+              "limit": 20
+            }
+          ],
+          "options": {
+            "showHeader": true
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        }
+      ]
+    }
+  ]
+}

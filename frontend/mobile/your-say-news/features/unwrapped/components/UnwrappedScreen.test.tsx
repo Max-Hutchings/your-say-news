@@ -112,6 +112,30 @@ beforeEach(() => {
   });
 });
 
+test("renders article Markdown without changing its citations", () => {
+  const markdownPage = page(71, "Why younger adults favour lower deductions", [source]);
+  markdownPage.paragraphs = [{
+    text: "**Younger adults**\n\nThis group may prefer lower deductions because monthly costs are immediate.\n\n- Lower monthly costs\n- More **essential spending**",
+    sourceIds: [source.id],
+  }];
+  mockUseUnwrapped.mockReturnValue({
+    data: response([markdownPage]),
+    loading: false,
+    submitting: false,
+    error: false,
+    refresh: jest.fn(),
+    followUp,
+  });
+
+  renderScreen();
+
+  expect(screen.getByText("Younger adults")).toHaveStyle({ fontWeight: "700" });
+  expect(screen.getByText("Lower monthly costs")).toBeOnTheScreen();
+  expect(screen.getByText("essential spending")).toHaveStyle({ fontWeight: "700" });
+  expect(screen.getByText("[1]")).toBeOnTheScreen();
+  expect(screen.getByText("Public sector finances")).toBeOnTheScreen();
+});
+
 test("renders the binary three-page sequence, requires a second answer, then opens live results", async () => {
   renderScreen();
 

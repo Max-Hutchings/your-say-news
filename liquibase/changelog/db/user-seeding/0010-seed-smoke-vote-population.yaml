@@ -1,0 +1,1361 @@
+databaseChangeLog:
+  # A 20-account voting population for the smoke suite's sentiment-breakdown journey.
+  # Their political leaning drives a deliberately readable gradient (LEFT all agree through
+  # RIGHT all disagree), so a breakdown assertion pins real numbers rather than 'a chart rendered'.
+  # Ids 100-119 sit well above the hand-maintained development accounts so neither renumbers the
+  # other. Keep these identities in sync with keycloak/realm-export.json.
+  - changeSet:
+      id: 0010-seed-smoke-vote-population
+      author: claude
+      logicalFilePath: db/seeding/0010-seed-smoke-vote-population.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        # 100 - smoke voter 01: left, London, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 100 } }
+              - { column: { name: email, value: "smoke.voter.01@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 01" } }
+              - { column: { name: display_name, value: "Smoke Voter 01" } }
+              - { column: { name: handle, value: "smoke.voter.01" } }
+              - { column: { name: date_of_birth, value: "1998-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 100 } }
+              - { column: { name: user_id, valueNumeric: 100 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "London" } }
+              - { column: { name: uk_county, value: "GREATER_LONDON" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1998 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "LEFT" } }
+              - { column: { name: education, value: "MASTERS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 100 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 100 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 101 - smoke voter 02: left, Manchester, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 101 } }
+              - { column: { name: email, value: "smoke.voter.02@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 02" } }
+              - { column: { name: display_name, value: "Smoke Voter 02" } }
+              - { column: { name: handle, value: "smoke.voter.02" } }
+              - { column: { name: date_of_birth, value: "1990-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 101 } }
+              - { column: { name: user_id, valueNumeric: 101 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Manchester" } }
+              - { column: { name: uk_county, value: "GREATER_MANCHESTER" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1990 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "LEFT" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 101 } }
+              - { column: { name: race, value: "BLACK_AFRICAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 101 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 102 - smoke voter 03: left, Birmingham, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 102 } }
+              - { column: { name: email, value: "smoke.voter.03@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 03" } }
+              - { column: { name: display_name, value: "Smoke Voter 03" } }
+              - { column: { name: handle, value: "smoke.voter.03" } }
+              - { column: { name: date_of_birth, value: "1975-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 102 } }
+              - { column: { name: user_id, valueNumeric: 102 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Birmingham" } }
+              - { column: { name: uk_county, value: "WEST_MIDLANDS" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1975 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "ISLAM" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "LEFT" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 102 } }
+              - { column: { name: race, value: "SOUTH_ASIAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 102 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 103 - smoke voter 04: left, Liverpool, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 103 } }
+              - { column: { name: email, value: "smoke.voter.04@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 04" } }
+              - { column: { name: display_name, value: "Smoke Voter 04" } }
+              - { column: { name: handle, value: "smoke.voter.04" } }
+              - { column: { name: date_of_birth, value: "2002-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 103 } }
+              - { column: { name: user_id, valueNumeric: 103 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Liverpool" } }
+              - { column: { name: uk_county, value: "MERSEYSIDE" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 2002 } }
+              - { column: { name: gender, value: "NON_BINARY" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "LEFT" } }
+              - { column: { name: education, value: "SECONDARY_SCHOOL" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BELOW_20K" } }
+              - { column: { name: household_income_range, value: "BELOW_20K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 103 } }
+              - { column: { name: race, value: "MIXED_MULTIPLE" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 103 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 104 - smoke voter 05: centre left, Leeds, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 104 } }
+              - { column: { name: email, value: "smoke.voter.05@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 05" } }
+              - { column: { name: display_name, value: "Smoke Voter 05" } }
+              - { column: { name: handle, value: "smoke.voter.05" } }
+              - { column: { name: date_of_birth, value: "1985-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 104 } }
+              - { column: { name: user_id, valueNumeric: 104 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Leeds" } }
+              - { column: { name: uk_county, value: "WEST_YORKSHIRE" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1985 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_LEFT" } }
+              - { column: { name: education, value: "MASTERS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 104 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 104 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 105 - smoke voter 06: centre left, Bristol, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 105 } }
+              - { column: { name: email, value: "smoke.voter.06@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 06" } }
+              - { column: { name: display_name, value: "Smoke Voter 06" } }
+              - { column: { name: handle, value: "smoke.voter.06" } }
+              - { column: { name: date_of_birth, value: "1993-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 105 } }
+              - { column: { name: user_id, valueNumeric: 105 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Bristol" } }
+              - { column: { name: uk_county, value: "BRISTOL" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1993 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_LEFT" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 105 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 105 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 106 - smoke voter 07: centre left, Guildford, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 106 } }
+              - { column: { name: email, value: "smoke.voter.07@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 07" } }
+              - { column: { name: display_name, value: "Smoke Voter 07" } }
+              - { column: { name: handle, value: "smoke.voter.07" } }
+              - { column: { name: date_of_birth, value: "1968-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 106 } }
+              - { column: { name: user_id, valueNumeric: 106 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Guildford" } }
+              - { column: { name: uk_county, value: "SURREY" } }
+              - { column: { name: urban_rural, value: "SUBURBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1968 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_LEFT" } }
+              - { column: { name: education, value: "DOCTORATE" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 106 } }
+              - { column: { name: race, value: "EAST_ASIAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 106 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 107 - smoke voter 08: centre left, Exeter, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 107 } }
+              - { column: { name: email, value: "smoke.voter.08@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 08" } }
+              - { column: { name: display_name, value: "Smoke Voter 08" } }
+              - { column: { name: handle, value: "smoke.voter.08" } }
+              - { column: { name: date_of_birth, value: "1959-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 107 } }
+              - { column: { name: user_id, valueNumeric: 107 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Exeter" } }
+              - { column: { name: uk_county, value: "DEVON" } }
+              - { column: { name: urban_rural, value: "RURAL" } }
+              - { column: { name: birth_year, valueNumeric: 1959 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_LEFT" } }
+              - { column: { name: education, value: "SECONDARY_SCHOOL" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_20K_AND_30K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_20K_AND_30K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 107 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 107 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 108 - smoke voter 09: centre, Winchester, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 108 } }
+              - { column: { name: email, value: "smoke.voter.09@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 09" } }
+              - { column: { name: display_name, value: "Smoke Voter 09" } }
+              - { column: { name: handle, value: "smoke.voter.09" } }
+              - { column: { name: date_of_birth, value: "1980-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 108 } }
+              - { column: { name: user_id, valueNumeric: 108 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Winchester" } }
+              - { column: { name: uk_county, value: "HAMPSHIRE" } }
+              - { column: { name: urban_rural, value: "SUBURBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1980 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 108 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 108 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 109 - smoke voter 10: centre, Leicester, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 109 } }
+              - { column: { name: email, value: "smoke.voter.10@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 10" } }
+              - { column: { name: display_name, value: "Smoke Voter 10" } }
+              - { column: { name: handle, value: "smoke.voter.10" } }
+              - { column: { name: date_of_birth, value: "1996-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 109 } }
+              - { column: { name: user_id, valueNumeric: 109 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Leicester" } }
+              - { column: { name: uk_county, value: "LEICESTERSHIRE" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1996 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "HINDUISM" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 109 } }
+              - { column: { name: race, value: "SOUTH_ASIAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 109 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 110 - smoke voter 11: centre, Maidstone, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 110 } }
+              - { column: { name: email, value: "smoke.voter.11@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 11" } }
+              - { column: { name: display_name, value: "Smoke Voter 11" } }
+              - { column: { name: handle, value: "smoke.voter.11" } }
+              - { column: { name: date_of_birth, value: "1972-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 110 } }
+              - { column: { name: user_id, valueNumeric: 110 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Maidstone" } }
+              - { column: { name: uk_county, value: "KENT" } }
+              - { column: { name: urban_rural, value: "SUBURBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1972 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE" } }
+              - { column: { name: education, value: "VOCATIONAL_TECHNICAL" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 110 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 110 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 111 - smoke voter 12: centre right, Edinburgh, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 111 } }
+              - { column: { name: email, value: "smoke.voter.12@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 12" } }
+              - { column: { name: display_name, value: "Smoke Voter 12" } }
+              - { column: { name: handle, value: "smoke.voter.12" } }
+              - { column: { name: date_of_birth, value: "1988-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 111 } }
+              - { column: { name: user_id, valueNumeric: 111 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Edinburgh" } }
+              - { column: { name: uk_county, value: "MIDLOTHIAN" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1988 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_RIGHT" } }
+              - { column: { name: education, value: "MASTERS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 111 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 111 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 112 - smoke voter 13: centre right, Chelmsford, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 112 } }
+              - { column: { name: email, value: "smoke.voter.13@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 13" } }
+              - { column: { name: display_name, value: "Smoke Voter 13" } }
+              - { column: { name: handle, value: "smoke.voter.13" } }
+              - { column: { name: date_of_birth, value: "1965-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 112 } }
+              - { column: { name: user_id, valueNumeric: 112 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Chelmsford" } }
+              - { column: { name: uk_county, value: "ESSEX" } }
+              - { column: { name: urban_rural, value: "SUBURBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1965 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_RIGHT" } }
+              - { column: { name: education, value: "SECONDARY_SCHOOL" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_50K_AND_75K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 112 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 112 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 113 - smoke voter 14: centre right, Harrogate, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 113 } }
+              - { column: { name: email, value: "smoke.voter.14@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 14" } }
+              - { column: { name: display_name, value: "Smoke Voter 14" } }
+              - { column: { name: handle, value: "smoke.voter.14" } }
+              - { column: { name: date_of_birth, value: "1979-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 113 } }
+              - { column: { name: user_id, valueNumeric: 113 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Harrogate" } }
+              - { column: { name: uk_county, value: "NORTH_YORKSHIRE" } }
+              - { column: { name: urban_rural, value: "RURAL" } }
+              - { column: { name: birth_year, valueNumeric: 1979 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_RIGHT" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 113 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 113 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 114 - smoke voter 15: centre right, Dorchester, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 114 } }
+              - { column: { name: email, value: "smoke.voter.15@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 15" } }
+              - { column: { name: display_name, value: "Smoke Voter 15" } }
+              - { column: { name: handle, value: "smoke.voter.15" } }
+              - { column: { name: date_of_birth, value: "1955-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 114 } }
+              - { column: { name: user_id, valueNumeric: 114 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Dorchester" } }
+              - { column: { name: uk_county, value: "DORSET" } }
+              - { column: { name: urban_rural, value: "RURAL" } }
+              - { column: { name: birth_year, valueNumeric: 1955 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE_RIGHT" } }
+              - { column: { name: education, value: "VOCATIONAL_TECHNICAL" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_20K_AND_30K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_20K_AND_30K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 114 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 114 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 115 - smoke voter 16: right, Lincoln, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 115 } }
+              - { column: { name: email, value: "smoke.voter.16@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 16" } }
+              - { column: { name: display_name, value: "Smoke Voter 16" } }
+              - { column: { name: handle, value: "smoke.voter.16" } }
+              - { column: { name: date_of_birth, value: "1962-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 115 } }
+              - { column: { name: user_id, valueNumeric: 115 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Lincoln" } }
+              - { column: { name: uk_county, value: "LINCOLNSHIRE" } }
+              - { column: { name: urban_rural, value: "RURAL" } }
+              - { column: { name: birth_year, valueNumeric: 1962 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "RIGHT" } }
+              - { column: { name: education, value: "VOCATIONAL_TECHNICAL" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_30K_AND_40K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 115 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 115 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 116 - smoke voter 17: right, Norwich, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 116 } }
+              - { column: { name: email, value: "smoke.voter.17@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 17" } }
+              - { column: { name: display_name, value: "Smoke Voter 17" } }
+              - { column: { name: handle, value: "smoke.voter.17" } }
+              - { column: { name: date_of_birth, value: "1970-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 116 } }
+              - { column: { name: user_id, valueNumeric: 116 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Norwich" } }
+              - { column: { name: uk_county, value: "NORFOLK" } }
+              - { column: { name: urban_rural, value: "RURAL" } }
+              - { column: { name: birth_year, valueNumeric: 1970 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "RIGHT" } }
+              - { column: { name: education, value: "SECONDARY_SCHOOL" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 116 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 116 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 117 - smoke voter 18: right, Chester, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 117 } }
+              - { column: { name: email, value: "smoke.voter.18@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 18" } }
+              - { column: { name: display_name, value: "Smoke Voter 18" } }
+              - { column: { name: handle, value: "smoke.voter.18" } }
+              - { column: { name: date_of_birth, value: "1983-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 117 } }
+              - { column: { name: user_id, valueNumeric: 117 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Chester" } }
+              - { column: { name: uk_county, value: "CHESHIRE" } }
+              - { column: { name: urban_rural, value: "SUBURBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1983 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "RIGHT" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_150K_AND_200K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_150K_AND_200K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 117 } }
+              - { column: { name: race, value: "WHITE_EUROPEAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 117 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 118 - smoke voter 19: not political, Newcastle, votes agree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 118 } }
+              - { column: { name: email, value: "smoke.voter.19@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 19" } }
+              - { column: { name: display_name, value: "Smoke Voter 19" } }
+              - { column: { name: handle, value: "smoke.voter.19" } }
+              - { column: { name: date_of_birth, value: "2000-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 118 } }
+              - { column: { name: user_id, valueNumeric: 118 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Newcastle" } }
+              - { column: { name: uk_county, value: "TYNE_AND_WEAR" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 2000 } }
+              - { column: { name: gender, value: "WOMAN" } }
+              - { column: { name: sex_at_birth, value: "FEMALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "NOT_POLITICAL" } }
+              - { column: { name: education, value: "SECONDARY_SCHOOL" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BELOW_20K" } }
+              - { column: { name: household_income_range, value: "BELOW_20K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 118 } }
+              - { column: { name: race, value: "MIXED_MULTIPLE" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 118 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # 119 - smoke voter 20: not political, London, votes disagree
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: id, valueNumeric: 119 } }
+              - { column: { name: email, value: "smoke.voter.20@example.com" } }
+              - { column: { name: first_name, value: "Smoke" } }
+              - { column: { name: last_name, value: "Voter 20" } }
+              - { column: { name: display_name, value: "Smoke Voter 20" } }
+              - { column: { name: handle, value: "smoke.voter.20" } }
+              - { column: { name: date_of_birth, value: "1991-05-12" } }
+              - { column: { name: created_date, value: "2026-08-01" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: id, valueNumeric: 119 } }
+              - { column: { name: user_id, valueNumeric: 119 } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "London" } }
+              - { column: { name: uk_county, value: "GREATER_LONDON" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1991 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "SINGLE" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "CHRISTIANITY" } }
+              - { column: { name: religiosity, value: "SLIGHTLY_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "NOT_POLITICAL" } }
+              - { column: { name: education, value: "BACHELORS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "IT_TECHNOLOGY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_7_TO_5_9" } }
+              - { column: { name: weight_range, value: "KG_70_79" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "NOT_PARENT_CAREGIVER" } }
+              - { column: { name: news_frequency, valueNumeric: 7 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "IN_BETWEEN" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "PRIVATE_RENT" } }
+              - { column: { name: property_type, value: "FLAT_APARTMENT" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 119 } }
+              - { column: { name: race, value: "BLACK_AFRICAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueNumeric: 119 } }
+              - { column: { name: citizenship, value: "BRITISH" } }
+
+        # Explicit ids do not advance PostgreSQL identity sequences.
+        - sql:
+            dbms: postgresql
+            sql: >-
+              SELECT setval(pg_get_serial_sequence('your_say_user', 'id'),
+                            (SELECT MAX(id) FROM your_say_user));
+              SELECT setval(pg_get_serial_sequence('user_characteristic', 'id'),
+                            (SELECT MAX(id) FROM user_characteristic));

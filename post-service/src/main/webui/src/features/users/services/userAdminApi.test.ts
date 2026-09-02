@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../auth", () => ({
-  getAccessToken: vi.fn().mockResolvedValue("admin-token"),
+  adminFetch: vi.fn((path, init) => fetch(path, init)),
 }));
 
 import { AdminApiError, getAdminUsers, updateAdminUser } from "./userAdminApi";
@@ -11,7 +11,7 @@ describe("userAdminApi", () => {
     vi.restoreAllMocks();
   });
 
-  it("lists accounts with the current bearer token", async () => {
+  it("lists accounts using the shared admin request boundary", async () => {
     const users = [{
       id: 10,
       email: "riley.reader@example.com",
@@ -30,7 +30,7 @@ describe("userAdminApi", () => {
 
     await expect(getAdminUsers()).resolves.toEqual(users);
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/users", expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+      headers: expect.objectContaining({ Accept: "application/json" }),
     }));
   });
 
@@ -58,7 +58,7 @@ describe("userAdminApi", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/users/10", expect.objectContaining({
       method: "PUT",
       body: JSON.stringify({ accountType: "ADMIN", active: false }),
-      headers: expect.objectContaining({ Authorization: "Bearer admin-token" }),
+      headers: expect.objectContaining({ "Content-Type": "application/json" }),
     }));
   });
 

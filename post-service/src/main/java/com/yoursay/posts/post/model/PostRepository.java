@@ -10,6 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @ApplicationScoped
 public class PostRepository implements PanacheRepository<Post> {
@@ -20,6 +21,16 @@ public class PostRepository implements PanacheRepository<Post> {
     private static final String HAS_VIDEO =
             "exists (select 1 from PostMedia m where m.post = p and m.mediaType = :videoType)";
 
+    /**
+     * True when the post carries the selected effective topic tag.
+     *
+     * <p>{@code EffectivePostTopicTag} belongs to the topics domain and is named here only in HQL.
+     * imported: the join is by post id, matching how this domain already references users.
+     */
+    private static final String HAS_TOPIC_TAG =
+            "exists (select 1 from EffectivePostTopicTag e "
+                    + "where e.postId = p.id and e.topicTagId = :topicTagId)";
+
     public Uni<Post> savePost(Post post) {
         return persist(post).replaceWith(post);
     }
@@ -28,6 +39,12 @@ public class PostRepository implements PanacheRepository<Post> {
     public Uni<Post> getPostById(Long id) {
         return find("select distinct p from Post p left join fetch p.media where p.id = :id",
                 Parameters.with("id", id)).firstResult();
+    }
+
+    public Uni<Post> getByAiDraftId(UUID draftId) {
+        return find("select distinct p from Post p left join fetch p.media "
+                        + "where p.aiDraftId = :draftId",
+                Parameters.with("draftId", draftId)).firstResult();
     }
 
     public Uni<List<Post>> getPostsByUser(Long userId) {
@@ -56,7 +73,7 @@ public class PostRepository implements PanacheRepository<Post> {
      * whenever matching posts remain and the reader never sees a false end of feed.
      */
     public Uni<List<Post>> findPageAfter(Instant cursorCreatedAt, Long cursorId,
-                                         PostMediaFilter mediaFilter, int limit) {
+                                         PostMediaFilter mediaFilter, String topicTagId, int limit) {
         List<String> conditions = new ArrayList<>();
         Parameters parameters = new Parameters();
 
@@ -68,6 +85,10 @@ public class PostRepository implements PanacheRepository<Post> {
         if (mediaFilter == PostMediaFilter.WITH_VIDEO || mediaFilter == PostMediaFilter.WITHOUT_VIDEO) {
             conditions.add(mediaFilter == PostMediaFilter.WITH_VIDEO ? HAS_VIDEO : "not " + HAS_VIDEO);
             parameters.and("videoType", MediaType.VIDEO);
+        }
+        if (topicTagId != null && !topicTagId.isBlank()) {
+            conditions.add(HAS_TOPIC_TAG);
+            parameters.and("topicTagId", topicTagId);
         }
 
         String where = conditions.isEmpty() ? "" : " where " + String.join(" and ", conditions);

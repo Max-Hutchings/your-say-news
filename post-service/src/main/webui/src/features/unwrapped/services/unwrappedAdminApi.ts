@@ -1,4 +1,4 @@
-import { getAccessToken } from "../../auth";
+import { adminFetch } from "../../auth";
 import type {
   UnwrappedAdminPost,
   UnwrappedGenerationTrigger,
@@ -18,12 +18,10 @@ export class UnwrappedAdminApiError extends Error {
 }
 
 async function unwrappedRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAccessToken();
-  const response = await fetch(path, {
+  const response = await adminFetch(path, {
     ...init,
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
@@ -58,8 +56,10 @@ export function triggerUnwrappedGeneration(postId: number): Promise<UnwrappedGen
   });
 }
 
-export function getUnwrappedBenchmarkPrompt(): Promise<UnwrappedBenchmarkPrompt> {
-  return unwrappedRequest<UnwrappedBenchmarkPrompt>("/api/admin/unwrapped/benchmark/system-prompt");
+export function getUnwrappedBenchmarkPrompt(postId: number): Promise<UnwrappedBenchmarkPrompt> {
+  return unwrappedRequest<UnwrappedBenchmarkPrompt>(
+    `/api/admin/unwrapped/posts/${postId}/benchmark/context`,
+  );
 }
 
 export function generateUnwrappedBenchmark(
@@ -72,7 +72,41 @@ export function generateUnwrappedBenchmark(
       method: "POST",
       body: JSON.stringify({ systemPrompts }),
     },
-  );
+  ).then(requireCompleteBenchmarkContent);
+}
+
+function requireCompleteBenchmarkContent(
+  response: UnwrappedBenchmarkResponse,
+): UnwrappedBenchmarkResponse {
+  for (const variant of response.variants) {
+    if (variant.status !== "SUCCEEDED") continue;
+
+    for (const option of response.options) {
+      const page = Array.isArray(variant.argumentPages)
+        ? variant.argumentPages.find((candidate) => candidate?.optionId === option.id)
+        : undefined;
+      const hasParagraphContent = Array.isArray(page?.paragraphs)
+        && page.paragraphs.length > 0
+        && page.paragraphs.every((paragraph) => (
+          typeof paragraph?.text === "string"
+          && paragraph.text.trim().length > 0
+          && Array.isArray(paragraph.sourceIds)
+        ));
+      if (
+        !page
+        || typeof page.headline !== "string"
+        || page.headline.trim().length === 0
+        || !hasParagraphContent
+        || !Array.isArray(page.sources)
+      ) {
+        throw new UnwrappedAdminApiError(
+          502,
+          `The model returned incomplete article content for ${option.label}.`,
+        );
+      }
+    }
+  }
+  return response;
 }
 
 export function approveUnwrappedStory(storyId: string): Promise<UnwrappedReviewStory> {

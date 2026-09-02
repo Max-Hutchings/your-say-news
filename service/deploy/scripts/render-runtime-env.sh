@@ -25,7 +25,6 @@ required_variables=(
   S3_ACCESS_KEY_ID
   S3_SECRET_ACCESS_KEY
   POSTS_MEDIA_BUCKET
-  XAI_API_KEY
   GRAFANA_CLOUD_OTLP_ENDPOINT
   GRAFANA_CLOUD_OTLP_AUTHORIZATION
 )
@@ -36,6 +35,30 @@ for variable_name in "${required_variables[@]}"; do
     missing_variables+=("$variable_name")
   fi
 done
+
+agent_provider=${AGENT_PROVIDER:-openai}
+case "$agent_provider" in
+  openai)
+    selected_agent_api_key=${OPENAI_API_KEY:-}
+    selected_agent_api_key_name=OPENAI_API_KEY
+    selected_agent_model=${OPENAI_MODEL:-gpt-5.6}
+    ;;
+  grok)
+    selected_agent_api_key=${XAI_API_KEY:-}
+    selected_agent_api_key_name=XAI_API_KEY
+    selected_agent_model=${GROK_MODEL:-grok-4.5}
+    ;;
+  *)
+    echo 'AGENT_PROVIDER must be either openai or grok.' >&2
+    exit 1
+    ;;
+esac
+
+if [[ -z "$selected_agent_api_key" ]]; then
+  printf 'Missing deployment value for selected AI provider: %s\n' \
+    "$selected_agent_api_key_name" >&2
+  exit 1
+fi
 
 if (( ${#missing_variables[@]} > 0 )); then
   printf 'Missing deployment values: %s\n' "${missing_variables[*]}" >&2
@@ -112,9 +135,9 @@ write_literal S3_REGION "${S3_REGION:-auto}"
 write_quoted S3_ACCESS_KEY_ID "$S3_ACCESS_KEY_ID"
 write_quoted S3_SECRET_ACCESS_KEY "$S3_SECRET_ACCESS_KEY"
 write_quoted POSTS_MEDIA_BUCKET "$POSTS_MEDIA_BUCKET"
-write_quoted XAI_API_KEY "$XAI_API_KEY"
-write_quoted UNWRAPPED_API_KEY "${UNWRAPPED_API_KEY:-$XAI_API_KEY}"
-write_literal UNWRAPPED_MODEL "${UNWRAPPED_MODEL:-grok-4.3}"
+write_literal AGENT_PROVIDER "$agent_provider"
+write_quoted AGENT_API_KEY "$selected_agent_api_key"
+write_literal AGENT_MODEL "$selected_agent_model"
 write_quoted GRAFANA_CLOUD_OTLP_ENDPOINT "$GRAFANA_CLOUD_OTLP_ENDPOINT"
 write_quoted GRAFANA_CLOUD_OTLP_AUTHORIZATION "$GRAFANA_CLOUD_OTLP_AUTHORIZATION"
 write_literal VOTE_SUPPRESSION_THRESHOLD "$vote_suppression_threshold"

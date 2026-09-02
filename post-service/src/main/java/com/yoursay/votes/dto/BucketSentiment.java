@@ -1,5 +1,8 @@
 package com.yoursay.votes.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.yoursay.user.usercharacteristic.dto.IncomeRangeDisplayDto;
+
 /**
  * Aggregated option sentiment for a single characteristic bucket (e.g. all {@code LEFT} voters,
  * or all voters overall). <strong>Counts and percentages only — never a user id or any row that
@@ -10,5 +13,15 @@ package com.yoursay.votes.dto;
  * @param total total canonical votes in the bucket
  * @param choices stable option counts and percentages, in the post's option order
  */
-public record BucketSentiment(String bucket, long total, java.util.List<ChoiceSentiment> choices) {
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record BucketSentiment(
+        String bucket,
+        String label,
+        IncomeRangeDisplayDto income,
+        long total,
+        java.util.List<ChoiceSentiment> choices
+) {
+    public BucketSentiment(String bucket, long total, java.util.List<ChoiceSentiment> choices) {
+        this(bucket, null, null, total, choices);
+    }
 }

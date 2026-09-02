@@ -12,6 +12,7 @@ import com.yoursay.posts.PostService;
 import com.yoursay.posts.dto.PostDto;
 import com.yoursay.posts.dto.PostPageRequest;
 import com.yoursay.posts.error.PostApiException;
+import com.yoursay.topics.TopicService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -50,38 +51,61 @@ public class FeedServiceImpl implements FeedService {
     @Inject
     SocialClient socialClient;
 
+    @Inject
+    TopicService topicService;
+
     @Override
     public Uni<FeedPage> getFeed(String viewerEmail, String authorization, String cursor, int size,
-                                 FeedPostType postType) {
+                                 FeedPostType postType, String topicTagId) {
         int pageSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
         // Decoded up front so a bad token fails with 400 before any query runs.
         FeedCursor position = FeedCursor.decode(cursor);
-
-        // One row beyond the page: its presence is what tells us more of the feed exists. A short
-        // page can no longer mean "the end", because the type filter runs in SQL and fills pages.
-        PostPageRequest candidateRequest = new PostPageRequest(
-                position == null ? null : position.createdAt(),
-                position == null ? null : position.postId(),
-                FeedPostType.mediaFilterFor(postType),
-                pageSize + 1);
+        String topicTag = topicTagId == null || topicTagId.isBlank() ? null : topicTagId.trim();
 
         Uni<FeedUserClient.UserRef> viewer = userClient.getUserByEmail(viewerEmail, authorization)
                 .onItem().ifNull().failWith(() -> PostApiException.unknownAuthor(viewerEmail));
         Uni<SocialClient.FollowingRef> following = socialClient.getFollowing(authorization);
-        Uni<List<PostDto>> candidates = postService.findPage(candidateRequest);
+        Uni<List<PostDto>> candidates = requireKnownTopic(topicTag)
+                .chain(() -> postService.findPage(
+                        candidateRequest(position, postType, topicTag, pageSize)));
 
         return Uni.combine().all().unis(viewer, following, candidates).asTuple()
-                .map(tuple -> {
-                    Long viewerId = tuple.getItem1().id();
-                    Set<Long> followed = tuple.getItem2() == null || tuple.getItem2().userIds() == null
-                            ? Set.of()
-                            : tuple.getItem2().userIds();
-                    List<PostDto> fetched = tuple.getItem3();
+                .map(tuple -> assemblePage(tuple.getItem1().id(), followedUserIds(tuple.getItem2()),
+                        tuple.getItem3(), pageSize));
+    }
 
-                    boolean hasMore = fetched.size() > pageSize;
-                    List<PostDto> page = hasMore ? fetched.subList(0, pageSize) : fetched;
-                    return new FeedPage(rank(viewerId, followed, page), nextCursor(page, hasMore));
-                });
+    /**
+     * Asks for one row beyond the page: its presence is what tells us more of the feed exists. A
+     * short page can no longer mean "the end", because the type filter runs in SQL and fills pages.
+     */
+    private static PostPageRequest candidateRequest(FeedCursor position, FeedPostType postType,
+                                                    String topicTag, int pageSize) {
+        return new PostPageRequest(
+                position == null ? null : position.createdAt(),
+                position == null ? null : position.postId(),
+                FeedPostType.mediaFilterFor(postType),
+                topicTag,
+                pageSize + 1);
+    }
+
+    /**
+     * An unknown topic is a client bug, so it fails before the scan rather than returning an empty
+     * page that a reader would read as a dead category.
+     */
+    private Uni<Void> requireKnownTopic(String topicTag) {
+        return topicTag == null ? Uni.createFrom().voidItem() : topicService.requireExists(topicTag);
+    }
+
+    private static Set<Long> followedUserIds(SocialClient.FollowingRef following) {
+        return following == null || following.userIds() == null ? Set.of() : following.userIds();
+    }
+
+    /** Trims the look-ahead row off the page, then ranks what remains and cuts the next cursor. */
+    private FeedPage assemblePage(Long viewerId, Set<Long> followed, List<PostDto> fetched,
+                                  int pageSize) {
+        boolean hasMore = fetched.size() > pageSize;
+        List<PostDto> page = hasMore ? fetched.subList(0, pageSize) : fetched;
+        return new FeedPage(rank(viewerId, followed, page), nextCursor(page, hasMore));
     }
 
     private List<PostDto> rank(Long viewerId, Set<Long> followed, List<PostDto> page) {

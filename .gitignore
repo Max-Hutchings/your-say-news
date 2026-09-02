@@ -117,3 +117,4 @@ replay_pid*
 
 # Local agent worktrees (scratch checkouts, not for commit)
 .claude/worktrees/
+.codex/

@@ -121,8 +121,15 @@ export function ProfileScreen({ userId }: { userId?: number }) {
 
           {userId && (
             <Pressable
+              testID="profile-follow-toggle"
               onPress={toggleFollow}
               accessibilityRole="button"
+              accessibilityLabel={
+                profile.followedByViewer
+                  ? `Unfollow ${profile.handle}`
+                  : `Follow ${profile.handle}`
+              }
+              accessibilityState={{ selected: profile.followedByViewer }}
               style={[
                 styles.followButton,
                 { backgroundColor: profile.followedByViewer ? e.surface : e.lime, borderColor: e.border },
@@ -176,7 +183,12 @@ function Stat({
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={onPress ? `${value} ${label}` : undefined}
     >
-      <Text style={[styles.statValue, { color: e.ink }]}>{value}</Text>
+      <Text
+        testID={`profile-stat-${label.toLowerCase()}`}
+        style={[styles.statValue, { color: e.ink }]}
+      >
+        {value}
+      </Text>
       <Text style={[styles.statLabel, { color: e.muted }]}>{label}</Text>
     </Pressable>
   );

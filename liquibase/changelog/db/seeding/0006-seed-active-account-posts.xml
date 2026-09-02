@@ -11,7 +11,7 @@
     <changeSet id="0006-seed-active-account-posts" author="codex" context="seed">
         <sql splitStatements="true" stripComments="true"><![CDATA[
             INSERT INTO post
-                (id, user_id, summary, support_question, case_for, case_against, is_unbiased, created_at, updated_at)
+                (id, user_id, summary, support_question, case_for, case_against, is_ai_generated, created_at, updated_at)
             VALUES
                 (1010, 2,
                  'A city trial has cut bus fares to a flat two pounds for every journey. Passenger numbers rose quickly, but the subsidy is costing more than forecast and operators say crowded routes now need extra vehicles.',

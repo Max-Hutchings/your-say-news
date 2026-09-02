@@ -1,0 +1,29 @@
+databaseChangeLog:
+  # Consent for the four original seeded accounts (John, Jane, Bob, Alice — ids 1-4).
+  #
+  # `0001-seed-your-say-users.yaml` created these rows before consent existed, and the migration
+  # that added `consented_at` (`user-migrations/0003-add-consent-to-user.yaml`) did not backfill
+  # them. `app/(protected)/index.tsx` redirects any account with no `consented_at` to the privacy
+  # promise, so all four stopped on the consent screen despite having full characteristic profiles
+  # seeded in `0002-seed-user-characteristics.yaml`.
+  #
+  # Every later seed file set consent only for the accounts it introduced (Riley in 0006, the smoke
+  # voters in 0010, Maya and Theo in 0011), which left these four as the only established test
+  # accounts unable to reach the feed. They are meant to represent fully onboarded users, so their
+  # consent is recorded here.
+  #
+  # Nora (5), Blank (6) and Casey (9) are deliberately left without consent — they exist to exercise
+  # the un-onboarded paths.
+  - changeSet:
+      id: 0012-seed-original-account-consent
+      author: claude
+      logicalFilePath: db/seeding/0012-seed-original-account-consent.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - update:
+            tableName: your_say_user
+            columns:
+              - { column: { name: consented_at, value: "2026-06-14T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+            where: id IN (1, 2, 3, 4)

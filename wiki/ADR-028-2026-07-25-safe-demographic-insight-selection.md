@@ -6,6 +6,11 @@ Date: 2026-07-25
 > deterministic statistical selection remains active, but the generated article may directly
 > explain why a selected cohort is likely to have voted that way. The former ban on causal
 > interpretation is superseded.
+>
+> **Selection gates superseded by
+> [ADR-044](ADR-044-2026-08-10-always-provide-option-cohorts.md):** effect size and adjusted
+> significance remain descriptive statistics, but no longer decide shortlist eligibility. Privacy
+> sample floors, governance tiers and the deterministic bounded shortlist remain active.
 
 ## Situation
 

@@ -5,6 +5,7 @@ import {
   generateUnwrappedBenchmark,
   getUnwrappedBenchmarkPrompt,
 } from "../services/unwrappedAdminApi";
+import type { UnwrappedBenchmarkPrompt } from "../types";
 import { UnwrappedBenchmarkPage } from "./UnwrappedBenchmarkPage";
 
 vi.mock("../services/unwrappedAdminApi", async (importOriginal) => ({
@@ -29,12 +30,100 @@ const post = {
   ],
 };
 
+const benchmarkContext: UnwrappedBenchmarkPrompt = {
+  systemPrompt: "Production system prompt",
+  outputInstructions: "Return exactly 2 pages in option order [71, 72].",
+  input: {
+    postId: 42,
+    summary: post.summary,
+    question: post.question,
+    jurisdiction: post.jurisdiction,
+    canonicalVoteCount: 125,
+    aggregateVersion: "aggregate-v1",
+    options: [{
+      option: { id: 71, label: "Agree", ordinal: 0, semanticKey: "AGREE" },
+      overallVoteCount: 75,
+      overallVotePercentage: 60,
+      candidates: [{
+        cohortId: "ageRange=AGE_25_34|gender=MAN",
+        dimensions: [
+          { axis: "ageRange", bucket: "AGE_25_34" },
+          { axis: "gender", bucket: "MAN" },
+        ],
+        role: "INTERSECTION_DISCOVERY",
+        relevanceReason: "Strongest non-redundant two-characteristic intersection.",
+        sampleSize: 40,
+        populationSharePercentage: 32,
+        optionVoteCount: 32,
+        compositionPercentage: 42.7,
+        propensityPercentage: 80,
+        overIndexPercentagePoints: 20,
+        differenceFromRestPercentagePoints: 29.4,
+        wilson95Low: 65.2,
+        wilson95High: 89.5,
+        adjustedQValue: 0.004,
+        displayName: "Men aged 25 to 34",
+      }, {
+        cohortId: "householdIncomeRange=income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_7",
+        dimensions: [{
+          axis: "householdIncomeRange",
+          bucket: "income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_7",
+          label: "GBP 200k or more",
+          income: {
+            bucketId: "income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_7",
+            label: "GBP 200k or more",
+            contextLabel: "Annual household income before tax in the United Kingdom",
+            relativeLabel: "Top 5% locally",
+            marketCode: "GB",
+            marketLabel: "United Kingdom",
+            currencyCode: "GBP",
+            measure: "HOUSEHOLD",
+            measureLabel: "Annual household income before tax",
+            lowerInclusive: 200_000,
+            upperExclusive: null,
+            relativeTier: "TIER_7",
+            profileId: "GB-GBP-GROSS-2025-v1",
+            profileVersion: 1,
+            bandId: "HOUSEHOLD_TIER_7",
+          },
+        }],
+        role: "CORE_DIFFERENTIATOR",
+        relevanceReason: "Strongest available core differentiator for this option.",
+        sampleSize: 20,
+        populationSharePercentage: 16,
+        optionVoteCount: 16,
+        compositionPercentage: 21.3,
+        propensityPercentage: 75,
+        overIndexPercentagePoints: 15,
+        differenceFromRestPercentagePoints: 23.8,
+        wilson95Low: 58.4,
+        wilson95High: 91.9,
+        adjustedQValue: 0.009,
+        displayName: "People with annual household income of GBP 200k or more in the United Kingdom",
+      }],
+      narrativeInstructions: [
+        "Explain why a selected cohort is likely to favour the option using researched context.",
+      ],
+      insufficientEvidence: null,
+    }, {
+      option: { id: 72, label: "Disagree", ordinal: 1, semanticKey: "DISAGREE" },
+      overallVoteCount: 50,
+      overallVotePercentage: 40,
+      candidates: [],
+      narrativeInstructions: [
+        "Do not introduce a cohort absent from this shortlist.",
+      ],
+      insufficientEvidence: "No reliable demographic concentration passes the narration rules.",
+    }],
+  },
+};
+
 const articlePage = {
   optionId: 71,
   headline: "Commuters weigh the cost of cleaner streets",
   selectedCohortIds: ["ageRange=AGE_25_34"],
   paragraphs: [{
-    text: "Younger commuters are likely to favour the levy because reliable public transport can reduce the cost and unpredictability of travelling to work.",
+    text: "**Younger commuters**\n\nThis group may favour the levy because reliable public transport can reduce commuting costs.\n\n- More predictable journeys\n- **Lower travel costs**",
     sourceIds: ["source-1"],
   }],
   caveat: "This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.",
@@ -43,6 +132,27 @@ const articlePage = {
     url: "https://www.ons.gov.uk/transport",
     publisher: "Office for National Statistics",
     title: "Transport data",
+    classification: "OFFICIAL" as const,
+  }],
+};
+
+const disagreeArticlePage = {
+  optionId: 72,
+  headline: "Night-shift workers cannot rely on the last bus home",
+  selectedCohortIds: [],
+  paragraphs: [{
+    text: "Workers may oppose the levy because late and unreliable services can leave driving as their only practical option.",
+    sourceIds: ["source-2"],
+  }, {
+    text: "A daily workplace charge would therefore land on people who have the fewest realistic alternatives.",
+    sourceIds: ["source-2"],
+  }],
+  caveat: "This analysis describes aggregate voting patterns, not individual motivations.",
+  sources: [{
+    id: "source-2",
+    url: "https://www.gov.uk/government/statistics/annual-bus-statistics-year-ending-march-2025",
+    publisher: "Department for Transport",
+    title: "Annual bus statistics",
     classification: "OFFICIAL" as const,
   }],
 };
@@ -68,7 +178,7 @@ function benchmarkResponse(
       status: "SUCCEEDED" as const,
       model: "grok-test",
       providerResponseId: `response-${systemPrompt.toLowerCase().replaceAll(" ", "-")}`,
-      argumentPages: [{ ...articlePage, headline }],
+      argumentPages: [{ ...articlePage, headline }, disagreeArticlePage],
       errorCode: null,
       errorMessage: null,
     }],
@@ -119,12 +229,74 @@ function benchmarkResponseForPrompts(
 describe("UnwrappedBenchmarkPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getUnwrappedBenchmarkPrompt).mockResolvedValue({
-      systemPrompt: "Production system prompt",
-    });
+    vi.mocked(getUnwrappedBenchmarkPrompt).mockResolvedValue(benchmarkContext);
     vi.mocked(generateUnwrappedBenchmark).mockImplementation(
       async (_postId, [systemPrompt]) => benchmarkResponse(systemPrompt),
     );
+  });
+
+  it("shows the exact LLM evidence and characteristic groups before generation", async () => {
+    const user = userEvent.setup();
+    render(<UnwrappedBenchmarkPage post={post} onBack={vi.fn()} />);
+
+    const contextHeading = await screen.findByRole("heading", { name: "What the model receives" });
+    const contextSection = contextHeading.closest("section");
+    expect(contextSection).not.toBeNull();
+    const contextView = within(contextSection!);
+    expect(contextView.getByText("Snapshot").nextElementSibling).toHaveTextContent("aggregate-v1");
+    expect(contextView.getByText("Options").nextElementSibling).toHaveTextContent("2");
+    expect(contextView.getByText("Votes").nextElementSibling).toHaveTextContent("125");
+    expect(getUnwrappedBenchmarkPrompt).toHaveBeenCalledWith(42);
+    const agreeOption = contextView.getByRole("heading", { name: "Agree" }).closest("article");
+    expect(agreeOption).toHaveTextContent("75 votes");
+    expect(agreeOption).toHaveTextContent("60%");
+    const disagreeOption = contextView.getByRole("heading", { name: "Disagree" }).closest("article");
+    expect(disagreeOption).toHaveTextContent("50 votes");
+    expect(disagreeOption).toHaveTextContent("40%");
+    const ageHeading = screen.getByRole("heading", { name: "Men aged 25 to 34" });
+    const ageCard = within(ageHeading.closest("section")!);
+    expect(ageCard.getByText("Intersection discovery")).toBeInTheDocument();
+    expect(ageCard.getByText("ageRange=AGE_25_34|gender=MAN")).toBeInTheDocument();
+    expect(ageCard.getByText("Age range · Age 25 34")).toBeInTheDocument();
+    expect(ageCard.getByText("Gender · Man")).toBeInTheDocument();
+    expect(ageCard.getByText("40 voters in group")).toBeInTheDocument();
+    expect(ageCard.getByText("32 chose Agree")).toBeInTheDocument();
+    expect(ageCard.getByText("80% chose Agree")).toBeInTheDocument();
+    expect(ageCard.getByText("+29.4pp vs everyone else")).toBeInTheDocument();
+    expect(ageCard.getByText("32% of post voters")).toBeInTheDocument();
+    expect(ageCard.getByText("42.7% of Agree voters")).toBeInTheDocument();
+    expect(ageCard.getByText("+20pp")).toBeInTheDocument();
+    expect(ageCard.getByText("65.2%–89.5%")).toBeInTheDocument();
+    expect(ageCard.getByText("0.004")).toBeInTheDocument();
+    expect(ageCard.getByText("Strongest non-redundant two-characteristic intersection."))
+      .toBeInTheDocument();
+    const incomeHeading = screen.getByRole("heading", {
+      name: "People with annual household income of GBP 200k or more in the United Kingdom",
+    });
+    const incomeCard = within(incomeHeading.closest("section")!);
+    expect(incomeCard.getByText(
+      "Annual household income before tax · United Kingdom · GBP 200k or more",
+    )).toBeInTheDocument();
+    expect(screen.queryByText(
+      "Household income range · Income|gb-gbp-gross-2025-v1|household|household tier 7",
+    )).not.toBeInTheDocument();
+    expect(screen.getByText("No characteristic groups supplied")).toBeInTheDocument();
+    expect(screen.getByText("No reliable demographic concentration passes the narration rules."))
+      .toBeInTheDocument();
+    expect(screen.getByText(
+      "Explain why a selected cohort is likely to favour the option using researched context.",
+    )).toBeInTheDocument();
+    expect(screen.getByText("Do not introduce a cohort absent from this shortlist."))
+      .toBeInTheDocument();
+
+    await user.click(screen.getByText("Fixed output instructions"));
+    expect(screen.getByText("Return exactly 2 pages in option order [71, 72]."))
+      .toBeInTheDocument();
+    await user.click(screen.getByText("Raw input JSON"));
+    const rawInput = screen.getByText("Raw input JSON").closest("details")?.querySelector("pre");
+    expect(rawInput).toHaveTextContent(JSON.stringify(benchmarkContext.input, null, 2), {
+      normalizeWhitespace: false,
+    });
   });
 
   it("generates and iterates lanes independently without clearing other results", async () => {
@@ -147,12 +319,24 @@ describe("UnwrappedBenchmarkPage", () => {
     await user.click(screen.getByRole("button", { name: "Generate prompt A" }));
 
     expect(generateUnwrappedBenchmark).toHaveBeenNthCalledWith(1, 42, ["Prompt A"]);
-    expect(await screen.findByRole("heading", { name: articlePage.headline }))
+    const resultA = screen.getByLabelText("Result A");
+    expect(await within(resultA).findByRole("heading", { name: articlePage.headline }))
       .toBeInTheDocument();
-    expect(screen.getByText("Support the levy")).toBeInTheDocument();
-    expect(screen.getByText(articlePage.paragraphs[0].text)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Transport data" }))
+    expect(within(resultA).getByText("Support the levy")).toBeInTheDocument();
+    expect(within(resultA).getByText("Younger commuters").tagName).toBe("STRONG");
+    expect(within(resultA).getByText("More predictable journeys").closest("li"))
+      .toBeInTheDocument();
+    expect(within(resultA).getByText("Lower travel costs").tagName).toBe("STRONG");
+    expect(within(resultA).getByRole("link", { name: "Transport data" }))
       .toHaveAttribute("href", "https://www.ons.gov.uk/transport");
+    expect(within(resultA).getByRole("heading", { name: disagreeArticlePage.headline }))
+      .toBeInTheDocument();
+    expect(within(resultA).getByText("Disagree")).toBeInTheDocument();
+    for (const paragraph of disagreeArticlePage.paragraphs) {
+      expect(within(resultA).getByText(paragraph.text)).toBeInTheDocument();
+    }
+    expect(within(resultA).getByRole("link", { name: "Annual bus statistics" }))
+      .toHaveAttribute("href", disagreeArticlePage.sources[0].url);
     expect(screen.getByText("1 of 3 comparisons generated")).toBeInTheDocument();
     expect(screen.getByLabelText("Result B")).toHaveTextContent(
       "The generated article will continue down this lane.",
@@ -307,7 +491,7 @@ describe("UnwrappedBenchmarkPage", () => {
       expect(within(result).getByRole("alert")).toHaveTextContent(
         "The combined benchmark request timed out.",
       );
-      expect(within(result).getByRole("heading")).toBeInTheDocument();
+      expect(within(result).getAllByRole("heading")).toHaveLength(2);
     }
     expect(screen.getByRole("button", { name: "Generate all three" })).toBeEnabled();
   });
@@ -358,7 +542,10 @@ describe("UnwrappedBenchmarkPage", () => {
     );
     unmount();
 
-    vi.mocked(getUnwrappedBenchmarkPrompt).mockResolvedValue({ systemPrompt: "Production prompt" });
+    vi.mocked(getUnwrappedBenchmarkPrompt).mockResolvedValue({
+      ...benchmarkContext,
+      systemPrompt: "Production prompt",
+    });
     vi.mocked(generateUnwrappedBenchmark).mockRejectedValue(
       new Error("The provider timed out."),
     );

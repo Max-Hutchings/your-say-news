@@ -1,41 +1,42 @@
 # Test accounts
 
-Seeded login accounts for local/dev environments. These exist in **two places that must stay in
+Seeded login accounts for local development. These exist in **two places that must stay in
 sync by email**:
 
-- **Keycloak** — `keycloak/realm-export.json`, realm `your-say-news`. A new realm is imported on
-  first startup; on later startups, `keycloak-seed-users` reconciles the export's users into the
-  persisted realm without replacing separately registered users.
+- **Firebase Authentication Emulator** - `firebase/test-accounts.json`. The
+  `firebase-auth-seed` Compose job reconciles these accounts on every startup.
 - **Database** — the user-domain seed changelogs under
   `liquibase/changelog/db/user-seeding/` (applied by the seeding step). Base users are in
   `0001`, additional active accounts in `0003`, the clean onboarding account in `0004`, and
   official publisher classifications in `0005`. The profiled reader is in `0006`; the initial
   bootstrap assignment is in `0007`, and `0008` separates it into the dedicated admin account.
+  `0012` backfills consent for the four original accounts, and `0013` adds the profiled
+  account that deliberately has no consent.
 
-The join key between a Keycloak identity and its `YourSayUser` row is **email** (`YourSayUser.email`
-is unique, and the backend provisions users from token claims). Keep the email lists identical.
+The temporary local join key is verified **email**. Hosted Firebase must use the immutable UID link
+required by ADR-028 before release. Keep the emulator and database email lists identical.
 
 ## Accounts
 
-| Username | Email | Password | Enabled | Account type | Roles | Characteristics | Seeded posts | Intended use |
-|---|---|---|---|---|---|---|---:|---|
-| yoursay.admin | admin@yoursay.com | password123 | yes | **Admin** | user | **none** | 0 | Admin account-management flows |
-| john.doe | john.doe@example.com | password123 | yes | **Official** | user, admin | filled | 10 | Established-user and publishing flows |
-| jane.smith | jane.smith@example.com | password123 | yes | **Official** | user | filled | 10 | Established-user flows |
-| bob.johnson | bob.johnson@example.com | password123 | **no** | User | user | filled | 0 | Inactive-user path; cannot log in |
-| alice.williams | alice.williams@example.com | password123 | yes | **Official** | user | filled | 10 | Established-user/feed flows |
-| maya.patel | maya.patel@example.com | password123 | yes | **Official** | user | filled | 10 | Established-user/feed flows |
-| theo.campbell | theo.campbell@example.com | password123 | yes | **Official** | user | filled | 10 | Established-user/feed flows |
-| casey.morgan | casey.morgan@example.com | password123 | yes | User | user | **none** | 0 | Clean consent and characteristics onboarding |
-| riley.reader | riley.reader@example.com | password123 | yes | User | user | filled | 0 | Fully onboarded reader; cannot publish |
+| Name | Email | Password | Enabled | Account type | Characteristics | Seeded posts | Intended use |
+|---|---|---|---|---|---|---:|---|
+| YourSay Admin | admin@yoursay.com | password123 | yes | **Admin** | **none** | 0 | Admin account-management flows |
+| John Doe | john.doe@example.com | password123 | yes | **Official** | filled | 10 | Established-user and publishing flows |
+| Jane Smith | jane.smith@example.com | password123 | yes | **Official** | filled | 10 | Established-user flows |
+| Bob Johnson | bob.johnson@example.com | password123 | **no** | User | filled | 0 | Inactive-user path; cannot log in |
+| Alice Williams | alice.williams@example.com | password123 | yes | **Official** | filled | 10 | Established-user/feed flows |
+| Maya Patel | maya.patel@example.com | password123 | yes | **Official** | filled | 10 | Established-user/feed flows |
+| Theo Campbell | theo.campbell@example.com | password123 | yes | **Official** | filled | 10 | Established-user/feed flows |
+| Casey Morgan | casey.morgan@example.com | password123 | yes | User | **none** | 0 | Clean consent and characteristics onboarding |
+| Riley Reader | riley.reader@example.com | password123 | yes | User | filled | 0 | Fully onboarded reader; cannot publish |
+| Sam Okafor | sam.okafor@example.com | password123 | yes | User | filled | 0 | Profile filled but consent never recorded; stops on the privacy promise |
 
 Notes:
 
-- Keycloak `enabled` mirrors the seed `active` flag. **Bob is inactive** (`active: false` in the
-  seed → `enabled: false` in Keycloak), so he cannot log in — this is intentional, to exercise the
-  inactive-user path.
-- `yoursay.admin` is the bootstrap **admin**. Its ordinary Keycloak `user` role intentionally
-  demonstrates that admin authorization comes from the application database.
+- Firebase `disabled` mirrors the seed `active` flag. **Bob is inactive**, so he cannot log in.
+  This exercises the inactive-user path.
+- `admin@yoursay.com` is the bootstrap **admin**. Firebase has no admin role; authorization comes
+  from the application database.
 - Official accounts map to database `account_type: OFFICIAL`; readers map to `account_type: USER`;
   and the dedicated administration account maps to `account_type: ADMIN`. Official test accounts
   have `publisher_status: ACTIVE`; users and admins have `publisher_status: NONE`.
@@ -47,10 +48,7 @@ Notes:
 - `alice.williams` is no longer an onboarding fixture: Alice has a complete characteristic profile
   and seeded post data, so an already-consented Alice goes directly to the feed.
 - `nora.new@example.com` and `blank.user@example.com` are database-only, unprofiled fixtures used by
-  backend integration tests. They are intentionally absent from Keycloak and cannot be used to log in.
-- Realm: `your-say-news`. Backend client: `app-backend`. Frontend (mobile/web, PKCE) client:
-  `frontend-client`. Admin browser (PKCE) client: `admin-client`.
+  backend integration tests. They are intentionally absent from Firebase and cannot be used to log in.
 
-> When adding or changing a test account, update **both** the realm export and the seed changelog
-> so they continue to match by email. A normal `docker compose up` or `bun run dev` restart then
-> reconciles the changed Keycloak user even when the realm already exists.
+> When adding or changing a test account, update **both** `firebase/test-accounts.json` and the seed
+> changelog. A normal `docker compose up` or `bun run dev` restart reconciles Firebase.

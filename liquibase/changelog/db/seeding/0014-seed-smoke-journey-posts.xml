@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <!-- Two text-only binary posts reserved for the smoke suite's voting journeys.
+
+         They carry NO seeded votes, which is the whole point: the population journey casts exactly
+         twenty votes and then asserts exact counts, so any pre-existing vote would make the
+         arithmetic unassertable. The curated posts (2000-2007) all carry synthetic vote
+         populations and cannot be used for that.
+
+         Zero votes also keeps them below the hundred-vote Unwrapped milestone, so no Grok
+         generation is ever triggered and the results journey reaches the factual sentiment view
+         through the deterministic "See factual results" path. -->
+    <changeSet id="0014-seed-smoke-journey-posts" author="claude" context="seed">
+        <sql splitStatements="false"><![CDATA[
+INSERT INTO post
+    (id, user_id, summary, support_question, case_for, case_against, is_ai_generated,
+     voting_type, created_at, updated_at)
+VALUES
+    (2100, 1,
+     'A county is considering handing every secondary school a fixed annual budget for repairs, replacing the current system where schools bid against each other for a central maintenance fund. Head teachers say bidding rewards whoever writes the best application rather than whichever roof leaks worst.
+
+Officers counter that a flat allocation would send the same money to a new building as to a Victorian one, and that the bidding process is the only point at which the county sees the true condition of its estate.',
+     'Should every school receive the same repair budget regardless of building age?',
+     'A predictable budget lets schools plan maintenance instead of competing on paperwork.',
+     'Equal shares ignore that older buildings genuinely cost more to keep safe.',
+     false, 'BINARY', '2026-08-10T09:00:00Z', '2026-08-10T09:00:00Z'),
+    (2101, 1,
+     'Several libraries in the region now lend out tools, sewing machines and pressure washers alongside books. Borrowing figures are strong and staff report new visitors who had not used a library in years.
+
+Critics inside the service argue that maintaining and replacing equipment consumes a budget that was already too small for books, and that a library of things is a different institution wearing a library''s name.',
+     'Should public libraries lend household tools as well as books?',
+     'Lending tools reaches people who would never come in for a book.',
+     'Equipment upkeep quietly drains a book budget that is already stretched.',
+     false, 'BINARY', '2026-08-10T10:00:00Z', '2026-08-10T10:00:00Z');
+
+INSERT INTO post_vote_option (post_id, label, ordinal, semantic_key)
+VALUES
+    (2100, 'Agree', 0, 'AGREE'),
+    (2100, 'Disagree', 1, 'DISAGREE'),
+    (2101, 'Agree', 0, 'AGREE'),
+    (2101, 'Disagree', 1, 'DISAGREE');
+
+SELECT setval(pg_get_serial_sequence('post', 'id'), (SELECT MAX(id) FROM post));
+SELECT setval(pg_get_serial_sequence('post_vote_option', 'id'),
+              (SELECT MAX(id) FROM post_vote_option));
+]]></sql>
+    </changeSet>
+</databaseChangeLog>

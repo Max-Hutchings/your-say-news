@@ -81,6 +81,7 @@ describe("useCreatePost submit", () => {
       votingType: "BINARY",
       voteOptions: [],
       media: [],
+      topicTagIds: [],
     });
     expect(created).toBe(post);
     expect(result.current.error).toBeNull();
@@ -136,6 +137,7 @@ describe("useCreatePost submit", () => {
         { mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/a.png", contentType: "image/png", posterS3Key: null },
         { mediaType: "IMAGE", orientation: "LANDSCAPE", s3Key: "posts/b.png", contentType: "image/png", posterS3Key: null },
       ],
+      topicTagIds: [],
     });
   });
 
@@ -150,6 +152,7 @@ describe("useCreatePost submit", () => {
         voteOptions: [" More frequent buses ", "Protected cycle lanes", " Lower parking charges "],
         caseFor: " Better access ",
         caseAgainst: " Higher operating cost ",
+        topicTagIds: ["transport", "housing"],
       });
     });
 
@@ -165,7 +168,39 @@ describe("useCreatePost submit", () => {
         { label: "Lower parking charges" },
       ],
       media: [],
+      topicTagIds: ["transport", "housing"],
     });
+  });
+
+  it("publishes a Pepper draft through the normal post endpoint with only selected citations", async () => {
+    mockCreate.mockResolvedValue({ id: 13, isAiGenerated: true });
+    const { result } = renderHook(() => useCreatePost());
+
+    await act(async () => {
+      await result.current.submit({
+        ...validFields,
+        pepperDraftId: "draft-41",
+        citations: [
+          { url: "https://www.ons.gov.uk/work", title: "Working patterns", publisher: "ONS" },
+        ],
+      });
+    });
+
+    expect(mockCreate).toHaveBeenCalledWith({
+      summary: "A summary",
+      supportQuestion: "Do you agree?",
+      caseFor: null,
+      caseAgainst: null,
+      votingType: "BINARY",
+      voteOptions: [],
+      media: [],
+      topicTagIds: [],
+      pepperDraftId: "draft-41",
+      citations: [
+        { url: "https://www.ons.gov.uk/work", title: "Working patterns", publisher: "ONS" },
+      ],
+    });
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty("isAiGenerated");
   });
 
   it("rejects blank and case-insensitively duplicate multiple-choice options", async () => {

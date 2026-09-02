@@ -1,33 +1,34 @@
 jest.mock("expo-secure-store", () => ({
-    getItemAsync: jest.fn(async () => null),
-    setItemAsync: jest.fn(async () => undefined),
-    deleteItemAsync: jest.fn(async () => undefined),
+    setItemAsync: jest.fn(),
+    getItemAsync: jest.fn().mockResolvedValue(null),
+    deleteItemAsync: jest.fn(),
 }));
-
-jest.mock("./keycloakService", () => ({
-    loginWithKeycloak: jest.fn(),
-    refreshTokens: jest.fn(),
-    revokeTokens: jest.fn(async () => undefined),
+jest.mock("./firebaseService", () => ({
+    hasFirebaseSession: jest.fn(),
+    logoutFirebase: jest.fn(),
+    signInWithTestAccount: jest.fn(),
 }));
-
 jest.mock("./UserService", () => ({
-    getUser: jest.fn(),
     getOnboardingStatus: jest.fn(),
+    getUser: jest.fn(),
+    verifySession: jest.fn(),
 }));
 
+import { hasFirebaseSession, logoutFirebase, signInWithTestAccount } from "./firebaseService";
+import { getOnboardingStatus, getUser, verifySession } from "./UserService";
 import { useAuthStore } from "./authContext";
-import { loginWithKeycloak, refreshTokens, revokeTokens } from "./keycloakService";
-import { getOnboardingStatus, getUser } from "./UserService";
-import * as SecureStore from "expo-secure-store";
 
-const mockLogin = loginWithKeycloak as jest.Mock;
-const mockRefresh = refreshTokens as jest.Mock;
-const mockRevoke = revokeTokens as jest.Mock;
-const mockGetUser = getUser as jest.Mock;
-const mockGetOnboardingStatus = getOnboardingStatus as jest.Mock;
-const mockDeleteItem = SecureStore.deleteItemAsync as jest.Mock;
-
-const HOUR = 60 * 60 * 1000;
+const user = {
+    id: 8,
+    email: "riley.reader@example.com",
+    firstName: "Riley",
+    lastName: "Reader",
+    dateOfBirth: "1991-04-12",
+    consentedAt: "2026-08-01T10:00:00Z",
+    accountType: "USER" as const,
+    publisherStatus: "NONE" as const,
+    canPublish: false,
+};
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -37,316 +38,105 @@ beforeEach(() => {
         firstName: null,
         lastName: null,
         dateOfBirth: null,
-        isLoggedIn: false,
-        hasOnboarded: false,
-        hasCharacteristics: false,
+        consentedAt: null,
         accountType: "USER",
         publisherStatus: "NONE",
         canPublish: false,
-        accessToken: null,
-        refreshToken: null,
-        accessTokenExpiresAt: null,
+        isLoggedIn: false,
+        hasOnboarded: false,
+        hasCharacteristics: false,
+    });
+    jest.mocked(getUser).mockResolvedValue(user);
+    jest.mocked(getOnboardingStatus).mockResolvedValue({
+        consented: true,
+        hasCharacteristics: true,
+        onboarded: true,
     });
 });
 
-describe("accessTokenExpired", () => {
-    it("is expired when there is no token", () => {
-        expect(useAuthStore.getState().accessTokenExpired()).toBe(true);
-    });
+test("seeded Firebase account signs in and loads the application user", async () => {
+    jest.mocked(signInWithTestAccount).mockResolvedValue(true);
 
-    it("is not expired for a token with a comfortably future expiry", () => {
-        useAuthStore.setState({ accessToken: "tok", accessTokenExpiresAt: Date.now() + HOUR });
-        expect(useAuthStore.getState().accessTokenExpired()).toBe(false);
-    });
+    await expect(useAuthStore.getState().login(user.email, "password123")).resolves.toBe(true);
 
-    it("is expired once the expiry has passed", () => {
-        useAuthStore.setState({ accessToken: "tok", accessTokenExpiresAt: Date.now() - 1000 });
-        expect(useAuthStore.getState().accessTokenExpired()).toBe(true);
-    });
-
-    it("treats a token inside the 30s skew window as expired", () => {
-        useAuthStore.setState({ accessToken: "tok", accessTokenExpiresAt: Date.now() + 10_000 });
-        expect(useAuthStore.getState().accessTokenExpired()).toBe(true);
-    });
-
-    it("expires exactly at the 30s skew boundary but not one millisecond before", () => {
-        jest.spyOn(Date, "now").mockReturnValue(1_000_000);
-        useAuthStore.setState({ accessToken: "tok", accessTokenExpiresAt: 1_030_001 });
-        expect(useAuthStore.getState().accessTokenExpired()).toBe(false);
-
-        useAuthStore.setState({ accessTokenExpiresAt: 1_030_000 });
-        expect(useAuthStore.getState().accessTokenExpired()).toBe(true);
-        jest.restoreAllMocks();
+    expect(useAuthStore.getState()).toMatchObject({
+        ...user,
+        isLoggedIn: true,
+        hasOnboarded: true,
+        hasCharacteristics: true,
     });
 });
 
-describe("login", () => {
-    it("stores tokens, expiry and user details on success", async () => {
-        mockLogin.mockResolvedValue({
-            accessToken: "access-1",
-            refreshToken: "refresh-1",
-            idToken: null,
-            expiresIn: 300,
-        });
-        mockGetUser.mockResolvedValue({
-            id: 7,
-            email: "ada@example.com",
-            firstName: "Ada",
-            lastName: "Lovelace",
-            dateOfBirth: "1990-05-21",
-            consentedAt: "2026-06-01T00:00:00Z",
-            accountType: "OFFICIAL",
-            publisherStatus: "ACTIVE",
-            canPublish: true,
-        });
-        mockGetOnboardingStatus.mockResolvedValue({
-            consented: true,
-            hasCharacteristics: true,
-            onboarded: true,
-        });
+test("invalid Firebase credentials do not call the backend", async () => {
+    jest.mocked(signInWithTestAccount).mockResolvedValue(false);
 
-        const before = Date.now();
-        const ok = await useAuthStore.getState().login();
-        const state = useAuthStore.getState();
+    await expect(useAuthStore.getState().login(user.email, "wrong")).resolves.toBe(false);
 
-        expect(ok).toBe(true);
-        expect(state.isLoggedIn).toBe(true);
-        expect(state.accessToken).toBe("access-1");
-        expect(state.refreshToken).toBe("refresh-1");
-        expect(state.email).toBe("ada@example.com");
-        expect(state.id).toBe(7);
-        expect(state.firstName).toBe("Ada");
-        expect(state.lastName).toBe("Lovelace");
-        expect(state.dateOfBirth).toBe("1990-05-21");
-        expect(state.consentedAt).toBe("2026-06-01T00:00:00Z");
-        expect(state.accountType).toBe("OFFICIAL");
-        expect(state.publisherStatus).toBe("ACTIVE");
-        expect(state.canPublish).toBe(true);
-        expect(state.hasCharacteristics).toBe(true);
-        expect(state.hasOnboarded).toBe(true);
-        // 300s expiry recorded as an absolute timestamp.
-        expect(state.accessTokenExpiresAt).toBeGreaterThanOrEqual(before + 300_000);
-        expect(state.accessTokenExpiresAt).toBeLessThanOrEqual(Date.now() + 300_000);
-    });
+    expect(getUser).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().isLoggedIn).toBe(false);
+});
 
-    it("marks a consented user who has no characteristic profile as not onboarded", async () => {
-        mockLogin.mockResolvedValue({
-            accessToken: "access-1",
-            refreshToken: "refresh-1",
-            idToken: null,
-            expiresIn: 300,
-        });
-        mockGetUser.mockResolvedValue({
-            id: 1,
-            email: "john.doe@example.com",
-            firstName: "John",
-            lastName: "Doe",
-            dateOfBirth: "1990-05-15",
-            consentedAt: "2026-06-01T00:00:00Z",
-            accountType: "USER",
-            publisherStatus: "NONE",
-            canPublish: false,
-        });
-        // Consent alone is not enough when the characteristic profile is still missing.
-        mockGetOnboardingStatus.mockResolvedValue({
-            consented: true,
-            hasCharacteristics: false,
-            onboarded: false,
-        });
+test("Firebase session restores after a web reload", async () => {
+    jest.mocked(hasFirebaseSession).mockResolvedValue(true);
+    jest.mocked(verifySession).mockResolvedValue({ state: "valid", user });
 
-        await useAuthStore.getState().login();
-        const state = useAuthStore.getState();
+    await expect(useAuthStore.getState().restoreSession()).resolves.toBe("signed-in");
 
-        expect(state.hasCharacteristics).toBe(false);
-        expect(state.hasOnboarded).toBe(false);
-    });
-
-    it("fails closed when onboarding status is unavailable even if the user has consented", async () => {
-        mockLogin.mockResolvedValue({
-            accessToken: "access-1",
-            refreshToken: "refresh-1",
-            idToken: null,
-            expiresIn: 300,
-        });
-        mockGetUser.mockResolvedValue({
-            id: 7,
-            email: "ada@example.com",
-            firstName: "Ada",
-            lastName: "Lovelace",
-            dateOfBirth: "1990-05-21",
-            consentedAt: "2026-06-01T00:00:00Z",
-            accountType: "USER",
-            publisherStatus: "NONE",
-            canPublish: false,
-        });
-        mockGetOnboardingStatus.mockResolvedValue(null);
-
-        await useAuthStore.getState().login();
-        const state = useAuthStore.getState();
-
-        expect(state.hasCharacteristics).toBe(false);
-        expect(state.hasOnboarded).toBe(false);
-    });
-
-    it("returns false and stays logged out when the user cancels", async () => {
-        mockLogin.mockResolvedValue(null);
-
-        const ok = await useAuthStore.getState().login();
-
-        expect(ok).toBe(false);
-        expect(useAuthStore.getState().isLoggedIn).toBe(false);
-        expect(mockGetUser).not.toHaveBeenCalled();
-    });
-
-    it("returns false when user details cannot be fetched", async () => {
-        useAuthStore.setState({
-            id: 44,
-            email: "old@example.com",
-            firstName: "Old",
-            lastName: "Identity",
-            dateOfBirth: "1970-01-01",
-            consentedAt: "2026-01-01T00:00:00Z",
-            hasOnboarded: true,
-            hasCharacteristics: true,
-            accountType: "OFFICIAL",
-            publisherStatus: "ACTIVE",
-            canPublish: true,
-        });
-        mockLogin.mockResolvedValue({
-            accessToken: "access-1",
-            refreshToken: "refresh-1",
-            idToken: null,
-            expiresIn: 300,
-        });
-        mockGetUser.mockResolvedValue(null);
-
-        const ok = await useAuthStore.getState().login();
-
-        expect(ok).toBe(false);
-        expect(useAuthStore.getState().isLoggedIn).toBe(false);
-        expect(useAuthStore.getState().accessToken).toBeNull();
-        expect(useAuthStore.getState().refreshToken).toBeNull();
-        expect(useAuthStore.getState().accessTokenExpiresAt).toBeNull();
-        expect(useAuthStore.getState().id).toBeNull();
-        expect(useAuthStore.getState().email).toBeNull();
-        expect(useAuthStore.getState().firstName).toBeNull();
-        expect(useAuthStore.getState().lastName).toBeNull();
-        expect(useAuthStore.getState().dateOfBirth).toBeNull();
-        expect(useAuthStore.getState().consentedAt).toBeNull();
-        expect(useAuthStore.getState().accountType).toBe("USER");
-        expect(useAuthStore.getState().publisherStatus).toBe("NONE");
-        expect(useAuthStore.getState().canPublish).toBe(false);
-        expect(useAuthStore.getState().hasOnboarded).toBe(false);
-        expect(useAuthStore.getState().hasCharacteristics).toBe(false);
+    expect(useAuthStore.getState()).toMatchObject({
+        ...user,
+        isLoggedIn: true,
+        hasOnboarded: true,
+        hasCharacteristics: true,
     });
 });
 
-describe("refreshAccessToken", () => {
-    it("exchanges the refresh token and updates the stored tokens", async () => {
-        useAuthStore.setState({ refreshToken: "refresh-old", accessToken: "stale" });
-        mockRefresh.mockResolvedValue({
-            accessToken: "access-new",
-            refreshToken: "refresh-new",
-            idToken: null,
-            expiresIn: 300,
-        });
+test("missing Firebase session clears every persisted identity field", async () => {
+    useAuthStore.setState({ ...user, isLoggedIn: false, hasOnboarded: true, hasCharacteristics: true });
+    jest.mocked(hasFirebaseSession).mockResolvedValue(false);
 
-        const token = await useAuthStore.getState().refreshAccessToken();
-        const state = useAuthStore.getState();
+    await expect(useAuthStore.getState().restoreSession()).resolves.toBe("signed-out");
 
-        expect(token).toBe("access-new");
-        expect(state.accessToken).toBe("access-new");
-        expect(state.refreshToken).toBe("refresh-new");
-        expect(mockRefresh).toHaveBeenCalledWith("refresh-old");
-    });
-
-    it("logs out when no refresh token is present", async () => {
-        useAuthStore.setState({ refreshToken: null, isLoggedIn: true });
-
-        const token = await useAuthStore.getState().refreshAccessToken();
-
-        expect(token).toBeNull();
-        expect(useAuthStore.getState().isLoggedIn).toBe(false);
-        expect(mockRefresh).not.toHaveBeenCalled();
-    });
-
-    it("logs out when the refresh is rejected", async () => {
-        useAuthStore.setState({ refreshToken: "refresh-old", isLoggedIn: true, accessToken: "stale" });
-        mockRefresh.mockResolvedValue(null);
-
-        const token = await useAuthStore.getState().refreshAccessToken();
-        const state = useAuthStore.getState();
-
-        expect(token).toBeNull();
-        expect(state.isLoggedIn).toBe(false);
-        expect(state.accessToken).toBeNull();
+    expect(logoutFirebase).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState()).toMatchObject({
+        id: null,
+        email: null,
+        firstName: null,
+        lastName: null,
+        dateOfBirth: null,
+        consentedAt: null,
+        accountType: "USER",
+        publisherStatus: "NONE",
+        canPublish: false,
+        isLoggedIn: false,
+        hasOnboarded: false,
+        hasCharacteristics: false,
     });
 });
 
-describe("logout", () => {
-    it("revokes the refresh token and clears all identity + token state", async () => {
-        useAuthStore.setState({
-            id: 7,
-            email: "ada@example.com",
-            isLoggedIn: true,
-            hasOnboarded: true,
-            accountType: "OFFICIAL",
-            publisherStatus: "ACTIVE",
-            canPublish: true,
-            accessToken: "access-1",
-            refreshToken: "refresh-1",
-            accessTokenExpiresAt: Date.now() + HOUR,
-        });
+test("unreachable backend clears cached identity without destroying the Firebase session", async () => {
+    useAuthStore.setState({ ...user, isLoggedIn: true, hasOnboarded: true, hasCharacteristics: true });
+    jest.mocked(hasFirebaseSession).mockResolvedValue(true);
+    jest.mocked(verifySession).mockResolvedValue({ state: "unreachable" });
 
-        await useAuthStore.getState().logout();
-        const state = useAuthStore.getState();
+    await expect(useAuthStore.getState().restoreSession()).resolves.toBe("unverified");
 
-        expect(mockRevoke).toHaveBeenCalledWith("refresh-1");
-        expect(state.isLoggedIn).toBe(false);
-        expect(state.hasOnboarded).toBe(false);
-        expect(state.accountType).toBe("USER");
-        expect(state.publisherStatus).toBe("NONE");
-        expect(state.canPublish).toBe(false);
-        expect(state.id).toBeNull();
-        expect(state.email).toBeNull();
-        expect(state.firstName).toBeNull();
-        expect(state.lastName).toBeNull();
-        expect(state.dateOfBirth).toBeNull();
-        expect(state.consentedAt).toBeNull();
-        expect(state.hasCharacteristics).toBe(false);
-        expect(state.accessToken).toBeNull();
-        expect(state.refreshToken).toBeNull();
-        expect(state.accessTokenExpiresAt).toBeNull();
+    expect(logoutFirebase).not.toHaveBeenCalled();
+    expect(useAuthStore.getState()).toMatchObject({
+        id: null,
+        email: null,
+        firstName: null,
+        lastName: null,
+        dateOfBirth: null,
+        consentedAt: null,
+        isLoggedIn: false,
     });
+});
 
-    it("wipes the persisted session from storage", async () => {
-        useAuthStore.setState({ isLoggedIn: true, refreshToken: "refresh-1" });
+test("logout clears Firebase and application session state", async () => {
+    useAuthStore.setState({ isLoggedIn: true, email: user.email });
 
-        await useAuthStore.getState().logout();
+    await useAuthStore.getState().logout();
 
-        // clearStorage() removes the persisted store key from the device (SecureStore on native).
-        expect(mockDeleteItem).toHaveBeenCalledWith("auth-store");
-    });
-
-    it("clears the local session even when token revocation fails", async () => {
-        useAuthStore.setState({
-            id: 7,
-            email: "ada@example.com",
-            isLoggedIn: true,
-            hasOnboarded: true,
-            accessToken: "access-1",
-            refreshToken: "refresh-1",
-        });
-        mockRevoke.mockRejectedValue(new Error("identity service unavailable"));
-
-        await expect(useAuthStore.getState().logout()).resolves.toBeUndefined();
-
-        const state = useAuthStore.getState();
-        expect(state.isLoggedIn).toBe(false);
-        expect(state.id).toBeNull();
-        expect(state.email).toBeNull();
-        expect(state.accessToken).toBeNull();
-        expect(state.refreshToken).toBeNull();
-        expect(mockDeleteItem).toHaveBeenCalledWith("auth-store");
-    });
+    expect(logoutFirebase).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState()).toMatchObject({ isLoggedIn: false, email: null });
 });

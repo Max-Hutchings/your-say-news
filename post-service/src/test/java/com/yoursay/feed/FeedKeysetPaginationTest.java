@@ -263,7 +263,7 @@ public class FeedKeysetPaginationTest {
         try (Connection connection = dataSource.getConnection()) {
             long postId;
             try (PreparedStatement statement = connection.prepareStatement("""
-                    insert into post (user_id, summary, support_question, is_unbiased, jurisdiction,
+                    insert into post (user_id, summary, support_question, is_ai_generated, jurisdiction,
                                       voting_type, created_at, updated_at)
                     values (?, ?, ?, false, 'GLOBAL', 'BINARY', ?, ?) returning id
                     """)) {

@@ -58,8 +58,8 @@ This private GitHub Free repository uses repository secrets rather than GitHub E
 | `DEV_DB_USERNAME`, `DEV_DB_PASSWORD` | Runtime-only Aiven user |
 | `DEV_OIDC_AUTH_SERVER_URL`, `DEV_OIDC_CLIENT_ID` | Approved development OIDC configuration |
 | `DEV_R2_ACCESS_KEY_ID`, `DEV_R2_SECRET_ACCESS_KEY` | R2 credentials restricted to the media bucket |
-| `DEV_XAI_API_KEY` | Server-side xAI credential |
-| `DEV_UNWRAPPED_API_KEY` | Optional separate Unwrapped credential; xAI is used when omitted |
+| `DEV_OPENAI_API_KEY` | Server-side OpenAI credential used by the default `openai` provider |
+| `DEV_XAI_API_KEY` | xAI credential used only when the reviewed workflow selects `AGENT_PROVIDER=grok` |
 | `DEV_GRAFANA_CLOUD_OTLP_ENDPOINT`, `DEV_GRAFANA_CLOUD_OTLP_AUTHORIZATION` | Grafana Cloud OTLP destination and authorization header |
 
 The workflow currently pins the development SSH hostname, public health URL, EU R2 endpoint and

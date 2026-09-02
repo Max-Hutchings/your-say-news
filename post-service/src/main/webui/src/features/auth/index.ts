@@ -1,3 +1,3 @@
 export { AuthProvider, useAdminAuth } from "./components/AuthProvider";
-export { getAccessToken } from "./services/keycloak";
+export { adminFetch } from "./services/adminSession";
 export type { AdminIdentity, AdminAuthState } from "./types";

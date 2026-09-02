@@ -18,6 +18,9 @@ vi.mock("../../features/unwrapped/hooks/useUnwrappedReviews", () => ({
   useUnwrappedReviews: vi.fn(),
 }));
 
+vi.mock("../topics", () => ({ TopicsPage: () => <h1>Topics desk</h1> }));
+vi.mock("../auto-post", () => ({ AutoPostPage: () => <h1>Your Say official posts</h1> }));
+
 const accounts = [
   {
     id: 1,
@@ -102,6 +105,7 @@ describe("UsersPage", () => {
   const update = vi.fn();
   const load = vi.fn();
   const logout = vi.fn();
+  const login = vi.fn();
   const generate = vi.fn();
 
   beforeEach(() => {
@@ -111,6 +115,7 @@ describe("UsersPage", () => {
       status: "authenticated",
       identity: { email: "john.doe@example.com", name: "John Doe" },
       error: null,
+      login,
       logout,
     });
     vi.mocked(useAdminUsers).mockReturnValue({
@@ -222,6 +227,28 @@ describe("UsersPage", () => {
     expect(screen.getByRole("heading", { name: unwrappedPost.question })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Change the voice. Keep the evidence." }))
       .not.toBeInTheDocument();
+  });
+
+  it("switches to the topic catalogue without losing the admin masthead", async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+
+    await user.click(screen.getByRole("tab", { name: /Topics/ }));
+    expect(screen.getByRole("tab", { name: /Topics/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Topics desk" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Your Say News")).toBeInTheDocument();
+  });
+
+  it("opens the official-post workflow from its own admin tab", async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+
+    await user.click(screen.getByRole("tab", { name: /Official posts/ }));
+
+    expect(screen.getByRole("tab", { name: /Official posts/ }))
+      .toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Your Say official posts" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Your Say News")).toBeInTheDocument();
   });
 
   it("shows a restricted state when the database account is not an active admin", () => {

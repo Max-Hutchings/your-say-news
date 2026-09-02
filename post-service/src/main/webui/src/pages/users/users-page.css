@@ -15,12 +15,13 @@
   gap: 0;
   padding-inline: clamp(0rem, 1.5vw, 1.5rem);
   border-bottom: 1px solid var(--editorial-border);
+  overflow-x: auto;
 }
 
 .admin-tab {
   position: relative;
   display: grid;
-  min-width: min(18rem, 42vw);
+  min-width: min(16rem, 42vw);
   gap: 0.2rem;
   padding: 1rem 1.1rem 0.85rem;
   border: 0;

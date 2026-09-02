@@ -22,33 +22,29 @@ export class AuthenticationPage {
 
   async expectSignedOut(): Promise<void> {
     await expect(
-      this.page.getByRole("button", { name: "Continue securely" })
-    ).toBeEnabled();
-    await expect(
-      this.page.getByRole("button", { name: "Create an account" })
+      this.page.getByRole("button", { name: "Sign in" })
     ).toBeEnabled();
   }
 
   async register(identity: RegistrationIdentity): Promise<void> {
-    await this.page
-      .getByRole("button", { name: "Create an account" })
-      .click();
-    await this.expectProviderPage();
-
-    await this.page.locator("#kc-registration a").click();
-    await expect(this.page.locator("#kc-register-form")).toBeVisible();
-
-    await this.page.locator("#firstName").fill(identity.firstName);
-    await this.page.locator("#lastName").fill(identity.lastName);
-    await this.page.locator("#email").fill(identity.email);
-    await this.page.locator("#username").fill(identity.username);
-    await this.page.locator("#password").fill(identity.password);
-    await this.page.locator("#password-confirm").fill(identity.password);
-    await this.page
-      .locator('#kc-register-form input[type="submit"]')
-      .click();
-
-    await this.expectApplicationReturn();
+    const signUp = await this.page.request.post(
+      `${this.providerOrigin}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=local`,
+      { data: { email: identity.email, password: identity.password, returnSecureToken: true } },
+    );
+    expect(signUp.status()).toBe(200);
+    const { idToken } = await signUp.json() as { idToken: string };
+    const profile = await this.page.request.post(
+      `${this.providerOrigin}/identitytoolkit.googleapis.com/v1/accounts:update?key=local`,
+      {
+        data: {
+          idToken,
+          displayName: `${identity.firstName} ${identity.lastName}`,
+          returnSecureToken: true,
+        },
+      },
+    );
+    expect(profile.status()).toBe(200);
+    await this.signIn(identity);
   }
 
   async signIn(identity: SignInIdentity): Promise<void> {
@@ -58,16 +54,9 @@ export class AuthenticationPage {
         new URL(response.url()).pathname === "/your-say-user"
     );
 
-    await this.page
-      .getByRole("button", { name: "Continue securely" })
-      .click();
-    await this.expectProviderPage();
-
-    await this.page.locator("#username").fill(identity.username);
-    await this.page.locator("#password").fill(identity.password);
-    await this.page.locator("#kc-login").click();
-
-    await this.expectApplicationReturn();
+    await this.page.getByLabel("Email").fill(identity.email);
+    await this.page.getByLabel("Password").fill(identity.password);
+    await this.page.getByRole("button", { name: "Sign in" }).click();
 
     const response = await currentUser;
     expect(response.status()).toBe(200);
@@ -76,13 +65,4 @@ export class AuthenticationPage {
     });
   }
 
-  private async expectProviderPage(): Promise<void> {
-    const provider = new URL(this.providerOrigin);
-    await expect.poll(() => new URL(this.page.url()).origin).toBe(provider.origin);
-  }
-
-  private async expectApplicationReturn(): Promise<void> {
-    const application = new URL(this.applicationOrigin);
-    await expect.poll(() => new URL(this.page.url()).origin).toBe(application.origin);
-  }
 }

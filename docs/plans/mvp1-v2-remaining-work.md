@@ -15,8 +15,8 @@ job/generation pipeline.
 The largest missing product slice is **Post Unwrapped**. The top-level `unwrapped` package is only a
 boundary marker today, with model integration reserved under its internal `unwrapped.agent`
 package. **Topics are also not implemented**, and the existing official post-agent screen is still
-an unwired template. The new server-side `ysnagent` official publisher is planned but has no
-package, persistence or endpoint yet.
+an unwired template. The obsolete autonomous `ysnagent` plan was replaced by the human-reviewed
+top-level `autopost` workflow in ADR-048.
 
 ## Completion checklist
 
@@ -115,26 +115,20 @@ package, persistence or endpoint yet.
 - [ ] Reconfirm production Grok/live-search configuration, citation validation and server-side
   official-only protection for generation, job reads, approval and publication.
 
-### 9. Build the YSN official publishing agent
+### 9. Build the admin-managed auto-post workflow
 
-- [ ] Provision the fixed application account with handle `ysn` as active,
-  `AccountType.OFFICIAL` and `PublisherStatus.ACTIVE`; add a public internal lookup that fails
-  closed if it cannot publish.
-- [ ] Add `com.yoursay.agents.ysnagent` with public controller/service/DTOs, a durable job migration
-  and the state flow from research through publication.
-- [ ] Add `POST /admin/ysn-agent/posts`, protected by the Keycloak `admin` realm role, returning
-  `202` after persisting one idempotent job. Do not add a client interface.
-- [ ] Research current top stories into an auditable candidate/source set, select one credible
-  non-duplicate topic and persist the selection rationale and provider/model/prompt versions.
-- [ ] Expose a public in-process `postagent` contract that accepts the selected brief and returns a
-  complete sourced post draft without exposing generator or repository internals.
-- [ ] Validate every required post field, voting configuration and claim citation, then publish
-  idempotently through the public `posts` contract as `ysn`, never as the triggering admin.
-- [ ] Add bounded retries for transient research/generation failures, one-active-run protection,
-  recent-topic deduplication, fail-closed editorial validation, audit events and queue/publication
-  telemetry.
-- [ ] Keep media optional and text-only when needed; do not automatically publish arbitrary images
-  found through web search.
+- [X] Seed the fixed application account with handle `yoursay` as active,
+  `AccountType.OFFICIAL` and `PublisherStatus.ACTIVE`, with no interactive login.
+- [X] Add top-level `com.yoursay.autopost` with durable runs, candidates and source provenance.
+- [X] Research exactly ten non-duplicate stories from the previous 24 hours across UK, US and global
+  news, with bounded retries and fail-closed citation validation.
+- [X] Add the Your Say official posts admin tab, confirmation step and authenticated SSE progress.
+- [X] Expose a public in-process `postagent` handoff that accepts the selected brief without exposing
+  generator or repository internals.
+- [X] Show the returned publication-ready post-agent draft, require explicit approval, and publish
+  idempotently through `posts` as `yoursay`, never as the triggering admin.
+- [X] Add publication telemetry and auto-post panels to the posts-domain Grafana dashboard.
+- [ ] Add stalled-run and dependency alerts.
 
 ### 10. Pass the release gates
 
@@ -157,8 +151,8 @@ package, persistence or endpoint yet.
 
 Public post creation, personalised Post Unwrapped stories, published follow-up results,
 multi-select/ranked/write-in voting, a behavioural cross-category “For You” recommender and a
-self-service publisher-admin UI remain deferred. The initial `ysnagent` also has no client
-interface, recurring schedule, caller-selected topic or automatic web-image publication.
+self-service publisher-admin UI remain deferred. Auto-post recurring scheduling, caller-selected
+discovery topics and automatic web-image publication also remain deferred.
 
 ## Verification snapshot
 

@@ -1,6 +1,7 @@
 package com.yoursay.votes.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.yoursay.votes.SentimentAggregator;
 
 import java.util.Set;
@@ -64,7 +65,9 @@ public record CharacteristicSnapshot(
         List<String> neurodivergenceTypeMemberships,
         List<String> disabilityTypeMemberships,
         String balancedNewsViewpoint,
-        String mainstreamNewsPercent
+        String mainstreamNewsPercent,
+        @JsonInclude(JsonInclude.Include.NON_NULL) IncomeRangeSnapshot personalIncome,
+        @JsonInclude(JsonInclude.Include.NON_NULL) IncomeRangeSnapshot householdIncome
 ) {
 
     /** Sentinel bucket label for votes whose value on the requested axis is unknown. */
@@ -88,6 +91,33 @@ public record CharacteristicSnapshot(
     private static final Set<String> MULTI_SELECT_AXES = Set.of(
             "race", "citizenship", "petType", "neurodivergenceType", "disabilityType");
 
+    /** Compatibility constructor for snapshots created before income provenance was retained. */
+    public CharacteristicSnapshot(
+            String politicalPersuasion, String ageRange, String gender, String sexAtBirth,
+            String sexualOrientation, String maritalStatus, String race, String country,
+            String region, String urbanRural, String ukCounty, String countryOfBirth,
+            String citizenship, String religion, String religiosity, String education,
+            String occupation, String employmentSector, String universitySubject,
+            String personalIncomeRange, String householdIncomeRange, String height,
+            String weightRange, String eyeColor, String parent, String newsFrequency,
+            String hasPet, String petType, String chronotype, String outlook,
+            String neurodivergent, String neurodivergenceType, String hasDisability,
+            String disabilityType, String housingStatus, String propertyType,
+            List<String> raceMemberships, List<String> citizenshipMemberships,
+            List<String> petTypeMemberships, List<String> neurodivergenceTypeMemberships,
+            List<String> disabilityTypeMemberships, String balancedNewsViewpoint,
+            String mainstreamNewsPercent) {
+        this(politicalPersuasion, ageRange, gender, sexAtBirth, sexualOrientation, maritalStatus,
+                race, country, region, urbanRural, ukCounty, countryOfBirth, citizenship, religion,
+                religiosity, education, occupation, employmentSector, universitySubject,
+                personalIncomeRange, householdIncomeRange, height, weightRange, eyeColor, parent,
+                newsFrequency, hasPet, petType, chronotype, outlook, neurodivergent,
+                neurodivergenceType, hasDisability, disabilityType, housingStatus, propertyType,
+                raceMemberships, citizenshipMemberships, petTypeMemberships,
+                neurodivergenceTypeMemberships, disabilityTypeMemberships,
+                balancedNewsViewpoint, mainstreamNewsPercent, null, null);
+    }
+
     /** Compatibility constructor for snapshots created before membership-preserving fields. */
     public CharacteristicSnapshot(
             String politicalPersuasion, String ageRange, String gender, String sexAtBirth,
@@ -107,7 +137,8 @@ public record CharacteristicSnapshot(
                 newsFrequency, hasPet, petType, chronotype, outlook, neurodivergent,
                 neurodivergenceType, hasDisability, disabilityType, housingStatus, propertyType,
                 splitLegacy(race), splitLegacy(citizenship), splitLegacy(petType),
-                splitLegacy(neurodivergenceType), splitLegacy(disabilityType), null, null);
+                splitLegacy(neurodivergenceType), splitLegacy(disabilityType), null, null,
+                null, null);
     }
 
     /** True if {@code axis} is a real breakdown axis (a field name aggregation can slice by). */
@@ -200,7 +231,7 @@ public record CharacteristicSnapshot(
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, List.of(), List.of(), List.of(),
-                List.of(), List.of(), null, null);
+                List.of(), List.of(), null, null, null, null);
     }
 
     private static List<String> splitLegacy(String value) {

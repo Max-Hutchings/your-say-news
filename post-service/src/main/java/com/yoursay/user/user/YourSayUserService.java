@@ -9,6 +9,7 @@ import com.yoursay.user.user.dto.YourSayUserDto;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Public contract for the user domain. Controllers and other domains depend on this
@@ -29,6 +30,12 @@ public interface YourSayUserService {
     /** Users for the given ids, in the same order as {@code ids} (unknown ids are dropped). */
     List<YourSayUserDto> getByIds(List<Long> ids);
 
+    /**
+     * Public handles for the given ids, keyed by user id (unknown ids are absent). PII-free, so
+     * other domains can label content with its author without ever seeing name, email or DOB.
+     */
+    Map<Long, String> usernamesByIds(List<Long> ids);
+
     YourSayUserDto getByEmail(String email);
 
     /** Complete account list, available only to an active database administrator. */
@@ -42,6 +49,15 @@ public interface YourSayUserService {
 
     /** PII-free account classification and publishing capability for the authenticated subject. */
     UserAccessDto getAccessByEmail(String email);
+
+    /** PII-free account classification for a trusted cross-domain id lookup. */
+    UserAccessDto getAccessById(long userId);
+
+    /** PII-free account classification for a fixed application-owned handle. */
+    UserAccessDto getAccessByHandle(String handle);
+
+    /** Database authority check used by administrator workflow domains. */
+    boolean hasActiveAdminAccess(String email);
 
     /**
      * Record explicit consent to the privacy promise for the authenticated user, stamping the time

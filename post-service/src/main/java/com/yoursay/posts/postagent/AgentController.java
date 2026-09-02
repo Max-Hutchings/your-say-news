@@ -1,11 +1,12 @@
-package com.yoursay.agents.postagent;
+package com.yoursay.posts.postagent;
 
-import com.yoursay.posts.postagent.AgentService;
+import com.yoursay.posts.postagent.dto.AgentGenerationEventDto;
 import com.yoursay.posts.postagent.dto.GenerateAgentPostRequest;
-import com.yoursay.posts.postagent.dto.AgentJobDto;
-
-import io.quarkus.security.identity.SecurityIdentity;
+import com.yoursay.posts.postagent.dto.PepperDraftDto;
+import com.yoursay.posts.postagent.dto.UpdatePepperDraftRequest;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.RunOnVirtualThread;
+import io.smallrye.mutiny.Multi;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -14,41 +15,64 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import com.yoursay.posts.postagent.error.AgentApiException;
-import org.jboss.resteasy.reactive.ResponseStatus;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestStreamElementType;
 
 import java.util.UUID;
 
-@Path("/agent/jobs")
+@Path("/agent/drafts")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 @RolesAllowed("user")
-@RunOnVirtualThread
 public class AgentController {
 
     @Inject
     AgentService agentService;
 
-    @Inject
-    SecurityIdentity securityIdentity;
-
     @POST
-    @ResponseStatus(202)
-    public AgentJobDto start(@Valid @NotNull GenerateAgentPostRequest request,
-                          @HeaderParam("Authorization") String authorization) {
-        return agentService.start(
-                securityIdentity.getPrincipal().getName(), authorization, request);
+    @Produces(MediaType.SERVER_SENT_EVENTS)
+    @RestStreamElementType(MediaType.APPLICATION_JSON)
+    @Blocking
+    public Multi<AgentGenerationEventDto> start(
+            @Valid @NotNull GenerateAgentPostRequest request,
+            @HeaderParam("Authorization") String authorization) {
+        return agentService.start(authorization, request);
     }
 
     @GET
-    @Path("/{jobId}")
-    public AgentJobDto get(@PathParam("jobId") UUID jobId,
-                           @HeaderParam("Authorization") String authorization) {
-        return agentService.get(jobId, securityIdentity.getPrincipal().getName(), authorization)
-                .orElseThrow(() -> AgentApiException.jobMissing(jobId));
+    @Path("/{draftId}/events")
+    @Produces(MediaType.SERVER_SENT_EVENTS)
+    @RestStreamElementType(MediaType.APPLICATION_JSON)
+    @Blocking
+    public Multi<AgentGenerationEventDto> events(
+            @PathParam("draftId") UUID draftId,
+            @HeaderParam("X-Pepper-Replica") String replicaId,
+            @HeaderParam("Authorization") String authorization) {
+        return agentService.events(draftId, replicaId, authorization);
+    }
+
+    @GET
+    @Path("/latest")
+    @RunOnVirtualThread
+    public RestResponse<PepperDraftDto> latest(
+            @HeaderParam("Authorization") String authorization) {
+        return agentService.latest(authorization)
+                .map(RestResponse::ok)
+                .orElseGet(RestResponse::noContent);
+    }
+
+    @PUT
+    @Path("/{draftId}")
+    @RunOnVirtualThread
+    public PepperDraftDto save(
+            @PathParam("draftId") UUID draftId,
+            @Valid @NotNull UpdatePepperDraftRequest request,
+            @HeaderParam("Authorization") String authorization) {
+        return agentService.save(draftId, request, authorization);
     }
 }

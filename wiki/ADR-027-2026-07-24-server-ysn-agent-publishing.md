@@ -1,5 +1,9 @@
 # ADR-027 — Server-side YSN agent publishing
 
+Superseded by
+[ADR-048](ADR-048-2026-08-20-admin-auto-post-workflow.md). The planned `ysnagent` was never
+implemented; the replacement is the human-reviewed top-level `autopost` domain.
+
 The namespace list in this ADR is partially superseded by
 [ADR-032](ADR-032-2026-07-25-top-level-unwrapped-domain.md): Post Unwrapped is now a top-level
 domain. The `ysnagent` decision remains active.

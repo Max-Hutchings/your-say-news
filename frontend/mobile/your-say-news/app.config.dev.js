@@ -4,13 +4,11 @@ const postServicePort = requiredEnv("EXPO_PUBLIC_POST_SERVICE_PORT");
 
 export default {
     extra: {
-        KEYCLOAK_BASE_URL: process.env.EXPO_PUBLIC_AUTH_BASE_URL ?? "http://localhost:8080",
-        KEYCLOAK_REALM: "your-say-news",
-        KEYCLOAK_CLIENT_ID: "frontend-client",
-
-        ACCESS_TOKEN_KEY: "access_token",
-        REFRESH_TOKEN_KEY: "refresh_token",
-        ACCESS_TOKEN_EXPIRES: "access_token_expires",
+        FIREBASE_PROJECT_ID: "demo-your-say-news",
+        FIREBASE_API_KEY: "local-firebase-emulator-key",
+        FIREBASE_APP_ID: "1:123456789:web:local-your-say-news",
+        FIREBASE_AUTH_EMULATOR_URL:
+            process.env.EXPO_PUBLIC_AUTH_BASE_URL ?? "http://localhost:9099",
 
         USER_SERVICE_HOST: postServiceHost,
         USER_SERVICE_PORT: postServicePort,

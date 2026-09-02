@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import com.yoursay.posts.VotingType;
 
 @Entity
@@ -40,8 +41,11 @@ public class Post extends PanacheEntityBase {
     @Column(name = "voting_type", nullable = false, length = 32)
     private VotingType votingType = VotingType.BINARY;
 
-    @Column(name = "is_unbiased", nullable = false)
-    private boolean isUnbiased;
+    @Column(name = "is_ai_generated", nullable = false)
+    private boolean isAiGenerated;
+
+    @Column(name = "ai_draft_id")
+    private UUID aiDraftId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -57,14 +61,18 @@ public class Post extends PanacheEntityBase {
     @OrderBy("ordinal ASC")
     private List<PostVoteOption> voteOptions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("ordinal ASC")
+    private List<PostSource> sources = new ArrayList<>();
+
     public Post() {
     }
 
-    public Post(Long userId, String summary, String supportQuestion, boolean isUnbiased) {
+    public Post(Long userId, String summary, String supportQuestion, boolean isAiGenerated) {
         this.userId = userId;
         this.summary = summary;
         this.supportQuestion = supportQuestion;
-        this.isUnbiased = isUnbiased;
+        this.isAiGenerated = isAiGenerated;
     }
 
     @PrePersist
@@ -88,6 +96,11 @@ public class Post extends PanacheEntityBase {
         item.setPost(this);
         item.setOrdinal(media.size());
         media.add(item);
+    }
+
+    public void addSource(PostSource source) {
+        source.setPost(this);
+        sources.add(source);
     }
 
     public void configureVoting(VotingType votingType, List<VotingOptionRules.Definition> definitions) {
@@ -149,13 +162,17 @@ public class Post extends PanacheEntityBase {
         this.jurisdiction = jurisdiction;
     }
 
-    public boolean isUnbiased() {
-        return isUnbiased;
+    public boolean isAiGenerated() {
+        return isAiGenerated;
     }
 
-    public void setUnbiased(boolean unbiased) {
-        isUnbiased = unbiased;
+    public void setAiGenerated(boolean aiGenerated) {
+        isAiGenerated = aiGenerated;
     }
+
+    public UUID getAiDraftId() { return aiDraftId; }
+    public void setAiDraftId(UUID aiDraftId) { this.aiDraftId = aiDraftId; }
+    public List<PostSource> getSources() { return sources; }
 
     public Instant getCreatedAt() {
         return createdAt;

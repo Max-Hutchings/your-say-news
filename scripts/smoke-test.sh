@@ -153,14 +153,14 @@ if ! docker compose \
   -f "$repo_root/compose.yaml" \
   -f "$smoke_compose" \
   up -d --build \
-  postgres keycloak-db keycloak keycloak-seed-users \
+  postgres firebase-auth firebase-auth-seed \
   liquibase-migrate liquibase-seed localstack; then
   echo "Smoke-test infrastructure failed to start." >&2
   docker compose \
     -p "$smoke_project" \
     -f "$repo_root/compose.yaml" \
     -f "$smoke_compose" \
-    logs --no-color liquibase-migrate liquibase-seed keycloak >&2 || true
+    logs --no-color liquibase-migrate liquibase-seed firebase-auth >&2 || true
   exit 1
 fi
 
@@ -240,13 +240,15 @@ wait_for_storage_object() {
 
 wait_for_url \
   "Authentication provider" \
-  "${authentication_url}/realms/your-say-news/.well-known/openid-configuration" \
+  "${authentication_url}/emulator/v1/projects/demo-your-say-news/config" \
   180
-wait_for_completed_service "keycloak-seed-users" 120
+wait_for_completed_service "firebase-auth-seed" 120
 wait_for_completed_service "liquibase-migrate" 120
 wait_for_completed_service "liquibase-seed" 120
 wait_for_url "LocalStack" "http://localhost:${storage_port}/_localstack/health" 180
-wait_for_storage_object "post-videos" "posts/seed-1046-video.mp4" 180
+# Must name a key localstack/init-aws.sh actually uploads, and the one the video journey asserts
+# on (see expectedFeed.video.mediaKey in smoke-tests/fixtures/test-data.ts). Keep the three in step.
+wait_for_storage_object "post-videos" "posts/seed-2003-video.mp4" 180
 
 echo "Starting post-service..."
 (
@@ -255,7 +257,7 @@ echo "Starting post-service..."
     QUARKUS_OTEL_ENABLED=false \
     QUARKUS_HTTP_PORT="$backend_port" \
     QUARKUS_HTTP_CORS_ORIGINS="$application_url,$admin_url" \
-    QUARKUS_OIDC_AUTH_SERVER_URL="${authentication_url}/realms/your-say-news" \
+    FIREBASE_AUTH_EMULATOR_HOST="localhost:${auth_port}" \
     QUARKUS_QUINOA_DEV_SERVER_PORT="$admin_port" \
     QUARKUS_DATASOURCE_USERNAME=app_user \
     QUARKUS_DATASOURCE_PASSWORD=app_password \
@@ -264,7 +266,7 @@ echo "Starting post-service..."
     QUARKUS_S3_ENDPOINT_OVERRIDE="http://localhost:${storage_port}" \
     VITE_API_ORIGIN="http://localhost:${backend_port}" \
     VITE_ADMIN_PORT="$admin_port" \
-    VITE_KEYCLOAK_URL="$authentication_url" \
+    VITE_FIREBASE_AUTH_EMULATOR_URL="$authentication_url" \
     ./gradlew :post-service:quarkusDev --console=plain
 ) >"$service_logs_dir/post-service.log" 2>&1 &
 backend_pid=$!
@@ -303,6 +305,7 @@ exec_status=0
 SMOKE_BASE_URL="$application_url" \
 SMOKE_AUTH_ORIGIN="$authentication_url" \
 SMOKE_ADMIN_URL="$admin_url" \
+SMOKE_API_ORIGIN="http://localhost:${backend_port}" \
 bunx playwright test \
   --config smoke-tests/playwright.config.ts || exec_status=$?
 

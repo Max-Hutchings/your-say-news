@@ -37,6 +37,9 @@ public class PostAnalysisAggregateServiceImpl implements PostAnalysisAggregateSe
     @Inject
     EntityManager entityManager;
 
+    @Inject
+    IncomeBucketDisplayEnricher incomeDisplays;
+
     @ConfigProperty(name = "votes.aggregation.suppress-below", defaultValue = "0")
     int suppressBelow;
 
@@ -50,8 +53,16 @@ public class PostAnalysisAggregateServiceImpl implements PostAnalysisAggregateSe
         List<VoteSnapshot> votes = voteRepository.listByPost(postId).stream()
                 .map(PostAnalysisAggregateServiceImpl::snapshot)
                 .toList();
-        PostAnalysisAggregateV1 aggregate = builder.build(post, votes, suppressBelow, Instant.now());
-        String version = aggregateVersion(aggregate);
+        PostAnalysisAggregateV1 aggregate = incomeDisplays.enrich(
+                builder.build(post, votes, suppressBelow, Instant.now()));
+        return withVersion(aggregate, aggregateVersion(aggregate));
+    }
+
+    /**
+     * The version is a hash of the aggregate itself, so it can only be stamped on after the
+     * aggregate exists.
+     */
+    private static PostAnalysisAggregateV1 withVersion(PostAnalysisAggregateV1 aggregate, String version) {
         return new PostAnalysisAggregateV1(aggregate.schemaVersion(), aggregate.postId(),
                 aggregate.votingType(), aggregate.summary(), aggregate.question(), aggregate.jurisdiction(),
                 aggregate.options(), aggregate.canonicalVoteCount(), version, aggregate.capturedAt(),

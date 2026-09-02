@@ -82,16 +82,7 @@ WITH profiles AS (
             WHEN 6 THEN 'CARER_HOMEMAKER'
             ELSE 'RETIRED'
         END AS occupation,
-        CASE n % 8
-            WHEN 0 THEN 'BELOW_20K'
-            WHEN 1 THEN 'BETWEEN_20K_AND_30K'
-            WHEN 2 THEN 'BETWEEN_30K_AND_40K'
-            WHEN 3 THEN 'BETWEEN_40K_AND_50K'
-            WHEN 4 THEN 'BETWEEN_50K_AND_75K'
-            WHEN 5 THEN 'BETWEEN_75K_AND_100K'
-            WHEN 6 THEN 'BETWEEN_100K_AND_150K'
-            ELSE 'BETWEEN_150K_AND_200K'
-        END AS personal_income_range,
+        ((n % 7) + 1) AS personal_income_tier,
         CASE n % 10
             WHEN 0 THEN 'PRIVATE_RENT'
             WHEN 1 THEN 'PRIVATE_RENT'
@@ -134,11 +125,11 @@ scored_profiles AS (
                 WHEN 'RIGHT' THEN -9
                 ELSE 0
             END
-            + CASE personal_income_range
-                WHEN 'BELOW_20K' THEN 6
-                WHEN 'BETWEEN_20K_AND_30K' THEN 5
-                WHEN 'BETWEEN_100K_AND_150K' THEN -4
-                WHEN 'BETWEEN_150K_AND_200K' THEN -7
+            + CASE personal_income_tier
+                WHEN 1 THEN 6
+                WHEN 2 THEN 5
+                WHEN 6 THEN -4
+                WHEN 7 THEN -7
                 ELSE 0
             END
             + CASE age_range
@@ -173,7 +164,18 @@ SELECT
         'urbanRural', urban_rural,
         'education', education,
         'occupation', occupation,
-        'personalIncomeRange', personal_income_range,
+        'personalIncomeRange',
+            'income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_' || personal_income_tier,
+        'personalIncome', jsonb_build_object(
+            'answerVersion', 2,
+            'profileId', 'GB-GBP-GROSS-2025-v1',
+            'profileVersion', 1,
+            'marketCode', 'GB',
+            'currencyCode', 'GBP',
+            'measure', 'PERSONAL',
+            'bandId', 'PERSONAL_TIER_' || personal_income_tier,
+            'relativeTier', 'TIER_' || personal_income_tier
+        ),
         'housingStatus', housing_status,
         'propertyType', property_type
     )

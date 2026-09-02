@@ -1,0 +1,33 @@
+databaseChangeLog:
+  # Preconditions for the smoke suite's social and publishing journeys.
+  #
+  # Consent comes first: `app/(protected)/index.tsx` redirects any account with no `consented_at`
+  # straight to the privacy promise, so a seeded account without it can never reach the feed. Maya
+  # and Theo are both signed into by the suite (Maya publishes, both are follow targets), so both
+  # need consent recorded or every journey using them stops on the consent screen.
+  #
+  # Riley then already follows Maya, so the unfollow journey has a relationship to remove, and
+  # deliberately does not follow Theo, so the follow journey has one to create. Both targets author
+  # seeded posts, because a profile is reached by tapping a post's author in the feed rather than by
+  # deep link — the root layout gates `(protected)` behind a login guard that a cold deep-linked
+  # load does not satisfy.
+  - changeSet:
+      id: 0011-seed-smoke-journey-preconditions
+      author: claude
+      logicalFilePath: db/seeding/0011-seed-smoke-journey-preconditions.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - update:
+            tableName: your_say_user
+            columns:
+              - { column: { name: consented_at, value: "2026-08-01T09:00:00Z" } }
+              - { column: { name: privacy_policy_version, value: "2026-06-01" } }
+            where: id IN (7, 8)
+
+        - insert:
+            tableName: social_follow
+            columns:
+              - { column: { name: follower_user_id, valueNumeric: 10 } }
+              - { column: { name: followed_user_id, valueNumeric: 7 } }
+              - { column: { name: created_at, value: "2026-08-01T09:00:00Z" } }

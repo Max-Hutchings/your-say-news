@@ -50,6 +50,7 @@ export function HomeFeed() {
   const [viewportH, setViewportH] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [postType, setPostType] = useState<FeedPostType | null>("VIDEO");
+  const [topicId, setTopicId] = useState<string | null>(null);
 
   // Paging cursor and end-of-feed flag. The cursor is the opaque token from the last response, so
   // the next page resumes exactly where this one stopped. A ref guards against overlapping loadMore
@@ -66,7 +67,7 @@ export function HomeFeed() {
     const generation = ++feedGeneration.current;
     setError(null);
     try {
-      const first = await getFeed(null, FEED_PAGE_SIZE, postType ?? undefined);
+      const first = await getFeed(null, FEED_PAGE_SIZE, postType ?? undefined, topicId ?? undefined);
       if (generation !== feedGeneration.current) return;
       setPosts(first.posts);
       cursor.current = first.nextCursor;
@@ -81,7 +82,7 @@ export function HomeFeed() {
         setRefreshing(false);
       }
     }
-  }, [postType]);
+  }, [postType, topicId]);
 
   const loadMore = useCallback(async () => {
     if (loadingMoreRef.current || reachedEnd.current) return;
@@ -89,7 +90,7 @@ export function HomeFeed() {
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const more = await getFeed(cursor.current, FEED_PAGE_SIZE, postType ?? undefined);
+      const more = await getFeed(cursor.current, FEED_PAGE_SIZE, postType ?? undefined, topicId ?? undefined);
       if (generation !== feedGeneration.current) return;
       if (more.posts.length > 0) {
         // The cursor makes overlapping pages impossible, but keep the id guard so a duplicate key
@@ -109,7 +110,7 @@ export function HomeFeed() {
         setLoadingMore(false);
       }
     }
-  }, [postType]);
+  }, [postType, topicId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -143,10 +144,9 @@ export function HomeFeed() {
 
   const onLayout = (ev: LayoutChangeEvent) => setViewportH(ev.nativeEvent.layout.height);
   const avatarLabel = email?.[0]?.toUpperCase();
-  const changePostType = (next: FeedPostType | null) => {
+  const resetFeed = () => {
     feedGeneration.current += 1;
     loadingMoreRef.current = false;
-    setPostType(next);
     setPosts([]);
     setLoading(true);
     setLoadingMore(false);
@@ -155,6 +155,14 @@ export function HomeFeed() {
     cursor.current = null;
     reachedEnd.current = false;
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  };
+  const changePostType = (next: FeedPostType | null) => {
+    resetFeed();
+    setPostType(next);
+  };
+  const changeTopic = (next: string | null) => {
+    resetFeed();
+    setTopicId(next);
   };
   const moveToNextPost = (currentIndex: number) => {
     const nextIndex = currentIndex + 1;
@@ -171,7 +179,7 @@ export function HomeFeed() {
       <View style={[styles.masthead, { backgroundColor: e.bg, borderBottomColor: e.border }]}>
         <Masthead avatarLabel={avatarLabel} onPressAvatar={() => router.push("/account" as Href)} />
         <View style={styles.tabs}>
-          <FeedTabs />
+          <FeedTabs value={topicId} onChange={changeTopic} />
         </View>
         <View style={styles.typeFilters}>
           <FeedTypeFilters value={postType} onChange={changePostType} />
@@ -194,6 +202,7 @@ export function HomeFeed() {
                 isActive={index === activeIndex}
                 height={viewportH}
                 onNextPost={() => moveToNextPost(index)}
+                onSelectTopic={changeTopic}
               />
             )}
             pagingEnabled
@@ -223,7 +232,7 @@ export function HomeFeed() {
             ListEmptyComponent={
               <View style={[styles.centered, { height: viewportH }]}>
                 <Text style={[styles.message, { color: error ? e.coral : e.muted }]}>
-                  {error ?? emptyMessage(postType)}
+                  {error ?? emptyMessage(postType, topicId)}
                 </Text>
               </View>
             }
@@ -245,7 +254,8 @@ export function HomeFeed() {
   );
 }
 
-function emptyMessage(postType: FeedPostType | null): string {
+function emptyMessage(postType: FeedPostType | null, topicId: string | null): string {
+  if (topicId) return "No stories have been filed under this topic yet.";
   if (postType === "VIDEO") return "No video posts yet.";
   if (postType === "ARTICLE") return "No article posts yet.";
   return "No stories yet. Be the first to share one.";

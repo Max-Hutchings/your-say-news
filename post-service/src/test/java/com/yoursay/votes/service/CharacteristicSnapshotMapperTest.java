@@ -1,10 +1,14 @@
 package com.yoursay.votes.service;
 
+import com.yoursay.user.usercharacteristic.dto.IncomeAnswerDto;
 import com.yoursay.votes.dto.CharacteristicSnapshot;
 import com.yoursay.votes.client.UserCharacteristicView;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -67,7 +71,7 @@ class CharacteristicSnapshotMapperTest {
         assertEquals("AGE_25_34", s.bucketFor("ageRange"));
         assertEquals("WOMAN", s.bucketFor("gender"));
         assertEquals("SURREY", s.bucketFor("ukCounty"));
-        assertEquals("LEGACY_BETWEEN_50K_AND_100K", s.bucketFor("personalIncomeRange"));
+        assertEquals(CharacteristicSnapshot.UNKNOWN, s.bucketFor("personalIncomeRange"));
         assertEquals("PARENT_CAREGIVER_UNDER_18", s.bucketFor("parent"));
         // Numeric news frequency is coarsened; booleans are stringified.
         assertEquals("6_8", s.bucketFor("newsFrequency"));
@@ -95,7 +99,7 @@ class CharacteristicSnapshotMapperTest {
     }
 
     @Test
-    void versionedIncomeSnapshotsOnlyTheServerDerivedComparableTiers() {
+    void versionedIncomeSnapshotsLocalRangeIdentityAndServerDerivedComparableTiers() {
         UserCharacteristicView legacy = fullView();
         UserCharacteristicView versioned = new UserCharacteristicView(
                 legacy.userId(), legacy.politicalPersuasion(), legacy.ageRange(), legacy.gender(),
@@ -107,12 +111,62 @@ class CharacteristicSnapshotMapperTest {
                 legacy.eyeColor(), legacy.parent(), legacy.newsFrequency(), legacy.hasPet(),
                 legacy.petType(), legacy.chronotype(), legacy.outlook(), legacy.neurodivergent(),
                 legacy.neurodivergenceType(), legacy.hasDisability(), legacy.disabilityType(),
-                legacy.housingStatus(), legacy.propertyType(), null, null, "TIER_3", "TIER_5");
+                legacy.housingStatus(), legacy.propertyType(), null, null, "TIER_3", "TIER_5",
+                new IncomeAnswerDto(2, "2026.1", "GB-GBP-GROSS-2025-v1", 1,
+                        "GB", "GBP", "PERSONAL_TIER_3", "HOUSEHOLD_TIER_5"));
 
         CharacteristicSnapshot snapshot = CharacteristicSnapshotMapper.from(versioned);
 
-        assertEquals("V2_TIER_3", snapshot.personalIncomeRange());
-        assertEquals("V2_TIER_5", snapshot.householdIncomeRange());
+        assertEquals("income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_3",
+                snapshot.personalIncomeRange());
+        assertEquals("income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_5",
+                snapshot.householdIncomeRange());
+        assertEquals("TIER_3", snapshot.personalIncome().relativeTier());
+        assertEquals("GBP", snapshot.personalIncome().currencyCode());
+        assertEquals("GB", snapshot.personalIncome().marketCode());
+        assertEquals(2, snapshot.personalIncome().answerVersion());
+        assertEquals("GB-GBP-GROSS-2025-v1", snapshot.personalIncome().profileId());
+        assertEquals(1, snapshot.personalIncome().profileVersion());
+        assertEquals("PERSONAL", snapshot.personalIncome().measure());
+        assertEquals("PERSONAL_TIER_3", snapshot.personalIncome().bandId());
+        assertEquals("TIER_5", snapshot.householdIncome().relativeTier());
+        assertEquals(2, snapshot.householdIncome().answerVersion());
+        assertEquals("GB-GBP-GROSS-2025-v1", snapshot.householdIncome().profileId());
+        assertEquals(1, snapshot.householdIncome().profileVersion());
+        assertEquals("GB", snapshot.householdIncome().marketCode());
+        assertEquals("GBP", snapshot.householdIncome().currencyCode());
+        assertEquals("HOUSEHOLD", snapshot.householdIncome().measure());
+        assertEquals("HOUSEHOLD_TIER_5", snapshot.householdIncome().bandId());
+    }
+
+    @Test
+    void legacyIncomeEnumsAreNotCopiedIntoNewVoteSnapshots() {
+        CharacteristicSnapshot snapshot = CharacteristicSnapshotMapper.from(fullView());
+
+        assertNull(snapshot.personalIncomeRange());
+        assertNull(snapshot.householdIncomeRange());
+        assertNull(snapshot.personalIncome());
+        assertNull(snapshot.householdIncome());
+    }
+
+    @Test
+    void snapshotSchemaContainsOnlyTheGovernedAggregateSafeFields() {
+        Set<String> actual = Arrays.stream(CharacteristicSnapshot.class.getRecordComponents())
+                .map(component -> component.getName())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of(
+                "politicalPersuasion", "ageRange", "gender", "sexAtBirth",
+                "sexualOrientation", "maritalStatus", "race", "country", "region",
+                "urbanRural", "ukCounty", "countryOfBirth", "citizenship", "religion",
+                "religiosity", "education", "occupation", "employmentSector",
+                "universitySubject", "personalIncomeRange", "householdIncomeRange", "height",
+                "weightRange", "eyeColor", "parent", "newsFrequency", "hasPet", "petType",
+                "chronotype", "outlook", "neurodivergent", "neurodivergenceType",
+                "hasDisability", "disabilityType", "housingStatus", "propertyType",
+                "raceMemberships", "citizenshipMemberships", "petTypeMemberships",
+                "neurodivergenceTypeMemberships", "disabilityTypeMemberships",
+                "balancedNewsViewpoint", "mainstreamNewsPercent", "personalIncome",
+                "householdIncome"), actual);
     }
 
     @Test

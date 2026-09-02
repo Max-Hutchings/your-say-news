@@ -9,6 +9,7 @@ import com.yoursay.posts.dto.CreatePostRequest;
 import com.yoursay.posts.dto.PostDto;
 
 import com.yoursay.posts.dto.PostPageRequest;
+import com.yoursay.posts.dto.PostCreationProvenance;
 
 import io.smallrye.mutiny.Uni;
 
@@ -25,9 +26,22 @@ public interface PostService {
     /**
      * Create a post authored by the user behind {@code authorEmail}. The author id is resolved
      * server-side through the local user-domain adapter. {@code authorization} remains as a
-     * compatibility parameter during the merge. {@code isUnbiased} is forced false.
+     * compatibility parameter during the merge. AI provenance is server-derived.
      */
     Uni<PostDto> create(String authorEmail, String authorization, CreatePostRequest request);
+
+    /** Create through the same post path with verified Pepper provenance and selected sources. */
+    default Uni<PostDto> create(String authorEmail, String authorization, CreatePostRequest request,
+                                PostCreationProvenance provenance) {
+        return create(authorEmail, authorization, request);
+    }
+
+    /** Create for a publisher identity already verified by a trusted server-side workflow. */
+    default Uni<PostDto> createForPublisher(Long publisherUserId, CreatePostRequest request,
+                                            PostCreationProvenance provenance) {
+        return Uni.createFrom().failure(
+                new UnsupportedOperationException("Trusted publisher creation is not implemented"));
+    }
 
     /** A single post with presigned media URLs, or null if it does not exist. */
     Uni<PostDto> getById(Long id);

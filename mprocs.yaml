@@ -3,15 +3,16 @@
 # Run: bun run dev
 #
 # Panes (focus with arrows / mouse):
-#   - compose      : Postgres, Keycloak, LocalStack, Liquibase, and telemetry
+#   - compose      : Postgres, Firebase Auth Emulator, LocalStack, Liquibase, and telemetry
 #   - post-service : Quarkus dev mode on :8082, with colorized JSON logs and its admin UI on :8083
 #   - expo         : Expo / React Native dev server on :5173
+#   - grafana      : Direct link to the local Your Say News overview dashboard
 #
 # Keys: 'r' restarts the selected process, 'x' stops it, and 'q' quits
 # everything. Restarting the Compose process runs down -> rebuild -> up, and
 # quitting mprocs also runs `docker compose down`.
 # The start-dev preflight blocks mprocs startup unless Docker is available and
-# YOUR_SAY_NEWS_GROK_API_KEY is present in the environment.
+# the selected provider API key is present in the environment.
 # Before each application process starts, any existing listener on its assigned
 # port is terminated so stale dev processes cannot block startup.
 
@@ -22,11 +23,14 @@ procs:
       cmd: "docker compose down"
 
   post-service:
-    shell: "set -o pipefail; ./scripts/free-service-port.sh 8082 post-service && ./scripts/free-service-port.sh 8083 admin-web-ui && ./scripts/check-compose-services.sh && ./gradlew :post-service:quarkusDev --console=plain 2>&1 | bun scripts/colorize-json-logs.ts"
+    shell: "set -o pipefail; ./scripts/free-service-port.sh 8082 post-service && ./scripts/free-service-port.sh 8083 admin-web-ui && ./scripts/check-compose-services.sh && FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 ./gradlew :post-service:quarkusDev --console=plain 2>&1 | bun scripts/colorize-json-logs.ts"
 
   expo:
     cwd: "frontend/mobile/your-say-news"
     shell: "../../../scripts/free-service-port.sh 5173 expo && ../../../scripts/check-compose-services.sh && bun run start"
+
+  grafana:
+    shell: "printf '%s\\n' 'http://localhost:3000/d/ysn-overview/your-say-news-overview'; while true; do sleep 3600; done"
 
 # Restarting the Compose pane uses its stop command (`docker compose down`),
 # then starts it again with `docker compose up --build`. Other panes retain mprocs'

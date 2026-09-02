@@ -4,28 +4,38 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { ThemeProvider, getEditorial } from "@/constants/theme";
 import { FeedTabs } from "./FeedTabs";
 import { Masthead } from "./Masthead";
-import { PepperCompose } from "./PepperCompose";
+
+jest.mock("@/features/topics", () => ({
+  useTopicTags: () => ({
+    topicTags: [
+      { id: "politics", label: "Politics", displayGroup: "Politics & government", displayOrder: 1, active: true },
+      { id: "economy", label: "Economy", displayGroup: "Money & business", displayOrder: 2, active: true },
+      { id: "health", label: "Health", displayGroup: "Society", displayOrder: 3, active: true },
+      { id: "technology", label: "Technology", displayGroup: "Science & technology", displayOrder: 4, active: true },
+    ],
+  }),
+}));
 
 function themed(ui: React.ReactElement, mode: "light" | "dark" = "light") {
   return render(<ThemeProvider initialColorScheme={mode}>{ui}</ThemeProvider>);
 }
 
-test("feed tabs present the full category set with only For you active", () => {
-  themed(<FeedTabs />);
+test("feed tabs present the curated categories with only For you active", () => {
+  themed(<FeedTabs value={null} onChange={jest.fn()} />);
   const palette = getEditorial(false);
 
-  for (const label of ["For you", "AI", "Policy", "Hardware", "Climate"]) {
+  for (const label of ["For you", "Politics", "Economy", "Health", "Technology", "More ▾"]) {
     expect(screen.getByText(label)).toBeTruthy();
   }
   expect(StyleSheet.flatten(screen.getByTestId("feed-tab-For you").props.style)).toMatchObject({
     backgroundColor: palette.lime,
     borderColor: palette.lime,
   });
-  expect(StyleSheet.flatten(screen.getByTestId("feed-tab-Climate").props.style)).toMatchObject({
+  expect(StyleSheet.flatten(screen.getByTestId("feed-tab-Technology").props.style)).toMatchObject({
     backgroundColor: "transparent",
     borderColor: palette.border,
   });
-  for (const label of ["AI", "Policy", "Hardware", "Climate"]) {
+  for (const label of ["Politics", "Economy", "Health", "Technology", "More ▾"]) {
     expect(StyleSheet.flatten(screen.getByTestId(`feed-tab-${label}`).props.style)).toMatchObject({
       backgroundColor: "transparent",
       borderColor: palette.border,
@@ -50,22 +60,4 @@ test("masthead shows the date, privacy promise, and interactive account avatar",
 test("masthead omits the account action when no reader label is available", () => {
   themed(<Masthead />);
   expect(screen.queryByLabelText("Account")).toBeNull();
-});
-
-test("Pepper compose preserves the reader's prompt and labels the future action honestly", () => {
-  themed(<PepperCompose />);
-  const prompt = screen.getByPlaceholderText(
-    "e.g. The impact of four-day work weeks on productivity and hiring…",
-  );
-
-  fireEvent.changeText(prompt, "Compare evidence on congestion charging");
-
-  expect(prompt.props.value).toBe("Compare evidence on congestion charging");
-  expect(screen.getByLabelText("Research and write").props.accessibilityState).toEqual({
-    disabled: true,
-  });
-  expect(screen.getByText("SCANS UP TO 8 SOURCES")).toBeTruthy();
-  expect(
-    screen.getByText("Pepper's suggested motion appears here after it drafts your post."),
-  ).toBeTruthy();
 });

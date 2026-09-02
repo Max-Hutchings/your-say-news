@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Schema migrations ONLY. No seed/test data here.
+<!-- Production migrations: schema changes and required reference data. No seed/test fixtures here.
      Run by the application (migrate-at-start) and by the dedicated migration container. -->
 <databaseChangeLog
         xmlns="http://www.liquibase.org/xml/ns/dbchangelog"

@@ -12,7 +12,7 @@
     <changeSet id="0010-seed-curated-posts" author="codex" context="seed">
         <sql splitStatements="false"><![CDATA[
 INSERT INTO post
-    (id, user_id, summary, support_question, case_for, case_against, is_unbiased,
+    (id, user_id, summary, support_question, case_for, case_against, is_ai_generated,
      voting_type, created_at, updated_at)
 VALUES
     (2000, 1,
@@ -70,7 +70,17 @@ Teachers also report pupils trusting confident wrong answers and becoming less l
      'How should schools make AI tutoring available to pupils?',
      'Carefully supervised access could give every pupil patient, individual support.',
      'AI tutors can be confidently wrong, weaken human interaction and collect sensitive learning data.',
-     false, 'MULTIPLE_CHOICE', '2026-07-20T15:00:00Z', '2026-07-20T15:00:00Z');
+     false, 'MULTIPLE_CHOICE', '2026-07-20T15:00:00Z', '2026-07-20T15:00:00Z'),
+    (2007, 7,
+     'Arguments that public spending is out of control have real figures behind them. The Office for Budget Responsibility forecast total public spending at 44.8% of GDP in 2025/26, against receipts of 40.4%, leaving borrowing at 4.3%. It says public debt has nearly tripled as a share of the economy in two decades, while the tax take is heading for a post-war high. Cutting waste and low-value programmes, then using the savings to reduce income tax, could leave households with more money and force government to prioritise what works.
+
+The contradiction is that this expensive state can still feel absent when people need it. NHS England reported 7.22 million elective treatment pathways waiting in May 2026, alongside record A&E demand and daily corridor care. Councils face rising social-care costs, which can squeeze spending on transport, libraries and neighbourhood services. Public spending also includes pensions, benefits, debt interest, defence and investment, not just administration, so large savings quickly become choices about services and support people rely on.
+
+The strongest case for lower spending is therefore targeted: reform procurement, stop failed projects and improve productivity before cutting income tax. The risk is that broad cuts simply move costs elsewhere through later treatment, weaker infrastructure or unpaid family care, while benefiting higher earners most if tax rates fall. Borrowing to fund a tax cut would only add to the debt. Is an expensive but overstretched state evidence that government should become leaner, or that public services cannot absorb another squeeze?',
+     'Should we lower public spending to lower income tax?',
+     'Targeted cuts can remove waste, strengthen work incentives and let households keep more of what they earn.',
+     'Broad cuts can deepen struggling services, shift costs to families and weaken investment that supports growth.',
+     false, 'BINARY', '2026-08-09T09:00:00Z', '2026-08-09T09:00:00Z');
 
 INSERT INTO post_media
     (id, post_id, media_type, orientation, s3_key, content_type, poster_s3_key, ordinal, created_at)
@@ -109,7 +119,9 @@ VALUES
     (2006, 'Give every pupil access', 0, NULL),
     (2006, 'Target pupils who need extra support', 1, NULL),
     (2006, 'Let teachers approve use case by case', 2, NULL),
-    (2006, 'Do not provide AI tutors', 3, NULL);
+    (2006, 'Do not provide AI tutors', 3, NULL),
+    (2007, 'Agree', 0, 'AGREE'),
+    (2007, 'Disagree', 1, 'DISAGREE');
 
 WITH post_specs(post_id, vote_count, base_support) AS (
     VALUES
@@ -119,7 +131,8 @@ WITH post_specs(post_id, vote_count, base_support) AS (
         (2003::BIGINT, 760, 50),
         (2004::BIGINT, 560, 71),
         (2005::BIGINT, 600, 61),
-        (2006::BIGINT, 520, 50)
+        (2006::BIGINT, 520, 50),
+        (2007::BIGINT, 700, 48)
 ),
 profiles AS (
     SELECT
@@ -283,8 +296,8 @@ profiles AS (
             WHEN 6 THEN 'MEDICINE'
             ELSE NULL
         END AS university_subject,
-        'V2_TIER_' || ((series.n % 7) + 1) AS personal_income_range,
-        'V2_TIER_' || (((series.n + 2) % 7) + 1) AS household_income_range,
+        ((series.n % 7) + 1) AS personal_income_tier,
+        (((series.n + 2) % 7) + 1) AS household_income_tier,
         CASE series.n % 8
             WHEN 0 THEN 'FEET_4_10_TO_5_0'
             WHEN 1 THEN 'FEET_5_1_TO_5_3'
@@ -390,6 +403,28 @@ selected_options AS (
     SELECT
         profiles.*,
         CASE
+            WHEN post_id = 2007 THEN
+                CASE
+                    WHEN ((n * 73 + post_id) % 100) <
+                         LEAST(90, GREATEST(15,
+                             base_support
+                             + CASE political_persuasion
+                                 WHEN 'LEFT' THEN -10
+                                 WHEN 'CENTRE_LEFT' THEN -5
+                                 WHEN 'CENTRE_RIGHT' THEN 6
+                                 WHEN 'RIGHT' THEN 10
+                                 ELSE 0
+                               END
+                             + CASE personal_income_tier
+                                 WHEN 1 THEN -6
+                                 WHEN 2 THEN -4
+                                 WHEN 6 THEN 4
+                                 WHEN 7 THEN 6
+                                 ELSE 0
+                               END
+                         ))
+                    THEN 0 ELSE 1
+                END
             WHEN post_id IN (2000, 2001, 2004, 2005) THEN
                 CASE
                     WHEN ((n * 73 + post_id) % 100) <
@@ -469,8 +504,30 @@ SELECT
         'occupation', occupation,
         'employmentSector', employment_sector,
         'universitySubject', university_subject,
-        'personalIncomeRange', personal_income_range,
-        'householdIncomeRange', household_income_range,
+        'personalIncomeRange',
+            'income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_' || personal_income_tier,
+        'householdIncomeRange',
+            'income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_' || household_income_tier,
+        'personalIncome', jsonb_build_object(
+            'answerVersion', 2,
+            'profileId', 'GB-GBP-GROSS-2025-v1',
+            'profileVersion', 1,
+            'marketCode', 'GB',
+            'currencyCode', 'GBP',
+            'measure', 'PERSONAL',
+            'bandId', 'PERSONAL_TIER_' || personal_income_tier,
+            'relativeTier', 'TIER_' || personal_income_tier
+        ),
+        'householdIncome', jsonb_build_object(
+            'answerVersion', 2,
+            'profileId', 'GB-GBP-GROSS-2025-v1',
+            'profileVersion', 1,
+            'marketCode', 'GB',
+            'currencyCode', 'GBP',
+            'measure', 'HOUSEHOLD',
+            'bandId', 'HOUSEHOLD_TIER_' || household_income_tier,
+            'relativeTier', 'TIER_' || household_income_tier
+        ),
         'height', height,
         'weightRange', weight_range,
         'eyeColor', eye_color,

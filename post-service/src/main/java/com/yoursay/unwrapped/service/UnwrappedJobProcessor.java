@@ -19,6 +19,8 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class UnwrappedJobProcessor {
+    private static final String INSUFFICIENT_EVIDENCE_CODE = "UNWRAPPED_INSUFFICIENT_DEMOGRAPHIC_EVIDENCE";
+
     @Inject
     UnwrappedAnalysisJobRepository jobs;
     @Inject
@@ -51,6 +53,15 @@ public class UnwrappedJobProcessor {
         UnwrappedStory story =
                 new UnwrappedStory(job, objectMapper.valueToTree(draft), result.model());
         stories.persist(story);
+        recordCitedSources(story, draft);
+        job.complete(result.model(), result.providerResponseId());
+    }
+
+    /**
+     * The citations are written as their own rows so a reviewer can audit what the story was built
+     * from without parsing the stored draft JSON.
+     */
+    private void recordCitedSources(UnwrappedStory story, UnwrappedResearchDraftV1 draft) {
         draft.sources().forEach(source -> entityManager.createNativeQuery("""
                 insert into unwrapped_source(
                     story_id, citation_id, url, publisher, title, classification, accessed_at
@@ -63,20 +74,23 @@ public class UnwrappedJobProcessor {
                 .setParameter(5, source.title())
                 .setParameter(6, source.classification().name())
                 .executeUpdate());
-        job.complete(result.model(), result.providerResponseId());
     }
 
     @Transactional
     public FailureResult fail(UUID id, RuntimeException failure) {
         UnwrappedAnalysisJob job = jobs.findById(id);
         String code = errorCode(failure);
-        String message = "UNWRAPPED_INSUFFICIENT_DEMOGRAPHIC_EVIDENCE".equals(code)
-                ? "No statistically reliable demographic pattern is available for every option."
-                : "Pepper could not build this story.";
-        job.fail(code, message, retryEnabled
-                && !"UNWRAPPED_INSUFFICIENT_DEMOGRAPHIC_EVIDENCE".equals(code));
+        // Retrying cannot conjure demographic evidence, so only genuine generation faults requeue.
+        boolean recoverable = !INSUFFICIENT_EVIDENCE_CODE.equals(code);
+        job.fail(code, readerMessageFor(code), retryEnabled && recoverable);
         return new FailureResult(code, job.getStatus().name(),
                 job.getStatus() == UnwrappedJobStatus.PENDING);
+    }
+
+    private static String readerMessageFor(String code) {
+        return INSUFFICIENT_EVIDENCE_CODE.equals(code)
+                ? "No statistically reliable demographic pattern is available for every option."
+                : "Pepper could not build this story.";
     }
 
     private static String errorCode(RuntimeException failure) {

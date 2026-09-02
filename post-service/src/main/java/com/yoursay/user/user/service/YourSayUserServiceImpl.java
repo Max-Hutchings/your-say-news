@@ -1,6 +1,6 @@
 package com.yoursay.user.user.service;
 
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.user.user.AccountType;
 import com.yoursay.user.user.dto.AdminUserDto;
 import com.yoursay.user.user.dto.AdminUserUpdateDto;
@@ -81,6 +81,17 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     }
 
     @Override
+    public Map<Long, String> usernamesByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        return yourSayUserRepository.findUsersByIds(ids).stream()
+                .filter(user -> user.getHandle() != null)
+                .collect(Collectors.toMap(YourSayUser::getId, YourSayUser::getHandle,
+                        (existing, duplicate) -> existing));
+    }
+
+    @Override
     public YourSayUserDto getByEmail(String email) {
         return toDto(yourSayUserRepository.findByEmail(email));
     }
@@ -116,7 +127,26 @@ public class YourSayUserServiceImpl implements YourSayUserService {
 
     @Override
     public UserAccessDto getAccessByEmail(String email) {
+        return toAccessDto(yourSayUserRepository.findByEmail(email));
+    }
+
+    @Override
+    public UserAccessDto getAccessById(long userId) {
+        return toAccessDto(yourSayUserRepository.findYourSayUserById(userId));
+    }
+
+    @Override
+    public UserAccessDto getAccessByHandle(String handle) {
+        return toAccessDto(yourSayUserRepository.findByHandle(handle));
+    }
+
+    @Override
+    public boolean hasActiveAdminAccess(String email) {
         YourSayUser user = yourSayUserRepository.findByEmail(email);
+        return user != null && user.isActive() && user.getAccountType() == AccountType.ADMIN;
+    }
+
+    private static UserAccessDto toAccessDto(YourSayUser user) {
         if (user == null) {
             return null;
         }

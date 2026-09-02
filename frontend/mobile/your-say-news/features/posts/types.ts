@@ -16,6 +16,12 @@ export interface VoteOption {
   semanticKey: "AGREE" | "DISAGREE" | null;
 }
 
+export interface PostSource {
+  url: string;
+  title: string;
+  publisher: string;
+}
+
 /**
  * How a media item is shaped, so the feed sizes it deterministically: LANDSCAPE renders in a fixed
  * 16:9 box; PORTRAIT in a tall centred box (which collapses the summary to a "see more" line).
@@ -41,6 +47,8 @@ export interface PostMedia {
 export interface Post {
   id: number;
   userId: number;
+  /** The author's public handle, shown on the card. Null when the service cannot resolve them. */
+  authorUsername: string | null;
   summary: string;
   supportQuestion: string;
   /** Optional one-line arguments shown as the "case for" / "case against" cards. */
@@ -49,10 +57,14 @@ export interface Post {
   jurisdiction?: string;
   votingType: VotingType;
   voteOptions: VoteOption[];
-  /** Only the Stage 7 agent sets this true; it drives the unbiased badge. */
-  isUnbiased: boolean;
+  /** Derived server-side from a completed Pepper draft. */
+  isAiGenerated: boolean;
   createdAt: string;
   media: PostMedia[];
+  /** Effective governed topic tags, ordered by the catalogue. */
+  topicTags: import("@/features/topics").TopicTag[];
+  /** Selected citations shown after the article text. */
+  sources: PostSource[];
 }
 
 /**
@@ -87,6 +99,41 @@ export interface CreatePostInput {
   votingType: VotingType;
   voteOptions: { label: string }[];
   media: CreatePostMedia[];
+  topicTagIds: string[];
+  pepperDraftId?: string;
+  citations?: PostSource[];
+}
+
+export type PepperDraftStatus = "RECEIVED" | "GENERATING" | "FINISHED" | "FAILED";
+
+export interface PepperPostDraft {
+  summary: string;
+  supportQuestion: string;
+  caseFor: string | null;
+  caseAgainst: string | null;
+  votingType: VotingType;
+  voteOptions: string[];
+  citations: PostSource[];
+}
+
+export interface PepperDraftRecord {
+  id: string;
+  prompt: string;
+  replicaId: string;
+  status: PepperDraftStatus;
+  success: boolean | null;
+  content: PepperPostDraft | null;
+  errorMessage: string | null;
+  publishedPostId: number | null;
+  version: number;
+}
+
+export interface PepperGenerationEvent {
+  status: PepperDraftStatus;
+  draftId: string;
+  replicaId: string;
+  result?: PepperPostDraft;
+  errorMessage?: string;
 }
 
 /** `POST /posts/media/presign` request. */

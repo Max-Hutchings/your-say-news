@@ -112,20 +112,8 @@ profiles AS (
             WHEN 6 THEN 'FINANCE'
             ELSE 'HOSPITALITY'
         END AS employment_sector,
-        CASE n % 5
-            WHEN 0 THEN 'UNDER_25K'
-            WHEN 1 THEN 'BETWEEN_25K_AND_50K'
-            WHEN 2 THEN 'BETWEEN_50K_AND_100K'
-            WHEN 3 THEN 'BETWEEN_100K_AND_150K'
-            ELSE 'BETWEEN_151K_AND_200K'
-        END AS personal_income_range,
-        CASE n % 5
-            WHEN 0 THEN 'BETWEEN_25K_AND_50K'
-            WHEN 1 THEN 'BETWEEN_50K_AND_100K'
-            WHEN 2 THEN 'BETWEEN_100K_AND_150K'
-            WHEN 3 THEN 'BETWEEN_151K_AND_200K'
-            ELSE 'OVER_200K'
-        END AS household_income_range,
+        ((n % 7) + 1) AS personal_income_tier,
+        (((n + 2) % 7) + 1) AS household_income_tier,
         CASE n % 4
             WHEN 0 THEN 'NO'
             WHEN 1 THEN 'MUM'
@@ -224,8 +212,36 @@ SELECT
         'education', education,
         'occupation', occupation,
         'employmentSector', employment_sector,
-        'personalIncomeRange', personal_income_range,
-        'householdIncomeRange', household_income_range,
+        'personalIncomeRange', CASE WHEN country = 'United States'
+            THEN 'income|US-USD-GROSS-2024-v1|PERSONAL|PERSONAL_TIER_'
+            ELSE 'income|GB-GBP-GROSS-2025-v1|PERSONAL|PERSONAL_TIER_' END
+            || personal_income_tier,
+        'householdIncomeRange', CASE WHEN country = 'United States'
+            THEN 'income|US-USD-GROSS-2024-v1|HOUSEHOLD|HOUSEHOLD_TIER_'
+            ELSE 'income|GB-GBP-GROSS-2025-v1|HOUSEHOLD|HOUSEHOLD_TIER_' END
+            || household_income_tier,
+        'personalIncome', jsonb_build_object(
+            'answerVersion', 2,
+            'profileId', CASE WHEN country = 'United States'
+                THEN 'US-USD-GROSS-2024-v1' ELSE 'GB-GBP-GROSS-2025-v1' END,
+            'profileVersion', 1,
+            'marketCode', CASE WHEN country = 'United States' THEN 'US' ELSE 'GB' END,
+            'currencyCode', CASE WHEN country = 'United States' THEN 'USD' ELSE 'GBP' END,
+            'measure', 'PERSONAL',
+            'bandId', 'PERSONAL_TIER_' || personal_income_tier,
+            'relativeTier', 'TIER_' || personal_income_tier
+        ),
+        'householdIncome', jsonb_build_object(
+            'answerVersion', 2,
+            'profileId', CASE WHEN country = 'United States'
+                THEN 'US-USD-GROSS-2024-v1' ELSE 'GB-GBP-GROSS-2025-v1' END,
+            'profileVersion', 1,
+            'marketCode', CASE WHEN country = 'United States' THEN 'US' ELSE 'GB' END,
+            'currencyCode', CASE WHEN country = 'United States' THEN 'USD' ELSE 'GBP' END,
+            'measure', 'HOUSEHOLD',
+            'bandId', 'HOUSEHOLD_TIER_' || household_income_tier,
+            'relativeTier', 'TIER_' || household_income_tier
+        ),
         'parent', parent,
         'newsFrequency', news_frequency,
         'hasPet', has_pet,

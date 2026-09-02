@@ -1,9 +1,7 @@
 package com.yoursay.posts.postagent.error;
 
-import com.yoursay.observability.ApiException;
+import com.yoursay.platform.observability.ApiException;
 import jakarta.ws.rs.core.Response;
-
-import java.util.UUID;
 
 public class AgentApiException extends ApiException {
 
@@ -11,23 +9,53 @@ public class AgentApiException extends ApiException {
         super("agent", errorCode, status, detailMessage);
     }
 
-    public static AgentApiException userMissing(String email) {
+    public static AgentApiException userMissing() {
         return new AgentApiException("AGENT_USER_NOT_FOUND", Response.Status.UNAUTHORIZED,
-                "Cannot create or read agent job because user lookup failed: email=" + email);
+                "Authenticated publisher could not be resolved.");
     }
 
-    public static AgentApiException userLookupFailed(String email, int status) {
+    public static AgentApiException userLookupFailed(int status) {
         return new AgentApiException("AGENT_USER_LOOKUP_FAILED", Response.Status.BAD_GATEWAY,
-                "User lookup failed: email=" + email + ", status=" + status);
+                "Publisher lookup failed with status=" + status);
     }
 
     public static AgentApiException publishingForbidden(Long userId) {
         return new AgentApiException("AGENT_PUBLISHING_FORBIDDEN", Response.Status.FORBIDDEN,
-                "Agent generation requires an active official publisher: userId=" + userId);
+                "Pepper generation requires an active official publisher.");
     }
 
-    public static AgentApiException jobMissing(UUID jobId) {
-        return new AgentApiException("AGENT_JOB_NOT_FOUND", Response.Status.NOT_FOUND,
-                "Agent job was not found: jobId=" + jobId);
+    public static AgentApiException draftMissing() {
+        return new AgentApiException("AGENT_DRAFT_NOT_FOUND", Response.Status.NOT_FOUND,
+                "Pepper draft was not found.");
+    }
+
+    public static AgentApiException replicaUnavailable() {
+        return new AgentApiException("AGENT_REPLICA_UNAVAILABLE", Response.Status.SERVICE_UNAVAILABLE,
+                "The Pepper generation replica is unavailable.");
+    }
+
+    public static AgentApiException versionConflict() {
+        return new AgentApiException("AGENT_DRAFT_VERSION_CONFLICT", Response.Status.CONFLICT,
+                "Pepper draft was changed elsewhere.");
+    }
+
+    public static AgentApiException citationInvalid() {
+        return new AgentApiException("AGENT_CITATION_INVALID", Response.Status.BAD_REQUEST,
+                "A citation was not present in Pepper's generated sources.");
+    }
+
+    public static AgentApiException draftNotReady() {
+        return new AgentApiException("AGENT_DRAFT_NOT_READY", Response.Status.CONFLICT,
+                "Pepper draft is not ready to publish or edit.");
+    }
+
+    public static AgentApiException draftNotFailed() {
+        return new AgentApiException("AGENT_DRAFT_NOT_FAILED", Response.Status.CONFLICT,
+                "Only a failed Pepper draft can be retried.");
+    }
+
+    public static AgentApiException draftInvalid() {
+        return new AgentApiException("AGENT_DRAFT_INVALID", Response.Status.BAD_REQUEST,
+                "Pepper draft contains invalid post fields.");
     }
 }

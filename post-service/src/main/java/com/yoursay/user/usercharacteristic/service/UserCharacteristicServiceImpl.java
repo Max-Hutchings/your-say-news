@@ -6,7 +6,7 @@ import com.yoursay.user.usercharacteristic.dto.IncomeProfileDto;
 
 import com.yoursay.user.usercharacteristic.dto.IncomeAnswerDto;
 
-import com.yoursay.observability.DomainMetrics;
+import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.user.usercharacteristic.*;
 import com.yoursay.user.usercharacteristic.error.UserCharacteristicApiException;
 import com.yoursay.user.usercharacteristic.model.EnumOptionPolicy;
@@ -60,137 +60,197 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         }
     }
 
-    /** Validates and copies the answer fields onto the entity. {@code userId} is never read from the body. */
-    private void applyAnswers(UserCharacteristic entity, UserCharacteristicDto a) {
-        if (a == null) {
+    /**
+     * Validates and copies the answer fields onto the entity, one group of characteristics at a
+     * time. {@code userId} is never read from the body. The order is fixed because residence is
+     * validated first and then reused when resolving the income profile.
+     */
+    private void applyAnswers(UserCharacteristic entity, UserCharacteristicDto answers) {
+        if (answers == null) {
             throw UserCharacteristicApiException.requestBodyRequired();
         }
-        if (a.country() == null || a.country().isBlank()) {
+        CountryOfBirth residenceCountry = applyResidence(entity, answers);
+        applyAge(entity, answers);
+        applyGenderIdentity(entity, answers);
+        applyRelationshipAndEthnicity(entity, answers);
+        applyOriginAndBelief(entity, answers);
+        applyEducationAndWork(entity, answers);
+        applyIncome(entity, answers, residenceCountry);
+        applyPhysicalTraits(entity, answers);
+        applyHouseholdAndPets(entity, answers);
+        applyDispositions(entity, answers);
+        applyNeurodivergenceAndDisability(entity, answers);
+        applyHousing(entity, answers);
+        applyNewsAttitudes(entity, answers);
+    }
+
+    /** Returns the parsed residence country, which the income profile is later validated against. */
+    private static CountryOfBirth applyResidence(UserCharacteristic entity, UserCharacteristicDto answers) {
+        if (answers.country() == null || answers.country().isBlank()) {
             throw UserCharacteristicApiException.requiredField("country");
         }
-        entity.setCountry(a.country().trim());
-        CountryOfBirth residenceCountry = parse(CountryOfBirth.class, a.countryCode());
+        entity.setCountry(answers.country().trim());
+        CountryOfBirth residenceCountry = parse(CountryOfBirth.class, answers.countryCode());
         entity.setCountryCode(name(residenceCountry));
-        entity.setCity(blankToNull(a.city()));
-        entity.setRegion(blankToNull(a.region()));
-        entity.setUkCounty(parse(UKCounty.class, a.ukCounty()));
-        entity.setUrbanRural(required(UrbanRural.class, a.urbanRural(), "urbanRural"));
+        entity.setCity(blankToNull(answers.city()));
+        entity.setRegion(blankToNull(answers.region()));
+        entity.setUkCounty(parse(UKCounty.class, answers.ukCounty()));
+        entity.setUrbanRural(required(UrbanRural.class, answers.urbanRural(), "urbanRural"));
+        return residenceCountry;
+    }
 
-        // Age is collected as a number; we store only the derived birth year (ADR-017).
-        if (a.age() == null) {
+    /** Age is collected as a number; we store only the derived birth year (ADR-017). */
+    private static void applyAge(UserCharacteristic entity, UserCharacteristicDto answers) {
+        if (answers.age() == null) {
             throw UserCharacteristicApiException.requiredField("age");
         }
-        if (a.age() < UserCharacteristicRules.MINIMUM_AGE) {
+        if (answers.age() < UserCharacteristicRules.MINIMUM_AGE) {
             throw UserCharacteristicApiException.invalidField(
                     "age", "must be at least " + UserCharacteristicRules.MINIMUM_AGE);
         }
-        entity.setBirthYear(Year.now().getValue() - a.age());
+        entity.setBirthYear(Year.now().getValue() - answers.age());
+    }
 
-        Gender gender = required(Gender.class, a.gender(), "gender");
+    private static void applyGenderIdentity(UserCharacteristic entity, UserCharacteristicDto answers) {
+        Gender gender = required(Gender.class, answers.gender(), "gender");
         entity.setGender(gender);
         // Free-text self-description is captured only when the user chose to self-describe.
-        if (gender == Gender.SELF_DESCRIBE) {
-            String selfDescribe = blankToNull(a.genderSelfDescribe());
-            if (selfDescribe == null) {
-                throw UserCharacteristicApiException.requiredField("genderSelfDescribe");
-            }
-            entity.setGenderSelfDescribe(selfDescribe);
-        } else {
+        if (gender != Gender.SELF_DESCRIBE) {
             entity.setGenderSelfDescribe(null);
+            return;
         }
+        String selfDescribe = blankToNull(answers.genderSelfDescribe());
+        if (selfDescribe == null) {
+            throw UserCharacteristicApiException.requiredField("genderSelfDescribe");
+        }
+        entity.setGenderSelfDescribe(selfDescribe);
+    }
 
-        entity.setSexAtBirth(required(SexAtBirth.class, a.sexAtBirth(), "sexAtBirth"));
-        entity.setSexualOrientation(required(SexualOrientation.class, a.sexualOrientation(), "sexualOrientation"));
-        entity.setMaritalStatus(required(MaritalStatus.class, a.maritalStatus(), "maritalStatus"));
-        if (a.race() == null || a.race().isEmpty()) {
+    private static void applyRelationshipAndEthnicity(UserCharacteristic entity, UserCharacteristicDto answers) {
+        entity.setSexAtBirth(required(SexAtBirth.class, answers.sexAtBirth(), "sexAtBirth"));
+        entity.setSexualOrientation(required(
+                SexualOrientation.class, answers.sexualOrientation(), "sexualOrientation"));
+        entity.setMaritalStatus(required(MaritalStatus.class, answers.maritalStatus(), "maritalStatus"));
+        if (answers.race() == null || answers.race().isEmpty()) {
             throw UserCharacteristicApiException.emptyRace();
         }
-        entity.setRaces(parseSet(Race.class, a.race(), "race"));
+        entity.setRaces(parseSet(Race.class, answers.race(), "race"));
+    }
 
-        entity.setCountryOfBirth(required(CountryOfBirth.class, a.countryOfBirth(), "countryOfBirth"));
-        entity.setCitizenships(parseSet(Nationality.class, a.citizenship(), "citizenship"));
-        entity.setReligion(required(Religion.class, a.religion(), "religion"));
-        entity.setReligiosity(required(Religiosity.class, a.religiosity(), "religiosity"));
-        entity.setPoliticalPersuasion(required(PoliticalPersuasion.class, a.politicalPersuasion(), "politicalPersuasion"));
+    private static void applyOriginAndBelief(UserCharacteristic entity, UserCharacteristicDto answers) {
+        entity.setCountryOfBirth(required(CountryOfBirth.class, answers.countryOfBirth(), "countryOfBirth"));
+        entity.setCitizenships(parseSet(Nationality.class, answers.citizenship(), "citizenship"));
+        entity.setReligion(required(Religion.class, answers.religion(), "religion"));
+        entity.setReligiosity(required(Religiosity.class, answers.religiosity(), "religiosity"));
+        entity.setPoliticalPersuasion(required(
+                PoliticalPersuasion.class, answers.politicalPersuasion(), "politicalPersuasion"));
+    }
 
-        EducationLevel education = required(EducationLevel.class, a.education(), "education");
+    private static void applyEducationAndWork(UserCharacteristic entity, UserCharacteristicDto answers) {
+        EducationLevel education = required(EducationLevel.class, answers.education(), "education");
         entity.setEducation(education);
-        entity.setOccupation(required(OccupationStatus.class, a.occupation(), "occupation"));
-        entity.setEmploymentSector(required(EmploymentSector.class, a.employmentSector(), "employmentSector"));
+        entity.setOccupation(required(OccupationStatus.class, answers.occupation(), "occupation"));
+        entity.setEmploymentSector(required(
+                EmploymentSector.class, answers.employmentSector(), "employmentSector"));
+        // A degree subject is only meaningful above school level, so it is dropped otherwise.
         entity.setUniversitySubject(isHigherEducation(education)
-                ? parse(UniversitySubject.class, a.universitySubject())
+                ? parse(UniversitySubject.class, answers.universitySubject())
                 : null);
+    }
 
-        if (a.income() != null) {
-            if (a.personalIncomeRange() != null || a.householdIncomeRange() != null) {
-                throw UserCharacteristicApiException.invalidField(
-                        "income", "versioned and legacy income answers cannot be mixed");
-            }
-            if (residenceCountry == null) {
-                throw UserCharacteristicApiException.requiredField("countryCode");
-            }
-            IncomeProfileCatalog.ResolvedIncomeAnswer resolved = incomeProfiles.resolve(a.income());
-            if (!incomeProfiles.isResidenceCompatible(residenceCountry.name(), resolved.profile())) {
-                throw UserCharacteristicApiException.invalidField(
-                        "income.profileId", "profile does not match the selected residence country");
-            }
-            applyVersionedIncome(entity, resolved);
-        } else {
-            applyLegacyIncome(entity, a);
+    /**
+     * Version 2 answers name a currency-aware income profile, which must belong to the market the
+     * user lives in. Version 1 answers are the legacy single-currency bands.
+     */
+    private void applyIncome(UserCharacteristic entity, UserCharacteristicDto answers,
+                             CountryOfBirth residenceCountry) {
+        if (answers.income() == null) {
+            applyLegacyIncome(entity, answers);
+            return;
         }
-        entity.setHeight(required(Height.class, a.height(), "height"));
-        entity.setWeightRange(required(WeightRange.class, a.weightRange(), "weightRange"));
-        entity.setEyeColor(required(EyeColor.class, a.eyeColor(), "eyeColor"));
-        entity.setParent(required(Parent.class, a.parent(), "parent"));
-
-        if (a.newsFrequency() == null) {
-            throw UserCharacteristicApiException.requiredField("newsFrequency");
+        if (answers.personalIncomeRange() != null || answers.householdIncomeRange() != null) {
+            throw UserCharacteristicApiException.invalidField(
+                    "income", "versioned and legacy income answers cannot be mixed");
         }
-        requireRange(a.newsFrequency(), 0, 10, "newsFrequency");
-        entity.setNewsFrequency(a.newsFrequency());
+        if (residenceCountry == null) {
+            throw UserCharacteristicApiException.requiredField("countryCode");
+        }
+        IncomeProfileCatalog.ResolvedIncomeAnswer resolved = incomeProfiles.resolve(answers.income());
+        if (!incomeProfiles.isResidenceCompatible(residenceCountry.name(), resolved.profile())) {
+            throw UserCharacteristicApiException.invalidField(
+                    "income.profileId", "profile does not match the selected residence country");
+        }
+        applyVersionedIncome(entity, resolved);
+    }
 
-        if (a.hasPet() == null) {
+    private static void applyPhysicalTraits(UserCharacteristic entity, UserCharacteristicDto answers) {
+        entity.setHeight(required(Height.class, answers.height(), "height"));
+        entity.setWeightRange(required(WeightRange.class, answers.weightRange(), "weightRange"));
+        entity.setEyeColor(required(EyeColor.class, answers.eyeColor(), "eyeColor"));
+    }
+
+    private static void applyHouseholdAndPets(UserCharacteristic entity, UserCharacteristicDto answers) {
+        entity.setParent(required(Parent.class, answers.parent(), "parent"));
+        if (answers.hasPet() == null) {
             throw UserCharacteristicApiException.requiredField("hasPet");
         }
-        entity.setHasPet(a.hasPet());
+        entity.setHasPet(answers.hasPet());
         // Pet types are only meaningful for pet owners; non-owners carry none.
-        entity.setPetTypes(a.hasPet() ? parseSet(PetType.class, a.petType(), "petType") : new LinkedHashSet<>());
+        entity.setPetTypes(answers.hasPet()
+                ? parseSet(PetType.class, answers.petType(), "petType")
+                : new LinkedHashSet<>());
+    }
 
-        entity.setChronotype(required(Chronotype.class, a.chronotype(), "chronotype"));
-        entity.setOutlook(required(Outlook.class, a.outlook(), "outlook"));
+    private static void applyDispositions(UserCharacteristic entity, UserCharacteristicDto answers) {
+        entity.setChronotype(required(Chronotype.class, answers.chronotype(), "chronotype"));
+        entity.setOutlook(required(Outlook.class, answers.outlook(), "outlook"));
+    }
 
-        if (a.neurodivergent() == null) {
+    /** Both answers gate a multi-select: the types are only stored when the user said yes. */
+    private static void applyNeurodivergenceAndDisability(UserCharacteristic entity,
+                                                          UserCharacteristicDto answers) {
+        if (answers.neurodivergent() == null) {
             throw UserCharacteristicApiException.requiredField("neurodivergent");
         }
-        entity.setNeurodivergent(a.neurodivergent());
-        entity.setNeurodivergenceTypes(a.neurodivergent()
-                ? parseSet(NeurodivergenceType.class, a.neurodivergenceType(), "neurodivergenceType")
+        entity.setNeurodivergent(answers.neurodivergent());
+        entity.setNeurodivergenceTypes(answers.neurodivergent()
+                ? parseSet(NeurodivergenceType.class, answers.neurodivergenceType(), "neurodivergenceType")
                 : new LinkedHashSet<>());
 
-        if (a.hasDisability() == null) {
+        if (answers.hasDisability() == null) {
             throw UserCharacteristicApiException.requiredField("hasDisability");
         }
-        entity.setHasDisability(a.hasDisability());
-        entity.setDisabilityTypes(a.hasDisability()
-                ? parseSet(DisabilityType.class, a.disabilityType(), "disabilityType")
+        entity.setHasDisability(answers.hasDisability());
+        entity.setDisabilityTypes(answers.hasDisability()
+                ? parseSet(DisabilityType.class, answers.disabilityType(), "disabilityType")
                 : new LinkedHashSet<>());
+    }
 
-        HousingStatus housingStatus = required(HousingStatus.class, a.housingStatus(), "housingStatus");
+    private static void applyHousing(UserCharacteristic entity, UserCharacteristicDto answers) {
+        HousingStatus housingStatus = required(HousingStatus.class, answers.housingStatus(), "housingStatus");
         entity.setHousingStatus(housingStatus);
         // Home type is asked of everyone with a fixed home; no-fixed-address users have no home type.
-        if (housingStatus == HousingStatus.TEMPORARY_NO_FIXED) {
-            entity.setPropertyType(null);
-        } else {
-            entity.setPropertyType(required(PropertyType.class, a.propertyType(), "propertyType"));
-        }
+        entity.setPropertyType(housingStatus == HousingStatus.TEMPORARY_NO_FIXED
+                ? null
+                : required(PropertyType.class, answers.propertyType(), "propertyType"));
+    }
 
-        entity.setBalancedNewsViewpoint(requiredBoolean(a.balancedNewsViewpoint(), "balancedNewsViewpoint"));
-        if (a.mainstreamNewsPercent() == null) {
+    private static void applyNewsAttitudes(UserCharacteristic entity, UserCharacteristicDto answers) {
+        if (answers.newsFrequency() == null) {
+            throw UserCharacteristicApiException.requiredField("newsFrequency");
+        }
+        requireRange(answers.newsFrequency(), 0, 10, "newsFrequency");
+        entity.setNewsFrequency(answers.newsFrequency());
+
+        entity.setBalancedNewsViewpoint(requiredBoolean(
+                answers.balancedNewsViewpoint(), "balancedNewsViewpoint"));
+        if (answers.mainstreamNewsPercent() == null) {
             throw UserCharacteristicApiException.requiredField("mainstreamNewsPercent");
         }
-        requireRange(a.mainstreamNewsPercent(), 0, 100, "mainstreamNewsPercent");
-        entity.setMainstreamNewsPercent(a.mainstreamNewsPercent());
-        entity.setBetterWorldWithData(requiredBoolean(a.betterWorldWithData(), "betterWorldWithData"));
+        requireRange(answers.mainstreamNewsPercent(), 0, 100, "mainstreamNewsPercent");
+        entity.setMainstreamNewsPercent(answers.mainstreamNewsPercent());
+        entity.setBetterWorldWithData(requiredBoolean(
+                answers.betterWorldWithData(), "betterWorldWithData"));
     }
 
     private static void applyVersionedIncome(
@@ -209,6 +269,9 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         entity.setHouseholdIncomeBandId(resolved.householdBand().id());
         entity.setPersonalIncomeTier(resolved.personalBand().tier());
         entity.setHouseholdIncomeTier(resolved.householdBand().tier());
+        entity.setIncomeRangeProfileRefId(resolved.profileDatabaseId());
+        entity.setPersonalIncomeBandRefId(resolved.personalBandDatabaseId());
+        entity.setHouseholdIncomeBandRefId(resolved.householdBandDatabaseId());
     }
 
     private static void applyLegacyIncome(UserCharacteristic entity, UserCharacteristicDto answers) {
@@ -226,6 +289,9 @@ public class UserCharacteristicServiceImpl implements UserCharacteristicService 
         entity.setHouseholdIncomeBandId(null);
         entity.setPersonalIncomeTier(null);
         entity.setHouseholdIncomeTier(null);
+        entity.setIncomeRangeProfileRefId(null);
+        entity.setPersonalIncomeBandRefId(null);
+        entity.setHouseholdIncomeBandRefId(null);
     }
 
     /** Parse a required multi-select enum list: {@code null}/empty or any unknown value is a 400. */

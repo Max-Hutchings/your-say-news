@@ -7,26 +7,41 @@ import com.yoursay.unwrapped.SourceClassification;
 import com.yoursay.unwrapped.dto.UnwrappedArgumentDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedArticleParagraphDraftV2;
 import com.yoursay.unwrapped.dto.UnwrappedBenchmarkStatus;
+import com.yoursay.unwrapped.dto.UnwrappedBenchmarkVariantDto;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedSourceDraftV1;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
-
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class UnwrappedBenchmarkRunnerTest {
+    @Test
+    void explainsWhetherTheProviderFailedOrReturnedAnEmptyDraft() {
+        assertEquals("The model provider completed successfully but returned no argument pages. "
+                        + "Check the post-service log for finish reason and token usage.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_DRAFT_MISSING"));
+        assertEquals("The model provider timed out before returning a draft.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_TIMEOUT"));
+        assertEquals("The model provider rate limit was reached.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_RATE_LIMITED"));
+        assertEquals("The model provider rejected its credentials.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_AUTHENTICATION"));
+        assertEquals("The model provider filtered the request or response.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_CONTENT_FILTERED"));
+        assertEquals("The model provider rejected the request format.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_REQUEST_INVALID"));
+        assertEquals("The model provider was unavailable.",
+                UnwrappedBenchmarkRunner.failureMessage("UNWRAPPED_PROVIDER_UNAVAILABLE"));
+    }
+
     @Test
     void reusesOnePreparedRequestAndKeepsOrderedSuccessesWhenOnePromptFails() {
         UnwrappedResearchPreparation preparation = mock(UnwrappedResearchPreparation.class);
@@ -105,65 +120,46 @@ class UnwrappedBenchmarkRunnerTest {
     }
 
     @Test
-    void repairsSuccessiveModelFormatFailuresAndReturnsTheOriginalPrompt() {
+    void rejectsNullAndHostilePrefixedMessagesAsGenericLaneFailures() {
         UnwrappedResearchPreparation preparation = mock(UnwrappedResearchPreparation.class);
         UnwrappedResearchGenerator generator = mock(UnwrappedResearchGenerator.class);
         UnwrappedResearchRequest request = mock(UnwrappedResearchRequest.class);
-        UnwrappedResearchDraftV1 draft = representativeDraft();
         when(preparation.prepare(42L)).thenReturn(
                 new UnwrappedResearchPreparation.PreparedResearch(null, request));
-        when(generator.generate(same(request), anyString()))
-                .thenThrow(new IllegalArgumentException("UNWRAPPED_HEADLINE_WORDS"))
-                .thenThrow(new IllegalArgumentException("UNWRAPPED_ARTICLE_WORDS"))
-                .thenReturn(new UnwrappedResearchResult(draft, List.of(), "grok-4.5", "response-3"));
+        when(generator.generate(same(request), eq("Null message")))
+                .thenThrow(new IllegalStateException((String) null));
+        when(generator.generate(same(request), eq("Hostile message")))
+                .thenThrow(new IllegalStateException(
+                        "UNWRAPPED_PROVIDER_FAILURE api-key=sensitive"));
         UnwrappedBenchmarkRunner runner = new UnwrappedBenchmarkRunner();
         runner.preparation = preparation;
         runner.generator = generator;
 
-        var result = runner.run(42L, List.of("Write a concise researched comparison.")).getFirst();
+        var failures = runner.run(42L, List.of("Null message", "Hostile message"));
 
-        assertEquals(UnwrappedBenchmarkStatus.SUCCEEDED, result.status());
-        assertEquals("Write a concise researched comparison.", result.systemPrompt());
-        assertEquals(3, result.attemptCount());
-        assertEquals(repairPrompt("Write a concise researched comparison.",
-                "UNWRAPPED_ARTICLE_WORDS"), result.effectiveSystemPrompt());
-        assertEquals("grok-4.5", result.model());
-        assertEquals("response-3", result.providerResponseId());
-        assertEquals(1, result.argumentPages().size());
-        var page = result.argumentPages().getFirst();
-        assertEquals(71L, page.optionId());
-        assertEquals("Commuters weigh the cost of cleaner streets", page.headline());
-        assertEquals(List.of("ageRange=AGE_25_34"), page.selectedCohortIds());
+        assertEquals(List.of("UNWRAPPED_GENERATION_FAILED", "UNWRAPPED_GENERATION_FAILED"),
+                failures.stream().map(value -> value.errorCode()).toList());
         assertEquals(List.of(
-                "Younger commuters may favour reliable public transport because predictable services reduce the financial and practical pressures of travelling to work each day.",
-                "Official transport evidence provides wider context for that choice while the analysis remains limited to people who voted on this specific post."),
-                page.paragraphs().stream().map(paragraph -> paragraph.text()).toList());
-        assertEquals("This analysis describes patterns among people who voted on this post; "
-                + "it cannot know every individual's reason.", page.caveat());
-        assertEquals(List.of("source-1"), page.sources().stream().map(source -> source.id()).toList());
-        assertEquals(List.of("https://www.ons.gov.uk/transport"),
-                page.sources().stream().map(source -> source.url()).toList());
-
-        ArgumentCaptor<String> prompts = ArgumentCaptor.forClass(String.class);
-        verify(generator, times(3)).generate(same(request), prompts.capture());
-        assertEquals(List.of(
-                        "Write a concise researched comparison.",
-                        repairPrompt("Write a concise researched comparison.",
-                                "UNWRAPPED_HEADLINE_WORDS"),
-                        repairPrompt("Write a concise researched comparison.",
-                                "UNWRAPPED_ARTICLE_WORDS")),
-                prompts.getAllValues());
+                        "This prompt did not produce a valid Unwrapped draft "
+                                + "(UNWRAPPED_GENERATION_FAILED).",
+                        "This prompt did not produce a valid Unwrapped draft "
+                                + "(UNWRAPPED_GENERATION_FAILED)."),
+                failures.stream().map(value -> value.errorMessage()).toList());
+        assertTrue(failures.stream().noneMatch(
+                value -> value.errorMessage().contains("sensitive")));
     }
 
     @Test
-    void stopsAfterFiveModelFormatAttemptsAndReturnsTheLastValidationCode() {
+    void returnsTheFirstModelFormatFailureWithoutRetrying() {
         UnwrappedResearchPreparation preparation = mock(UnwrappedResearchPreparation.class);
         UnwrappedResearchGenerator generator = mock(UnwrappedResearchGenerator.class);
         UnwrappedResearchRequest request = mock(UnwrappedResearchRequest.class);
         when(preparation.prepare(42L)).thenReturn(
                 new UnwrappedResearchPreparation.PreparedResearch(null, request));
-        when(generator.generate(same(request), anyString())).thenThrow(
-                new IllegalArgumentException("UNWRAPPED_HEADLINE_WORDS"));
+        when(generator.generate(same(request), eq("Write a concise researched comparison.")))
+                .thenThrow(new IllegalArgumentException("UNWRAPPED_HEADLINE_WORDS"))
+                .thenReturn(new UnwrappedResearchResult(
+                        representativeDraft(), List.of(), "grok-4.5", "response-2"));
         UnwrappedBenchmarkRunner runner = new UnwrappedBenchmarkRunner();
         runner.preparation = preparation;
         runner.generator = generator;
@@ -175,59 +171,51 @@ class UnwrappedBenchmarkRunnerTest {
         assertEquals("This prompt did not produce a valid Unwrapped draft (UNWRAPPED_HEADLINE_WORDS).",
                 failure.errorMessage());
         assertEquals(List.of(), failure.argumentPages());
-        assertEquals(5, failure.attemptCount());
-        assertEquals(repairPrompt("Write a concise researched comparison.",
-                "UNWRAPPED_HEADLINE_WORDS"), failure.effectiveSystemPrompt());
-        verify(generator, times(5)).generate(same(request), anyString());
+        assertEquals(1, failure.attemptCount());
+        assertEquals("Write a concise researched comparison.", failure.effectiveSystemPrompt());
+        verify(generator).generate(request, "Write a concise researched comparison.");
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {
-            "UNWRAPPED_DRAFT_MISSING",
-            "UNWRAPPED_OPTION_PAGE_COUNT",
-            "UNWRAPPED_OPTION_ORDER",
-            "UNWRAPPED_HEADLINE_GENERIC",
-            "UNWRAPPED_HEADLINE_WORDS",
-            "UNWRAPPED_HEADLINE_COHORT",
-            "UNWRAPPED_COHORTS_MISSING",
-            "UNWRAPPED_TOO_MANY_COHORTS",
-            "UNWRAPPED_INVENTED_COHORT",
-            "UNWRAPPED_COHORT_REQUIRED",
-            "UNWRAPPED_PARAGRAPH_COUNT",
-            "UNWRAPPED_ARTICLE_WORDS",
-            "UNWRAPPED_EXPLANATION_MISSING",
-            "UNWRAPPED_PARAGRAPH_MISSING",
-            "UNWRAPPED_PARAGRAPH_UNSOURCED",
-            "UNWRAPPED_POPULATION_INFERENCE",
-            "UNWRAPPED_SOURCES_MISSING",
-            "UNWRAPPED_SOURCE_ID",
-            "UNWRAPPED_DUPLICATE_SOURCE_ID",
-            "UNWRAPPED_SOURCE_METADATA",
-            "UNWRAPPED_SOURCE_URL_INVALID",
-            "UNWRAPPED_SOURCE_URL_UNSAFE",
-            "UNWRAPPED_OBSERVED_CAVEAT"
-    })
-    void retriesEveryModelCorrectableValidationCode(String validationCode) {
+    @Test
+    void displaysModelFieldsEvenWhenTheyBreakThePublicationContract() {
         UnwrappedResearchPreparation preparation = mock(UnwrappedResearchPreparation.class);
         UnwrappedResearchGenerator generator = mock(UnwrappedResearchGenerator.class);
         UnwrappedResearchRequest request = mock(UnwrappedResearchRequest.class);
+        UnwrappedResearchDraftV1 uncheckedDraft = new UnwrappedResearchDraftV1(
+                List.of(new UnwrappedArgumentDraftV1(
+                        999L, "Short", null,
+                        List.of(
+                                new UnwrappedArticleParagraphDraftV2(
+                                        "Exactly as returned.", List.of("missing-source")),
+                                new UnwrappedArticleParagraphDraftV2(
+                                        "No source ids were returned.", null)),
+                        "Different caveat")),
+                null);
         when(preparation.prepare(42L)).thenReturn(
                 new UnwrappedResearchPreparation.PreparedResearch(null, request));
-        when(generator.generate(same(request), anyString()))
-                .thenThrow(new IllegalArgumentException(validationCode))
-                .thenReturn(new UnwrappedResearchResult(
-                        representativeDraft(), List.of(), "grok-4.5", "response-2"));
+        when(generator.generate(request, "Benchmark prompt")).thenReturn(
+                new UnwrappedResearchResult(
+                        uncheckedDraft, List.of(), "model-a", "response-a"));
         UnwrappedBenchmarkRunner runner = new UnwrappedBenchmarkRunner();
         runner.preparation = preparation;
         runner.generator = generator;
 
-        var result = runner.run(42L, List.of("Write a concise researched comparison.")).getFirst();
+        UnwrappedBenchmarkVariantDto variant = runner.run(
+                42L, List.of("Benchmark prompt")).getFirst();
 
-        assertEquals(UnwrappedBenchmarkStatus.SUCCEEDED, result.status());
-        assertEquals(2, result.attemptCount());
-        assertEquals(repairPrompt("Write a concise researched comparison.", validationCode),
-                result.effectiveSystemPrompt());
-        verify(generator, times(2)).generate(same(request), anyString());
+        assertEquals(UnwrappedBenchmarkStatus.SUCCEEDED, variant.status());
+        assertEquals(999L, variant.argumentPages().getFirst().optionId());
+        assertEquals("Short", variant.argumentPages().getFirst().headline());
+        assertEquals(List.of(), variant.argumentPages().getFirst().selectedCohortIds());
+        assertEquals(List.of("Exactly as returned.", "No source ids were returned."),
+                variant.argumentPages().getFirst().paragraphs().stream()
+                        .map(UnwrappedArticleParagraphDraftV2::text).toList());
+        assertEquals(List.of("missing-source"), variant.argumentPages().getFirst().paragraphs()
+                .getFirst().sourceIds());
+        assertEquals(List.of(), variant.argumentPages().getFirst().paragraphs()
+                .getLast().sourceIds());
+        assertEquals(List.of(), variant.argumentPages().getFirst().sources());
+        assertEquals("Different caveat", variant.argumentPages().getFirst().caveat());
     }
 
     @Test
@@ -279,17 +267,4 @@ class UnwrappedBenchmarkRunnerTest {
         return new UnwrappedResearchDraftV1(List.of(page), List.of(source));
     }
 
-    private static String repairPrompt(String systemPrompt, String validationCode) {
-        return systemPrompt + """
-
-
-                Your previous response failed validation (%s). Regenerate the complete response and
-                check it before returning: include exactly one page for every supplied optionId in the supplied
-                order; each headline must contain 6 to 10 whitespace-separated words; each page must contain
-                2 or 3 non-empty paragraphs totalling 50 to 100 words; every paragraph must cite at least one
-                real HTTPS source returned by web search in this call; every page must explain the choice using
-                the word "because" or "reason"; and every caveat must exactly be:
-                This analysis describes patterns among people who voted on this post; it cannot know every individual's reason.
-                """.formatted(validationCode);
-    }
 }

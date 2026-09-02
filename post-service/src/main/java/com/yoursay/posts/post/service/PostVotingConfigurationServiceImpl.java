@@ -36,31 +36,41 @@ public class PostVotingConfigurationServiceImpl implements PostVotingConfigurati
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, postId);
             try (ResultSet rows = statement.executeQuery()) {
-                VotingType type = null;
-                String summary = null;
-                String question = null;
-                String jurisdiction = null;
-                List<VoteOptionDto> options = new ArrayList<>();
-                while (rows.next()) {
-                    if (type == null) {
-                        type = VotingType.valueOf(rows.getString("voting_type"));
-                        summary = rows.getString("summary");
-                        question = rows.getString("support_question");
-                        jurisdiction = rows.getString("jurisdiction");
-                    }
-                    Long optionId = rows.getObject("id", Long.class);
-                    if (optionId != null) {
-                        options.add(new VoteOptionDto(optionId, rows.getString("label"),
-                                rows.getInt("ordinal"), rows.getString("semantic_key")));
-                    }
-                }
-                return type == null
-                        ? Optional.empty()
-                        : Optional.of(new PostVotingConfigurationDto(
-                                postId, summary, question, jurisdiction, type, List.copyOf(options)));
+                return readConfiguration(rows, postId);
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Could not read post voting configuration", e);
         }
+    }
+
+    /**
+     * Folds the joined rows back into one post: the post columns repeat on every row and are read
+     * once, while the left join means an option-less post still arrives as a single row with a null
+     * option id.
+     */
+    private static Optional<PostVotingConfigurationDto> readConfiguration(ResultSet rows, Long postId)
+            throws SQLException {
+        VotingType type = null;
+        String summary = null;
+        String question = null;
+        String jurisdiction = null;
+        List<VoteOptionDto> options = new ArrayList<>();
+        while (rows.next()) {
+            if (type == null) {
+                type = VotingType.valueOf(rows.getString("voting_type"));
+                summary = rows.getString("summary");
+                question = rows.getString("support_question");
+                jurisdiction = rows.getString("jurisdiction");
+            }
+            Long optionId = rows.getObject("id", Long.class);
+            if (optionId != null) {
+                options.add(new VoteOptionDto(optionId, rows.getString("label"),
+                        rows.getInt("ordinal"), rows.getString("semantic_key")));
+            }
+        }
+        return type == null
+                ? Optional.empty()
+                : Optional.of(new PostVotingConfigurationDto(
+                        postId, summary, question, jurisdiction, type, List.copyOf(options)));
     }
 }

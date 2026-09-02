@@ -12,6 +12,9 @@ export type User = {
     canPublish: boolean;
 };
 
+/** Outcome of validating a session restored from storage — see `UserState.restoreSession`. */
+export type SessionRestoreResult = "signed-in" | "signed-out" | "unverified";
+
 /** Server's view of how far the user is through onboarding (GET /your-say-user/onboarding). */
 export type OnboardingStatus = {
     consented: boolean;
@@ -28,25 +31,15 @@ export interface UserState extends User {
     // user who has filled the wizard is never sent back through it.
     hasCharacteristics: boolean;
 
-    accessToken: string | null;
-    refreshToken: string | null;
-
-    getAccessToken: () => string | null;
-    setAccessToken: (token: string) => void;
-
-    getRefreshToken: () => string | null;
-    setRefreshToken: (token: string) => void;
-
-    accessTokenExpiresAt: number | null;
-    accessTokenExpired: () => boolean;
-    refreshAccessToken: () => Promise<string | null>;
-
-    login: () => Promise<boolean>; // true/false for success
-    completeLogin: (tokens: {
-        accessToken: string;
-        refreshToken: string | null;
-        expiresIn: number | null;
-    }) => Promise<boolean>;
+    login: (email: string, password: string) => Promise<boolean>;
+    completeLogin: () => Promise<boolean>;
+    /**
+     * Validate a session restored from storage on startup.
+     * - "signed-in"  — the server still recognises the stored credentials.
+     * - "signed-out" — nothing was stored, or what was stored is dead and has been wiped.
+     * - "unverified" — the server could not be reached, so the session was left untouched.
+     */
+    restoreSession: () => Promise<SessionRestoreResult>;
     logout: () => Promise<void>;
     setHasOnboarded: (onboarded: boolean) => void;
     setHasCharacteristics: (has: boolean) => void;

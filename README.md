@@ -15,14 +15,15 @@ Install these before setting up the project:
 - **Node.js 20** — required by the Expo/Jest frontend toolchain; dependencies must still be
   installed with Bun.
 - **Docker Desktop** — use a current release, start the Docker daemon, and make sure its bundled
-  Docker Compose v2 command is available. Compose runs Postgres, Keycloak, LocalStack, Liquibase,
+  Docker Compose v2 command is available. Compose runs Postgres, the Firebase Auth Emulator, LocalStack, Liquibase,
   and the local Grafana telemetry stack; backend tests also use Docker through Testcontainers.
-- **Grok API key** — export it as `YOUR_SAY_NEWS_GROK_API_KEY` before running `bun run dev`.
-  The development preflight blocks startup when the variable is absent or blank.
+- **AI provider API key** - OpenAI is the default. Export `OPENAI_API_KEY` before running
+  `bun run dev`. To use Grok instead, set `AGENT_PROVIDER=grok` and export
+  `YOUR_SAY_NEWS_GROK_API_KEY`. The development preflight validates the selected provider.
 - **Bash, `curl`, and `lsof`** — used by the development and smoke-test scripts. These are
   included with macOS; on other systems, install them and ensure they are on `PATH`.
 
-You do **not** need to install Gradle, Postgres, Keycloak, LocalStack, Liquibase, Grafana, or
+You do **not** need to install Gradle, Postgres, Firebase CLI, LocalStack, Liquibase, Grafana, or
 `mprocs` separately. The Gradle wrapper, Docker Compose, and Bun dependencies provide them.
 
 For native mobile development, also install the platform tooling you intend to use:

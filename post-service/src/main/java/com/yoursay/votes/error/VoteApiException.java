@@ -1,6 +1,6 @@
 package com.yoursay.votes.error;
 
-import com.yoursay.observability.ApiException;
+import com.yoursay.platform.observability.ApiException;
 import jakarta.ws.rs.core.Response;
 
 public class VoteApiException extends ApiException {
@@ -9,9 +9,15 @@ public class VoteApiException extends ApiException {
         super("votes", errorCode, status, detailMessage);
     }
 
+    private VoteApiException(String errorCode, Response.Status status, String detailMessage,
+                             boolean expectedRejection) {
+        super("votes", errorCode, status, detailMessage, ApiException.genericMessage(status), expectedRejection);
+    }
+
+    /** One vote per user per post is the product rule, so a second attempt is expected, not a fault. */
     public static VoteApiException duplicateVote(Long postId, Long userId) {
         return new VoteApiException("VOTE_DUPLICATE", Response.Status.CONFLICT,
-                "Duplicate vote rejected: postId=" + postId + ", userId=" + userId);
+                "Duplicate vote rejected: postId=" + postId + ", userId=" + userId, true);
     }
 
     public static VoteApiException postMissing(Long postId) {
@@ -29,9 +35,10 @@ public class VoteApiException extends ApiException {
                 "Selected option is not available on the post: postId=" + postId + ", optionId=" + optionId);
     }
 
+    /** Results stay locked until the caller votes, so this refusal is the feature working. */
     public static VoteApiException resultsLocked(Long postId) {
         return new VoteApiException("VOTE_RESULTS_LOCKED", Response.Status.FORBIDDEN,
-                "Sentiment results are locked until the caller has voted on post " + postId);
+                "Sentiment results are locked until the caller has voted on post " + postId, true);
     }
 
     public static VoteApiException unknownAxis(String axis) {
@@ -51,5 +58,11 @@ public class VoteApiException extends ApiException {
         }
         return new VoteApiException("VOTE_USER_LOOKUP_FAILED", responseStatus,
                 "Could not resolve vote caller user id: email=" + callerEmail + ", userServiceStatus=" + status);
+    }
+
+    public static VoteApiException unresolvedIncomeRange() {
+        return new VoteApiException("VOTE_INCOME_RANGE_UNRESOLVED",
+                Response.Status.INTERNAL_SERVER_ERROR,
+                "Stored income cohort does not reference a published country-specific range");
     }
 }

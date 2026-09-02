@@ -45,6 +45,9 @@ public class PostControllerTest {
     private static final long AUTHOR_ID = 42L;
     // A different author who never posts — used to prove getByUser actually filters by author.
     private static final long OTHER_AUTHOR_ID = 7L;
+    // The public handles the feed shows in place of an anonymous "Author 42".
+    private static final String AUTHOR_USERNAME = "official.desk";
+    private static final String OTHER_AUTHOR_USERNAME = "nadia.reports";
 
     @InjectMock
     UserServiceClient userServiceClient;
@@ -66,6 +69,19 @@ public class PostControllerTest {
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
                         AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
+
+        // Posts are labelled with their author's public handle, resolved from the user domain.
+        // The stub answers only for the ids it is asked about, so a page that mixes authors is
+        // labelled from the real per-post lookup rather than from one blanket handle.
+        java.util.Map<Long, String> handlesByUserId =
+                java.util.Map.of(AUTHOR_ID, AUTHOR_USERNAME, OTHER_AUTHOR_ID, OTHER_AUTHOR_USERNAME);
+        Mockito.when(userServiceClient.usernamesByIds(Mockito.anyList()))
+                .thenAnswer(invocation -> {
+                    java.util.List<Long> ids = invocation.getArgument(0);
+                    return Uni.createFrom().item(ids.stream()
+                            .filter(handlesByUserId::containsKey)
+                            .collect(java.util.stream.Collectors.toMap(id -> id, handlesByUserId::get)));
+                });
 
         PresignedPutObjectRequest put = Mockito.mock(PresignedPutObjectRequest.class);
         Mockito.when(put.url()).thenReturn(URI.create("https://s3.local/upload?sig=put").toURL());
@@ -216,12 +232,13 @@ public class PostControllerTest {
                 .then()
                 .statusCode(201)
                 .body("userId", is((int) AUTHOR_ID))
+                .body("authorUsername", is(AUTHOR_USERNAME))
                 .body("$", not(hasKey("title")))
                 .body("summary", is("Body summary"))
                 .body("supportQuestion", is("Should large platforms be accountable?"))
                 .body("caseFor", is("Reach means responsibility."))
                 .body("caseAgainst", is("Scale makes it unenforceable."))
-                .body("isUnbiased", is(false))
+                .body("isAiGenerated", is(false))
                 .body("createdAt", notNullValue())
                 .body("media.size()", is(2))
                 .body("media[0].mediaType", is("IMAGE"))
@@ -245,10 +262,11 @@ public class PostControllerTest {
                 .statusCode(200)
                 .body("id", is(id))
                 .body("userId", is((int) AUTHOR_ID))
+                .body("authorUsername", is(AUTHOR_USERNAME))
                 .body("$", not(hasKey("title")))
                 .body("summary", is("Body summary"))
                 .body("supportQuestion", is("Should large platforms be accountable?"))
-                .body("isUnbiased", is(false))
+                .body("isAiGenerated", is(false))
                 .body("createdAt", notNullValue())
                 // order survives the round trip: IMAGE before VIDEO
                 .body("media.mediaType", contains("IMAGE", "VIDEO"))
@@ -326,7 +344,7 @@ public class PostControllerTest {
     public void createIgnoresUserIdAndIsUnbiasedInBody() {
         // Body tries to spoof a different author and force the unbiased badge — both must be ignored.
         String json = """
-                { "userId": 999, "isUnbiased": true,
+                { "userId": 999, "isAiGenerated": true,
                   "summary": "Trying to spoof", "supportQuestion": "Should this be trusted?", "media": [] }
                 """;
 
@@ -337,7 +355,7 @@ public class PostControllerTest {
                 .then()
                 .statusCode(201)
                 .body("userId", is((int) AUTHOR_ID))   // from token, not the body's 999
-                .body("isUnbiased", is(false));         // forced false, not the body's true
+                .body("isAiGenerated", is(false));         // forced false, not the body's true
     }
 
     @Test
@@ -378,6 +396,52 @@ public class PostControllerTest {
                 .then()
                 .statusCode(200)
                 .body("size()", is(0));
+    }
+
+    @Test
+    public void eachPostOnAPageIsLabelledWithItsOwnAuthorsUsername() {
+        // Two authors on one page: attributing either story to the other author is the failure
+        // this feature must never have, so the page has to be labelled post by post.
+        createPost("Should the desk's story be attributed to the desk " + UUID.randomUUID() + "?");
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        OTHER_AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
+        createPost("Should Nadia's story be attributed to Nadia " + UUID.randomUUID() + "?");
+
+        // Only the page read's lookup should be counted, not the two creates before it.
+        Mockito.clearInvocations(userServiceClient);
+        ArgumentCaptor<java.util.List<Long>> lookedUpIds = ArgumentCaptor.forClass(java.util.List.class);
+
+        given()
+                .when().get("/posts?page=0&size=2")
+                .then()
+                .statusCode(200)
+                .body("size()", is(2))
+                .body("find { it.userId == " + AUTHOR_ID + " }.authorUsername", is(AUTHOR_USERNAME))
+                .body("find { it.userId == " + OTHER_AUTHOR_ID + " }.authorUsername",
+                        is(OTHER_AUTHOR_USERNAME));
+
+        // One batched lookup for the whole page — a per-post lookup would be an N+1 on the feed.
+        Mockito.verify(userServiceClient, Mockito.times(1)).usernamesByIds(lookedUpIds.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Set.of(AUTHOR_ID, OTHER_AUTHOR_ID),
+                java.util.Set.copyOf(lookedUpIds.getValue()));
+    }
+
+    @Test
+    public void postFromAnAuthorTheUserDomainCannotResolveCarriesNoUsername() {
+        // A deleted or unknown author must not break the read — the card simply has no username.
+        Mockito.when(userServiceClient.usernamesByIds(Mockito.anyList()))
+                .thenReturn(Uni.createFrom().item(java.util.Map.of()));
+
+        int id = createPost("Should an unresolved author still read " + UUID.randomUUID() + "?");
+
+        given()
+                .when().get("/posts/" + id)
+                .then()
+                .statusCode(200)
+                .body("userId", is((int) AUTHOR_ID))
+                .body("authorUsername", nullValue());
     }
 
     @Test

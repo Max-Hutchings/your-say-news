@@ -4,12 +4,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yoursay.user.usercharacteristic.model.Enums.AgeRange;
 import com.yoursay.votes.dto.CharacteristicSnapshot;
+import com.yoursay.posts.postagent.agent.GenerationException;
+import com.yoursay.posts.postagent.agent.PepperPostGenerator;
 import io.agroal.api.AgroalDataSource;
+import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.response.Response;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.Mockito;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -34,10 +39,19 @@ class LocalUserDomainIntegrationTest {
     @Inject
     ObjectMapper objectMapper;
 
+    @InjectMock
+    PepperPostGenerator generator;
+
+    @BeforeEach
+    void failGenerationWithoutCallingTheProvider() {
+        Mockito.when(generator.generate(Mockito.anyString())).thenThrow(new GenerationException(
+                "AGENT_PROVIDER_UNAVAILABLE", "test provider failure", true));
+    }
+
     @Test
     void postCreationAndVoteSnapshotUseTheLocalUserDomainsAndDatabase() throws Exception {
         Integer postId = null;
-        String agentJobId = null;
+        String agentDraftId = null;
         try {
             Response created = given()
                     .contentType("application/json")
@@ -78,18 +92,19 @@ class LocalUserDomainIntegrationTest {
 
             assertStoredVoteUsesJohnsLocalIdentityAndCharacteristics(postId);
 
-            agentJobId = given()
+            String stream = given()
+                    .accept("text/event-stream")
                     .contentType("application/json")
                     .body("{ \"request\": \"Summarise both sides of the local-domain migration.\" }")
-                    .when().post("/agent/jobs")
+                    .when().post("/agent/drafts")
                     .then()
-                    .statusCode(202)
-                    .body("status", is("PENDING"))
-                    .extract().path("id");
-            assertAgentJobUsesJohnsLocalIdentity(agentJobId);
+                    .statusCode(200)
+                    .extract().asString();
+            agentDraftId = extractJsonString(stream, "draftId");
+            assertAgentDraftUsesJohnsLocalIdentity(agentDraftId);
         } finally {
-            if (agentJobId != null) {
-                deleteAgentJob(agentJobId);
+            if (agentDraftId != null) {
+                deleteAgentDraft(agentDraftId);
             }
             if (postId != null) {
                 deletePost(postId);
@@ -116,11 +131,11 @@ class LocalUserDomainIntegrationTest {
 
         given()
                 .contentType("application/json")
-                .body("{ \"request\": \"This standard reader must not start an agent job.\" }")
-                .when().post("/agent/jobs")
+                .body("{ \"request\": \"This standard reader must not start a Pepper draft.\" }")
+                .when().post("/agent/drafts")
                 .then()
                 .statusCode(403)
-                .body("code", is("AGENT_PUBLISHING_FORBIDDEN"));
+                .body(org.hamcrest.Matchers.containsString("AGENT_PUBLISHING_FORBIDDEN"));
     }
 
     private void assertStoredVoteUsesJohnsLocalIdentityAndCharacteristics(long postId) throws Exception {
@@ -159,8 +174,8 @@ class LocalUserDomainIntegrationTest {
                           "occupation": "EMPLOYED_FULL_TIME",
                           "employmentSector": "IT_TECHNOLOGY",
                           "universitySubject": "COMPUTER_SCIENCE",
-                          "personalIncomeRange": "LEGACY_BETWEEN_50K_AND_75K",
-                          "householdIncomeRange": "LEGACY_BETWEEN_100K_AND_150K",
+                          "personalIncomeRange": null,
+                          "householdIncomeRange": null,
                           "height": "FEET_5_10_TO_6_0",
                           "weightRange": "KG_80_89",
                           "eyeColor": "BROWN",
@@ -202,26 +217,38 @@ class LocalUserDomainIntegrationTest {
         }
     }
 
-    private void assertAgentJobUsesJohnsLocalIdentity(String jobId) throws Exception {
+    private void assertAgentDraftUsesJohnsLocalIdentity(String draftId) throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "select user_id from agent_generation_job where id = cast(? as uuid)")) {
-            statement.setString(1, jobId);
+                     "select user_id, prompt, success from pepper_ai_draft_post where id = cast(? as uuid)")) {
+            statement.setString(1, draftId);
             try (ResultSet result = statement.executeQuery()) {
                 assertTrue(result.next());
                 assertEquals(1L, result.getLong("user_id"));
+                assertEquals("Summarise both sides of the local-domain migration.", result.getString("prompt"));
+                assertFalse(result.getBoolean("success"));
                 assertFalse(result.next());
             }
         }
     }
 
-    private void deleteAgentJob(String jobId) throws Exception {
+    private void deleteAgentDraft(String draftId) throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "delete from agent_generation_job where id = cast(? as uuid)")) {
-            statement.setString(1, jobId);
+                     "delete from pepper_ai_draft_post where id = cast(? as uuid)")) {
+            statement.setString(1, draftId);
             statement.executeUpdate();
         }
+    }
+
+    private static String extractJsonString(String stream, String field) {
+        String marker = "\"" + field + "\":\"";
+        int start = stream.indexOf(marker);
+        if (start < 0) {
+            throw new AssertionError("Missing " + field + " in stream: " + stream);
+        }
+        int valueStart = start + marker.length();
+        return stream.substring(valueStart, stream.indexOf('"', valueStart));
     }
 
     private void deletePost(long postId) throws Exception {

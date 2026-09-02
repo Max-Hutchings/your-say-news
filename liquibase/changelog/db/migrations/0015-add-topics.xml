@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <!-- ADR-043. Two changeSets, deliberately separate: the DDL below, then the canonical topic
+         catalogue as its own changeSet. The catalogue is REFERENCE data, not seed data - the
+         application cannot serve a topic feed without it in any environment - so it lives here in
+         migrations/ rather than seeding/, which only ever reaches developer machines. -->
+    <changeSet id="0015-create-topic-tables" author="mhutc">
+        <createTable tableName="topic">
+            <!-- The canonical id is the primary key and never changes: post_topic rows, client
+                 query params and future classifier output all name a topic by this string. -->
+            <column name="id" type="varchar(64)">
+                <constraints primaryKey="true" primaryKeyName="pk_topic" nullable="false"/>
+            </column>
+            <!-- Product copy, editable without touching assignments. -->
+            <column name="label" type="varchar(80)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Groups the picker for scanning. Not itself selectable and not a semantic parent. -->
+            <column name="display_group" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Orders the mobile tab strip. Admin-created topics take max + 1 so they land in the
+                 dropdown instead of displacing a curated tab. -->
+            <column name="display_order" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Topics are retired, never deleted, so historical assignments stay intelligible. -->
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>
+            ALTER TABLE topic
+                ADD CONSTRAINT ck_topic_id CHECK (id ~ '^[a-z0-9-]{2,64}$');
+        </sql>
+
+        <createTable tableName="post_topic">
+            <column name="post_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="topic_id" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="post_topic" columnNames="post_id, topic_id"
+                       constraintName="pk_post_topic"/>
+
+        <!-- Deleting a post takes its assignments with it. Deleting a topic must not: the FK has no
+             cascade so an in-use topic cannot be removed, which is what forces retirement. -->
+        <addForeignKeyConstraint baseTableName="post_topic" baseColumnNames="post_id"
+                                 constraintName="fk_post_topic_post"
+                                 referencedTableName="post" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="post_topic" baseColumnNames="topic_id"
+                                 constraintName="fk_post_topic_topic"
+                                 referencedTableName="topic" referencedColumnNames="id"/>
+
+        <!-- Serves the category feed's `exists (... where topic_id = :topicId and post_id = p.id)`.
+             The primary key already covers the post -> topics direction used to decorate a page. -->
+        <createIndex tableName="post_topic" indexName="idx_post_topic_topic">
+            <column name="topic_id"/>
+            <column name="post_id"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="post_topic"/>
+            <dropTable tableName="topic"/>
+        </rollback>
+    </changeSet>
+
+    <!-- The 20-topic starting catalogue (ADR-043). Ids reuse ADR-020's spelling so expanding toward
+         its full taxonomy is purely additive; `sport` is the one new id, standing in for that ADR's
+         ten separate disciplines, which are too fine-grained at current post volume.
+         ON CONFLICT DO NOTHING because admins can create topics at runtime: a hosted environment may
+         already hold an id this changeSet introduces, and that must not fail the deployment. -->
+    <changeSet id="0015-canonical-topic-catalogue" author="mhutc">
+        <sql>
+            INSERT INTO topic (id, label, display_group, display_order, active, created_at)
+            VALUES ('politics', 'Politics', 'Politics &amp; government', 1, true, now()),
+                   ('economy', 'Economy', 'Money &amp; business', 2, true, now()),
+                   ('health', 'Health', 'Society', 3, true, now()),
+                   ('technology', 'Technology', 'Science &amp; technology', 4, true, now()),
+                   ('cost-of-living', 'Cost of living', 'Money &amp; business', 5, true, now()),
+                   ('housing', 'Housing', 'Society', 6, true, now()),
+                   ('climate-change', 'Climate', 'Climate &amp; environment', 7, true, now()),
+                   ('immigration', 'Immigration', 'Politics &amp; government', 8, true, now()),
+                   ('elections', 'Elections', 'Politics &amp; government', 9, true, now()),
+                   ('international', 'World', 'World affairs', 10, true, now()),
+                   ('war-conflict', 'War &amp; conflict', 'World affairs', 11, true, now()),
+                   ('business', 'Business', 'Money &amp; business', 12, true, now()),
+                   ('jobs-work', 'Jobs &amp; work', 'Money &amp; business', 13, true, now()),
+                   ('education', 'Education', 'Society', 14, true, now()),
+                   ('crime', 'Crime', 'Society', 15, true, now()),
+                   ('artificial-intelligence', 'AI', 'Science &amp; technology', 16, true, now()),
+                   ('energy', 'Energy', 'Climate &amp; environment', 17, true, now()),
+                   ('transport', 'Transport', 'Transport &amp; places', 18, true, now()),
+                   ('arts-culture', 'Culture', 'Culture &amp; life', 19, true, now()),
+                   ('sport', 'Sport', 'Sport', 20, true, now())
+            ON CONFLICT (id) DO NOTHING;
+        </sql>
+        <rollback>
+            DELETE FROM topic WHERE id IN (
+                'politics', 'economy', 'health', 'technology', 'cost-of-living', 'housing',
+                'climate-change', 'immigration', 'elections', 'international', 'war-conflict',
+                'business', 'jobs-work', 'education', 'crime', 'artificial-intelligence',
+                'energy', 'transport', 'arts-culture', 'sport');
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

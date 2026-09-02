@@ -1,0 +1,2230 @@
+{
+  "uid": "ysn-domain-unwrapped",
+  "title": "Your Say News - Unwrapped",
+  "description": "Post Unwrapped: reader-facing stories, admin review, the AI research provider and the generation queue.",
+  "tags": [
+    "your-say-news",
+    "domain",
+    "unwrapped"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "Your Say News",
+      "tags": [
+        "your-say-news"
+      ],
+      "asDropdown": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values({__name__=~\"yoursay_domain_(requests|operations)_total\", domain=\"unwrapped\"}, environment)",
+          "refId": "env"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        }
+      },
+      {
+        "name": "operation",
+        "label": "Operation",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values({__name__=~\"yoursay_domain_(requests|operations)_total\", domain=\"unwrapped\", environment=~\"$environment\"}, operation)",
+          "refId": "op"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        }
+      },
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "custom",
+        "query": "post-service",
+        "options": [
+          {
+            "text": "post-service",
+            "value": "post-service",
+            "selected": true
+          }
+        ],
+        "current": {
+          "text": "post-service",
+          "value": "post-service",
+          "selected": true
+        },
+        "description": "post-service is the sole backend deployable."
+      },
+      {
+        "name": "logFilter",
+        "label": "Log filter",
+        "type": "textbox",
+        "query": "unwrapped",
+        "current": {
+          "text": "unwrapped",
+          "value": "unwrapped",
+          "selected": false
+        },
+        "description": "Case-insensitive regex matched against log lines in the errors and logs row."
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Overview",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Requests per second",
+      "description": "Externally facing traffic for this domain.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(yoursay_domain_requests_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Calls in selected period",
+      "description": "API requests plus internal domain operations across the dashboard time range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 4,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "clamp_min(sum(increase(yoursay_domain_requests_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) + sum(increase(yoursay_domain_operations_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 0)",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Errors in selected period",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 9,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(yoursay_domain_errors_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range]))",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [
+        {
+          "title": "Open failing traces",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+          "targetBlank": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Errors per second",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 14,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(yoursay_domain_errors_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.01
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Error percentage",
+      "description": "Errors as a share of all instrumented work in this domain. Expected rejections are excluded from the error count.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * sum(increase(yoursay_domain_errors_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) / clamp_min(sum(increase(yoursay_domain_requests_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])) + sum(increase(yoursay_domain_operations_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])), 1)",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Traffic by operation and outcome",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "links": [],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisSoftMin": 0
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Latency p50 / p95 / p99",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p50 {{operation}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p95 {{operation}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p99 {{operation}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "links": [],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisSoftMin": 0
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Top 10 failing operations",
+      "description": "Grouped by stable operation and error code - never by raw message or stack trace.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(10, sum by (operation, outcome, error_type, error_code) (increase(yoursay_domain_errors_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])))",
+          "legendFormat": "__auto",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "links": [
+        {
+          "title": "Open failing traces",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+          "targetBlank": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Value"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Top 10 error codes",
+      "description": "Stable API error codes raised by this domain's exception mapper.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(10, sum by (error_code) (increase(yoursay_domain_errors_by_code_total{domain=\"unwrapped\", environment=~\"$environment\", operation=~\"$operation\"}[$__range])))",
+          "legendFormat": "{{error_code}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "links": [
+        {
+          "title": "Open failing traces",
+          "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+          "targetBlank": true
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Reader API",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "panels": [
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Requests per second",
+          "description": "Story and follow-up reads hanging off a post's URL.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 22
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=\"unwrapped\", operation=~\".*\\\\.posts\\\\.\\\\{id\\\\}\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "Errors per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 22
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=\"unwrapped\", operation=~\".*\\\\.posts\\\\.\\\\{id\\\\}\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 13,
+          "type": "timeseries",
+          "title": "Latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 22
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", operation=~\".*\\\\.posts\\\\.\\\\{id\\\\}\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", operation=~\".*\\\\.posts\\\\.\\\\{id\\\\}\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", operation=~\".*\\\\.posts\\\\.\\\\{id\\\\}\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 300
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "row",
+      "title": "Admin review API",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "panels": [
+        {
+          "id": 15,
+          "type": "timeseries",
+          "title": "Requests per second",
+          "description": "Review queue, approve, reject, generate and prompt benchmarking.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 23
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, outcome) (rate(yoursay_domain_requests_total{domain=\"unwrapped\", operation=~\".*\\\\.api\\\\.admin\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 16,
+          "type": "timeseries",
+          "title": "Errors per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 23
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_code) (rate(yoursay_domain_errors_total{domain=\"unwrapped\", operation=~\".*\\\\.api\\\\.admin\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 17,
+          "type": "timeseries",
+          "title": "Latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 23
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", operation=~\".*\\\\.api\\\\.admin\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", operation=~\".*\\\\.api\\\\.admin\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, operation) (rate(yoursay_domain_request_duration_milliseconds_bucket{domain=\"unwrapped\", operation=~\".*\\\\.api\\\\.admin\\\\.unwrapped.*\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{operation}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 300
+                  },
+                  {
+                    "color": "red",
+                    "value": 1000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "type": "row",
+      "title": "AI research provider dependency",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "panels": [
+        {
+          "id": 19,
+          "type": "timeseries",
+          "title": "Provider calls per second by outcome",
+          "description": "Calls to the external research model. A dependency_error is the provider failing; a service_error is our own configuration being wrong.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 24
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (outcome, error_type, error_code) (rate(yoursay_domain_operations_total{domain=\"unwrapped\", operation=\"research_provider\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{outcome}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 20,
+          "type": "timeseries",
+          "title": "Provider failures per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 24
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (error_code) (rate(yoursay_domain_errors_total{domain=\"unwrapped\", operation=\"research_provider\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 21,
+          "type": "timeseries",
+          "title": "Provider latency p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 24
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"unwrapped\", operation=\"research_provider\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"unwrapped\", operation=\"research_provider\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, outcome) (rate(yoursay_domain_operation_duration_milliseconds_bucket{domain=\"unwrapped\", operation=\"research_provider\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 30000
+                  },
+                  {
+                    "color": "red",
+                    "value": 120000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 22,
+          "type": "timeseries",
+          "title": "Model calls per second by provider and model",
+          "description": "LangChain4j's own view of the provider, independent of our wrapper. If this shows calls while the panels above show none, the failure is in our code rather than the provider.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 31
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (gen_ai_provider_name, gen_ai_request_model, error_type) (rate(gen_ai_client_operation_duration_milliseconds_count[$__rate_interval]))",
+              "legendFormat": "{{gen_ai_provider_name}} \u00b7 {{gen_ai_request_model}} \u00b7 {{error_type}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 23,
+          "type": "timeseries",
+          "title": "Model latency p95 by model",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 31
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, gen_ai_request_model) (rate(gen_ai_client_operation_duration_milliseconds_bucket[$__rate_interval])))",
+              "legendFormat": "{{gen_ai_request_model}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 30000
+                  },
+                  {
+                    "color": "red",
+                    "value": 120000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 24,
+          "type": "timeseries",
+          "title": "Tokens per second by type",
+          "description": "Input, output and cache-read tokens. This is the cost signal for Unwrapped generation.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 31
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (token_type, model) (rate(yoursay_ai_tokens_total{agent_type=\"unwrapped\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{token_type}} \u00b7 {{model}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 25,
+          "type": "timeseries",
+          "title": "AI service invocations by result",
+          "description": "Per AI service method, including the exception type when one is thrown.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 38
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (aiservice, method, result, exception) (rate(langchain4j_aiservices_counted_total[$__rate_interval]))",
+              "legendFormat": "{{aiservice}}.{{method}} \u00b7 {{result}} \u00b7 {{exception}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "Background generation jobs",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "panels": [
+        {
+          "id": 27,
+          "type": "timeseries",
+          "title": "Job runs per second by outcome",
+          "description": "A failed background job counts as an error even though no HTTP 5xx is ever returned.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 25
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (outcome) (rate(yoursay_domain_operations_total{domain=\"unwrapped\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 28,
+          "type": "timeseries",
+          "title": "Job failures per second",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 8,
+            "y": 25
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (error_code) (rate(yoursay_domain_errors_by_code_total{domain=\"unwrapped\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 29,
+          "type": "timeseries",
+          "title": "Job duration p50 / p95 / p99",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 16,
+            "y": 25
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(yoursay_domain_job_duration_milliseconds_bucket{domain=\"unwrapped\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p50 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(yoursay_domain_job_duration_milliseconds_bucket{domain=\"unwrapped\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p95 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "histogram_quantile(0.99, sum by (le, outcome) (rate(yoursay_domain_job_duration_milliseconds_bucket{domain=\"unwrapped\", operation=\"generation\", environment=~\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "p99 {{outcome}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60000
+                  },
+                  {
+                    "color": "red",
+                    "value": 300000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "row",
+      "title": "Errors and logs",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "panels": [
+        {
+          "id": 31,
+          "type": "timeseries",
+          "title": "Errors per second by operation and code",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 26
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (operation, error_type, error_code) (rate(yoursay_domain_errors_total{domain=\"unwrapped\", environment=~\"$environment\"}[$__rate_interval]))",
+              "legendFormat": "{{operation}} \u00b7 {{error_type}} \u00b7 {{error_code}}",
+              "editorMode": "code",
+              "range": true,
+              "instant": false
+            }
+          ],
+          "links": [
+            {
+              "title": "Open failing traces",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22post-service%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            },
+            {
+              "title": "Open matching logs",
+              "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22post-service%5C%22%7D%20%7C~%20%5C%22%28%3Fi%29%28warn%7Cerror%7Cexception%7Cfailed%29%5C%22%20%7C~%20%5C%22%28%3Fi%29%28unwrapped%29%5C%22%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+              "targetBlank": true
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 12,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 32,
+          "type": "logs",
+          "title": "Warning and error logs",
+          "description": "Matches log text with the $logFilter variable. Widen it to see neighbouring context.",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 14,
+            "x": 0,
+            "y": 33
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "expr": "{service_name=~\"$service\"} |~ \"(?i)(warn|error|exception|failed)\" |~ \"(?i)($logFilter)\"",
+              "queryType": "range"
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "wrapLogMessage": true,
+            "sortOrder": "Descending",
+            "enableLogDetails": true,
+            "dedupStrategy": "none"
+          }
+        },
+        {
+          "id": 33,
+          "type": "table",
+          "title": "Failing traces",
+          "description": "Click a trace to jump from a dashboard error to the request that produced it.",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 10,
+            "x": 14,
+            "y": 33
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "tempo",
+                "uid": "tempo"
+              },
+              "queryType": "traceql",
+              "query": "{ resource.service.name =~ \"$service\" && status = error }",
+              "limit": 20
+            }
+          ],
+          "options": {
+            "showHeader": true
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+# Override the runner-focused root ignore file for the Firebase Emulator image.
+*
+!firebase
+!firebase/package.json
+!firebase/bun.lock
+!firebase/firebase.json
+!firebase/seed-users.mjs
+!firebase/test-accounts.json

@@ -19,15 +19,16 @@ import { ComposeHeader } from "./ComposeHeader";
 import { ComposeModeToggle, type ComposeMode } from "./ComposeModeToggle";
 import { ComposeMediaField } from "./ComposeMediaField";
 import { PepperCompose } from "./PepperCompose";
-import type { VotingType } from "../types";
+import type { PepperDraftRecord, VotingType } from "../types";
 import { OptionReorderHandle } from "./OptionReorderHandle";
+import { TopicTagPicker } from "@/features/topics";
 
 /**
  * The create-post experience in the editorial design language (design handoff).
  * A compose header, a Manual / Pepper AI mode switch, then either the manual
  * form — the support question as its primary heading, summary, and
- * an optional media well — or the Pepper AI template. Orchestration for the
- * manual path lives in useCreatePost; Pepper is a template only (no wiring yet).
+ * an optional media well — or Pepper's persisted, editable AI draft. Both paths
+ * publish through the same post creation hook.
  */
 
 const SUMMARY_MAX = 2000;
@@ -48,9 +49,28 @@ export function CreatePostScreen() {
   const [showArguments, setShowArguments] = useState(false);
   const [caseFor, setCaseFor] = useState("");
   const [caseAgainst, setCaseAgainst] = useState("");
+  const [topicTagIds, setTopicTagIds] = useState<string[]>([]);
+  const [pepperDraft, setPepperDraft] = useState<PepperDraftRecord | null>(null);
 
   const handlePublish = async () => {
-    const created = await submit({ summary, supportQuestion, votingType, voteOptions, caseFor, caseAgainst });
+    const content = pepperDraft?.content;
+    const created = mode === "pepper" && content
+      ? await submit({
+          summary: content.summary,
+          supportQuestion: content.supportQuestion,
+          votingType: content.votingType,
+          voteOptions: content.voteOptions,
+          caseFor: content.caseFor ?? undefined,
+          caseAgainst: content.caseAgainst ?? undefined,
+          topicTagIds,
+          pepperDraftId: pepperDraft.id,
+          citations: content.citations,
+        })
+      : mode === "manual"
+        ? await submit({
+            summary, supportQuestion, votingType, voteOptions, caseFor, caseAgainst, topicTagIds,
+          })
+        : null;
     if (created) router.back();
   };
 
@@ -71,7 +91,24 @@ export function CreatePostScreen() {
           <ComposeModeToggle mode={mode} onChange={setMode} />
 
           {mode === "pepper" ? (
-            <PepperCompose />
+            <>
+              <PepperCompose onDraftChange={setPepperDraft} />
+              {pepperDraft?.content && (
+                <>
+                  <TopicTagPicker value={topicTagIds} onChange={setTopicTagIds} />
+                  <View style={styles.mediaSpacer}>
+                    <ComposeMediaField
+                      media={picked}
+                      progress={progress}
+                      uploading={submitting && picked.length > 0}
+                      onPick={pickMedia}
+                      onRemove={removeMedia}
+                    />
+                  </View>
+                </>
+              )}
+              {error && <Text style={[styles.fieldError, { color: e.coral }]}>{error}</Text>}
+            </>
           ) : (
             <>
               {/* SUPPORT QUESTION — the post's title, inverted onto ink */}
@@ -85,6 +122,8 @@ export function CreatePostScreen() {
                 <View style={styles.quoteRow}>
                   <Text style={[styles.quoteMark, { color: e.lime }]}>{"“"}</Text>
                   <TextInput
+                    testID="compose-support-question"
+                    accessibilityLabel="Support question"
                     value={supportQuestion}
                     onChangeText={setSupportQuestion}
                     maxLength={SUPPORT_QUESTION_MAX}
@@ -175,6 +214,8 @@ export function CreatePostScreen() {
               </View>
               <View style={[styles.field, { backgroundColor: e.surface, borderColor: e.border }]}>
                 <TextInput
+                  testID="compose-summary"
+                  accessibilityLabel="Summary"
                   value={summary}
                   onChangeText={setSummary}
                   maxLength={SUMMARY_MAX}
@@ -208,6 +249,8 @@ export function CreatePostScreen() {
                   maxLength={512} placeholder="Optional case against" placeholderTextColor={e.muted}
                   style={[styles.optionInput, { color: e.ink, borderColor: e.border, backgroundColor: e.surface }]} />
               </View>}
+
+              <TopicTagPicker value={topicTagIds} onChange={setTopicTagIds} />
 
               {/* MEDIA */}
               <View style={styles.mediaSpacer}>

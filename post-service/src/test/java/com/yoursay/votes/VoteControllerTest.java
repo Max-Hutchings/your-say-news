@@ -308,7 +308,7 @@ public class VoteControllerTest {
      * Insert a real post and return its id, so a vote written against it satisfies the
      * post-existence guard. Each test gets a fresh post, so the (post_id, user_id) unique
      * constraint never makes tests interfere. Only the three NOT-NULL columns without a default
-     * are set; is_unbiased/created_at/updated_at fall back to their DB defaults.
+     * are set; is_ai_generated/created_at/updated_at fall back to their DB defaults.
      */
     private long insertPost() {
         String sql = "INSERT INTO post (user_id, summary, support_question) "

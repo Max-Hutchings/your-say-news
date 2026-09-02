@@ -35,9 +35,7 @@ export class AdminAccountsPage {
   constructor(
     private readonly page: Page,
     private readonly adminOrigin = process.env.SMOKE_ADMIN_URL ??
-      "http://localhost:58083",
-    private readonly providerOrigin = process.env.SMOKE_AUTH_ORIGIN ??
-      "http://localhost:58080"
+      "http://localhost:58083"
   ) {}
 
   async signIn(
@@ -45,19 +43,26 @@ export class AdminAccountsPage {
     managedAccount: ManagedAccount
   ): Promise<void> {
     await this.page.goto(`${this.adminOrigin}/admin/`);
-    await this.expectProviderPage();
+    await expect(this.page.getByRole("heading", { name: "Admin sign-in" })).toBeVisible();
 
     const accountsResponse = this.waitForAccounts();
-    await this.page.locator("#username").fill(identity.username);
-    await this.page.locator("#password").fill(identity.password);
-    await this.page.locator("#kc-login").click();
+    await this.page.getByLabel("Email").fill(identity.email);
+    await this.page.getByLabel("Password").fill(identity.password);
+    await this.page.getByRole("button", { name: "Sign in" }).click();
 
     await this.expectAdminPage();
     const response = await accountsResponse;
     expect(response.status()).toBe(200);
 
     const accounts = await response.json() as PersistedAccount[];
-    expect(accounts).toHaveLength(11);
+    // 12 hand-maintained development accounts (including the application-owned
+    // official@yoursay.com author) plus the 20-strong smoke voting population
+    // (0010-seed-smoke-vote-population.yaml). Update this when the seeded account set changes.
+    expect(accounts).toHaveLength(32);
+    expect(
+      accounts.filter((account) => account.email.startsWith("smoke.voter.")),
+      "the seeded voting population should be administrable like any other account"
+    ).toHaveLength(20);
     expect(accounts.find((account) => account.email === identity.email)).toEqual({
       id: 11,
       email: identity.email,
@@ -167,11 +172,6 @@ export class AdminAccountsPage {
         response.request().method() === "GET" &&
         new URL(response.url()).pathname === "/api/admin/users"
     );
-  }
-
-  private async expectProviderPage(): Promise<void> {
-    const provider = new URL(this.providerOrigin);
-    await expect.poll(() => new URL(this.page.url()).origin).toBe(provider.origin);
   }
 
   private async expectAdminPage(): Promise<void> {

@@ -21,7 +21,7 @@
             <column name="support_question" value="Should the four-day week become the national standard?"/>
             <column name="case_for" value="Trials show output holds or rises while burnout and sick days fall."/>
             <column name="case_against" value="What works for an office won't map onto hospitals, shops or shift work."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-30T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-30T08:00:00"/>
         </insert>
@@ -34,7 +34,7 @@
             <column name="support_question" value="Should public money defend coastal towns rather than relocate them?"/>
             <column name="case_for" value="Defences protect homes, jobs and communities people won't willingly abandon."/>
             <column name="case_against" value="Ever-higher walls only delay the inevitable and cost more than moving."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-29T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-29T08:00:00"/>
         </insert>
@@ -47,7 +47,7 @@
             <column name="support_question" value="Should the weekend car-free zone be made permanent?"/>
             <column name="case_for" value="Cleaner air, busier squares and more space for people, not parking."/>
             <column name="case_against" value="Traders lose loading access and disabled drivers get pushed to the edge."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-28T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-28T08:00:00"/>
         </insert>
@@ -60,7 +60,7 @@
             <column name="support_question" value="Should every child be given an AI tutor?"/>
             <column name="case_for" value="A tireless, patient tutor for every child could close the attainment gap."/>
             <column name="case_against" value="It hands a deeply human job to a system optimised for engagement."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-27T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-27T08:00:00"/>
         </insert>
@@ -73,7 +73,7 @@
             <column name="support_question" value="Would you pay more to keep a local bookshop open?"/>
             <column name="case_for" value="Bookshops are community hubs worth more than the price on the cover."/>
             <column name="case_against" value="Sentiment won't beat rents; subsidising nostalgia isn't sustainable."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-06-26T08:00:00"/>
             <column name="updated_at" valueDate="2026-06-26T08:00:00"/>
         </insert>

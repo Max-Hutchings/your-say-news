@@ -1,6 +1,6 @@
 package com.yoursay.unwrapped.error;
 
-import com.yoursay.observability.ApiException;
+import com.yoursay.platform.observability.ApiException;
 import jakarta.ws.rs.core.Response;
 import java.util.UUID;
 

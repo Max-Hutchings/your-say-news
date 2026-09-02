@@ -7,69 +7,50 @@
 import { useEffect, useState } from "react";
 import { Platform, View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { Redirect } from "expo-router";
-import { completeKeycloakWebRedirectFromUrl, useAuthStore } from "@/features/auth";
+import {
+  useAuthStore,
+  type SessionRestoreResult,
+} from "@/features/auth";
 import { getEditorial, EditorialFont } from "@/constants/theme";
 
 // The pre-auth loading moment shares the sign-in screen's fixed dark brand palette.
 const e = getEditorial(true);
 
-function hasAuthRedirectParams(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const url = new URL(window.location.href);
-  return url.searchParams.has("code") && url.searchParams.has("state");
-}
-
 const isWeb = Platform.OS === "web";
 
 export default function SplashScreen() {
-  const { completeLogin, isLoggedIn, _stateHydrated } = useAuthStore();
-  const [processingAuthRedirect, setProcessingAuthRedirect] = useState(hasAuthRedirectParams);
+  const { restoreSession, _stateHydrated } = useAuthStore();
+  const [sessionResult, setSessionResult] = useState<SessionRestoreResult | null>(null);
 
+  // Firebase restores its session first, then post-service confirms the PostgreSQL account.
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("code") || !url.searchParams.has("state")) {
-      return;
-    }
-
-    if (isLoggedIn) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-      queueMicrotask(() => setProcessingAuthRedirect(false));
+    if (!_stateHydrated) {
       return;
     }
 
     let cancelled = false;
-    completeKeycloakWebRedirectFromUrl(window.location.href)
-      .then(async (tokens) => {
-        if (!cancelled && tokens) {
-          const loggedIn = await completeLogin(tokens);
-          if (loggedIn) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
+    restoreSession()
+      .then((result) => {
+        if (!cancelled) {
+          setSessionResult(result);
         }
       })
-      .catch((error) => {
-        console.error("Failed to complete Keycloak sign-in redirect:", error);
-      })
-      .finally(() => {
+      .catch(() => {
         if (!cancelled) {
-          setProcessingAuthRedirect(false);
+          setSessionResult("unverified");
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [completeLogin, isLoggedIn]);
+  }, [restoreSession, _stateHydrated]);
 
-  // Wait for auth state to be hydrated before redirecting
-  if ((!isWeb && !_stateHydrated) || processingAuthRedirect) {
+  const checkingSession = sessionResult === null;
+  const admitted = sessionResult === "signed-in";
+
+  // Wait for auth state to be hydrated, and for the stored session to be vouched for, before routing
+  if ((!isWeb && !_stateHydrated) || checkingSession) {
     return (
       <View style={[styles.container, { backgroundColor: e.bg }]}>
         {/* Brand lockup — lime badge + serif wordmark, matching sign-in */}
@@ -92,7 +73,7 @@ export default function SplashScreen() {
   }
 
   // Use Redirect component instead of programmatic navigation
-  if (isLoggedIn) {
+  if (admitted) {
     return <Redirect href="/(protected)" />;
   }
 

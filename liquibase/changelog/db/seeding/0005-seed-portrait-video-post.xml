@@ -21,7 +21,7 @@
             <column name="support_question" value="Should street performers need a licence to play in public spaces?"/>
             <column name="case_for" value="Licensing caps noise, protects residents and keeps pitches fairly shared."/>
             <column name="case_against" value="Auditions and permits kill the spontaneity that makes a street feel alive."/>
-            <column name="is_unbiased" valueBoolean="false"/>
+            <column name="is_ai_generated" valueBoolean="false"/>
             <column name="created_at" valueDate="2026-07-01T12:00:00"/>
             <column name="updated_at" valueDate="2026-07-01T12:00:00"/>
         </insert>

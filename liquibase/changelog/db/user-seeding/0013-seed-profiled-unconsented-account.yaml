@@ -1,0 +1,88 @@
+databaseChangeLog:
+  # Enabled reader with a complete characteristic profile and NO consent.
+  #
+  # `0012-seed-original-account-consent.yaml` gave John, Jane, Bob and Alice (ids 1-4) consent, which
+  # was correct — they represent fully onboarded users — but it left no seeded account holding the
+  # "profile filled in, consent never recorded" combination. That combination is the only fixture
+  # that proves onboarding needs BOTH signals rather than characteristics alone, and it is also a
+  # real state the mobile app must handle: `app/(protected)/index.tsx` redirects to the privacy
+  # promise on a missing `consented_at` regardless of how complete the profile is.
+  #
+  # Casey (9) and Blank (6) cover "neither signal"; this account covers "characteristics only".
+  #
+  # Ids are left to the sequences and referenced back by email, because `0008` and `0009` already
+  # insert users without explicit ids — any hardcoded id here would collide the moment another
+  # id-less account is seeded ahead of this file.
+  #
+  # Keep this identity in sync with keycloak/realm-export.json and docs/test-accounts.md.
+  - changeSet:
+      id: 0013-seed-profiled-unconsented-account
+      author: claude
+      logicalFilePath: db/seeding/0013-seed-profiled-unconsented-account.yaml
+      context: seed
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - insert:
+            tableName: your_say_user
+            columns:
+              - { column: { name: email, value: "sam.okafor@example.com" } }
+              - { column: { name: first_name, value: "Sam" } }
+              - { column: { name: last_name, value: "Okafor" } }
+              - { column: { name: display_name, value: "Sam Okafor" } }
+              - { column: { name: handle, value: "sam.okafor" } }
+              - { column: { name: date_of_birth, value: "1988-11-03" } }
+              - { column: { name: created_date, value: "2024-06-07" } }
+              - { column: { name: active, valueBoolean: true } }
+              - { column: { name: account_type, value: "USER" } }
+              - { column: { name: publisher_status, value: "NONE" } }
+
+        - insert:
+            tableName: user_characteristic
+            columns:
+              - { column: { name: user_id, valueComputed: "(SELECT id FROM your_say_user WHERE email = 'sam.okafor@example.com')" } }
+              - { column: { name: country, value: "United Kingdom" } }
+              - { column: { name: city, value: "Cardiff" } }
+              - { column: { name: uk_county, value: "CARDIFF" } }
+              - { column: { name: urban_rural, value: "URBAN" } }
+              - { column: { name: birth_year, valueNumeric: 1988 } }
+              - { column: { name: gender, value: "MAN" } }
+              - { column: { name: sex_at_birth, value: "MALE" } }
+              - { column: { name: sexual_orientation, value: "STRAIGHT_HETEROSEXUAL" } }
+              - { column: { name: marital_status, value: "MARRIED" } }
+              - { column: { name: country_of_birth, value: "UNITED_KINGDOM" } }
+              - { column: { name: religion, value: "NO_RELIGION" } }
+              - { column: { name: religiosity, value: "NOT_RELIGIOUS" } }
+              - { column: { name: political_persuasion, value: "CENTRE" } }
+              - { column: { name: education, value: "MASTERS" } }
+              - { column: { name: occupation, value: "EMPLOYED_FULL_TIME" } }
+              - { column: { name: employment_sector, value: "EDUCATION" } }
+              - { column: { name: university_subject, value: "HISTORY" } }
+              - { column: { name: personal_income_range, value: "BETWEEN_40K_AND_50K" } }
+              - { column: { name: household_income_range, value: "BETWEEN_75K_AND_100K" } }
+              - { column: { name: income_answer_version, valueNumeric: 1 } }
+              - { column: { name: height, value: "FEET_5_10_TO_6_0" } }
+              - { column: { name: weight_range, value: "KG_80_89" } }
+              - { column: { name: eye_color, value: "BROWN" } }
+              - { column: { name: parent, value: "PARENT_CAREGIVER_UNDER_18" } }
+              - { column: { name: news_frequency, valueNumeric: 5 } }
+              - { column: { name: has_pet, valueBoolean: false } }
+              - { column: { name: chronotype, value: "MORNING_LARK" } }
+              - { column: { name: outlook, value: "DEPENDS" } }
+              - { column: { name: neurodivergent, valueBoolean: false } }
+              - { column: { name: has_disability, valueBoolean: false } }
+              - { column: { name: housing_status, value: "OWN_MORTGAGE" } }
+              - { column: { name: property_type, value: "TERRACED" } }
+              - { column: { name: balanced_news_viewpoint, valueBoolean: true } }
+              - { column: { name: mainstream_news_percent, valueNumeric: 60 } }
+              - { column: { name: better_world_with_data, valueBoolean: true } }
+
+        - insert:
+            tableName: user_characteristic_race
+            columns:
+              - { column: { name: user_characteristic_id, valueComputed: "(SELECT c.id FROM user_characteristic c JOIN your_say_user u ON u.id = c.user_id WHERE u.email = 'sam.okafor@example.com')" } }
+              - { column: { name: race, value: "BLACK_AFRICAN" } }
+        - insert:
+            tableName: user_characteristic_citizenship
+            columns:
+              - { column: { name: user_characteristic_id, valueComputed: "(SELECT c.id FROM user_characteristic c JOIN your_say_user u ON u.id = c.user_id WHERE u.email = 'sam.okafor@example.com')" } }
+              - { column: { name: citizenship, value: "BRITISH" } }

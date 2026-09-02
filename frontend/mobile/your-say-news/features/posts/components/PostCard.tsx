@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,16 +8,19 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 import { useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont, feedMediaHeight } from "@/constants/theme";
 import { VoteControls } from "@/features/votes";
 import type { Post } from "../types";
-import { UnbiasedBadge } from "./UnbiasedBadge";
+import { PostSources } from "./PostSources";
 import { PostVideo } from "./PostVideo";
 import { PostImageCarousel } from "./PostImageCarousel";
 import { ScrollableSummary } from "./ScrollableSummary";
 
 const VIDEO_SOUND_BOTTOM_INSET = 52;
+const SHARE_FEEDBACK_DURATION_MS = 1800;
 
 /**
  * One story, sized to fill a single screen in the immersive feed — the whole post is shown here,
@@ -40,11 +43,13 @@ export function PostCard({
   isActive = false,
   height,
   onNextPost,
+  onSelectTopic,
 }: {
   post: Post;
   isActive?: boolean;
   height?: number;
   onNextPost?: () => void;
+  onSelectTopic?: (topicId: string) => void;
 }) {
   const router = useRouter();
   const { isDark } = useTheme();
@@ -60,6 +65,8 @@ export function PostCard({
 
   // Immersive portrait only: the story panel rises over the video on "See more".
   const [expanded, setExpanded] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const shareFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The media fills whatever height is left above the fixed question/vote block; we measure
   // that space so the media components (which need concrete pixel sizes) fill it exactly — no dead gap.
   const [mediaBox, setMediaBox] = useState({ w: 0, h: 0 });
@@ -67,6 +74,28 @@ export function PostCard({
   const toggle = (next: boolean) => {
     setExpanded(next);
     Animated.timing(reveal, { toValue: next ? 1 : 0, duration: 260, useNativeDriver: true }).start();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (shareFeedbackTimer.current) clearTimeout(shareFeedbackTimer.current);
+    };
+  }, []);
+
+  const showShareFeedback = (message: string) => {
+    setShareFeedback(message);
+    if (shareFeedbackTimer.current) clearTimeout(shareFeedbackTimer.current);
+    shareFeedbackTimer.current = setTimeout(() => setShareFeedback(null), SHARE_FEEDBACK_DURATION_MS);
+  };
+
+  const copyShareLink = async () => {
+    try {
+      const postUrl = Linking.createURL(`/posts/${post.id}`);
+      await Clipboard.setStringAsync(postUrl);
+      showShareFeedback("Link copied");
+    } catch {
+      showShareFeedback("Couldn't copy link");
+    }
   };
 
   // The case-for / case-against cards. Shared by both layouts.
@@ -97,6 +126,12 @@ export function PostCard({
         )}
       </View>
     ) : null;
+  const articleFooter = (
+    <>
+      {caseFooter}
+      <PostSources sources={post.sources ?? []} />
+    </>
+  );
 
   // The motion — the support question. Shared by both layouts.
   const motionBox = (
@@ -107,10 +142,29 @@ export function PostCard({
       </Text>
     </View>
   );
+  const topicChips = post.topicTags.length > 0 ? (
+    <View style={styles.topicChips}>
+      {post.topicTags.map((topicTag) => (
+        <Pressable
+          key={topicTag.id}
+          accessibilityRole="button"
+          accessibilityLabel={`Show ${topicTag.label} stories`}
+          onPress={() => onSelectTopic?.(topicTag.id)}
+          disabled={!onSelectTopic}
+          style={[styles.topicChip, { borderColor: e.border, backgroundColor: e.surface }]}
+        >
+          <Text style={[styles.topicChipText, { color: e.secondary }]}>{topicTag.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  ) : null;
 
   // The vote — always visible. The votes domain owns the interaction, locked state and errors.
   const voteRow = <VoteControls postId={post.id} votingType={post.votingType}
     options={post.voteOptions} supportQuestion={post.supportQuestion} onNextPost={onNextPost} />;
+  // The author's public handle, served with the post. A post whose author the service cannot
+  // resolve still reads, so the pill falls back to a neutral label rather than an empty chip.
+  const authorLabel = post.authorUsername ? `@${post.authorUsername}` : "Unknown author";
   const authorLink = (overMedia = false) => (
     <Pressable
       style={[
@@ -126,9 +180,41 @@ export function PostCard({
       accessibilityLabel="Open author profile"
     >
       <Ionicons name="person-circle-outline" size={15} color={overMedia ? e.onMedia : e.ink} />
-      <Text style={[styles.authorText, { color: overMedia ? e.onMedia : e.ink }]}>Author {post.userId}</Text>
+      <Text style={[styles.authorText, { color: overMedia ? e.onMedia : e.ink }]}>
+        {authorLabel}
+      </Text>
     </Pressable>
   );
+  const shareButton = (overMedia = false) => (
+    <Pressable
+      style={[
+        styles.shareButton,
+        overMedia && styles.shareOverlay,
+        {
+          borderColor: overMedia ? e.mediaScrim : e.border,
+          backgroundColor: overMedia ? e.mediaScrim : e.surface,
+        },
+      ]}
+      onPress={() => void copyShareLink()}
+      accessibilityRole="button"
+      accessibilityLabel="Share post"
+    >
+      <Ionicons name="share-social-outline" size={18} color={overMedia ? e.onMedia : e.ink} />
+    </Pressable>
+  );
+  const shareToast = shareFeedback ? (
+    <View
+      style={[styles.shareToast, { backgroundColor: e.lime }]}
+      accessibilityLiveRegion="polite"
+    >
+      <Ionicons
+        name={shareFeedback === "Link copied" ? "checkmark" : "alert-circle-outline"}
+        size={15}
+        color={e.onLime}
+      />
+      <Text style={[styles.shareToastText, { color: e.onLime }]}>{shareFeedback}</Text>
+    </View>
+  ) : null;
 
   // Two fixed shapes: a tall 4:5 box for the immersive portrait layout, a wide 16:9 box otherwise.
   const mediaBoxHeight = feedMediaHeight(immersive ? "PORTRAIT" : "LANDSCAPE", window.width);
@@ -160,7 +246,8 @@ export function PostCard({
       <PostImageCarousel images={images} width={mediaBox.w} height={mediaBox.h} />
     );
     return (
-      <View style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
+      <View testID={`post-card-${post.id}`} style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
+        {shareToast}
         {/* Media fills the leftover space above the body and is measured so it never leaves a gap.
             The story panel slides up over it on "See more" — kept mounted so the read is instant. */}
         <View
@@ -173,15 +260,11 @@ export function PostCard({
         >
           {mediaBox.h > 0 && immersiveMedia}
 
-          {post.isUnbiased && (
-            <View style={styles.badgeOverlay}>
-              <UnbiasedBadge />
-            </View>
-          )}
           <View style={[styles.timeOverlay, { backgroundColor: e.mediaScrim }]}>
             <Text style={[styles.timeOverlayText, { color: e.onMedia }]}>{timeAgo(post.createdAt)}</Text>
           </View>
           {authorLink(true)}
+          {shareButton(true)}
 
           {/* Falls back to cardHeight before the media area is measured so the panel stays hidden. */}
           <Animated.View
@@ -203,7 +286,7 @@ export function PostCard({
               <Ionicons name="chevron-down" size={18} color={e.muted} />
               <Text style={[styles.panelHandleText, { color: e.muted }]}>See less</Text>
             </Pressable>
-            <ScrollableSummary text={post.summary} footer={caseFooter} />
+            <ScrollableSummary text={post.summary} footer={articleFooter} />
           </Animated.View>
 
           {!expanded && (
@@ -227,6 +310,7 @@ export function PostCard({
 
         {/* Fixed under the media — only the support question and vote, leaving more height for media. */}
         <View testID="post-card-body" style={styles.immersiveBody}>
+          {topicChips}
           {motionBox}
           {voteRow}
         </View>
@@ -236,22 +320,18 @@ export function PostCard({
 
   // ── Stacked: landscape media (16:9) or text-only, with everything visible at once. ──────────────
   return (
-    <View style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
+    <View testID={`post-card-${post.id}`} style={[styles.card, { height: cardHeight, backgroundColor: e.bg }]}>
+      {shareToast}
       {hasMedia && (
         <View testID="post-media-stage" style={{ width: window.width, height: mediaBoxHeight }}>
           {mediaContent}
-
-          {post.isUnbiased && (
-            <View style={styles.badgeOverlay}>
-              <UnbiasedBadge />
-            </View>
-          )}
 
           {/* Time posted, over the media bottom-left. */}
           <View style={[styles.timeOverlay, { backgroundColor: e.mediaScrim }]}>
             <Text style={[styles.timeOverlayText, { color: e.onMedia }]}>{timeAgo(post.createdAt)}</Text>
           </View>
           {authorLink(true)}
+          {shareButton(true)}
         </View>
       )}
 
@@ -259,16 +339,17 @@ export function PostCard({
         {/* Text-only posts have no media to overlay, so the meta shows here. */}
         {!hasMedia && (
           <View style={styles.metaRow}>
-            {post.isUnbiased ? <UnbiasedBadge /> : <View />}
             <Text style={[styles.meta, { color: e.muted }]}>{timeAgo(post.createdAt)}</Text>
+            {shareButton()}
           </View>
         )}
 
+        {topicChips}
         {motionBox}
         {!hasMedia && authorLink()}
 
         {/* The scroll region: summary, then the case-for/against cards at the bottom. */}
-        <ScrollableSummary text={post.summary} footer={caseFooter} />
+        <ScrollableSummary text={post.summary} footer={articleFooter} />
 
         {voteRow}
       </View>
@@ -357,11 +438,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   // ── Stacked (landscape / text-only) ──
-  badgeOverlay: {
-    position: "absolute",
-    left: 11,
-    top: 11,
-  },
   timeOverlay: {
     position: "absolute",
     left: 11,
@@ -405,6 +481,37 @@ const styles = StyleSheet.create({
     bottom: 12,
     zIndex: 2,
   },
+  shareButton: {
+    width: 34,
+    height: 34,
+    borderWidth: 1,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareOverlay: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 2,
+  },
+  shareToast: {
+    position: "absolute",
+    top: 12,
+    alignSelf: "center",
+    zIndex: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+  shareToastText: {
+    fontFamily: EditorialFont.sansSemiBold,
+    fontSize: 13,
+    fontWeight: "600",
+  },
   motionBox: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -414,6 +521,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
+  topicChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  topicChip: { borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4 },
+  topicChipText: { fontFamily: EditorialFont.mono, fontSize: 9, letterSpacing: 0.3 },
   motionQuote: {
     fontFamily: EditorialFont.serif,
     fontSize: 34,

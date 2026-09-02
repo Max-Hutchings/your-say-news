@@ -14,7 +14,7 @@ export function SentimentBar({ label, bucket, options, overall = false }: {
     {options.map((option, index) => {
       const choice = bucket.choices.find((item) => item.optionId === option.id) ?? { optionId: option.id, count: 0, percentage: 0 };
       const color = optionColor(option, index, e);
-      return <View key={option.id} style={styles.choice}>
+      return <View key={option.id} testID={`sentiment-choice-${option.id}`} style={styles.choice}>
         <View style={styles.row}>
           <Text style={[styles.choiceLabel, { color: e.ink }]}>{option.label}</Text>
           <Text style={[styles.pct, { color }]}>{formatPct(choice.percentage)}%</Text>
@@ -22,7 +22,7 @@ export function SentimentBar({ label, bucket, options, overall = false }: {
         <View style={[styles.track, { backgroundColor: e.track }]}>
           <View style={[styles.fill, { backgroundColor: color, width: `${Math.max(0, Math.min(100, choice.percentage))}%` }]} />
         </View>
-        <Text style={[styles.counts, { color: e.muted }]}>{choice.count} of {bucket.total} votes</Text>
+        <Text testID={`sentiment-choice-count-${option.id}`} style={[styles.counts, { color: e.muted }]}>{choice.count} of {bucket.total} votes</Text>
       </View>;
     })}
   </View>;

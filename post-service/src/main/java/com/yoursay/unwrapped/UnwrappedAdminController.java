@@ -81,10 +81,10 @@ public class UnwrappedAdminController {
     }
 
     @GET
-    @Path("/benchmark/system-prompt")
+    @Path("/posts/{postId}/benchmark/context")
     @RunOnVirtualThread
-    public UnwrappedBenchmarkPromptDto benchmarkPrompt() {
-        return service.benchmarkPrompt();
+    public UnwrappedBenchmarkPromptDto benchmarkPrompt(@PathParam("postId") Long postId) {
+        return service.benchmarkPrompt(postId);
     }
 
     @POST

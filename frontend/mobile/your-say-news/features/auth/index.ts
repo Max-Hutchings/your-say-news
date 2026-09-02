@@ -6,14 +6,11 @@
  */
 
 export { useAuthStore } from "./services/authContext";
-export {
-    completeKeycloakWebRedirectFromUrl,
-    exchangeKeycloakCodeAsync,
-    startKeycloakWebRedirect,
-    useKeycloakAuthRequest,
-} from "./services/keycloakService";
+export { getFirebaseIdToken } from "./services/firebaseService";
 export { default as YsnHttpClient } from "./services/requests";
 export { getOnboardingStatus } from "./services/UserService";
+export { resolveOnboardingDestination } from "./onboardingRoute";
+export type { OnboardingDestination, OnboardingProgress } from "./onboardingRoute";
 export { recordConsent, PRIVACY_POLICY_VERSION } from "./services/ConsentService";
 export { PrivacyConsentScreen } from "./components/PrivacyConsentScreen";
-export type { User, UserState } from "./types";
+export type { OnboardingStatus, SessionRestoreResult, User, UserState } from "./types";

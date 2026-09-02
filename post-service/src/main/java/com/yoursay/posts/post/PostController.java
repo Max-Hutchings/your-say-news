@@ -7,10 +7,19 @@ import com.yoursay.posts.dto.PresignRequest;
 import com.yoursay.posts.dto.CreatePostRequest;
 
 import com.yoursay.posts.dto.PostDto;
+import com.yoursay.posts.dto.PostCreationProvenance;
+import com.yoursay.posts.dto.PostSourceDto;
+
+import com.yoursay.posts.postagent.AgentService;
+import com.yoursay.posts.postagent.dto.AgentPublicationDto;
+import com.yoursay.posts.postagent.dto.AgentSourceDto;
 
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -32,6 +41,9 @@ public class PostController {
     PostService postService;
 
     @Inject
+    AgentService agentService;
+
+    @Inject
     SecurityIdentity securityIdentity;
 
     /** Mint a presigned S3 PUT URL for a media upload. */
@@ -50,10 +62,40 @@ public class PostController {
     public Uni<PostDto> createPost(@Valid @NotNull CreatePostRequest request,
                                    @HeaderParam("Authorization") String authorization) {
         String email = securityIdentity.getPrincipal().getName();
-        Log.infof("Endpoint Called: createPost - %s by %s", request.supportQuestion(), email);
-        // Keep passing the bearer through the compatibility signature while the local user-domain
-        // adapter resolves the authenticated author. It is never stored on the post.
-        return postService.create(email, authorization, request);
+        if (request.pepperDraftId() == null) {
+            return postService.create(email, authorization, request, null);
+        }
+        Context eventLoop = Vertx.currentContext();
+        return Uni.createFrom().item(() -> provenance(request, authorization))
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+                .emitOn(command -> eventLoop.runOnContext(ignored -> command.run()))
+                .flatMap(provenance -> postService.create(email, authorization, request, provenance)
+                        .flatMap(post -> Uni.createFrom().item(() -> {
+                                    agentService.markPublished(provenance.pepperDraftId(), post.id());
+                                    return post;
+                                })
+                                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())));
+    }
+
+    private PostCreationProvenance provenance(
+            CreatePostRequest request, String authorization) {
+        if (request.pepperDraftId() == null) {
+            return null;
+        }
+        List<AgentSourceDto> selected = request.citations() == null
+                ? List.of()
+                : request.citations().stream()
+                        .map(source -> new AgentSourceDto(
+                                source.url(), source.title(), source.publisher()))
+                        .toList();
+        AgentPublicationDto verified = agentService.preparePublication(
+                request.pepperDraftId(), selected, authorization);
+        return new PostCreationProvenance(
+                verified.draftId(),
+                verified.sources().stream()
+                        .map(source -> new PostSourceDto(
+                                source.url(), source.title(), source.publisher()))
+                        .toList());
     }
 
     /** Get a post by id; 204 if it does not exist. */
