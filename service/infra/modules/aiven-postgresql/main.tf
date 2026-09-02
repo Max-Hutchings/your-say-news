@@ -5,10 +5,6 @@ resource "aiven_pg" "this" {
   plan                   = var.plan
   termination_protection = var.termination_protection
 
-  pg_user_config {
-    enable_ipv6 = true
-  }
-
   lifecycle {
     prevent_destroy = true
   }
