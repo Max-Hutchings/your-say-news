@@ -155,7 +155,8 @@ Inputs:
 
 Aiven-generated passwords remain sensitive provider and state data and are not normal outputs.
 The development environment reads Aiven's live service-plan catalogue before planning. When
-`cloud_name` is null, it selects the first cloud currently advertised for the configured plan; an
+`cloud_name` is null, it selects the first advertised DigitalOcean or UpCloud region accepted by
+the Free service API; an
 explicit value must appear in that plan's advertised regions. The resolved identifier is recorded
 as a non-secret output. After the initial creation, pin that identifier as the explicit
 `cloud_name` so later catalogue changes cannot propose an unintended service migration. Database

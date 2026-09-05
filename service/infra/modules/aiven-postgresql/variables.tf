@@ -9,7 +9,7 @@ variable "service_name" {
 }
 
 variable "cloud_name" {
-  description = "Optional Aiven cloud/region identifier. Null selects the first advertised available cloud."
+  description = "Optional Aiven cloud/region identifier. Null selects the first entry in available_cloud_names."
   type        = string
   default     = null
 }

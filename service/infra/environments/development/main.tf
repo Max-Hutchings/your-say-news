@@ -18,7 +18,11 @@ locals {
     for plan in data.aiven_service_plan_list.postgresql[0].service_plans : plan
     if plan.service_plan == var.aiven_plan
   ]), null) : null
-  aiven_available_cloud_names = local.aiven_selected_plan == null ? [] : sort(keys(local.aiven_selected_plan.regions))
+  aiven_advertised_cloud_names = local.aiven_selected_plan == null ? [] : sort(keys(local.aiven_selected_plan.regions))
+  aiven_available_cloud_names = [
+    for cloud_name in local.aiven_advertised_cloud_names : cloud_name
+    if startswith(cloud_name, "do-") || startswith(cloud_name, "upcloud-")
+  ]
 }
 
 data "aiven_service_plan_list" "postgresql" {
@@ -30,24 +34,30 @@ data "aiven_service_plan_list" "postgresql" {
   lifecycle {
     postcondition {
       condition = try(
-        length(keys(one([
-          for plan in self.service_plans : plan
-          if plan.service_plan == var.aiven_plan
-        ]).regions)) > 0,
+        length([
+          for cloud_name in keys(one([
+            for plan in self.service_plans : plan
+            if plan.service_plan == var.aiven_plan
+          ]).regions) : cloud_name
+          if startswith(cloud_name, "do-") || startswith(cloud_name, "upcloud-")
+        ]) > 0,
         false,
       )
-      error_message = "The configured Aiven PostgreSQL plan must exist and advertise at least one available cloud region."
+      error_message = "The configured Aiven PostgreSQL plan must advertise at least one DigitalOcean or UpCloud region accepted for Free service creation."
     }
 
     postcondition {
       condition = var.aiven_cloud_name == null || try(
-        contains(keys(one([
-          for plan in self.service_plans : plan
-          if plan.service_plan == var.aiven_plan
-        ]).regions), var.aiven_cloud_name),
+        contains([
+          for cloud_name in keys(one([
+            for plan in self.service_plans : plan
+            if plan.service_plan == var.aiven_plan
+          ]).regions) : cloud_name
+          if startswith(cloud_name, "do-") || startswith(cloud_name, "upcloud-")
+        ], var.aiven_cloud_name),
         false,
       )
-      error_message = "The configured Aiven PostgreSQL cloud must be available for the selected plan."
+      error_message = "The configured Aiven PostgreSQL cloud must be an advertised DigitalOcean or UpCloud region accepted for Free service creation."
     }
   }
 }

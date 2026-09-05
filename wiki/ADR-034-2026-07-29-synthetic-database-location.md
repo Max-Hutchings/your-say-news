@@ -35,9 +35,9 @@ functionality.
 
 ## Consequences
 
-- Terraform reads Aiven's project-specific service-plan catalogue during planning. It validates an
-  explicit cloud against the selected plan or deterministically selects the first currently
-  advertised cloud when no override is configured. Aiven can still move a Free service later.
+- Terraform reads Aiven's project-specific service-plan catalogue during planning and limits Free
+  creation candidates to the DigitalOcean and UpCloud providers accepted by Aiven's service API.
+  Development is pinned to `do-lon`; Aiven can still move a Free service later.
 - The application must continue using synthetic data until Gate D.
 - Before admitting real testers, review processor terms and choose a compliant region-selectable
   database if the final residency requirement demands one.

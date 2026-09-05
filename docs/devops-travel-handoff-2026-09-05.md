@@ -17,9 +17,9 @@ resource names already committed to Git.
   buckets and the backup lifecycle, and the Cloudflare Tunnel/config/DNS records.
 - Aiven PostgreSQL, its application database and both service users were not created. Aiven
   rejected `free-1-1gb` because its implicit default `google-europe-west2` did not offer that plan.
-- The working-tree recovery queries Aiven's project-specific service-plan catalogue during plan,
-  validates any explicit cloud and otherwise selects the first cloud currently advertised for the
-  configured plan. This must be committed and pass a new plan before another apply.
+- The first recovery attempt selected advertised `aws-ap-south-1`, but Aiven's create API rejected
+  it because Free creation is restricted to DigitalOcean or UpCloud. Development is now pinned to
+  advertised `do-lon`, and catalogue validation excludes providers that the Free create API rejects.
 - Production is intentionally not ready and must remain a placeholder.
 - The development architecture uses:
   - Hetzner CX23 in `nbg1`, IPv6-only;
@@ -186,10 +186,8 @@ apply development
 The saved-plan artifact expires after one day. A newer push changes the branch head and requires a
 new plan.
 
-After the recovery apply succeeds, record the non-secret `postgresql.cloud_name` output and set it
-as the explicit `aiven_cloud_name` in `development.tfvars`. Commit and review a no-change plan. This
-pins the created service location so a later change in Aiven's advertised catalogue cannot propose
-an unintended migration.
+After the recovery apply succeeds, confirm the non-secret `postgresql.cloud_name` output remains
+`do-lon`, then commit and review a no-change plan if any documentation-only follow-up is required.
 
 ## What Terraform creates
 
