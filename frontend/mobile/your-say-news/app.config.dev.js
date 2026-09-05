@@ -1,9 +1,11 @@
 // app.config.dev.js
-const postServiceHost = requiredEnv("EXPO_PUBLIC_POST_SERVICE_HOST");
-const postServicePort = requiredEnv("EXPO_PUBLIC_POST_SERVICE_PORT");
+const selected = process.env.APP_ENV !== "development" && process.env.APP_ENV !== "prod";
+const postServiceHost = selected ? requiredEnv("EXPO_PUBLIC_POST_SERVICE_HOST") : "http://invalid:";
+const postServicePort = selected ? requiredEnv("EXPO_PUBLIC_POST_SERVICE_PORT") : "0";
 
 export default {
     extra: {
+        AUTH_MODE: "emulator",
         FIREBASE_PROJECT_ID: "demo-your-say-news",
         FIREBASE_API_KEY: "local-firebase-emulator-key",
         FIREBASE_APP_ID: "1:123456789:web:local-your-say-news",

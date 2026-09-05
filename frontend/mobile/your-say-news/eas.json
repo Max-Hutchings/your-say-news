@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 23.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development-client": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "channel": "development",
+      "env": {
+        "APP_ENV": "development",
+        "EXPO_PUBLIC_API_BASE_URL": "https://dev.yoursaynews.com/api"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "development-store": {
+      "distribution": "store",
+      "environment": "development",
+      "channel": "development",
+      "autoIncrement": true,
+      "env": {
+        "APP_ENV": "development",
+        "EXPO_PUBLIC_API_BASE_URL": "https://dev.yoursaynews.com/api"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

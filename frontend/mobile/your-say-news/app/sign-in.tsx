@@ -5,6 +5,7 @@
  * Authentication Emulator with one of the repository's seeded test accounts.
  */
 import { useState } from "react";
+import Constants from "expo-constants";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "@/features/auth";
@@ -14,6 +15,7 @@ import { getEditorial, EditorialFont } from "@/constants/theme";
 const e = getEditorial(true);
 
 export default function SignInScreen() {
+    const hostedGoogleAuth = Constants.expoConfig?.extra?.AUTH_MODE === "google";
     const { login } = useAuthStore();
     const [email, setEmail] = useState("riley.reader@example.com");
     const [password, setPassword] = useState("password123");
@@ -25,10 +27,12 @@ export default function SignInScreen() {
             setBusy(true);
             setError(null);
             if (!await login(email.trim(), password)) {
-                setError("That test account could not be signed in.");
+                setError(hostedGoogleAuth
+                    ? "Google sign-in was cancelled or this account is not permitted."
+                    : "That test account could not be signed in.");
             }
         } catch {
-            setError("The local authentication service is not available.");
+            setError("The authentication service is not available.");
         } finally {
             setBusy(false);
         }
@@ -83,25 +87,31 @@ export default function SignInScreen() {
 
             {/* Local sign-in sheet */}
             <View style={[styles.sheet, { backgroundColor: e.surfaceAlt, borderTopColor: e.border }]}>
-                <Text style={[styles.sheetEyebrow, { color: e.lime }]}>LOCAL TEST ACCOUNT</Text>
-                <TextInput
-                    accessibilityLabel="Email"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    keyboardType="email-address"
-                    value={email}
-                    onChangeText={setEmail}
-                    style={[styles.input, { color: e.ink, borderColor: e.border }]}
-                />
-                <TextInput
-                    accessibilityLabel="Password"
-                    autoCapitalize="none"
-                    autoComplete="password"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                    style={[styles.input, { color: e.ink, borderColor: e.border }]}
-                />
+                <Text style={[styles.sheetEyebrow, { color: e.lime }]}>
+                    {hostedGoogleAuth ? "CONTINUE TO YOUR SAY NEWS" : "LOCAL TEST ACCOUNT"}
+                </Text>
+                {!hostedGoogleAuth ? (
+                    <>
+                        <TextInput
+                            accessibilityLabel="Email"
+                            autoCapitalize="none"
+                            autoComplete="email"
+                            keyboardType="email-address"
+                            value={email}
+                            onChangeText={setEmail}
+                            style={[styles.input, { color: e.ink, borderColor: e.border }]}
+                        />
+                        <TextInput
+                            accessibilityLabel="Password"
+                            autoCapitalize="none"
+                            autoComplete="password"
+                            secureTextEntry
+                            value={password}
+                            onChangeText={setPassword}
+                            style={[styles.input, { color: e.ink, borderColor: e.border }]}
+                        />
+                    </>
+                ) : null}
                 <Pressable
                     accessibilityRole="button"
                     onPress={onContinue}
@@ -110,7 +120,7 @@ export default function SignInScreen() {
                 >
                     <Lock color={e.onLime} />
                     <Text style={[styles.primaryLabel, { color: e.onLime }]}>
-                        {busy ? "Signing in..." : "Sign in"}
+                        {busy ? "Signing in..." : hostedGoogleAuth ? "Continue with Google" : "Sign in"}
                     </Text>
                 </Pressable>
                 {error ? <Text style={[styles.error, { color: e.coral }]}>{error}</Text> : null}
