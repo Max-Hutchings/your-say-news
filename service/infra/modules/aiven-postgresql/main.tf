@@ -1,12 +1,29 @@
+locals {
+  resolved_cloud_name = var.cloud_name != null ? var.cloud_name : try(
+    sort(tolist(var.available_cloud_names))[0],
+    null,
+  )
+}
+
 resource "aiven_pg" "this" {
   project                = var.project_name
   service_name           = var.service_name
-  cloud_name             = var.cloud_name
+  cloud_name             = local.resolved_cloud_name
   plan                   = var.plan
   termination_protection = var.termination_protection
 
   lifecycle {
     prevent_destroy = true
+
+    precondition {
+      condition     = local.resolved_cloud_name != null
+      error_message = "The Aiven PostgreSQL plan must advertise at least one available cloud when cloud_name is unset."
+    }
+
+    precondition {
+      condition     = var.cloud_name == null || contains(var.available_cloud_names, var.cloud_name)
+      error_message = "The configured Aiven PostgreSQL cloud must be advertised for the selected plan."
+    }
   }
 }
 

@@ -56,7 +56,7 @@ This private GitHub Free repository uses repository secrets rather than GitHub E
 | `DEV_DB_JDBC_URL`, `DEV_DB_REACTIVE_URL` | Aiven application database endpoints with required TLS parameters |
 | `DEV_DB_MIGRATION_USERNAME`, `DEV_DB_MIGRATION_PASSWORD` | Migration-only Aiven user |
 | `DEV_DB_USERNAME`, `DEV_DB_PASSWORD` | Runtime-only Aiven user |
-| `DEV_OIDC_AUTH_SERVER_URL`, `DEV_OIDC_CLIENT_ID` | Approved development OIDC configuration |
+| `DEV_FIREBASE_ADMIN_CREDENTIALS_JSON` | Firebase Admin service-account JSON for `your-say-news-development`; rendered as a protected file and never stored in `runtime.env` |
 | `DEV_R2_ACCESS_KEY_ID`, `DEV_R2_SECRET_ACCESS_KEY` | R2 credentials restricted to the media bucket |
 | `DEV_OPENAI_API_KEY` | Server-side OpenAI credential used by the default `openai` provider |
 | `DEV_XAI_API_KEY` | xAI credential used only when the reviewed workflow selects `AGENT_PROVIDER=grok` |
@@ -76,7 +76,9 @@ token must also be working before the first application deployment.
 
 Copy `env.example` to the ignored `runtime.env` only for local validation. In the real deployment,
 CI renders `runtime.env` from repository secrets, transfers it over the Cloudflare
-Access-protected SSH path and sets mode `0600`.
+Access-protected SSH path and sets mode `0600`. It separately validates the Firebase project in
+the Admin service-account JSON, installs that credential with mode `0600`, and exposes it only to
+the API container through a root-owned initialization volume.
 
 The API and migration images must be references by digest. Alloy must use a reviewed, pinned
 version before the first deployment. Never commit populated credentials.

@@ -1,7 +1,7 @@
 package com.yoursay.user.auth;
 
 import com.yoursay.platform.observability.DomainMetrics;
-import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import io.quarkus.logging.Log;
 import io.quarkus.security.AuthenticationFailedException;
 import io.quarkus.security.identity.IdentityProviderManager;
@@ -20,7 +20,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.security.Principal;
 
 @ApplicationScoped
-@IfBuildProfile("dev")
+@UnlessBuildProfile("test")
 public class FirebaseAuthenticationMechanism implements HttpAuthenticationMechanism {
 
     private static final String BEARER_PREFIX = "Bearer ";
@@ -109,11 +109,13 @@ public class FirebaseAuthenticationMechanism implements HttpAuthenticationMechan
     private SecurityIdentity createIdentity(VerifiedFirebaseIdentity verified) {
         QuarkusSecurityIdentity.Builder identity = QuarkusSecurityIdentity.builder()
                 .setPrincipal((Principal) verified::email)
-                .addRole("user")
                 .addAttribute("firebase_uid", verified.subject())
                 .addAttribute("email", verified.email());
         addAttributeIfPresent(identity, "given_name", verified.firstName());
         addAttributeIfPresent(identity, "family_name", verified.lastName());
+        if (roleResolver.hasActiveUserAccess(verified.email())) {
+            identity.addRole("user");
+        }
         if (roleResolver.hasActiveAdminAccess(verified.email())) {
             identity.addRole("admin");
         }

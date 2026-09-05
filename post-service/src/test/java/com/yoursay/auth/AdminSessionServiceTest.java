@@ -90,6 +90,11 @@ class AdminSessionServiceTest {
         private int lookupCalls;
 
         @Override
+        public boolean hasActiveUserAccess(String email) {
+            return true;
+        }
+
+        @Override
         public boolean hasActiveAdminAccess(String email) {
             lastEmail = email;
             lookupCalls++;

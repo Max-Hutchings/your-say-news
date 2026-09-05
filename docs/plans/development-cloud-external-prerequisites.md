@@ -64,7 +64,8 @@ Confirmed monthly price:
 
 ### PostgreSQL provider and residency
 
-- [x] Accept Aiven Free's provider-assigned location for the synthetic-data proof of concept.
+- [x] Accept a project-specific Aiven-advertised Free location for the synthetic-data proof of
+      concept.
 - [x] Accept that Aiven may change the Free service's cloud, region or configuration.
 - [x] Defer any exact-region requirement until Gate D or a funded production environment.
 - [x] Accept Aiven Free's 1 GB disk, maximum 20 connections, one node, no VPC/static IP/pooling and
@@ -77,7 +78,7 @@ Record:
 ```text
 Provider: Aiven
 Plan: Aiven Free; fallback DB-DEV-S
-Geographical area/region: Provider-assigned on Aiven Free
+Geographical area/region: Selected from the Free locations Aiven advertises to the project
 Residency decision: Exact database region is not a synthetic-data proof-of-concept gate
 Fallback decision: Use Scaleway only if Aiven availability or capacity requires it
 ```
@@ -476,7 +477,6 @@ The first action outside the codebase is:
 
 Then complete the remaining external execution/evidence:
 
-2. Record the exact Aiven project, Free plan and provider-assigned cloud identifiers used by
-   Terraform.
+2. Record the exact Aiven project, Free plan and advertised cloud identifier selected by Terraform.
 3. Max grants Theo delegated GoDaddy domain-management access.
 4. The remaining provider accounts, identifiers, protected variables and secrets are created.

@@ -154,10 +154,13 @@ Inputs:
 - runtime and migration `database_user_names`.
 
 Aiven-generated passwords remain sensitive provider and state data and are not normal outputs.
-For the Free tier, leave `cloud_name` null so Aiven assigns the provider and region; the assigned
-identifier is then recorded as a non-secret output. Database grants belong to the audited migration
-and release procedure. Outputs contain only the non-secret service endpoint, cloud, database name
-and usernames.
+The development environment reads Aiven's live service-plan catalogue before planning. When
+`cloud_name` is null, it selects the first cloud currently advertised for the configured plan; an
+explicit value must appear in that plan's advertised regions. The resolved identifier is recorded
+as a non-secret output. After the initial creation, pin that identifier as the explicit
+`cloud_name` so later catalogue changes cannot propose an unintended service migration. Database
+grants belong to the audited migration and release procedure. Outputs contain only the non-secret
+service endpoint, cloud, database name and usernames.
 
 ### `r2-private-bucket`
 

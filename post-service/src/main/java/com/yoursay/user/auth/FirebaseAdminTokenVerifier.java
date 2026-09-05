@@ -8,31 +8,42 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import com.google.firebase.auth.SessionCookieOptions;
-import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
+import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 
 @ApplicationScoped
-@IfBuildProfile("dev")
+@UnlessBuildProfile("test")
 class FirebaseAdminTokenVerifier implements FirebaseTokenVerifier {
 
     private final FirebaseApp app;
     private final FirebaseAuth auth;
 
     FirebaseAdminTokenVerifier(@ConfigProperty(name = "firebase.auth.project-id") String projectId) {
-        GoogleCredentials emulatorCredentials = GoogleCredentials.create(
-                new AccessToken("local-emulator-owner", Date.from(Instant.now().plusSeconds(86_400))));
         FirebaseOptions options = FirebaseOptions.builder()
                 .setProjectId(projectId)
-                .setCredentials(emulatorCredentials)
+                .setCredentials(credentials())
                 .build();
-        app = FirebaseApp.initializeApp(options, "your-say-news-local-auth");
+        app = FirebaseApp.initializeApp(options, "your-say-news-auth");
         auth = FirebaseAuth.getInstance(app);
+    }
+
+    private static GoogleCredentials credentials() {
+        if (System.getenv("FIREBASE_AUTH_EMULATOR_HOST") != null) {
+            return GoogleCredentials.create(
+                    new AccessToken("local-emulator-owner", Date.from(Instant.now().plusSeconds(86_400))));
+        }
+        try {
+            return GoogleCredentials.getApplicationDefault();
+        } catch (IOException exception) {
+            throw new IllegalStateException("Firebase application credentials are unavailable", exception);
+        }
     }
 
     @Override

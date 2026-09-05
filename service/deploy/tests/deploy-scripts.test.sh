@@ -29,8 +29,10 @@ export MIGRATION_DB_USERNAME='ysn_migration'
 export MIGRATION_DB_PASSWORD='representative-migration-password'
 export DB_USERNAME='ysn_runtime'
 export DB_PASSWORD="representative'password\$with # symbols"
-export OIDC_AUTH_SERVER_URL='https://auth-development.yoursaynews.com/realms/your-say-news'
-export OIDC_CLIENT_ID='your-say-news-mobile-development'
+export FIREBASE_PROJECT_ID='your-say-news-development'
+export FIREBASE_ADMIN_CREDENTIALS_FILE="$test_directory/firebase-admin.json"
+printf '%s\n' '{"type":"service_account","project_id":"your-say-news-development"}' \
+  > "$FIREBASE_ADMIN_CREDENTIALS_FILE"
 export S3_ENDPOINT='https://9538d45e127bdb7d6b1bf1ecf9020146.eu.r2.cloudflarestorage.com'
 export S3_ACCESS_KEY_ID='development-r2-access-key'
 export S3_SECRET_ACCESS_KEY="representative'r2\$secret"
@@ -53,6 +55,8 @@ assert_file_contains "$runtime_env" "DB_PASSWORD='representative\'password\$with
 assert_file_contains "$runtime_env" 'AGENT_PROVIDER=openai'
 assert_file_contains "$runtime_env" "AGENT_API_KEY='openai-representative-development-key'"
 assert_file_contains "$runtime_env" 'AGENT_MODEL=gpt-5.6-custom'
+assert_file_contains "$runtime_env" 'FIREBASE_PROJECT_ID=your-say-news-development'
+assert_file_contains "$runtime_env" "FIREBASE_ADMIN_CREDENTIALS_FILE='$FIREBASE_ADMIN_CREDENTIALS_FILE'"
 if grep -Fq -- 'XAI_API_KEY=' "$runtime_env" \
   || grep -Fq -- 'OPENAI_API_KEY=' "$runtime_env" \
   || grep -Fq -- 'xai-unselected-development-key' "$runtime_env"; then
@@ -75,6 +79,10 @@ grep -Fq -- 'AGENT_API_KEY: openai-representative-development-key' "$compose_con
   || fail 'Compose does not pass the selected AI credential'
 grep -Fq -- 'AGENT_MODEL: gpt-5.6-custom' "$compose_config" \
   || fail 'Compose does not pass the selected AI model'
+grep -Fq -- 'FIREBASE_PROJECT_ID: your-say-news-development' "$compose_config" \
+  || fail 'Compose does not configure the Firebase project'
+grep -Fq -- 'GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-admin.json' "$compose_config" \
+  || fail 'Compose does not configure the protected Firebase credential file'
 if grep -Fq -- 'XAI_API_KEY:' "$compose_config" \
   || grep -Fq -- 'OPENAI_API_KEY:' "$compose_config" \
   || grep -Fq -- 'xai-unselected-development-key' "$compose_config"; then

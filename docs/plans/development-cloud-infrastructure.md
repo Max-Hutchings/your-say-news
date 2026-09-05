@@ -53,9 +53,9 @@ production support/SLA costs
 Use a small EU Linux VM running Docker Compose, with state kept outside the VM:
 
 - **Compute:** Hetzner Cloud CX23 in Nuremberg (`nbg1`) (2 shared vCPU, 4 GB RAM, 40 GB disk).
-- **Database:** Aiven for PostgreSQL Free in its provider-assigned location for the synthetic-data
-  proof of concept. Exact-region placement is not a Gate B requirement; reassess it before Gate D
-  or funded production.
+- **Database:** Aiven for PostgreSQL Free in a project-specific location advertised by Aiven for the
+  synthetic-data proof of concept. Exact-region placement is not a Gate B requirement; reassess it
+  before Gate D or funded production.
 - **Media:** a private Cloudflare R2 Standard bucket created with the `eu` jurisdiction.
 - **Ingress and DNS:** retain `yoursaynews.com` and `yoursaynews.co.uk` at GoDaddy, delegate both
   zones to Cloudflare and publish the development API at `https://dev.yoursaynews.com/api` through
@@ -197,7 +197,7 @@ budgeting to the penny.
 | Component | Development selection | Estimated monthly cost |
 | --- | --- | ---: |
 | API VM | Hetzner CX23, EU, plus primary IPv4 if required | about €6–€8 including VAT |
-| PostgreSQL | Aiven Free in its provider-assigned location | £0 |
+| PostgreSQL | Aiven Free in a project-specific advertised location | £0 |
 | Media | R2 Standard, below 10 GB and free operation allowances | £0 |
 | DNS, tunnel, Access and TLS | Cloudflare Free | £0 |
 | Telemetry | Grafana Cloud Free | £0 |
@@ -224,9 +224,9 @@ personal accounts:
   column. Confirm stock, location, tax and IPv4 price at purchase:
   [Hetzner 2026 pricing adjustment](https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/).
 - Aiven Free is one node with 1 CPU, 1 GB RAM, 1 GB disk, backups and at most 20 connections. It has
-  no SLA, VPC, static IP or connection pooling. Aiven assigns the Free service location and
-  reserves the right to move its provider/region or stop an inactive Free service. That trade-off
-  is accepted for synthetic proof-of-concept data:
+  no SLA, VPC, static IP or connection pooling. Terraform selects from the Free locations Aiven
+  advertises to the project, and Aiven reserves the right to move the service's provider/region or
+  stop an inactive service. That trade-off is accepted for synthetic proof-of-concept data:
   [Aiven Free PostgreSQL limitations](https://aiven.io/docs/products/postgresql/concepts/pg-free-tier).
 - Scaleway's Paris DB-DEV-S is currently €0.0156/hour before tax plus block storage and backups,
   providing a deterministic EU fallback:
@@ -289,7 +289,7 @@ production rehearsal.
 
 | Option | Fit | Cost/operational conclusion |
 | --- | --- | --- |
-| **Hetzner VM + Aiven PG + R2** | Best current fit | Lowest predictable cost, 4 GB API memory and standard interfaces; accepts Aiven's provider-assigned Free location and limits for synthetic data. |
+| **Hetzner VM + Aiven PG + R2** | Best current fit | Lowest predictable cost, 4 GB API memory and standard interfaces; accepts an Aiven-advertised Free location and limits for synthetic data. |
 | **Akamai VM + Aiven PG + R2** | Best fallback | Familiar provider, London available, still below budget with 2 GB VM; less memory. |
 | **Akamai VM + Akamai managed PG** | Technically strong | One provider and clean Terraform story, but credible minimum is above budget. |
 | Hetzner VM + Scaleway managed PG + R2 | Region-fixed EU fallback | Paris/Milan placement and managed backups; approximately consumes the full £20 ceiling after tax and small storage volumes. |
@@ -338,10 +338,11 @@ maintenance cost do not currently earn enough infrastructure savings.
 
 ### PostgreSQL
 
-Use managed PostgreSQL over TLS. Aiven chooses the Free service's cloud and region, and may change
-them. This is accepted only while the environment contains synthetic proof-of-concept data. If an
-exact EU location becomes mandatory before real testers or funded production, move to a
-region-selectable paid Aiven plan or a fixed-region provider such as Scaleway.
+Use managed PostgreSQL over TLS. Terraform selects a project-specific location advertised by Aiven
+for the Free plan, and Aiven may change it later. This is accepted only while the environment
+contains synthetic proof-of-concept data. If an exact EU location becomes mandatory before real
+testers or funded production, move to a region-selectable paid Aiven plan or a fixed-region provider
+such as Scaleway.
 
 Create separate least-privilege credentials for:
 
@@ -930,8 +931,8 @@ Decisions already made:
 - Hetzner CX23 in Nuremberg as the primary one-node compute and Akamai 2 GB as fallback;
 - Docker Compose, not Kubernetes/Helm;
 - managed PostgreSQL separate from the API VM;
-- Aiven Free in its provider-assigned location for synthetic proof-of-concept data, with an exact
-  region reconsidered before Gate D or funded production;
+- Aiven Free in a project-specific location advertised by Aiven for synthetic proof-of-concept
+  data, with an exact region reconsidered before Gate D or funded production;
 - Cloudflare R2 EU media storage;
 - `https://dev.yoursaynews.com/api` for the development app, with no development web frontend;
 - `https://yoursaynews.com/api` for the future production app and a future marketing web
@@ -940,8 +941,8 @@ Decisions already made:
 - application-owned invitations/roles;
 - an initial vote-suppression threshold of `5`;
 - synthetic data only until Gate D is complete;
-- immutable EU R2 object storage; Aiven's provider-assigned Free database location is accepted only
-  for synthetic proof-of-concept data;
+- immutable EU R2 object storage; an Aiven-advertised Free database location is accepted only for
+  synthetic proof-of-concept data;
 - Cloudflare Access/Tunnel for human and CI SSH, with no Tailscale subscription;
 - Max and Theo as co-owners with self-approval allowed;
 - Theo as the operational DevOps owner, with Max retaining recovery/co-owner access;

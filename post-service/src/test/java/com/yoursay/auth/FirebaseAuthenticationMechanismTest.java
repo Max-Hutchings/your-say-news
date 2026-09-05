@@ -40,6 +40,7 @@ class FirebaseAuthenticationMechanismTest {
                 true,
                 "Riley",
                 "Reader");
+        roleResolver.user = true;
 
         SecurityIdentity identity = mechanism.authenticateCredential(
                 new FirebaseCredential(FirebaseCredential.Type.BEARER, "signed-id-token"));
@@ -62,6 +63,7 @@ class FirebaseAuthenticationMechanismTest {
                 "YourSay",
                 "Admin");
         roleResolver.admin = true;
+        roleResolver.user = true;
 
         SecurityIdentity identity = mechanism.authenticateCredential(
                 new FirebaseCredential(FirebaseCredential.Type.SESSION_COOKIE, "signed-session-cookie"));
@@ -142,8 +144,15 @@ class FirebaseAuthenticationMechanismTest {
     }
 
     private static final class StubFirebaseRoleResolver implements FirebaseRoleResolver {
+        private boolean user;
         private boolean admin;
         private String lastEmail;
+
+        @Override
+        public boolean hasActiveUserAccess(String email) {
+            lastEmail = email;
+            return user;
+        }
 
         @Override
         public boolean hasActiveAdminAccess(String email) {

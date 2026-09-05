@@ -1,12 +1,12 @@
 package com.yoursay.user.auth;
 
 import com.yoursay.user.user.YourSayUserService;
-import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 @ApplicationScoped
-@IfBuildProfile("dev")
+@UnlessBuildProfile("test")
 class DatabaseFirebaseRoleResolver implements FirebaseRoleResolver {
 
     private final YourSayUserService userService;
@@ -14,6 +14,11 @@ class DatabaseFirebaseRoleResolver implements FirebaseRoleResolver {
     @Inject
     DatabaseFirebaseRoleResolver(YourSayUserService userService) {
         this.userService = userService;
+    }
+
+    @Override
+    public boolean hasActiveUserAccess(String email) {
+        return userService.getAccessByEmail(email) != null && !userService.isInactive(email);
     }
 
     @Override

@@ -12,6 +12,28 @@ x-service-defaults: &service-defaults
       max-file: "3"
 
 services:
+  firebase-credentials:
+    <<: *service-defaults
+    image: ${POST_SERVICE_IMAGE:?POST_SERVICE_IMAGE must be an immutable image digest}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        umask 077 &&
+        cp /source/firebase-admin.json /credentials/firebase-admin.json &&
+        chown 185:185 /credentials/firebase-admin.json &&
+        chmod 0400 /credentials/firebase-admin.json
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+    volumes:
+      - ${FIREBASE_ADMIN_CREDENTIALS_FILE:?FIREBASE_ADMIN_CREDENTIALS_FILE is required}:/source/firebase-admin.json:ro
+      - firebase-credentials:/credentials
+    restart: "no"
+
   migrate:
     <<: *service-defaults
     image: ${MIGRATION_IMAGE:?MIGRATION_IMAGE must be an immutable image digest}
@@ -37,9 +59,8 @@ services:
       QUARKUS_DATASOURCE_JDBC_MAX_SIZE: ${DB_JDBC_MAX_SIZE:-4}
       QUARKUS_DATASOURCE_REACTIVE_MAX_SIZE: ${DB_REACTIVE_MAX_SIZE:-8}
       QUARKUS_LIQUIBASE_MIGRATE_AT_START: "false"
-      QUARKUS_OIDC_APPLICATION_TYPE: service
-      QUARKUS_OIDC_AUTH_SERVER_URL: ${OIDC_AUTH_SERVER_URL:?OIDC_AUTH_SERVER_URL is required}
-      QUARKUS_OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?OIDC_CLIENT_ID is required}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?FIREBASE_PROJECT_ID is required}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-admin.json
       QUARKUS_S3_ENDPOINT_OVERRIDE: ${S3_ENDPOINT:?S3_ENDPOINT is required}
       QUARKUS_S3_AWS_REGION: ${S3_REGION:-auto}
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
@@ -73,8 +94,12 @@ services:
       retries: 8
       start_period: 45s
     depends_on:
+      firebase-credentials:
+        condition: service_completed_successfully
       alloy:
         condition: service_started
+    volumes:
+      - firebase-credentials:/run/secrets:ro
 
   alloy:
     <<: *service-defaults
@@ -102,3 +127,4 @@ networks:
 
 volumes:
   alloy-data:
+  firebase-credentials:

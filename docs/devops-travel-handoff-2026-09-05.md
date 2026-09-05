@@ -12,7 +12,14 @@ resource names already committed to Git.
 ## Confirmed project state
 
 - `main` has been merged into `feat/add-infra`.
-- Development Terraform has not been applied yet.
+- The first development apply was attempted from commit `e3d3327748f8292be1f49460a762f75335f0eea9`
+  and partially succeeded. HCP Terraform state now contains the Hetzner host/firewall, both R2
+  buckets and the backup lifecycle, and the Cloudflare Tunnel/config/DNS records.
+- Aiven PostgreSQL, its application database and both service users were not created. Aiven
+  rejected `free-1-1gb` because its implicit default `google-europe-west2` did not offer that plan.
+- The working-tree recovery queries Aiven's project-specific service-plan catalogue during plan,
+  validates any explicit cloud and otherwise selects the first cloud currently advertised for the
+  configured plan. This must be committed and pass a new plan before another apply.
 - Production is intentionally not ready and must remain a placeholder.
 - The development architecture uses:
   - Hetzner CX23 in `nbg1`, IPv6-only;
@@ -160,17 +167,17 @@ Terraform variables.
 
 ## Commit, plan and apply
 
-1. Save `development.tfvars` with both Hetzner SSH key names.
-2. Confirm the new public key exists in Hetzner with the exact matching name.
-3. Run the local checks above.
-4. Review `git diff` and ensure no credentials are present.
-5. Commit and push `feat/add-infra`.
-6. The `Infrastructure Development` push workflow runs Format, Validate/Test and Plan.
-7. Review the plan. The first real plan should be creation-only; investigate unexpected updates,
-   deletes or replacements.
-8. Copy the successful plan run ID and its full 40-character commit SHA.
-9. Run the same workflow manually from the exact same branch/commit.
-10. Enter the run ID, full commit SHA and exact confirmation phrase:
+1. Run the local checks above.
+2. Review `git diff` and ensure no credentials are present.
+3. Commit and push the Aiven plan-catalogue recovery on `feat/add-infra`.
+4. The `Infrastructure Development` push workflow runs Format, Validate/Test and Plan.
+5. Review the recovery plan. It should read the existing state without changing it and show exactly
+   four creates: the Aiven PostgreSQL service, application database, migration user and runtime
+   user. Investigate any update, delete, replacement or recreation of the nine existing resources.
+6. Confirm the planned `aiven_pg` has a non-null cloud advertised for `free-1-1gb`.
+7. Copy the successful plan run ID and its full 40-character commit SHA.
+8. Run the same workflow manually from the exact same branch/commit.
+9. Enter the run ID, full commit SHA and exact confirmation phrase:
 
 ```text
 apply development
@@ -178,6 +185,11 @@ apply development
 
 The saved-plan artifact expires after one day. A newer push changes the branch head and requires a
 new plan.
+
+After the recovery apply succeeds, record the non-secret `postgresql.cloud_name` output and set it
+as the explicit `aiven_cloud_name` in `development.tfvars`. Commit and review a no-change plan. This
+pins the created service location so a later change in Aiven's advertised catalogue cannot propose
+an unintended migration.
 
 ## What Terraform creates
 

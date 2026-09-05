@@ -58,7 +58,7 @@ runs:
           SSH_PRIVATE_KEY SSH_KNOWN_HOSTS \
           DB_URL DB_REACTIVE_URL MIGRATION_DB_USERNAME MIGRATION_DB_PASSWORD \
           DB_USERNAME DB_PASSWORD \
-          OIDC_AUTH_SERVER_URL OIDC_CLIENT_ID \
+          FIREBASE_PROJECT_ID FIREBASE_ADMIN_CREDENTIALS_JSON \
           S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY \
           GRAFANA_CLOUD_OTLP_ENDPOINT GRAFANA_CLOUD_OTLP_AUTHORIZATION; do
           if [[ -z "${!variable_name:-}" ]]; then
@@ -124,6 +124,16 @@ runs:
 
         mkdir -p "$BUNDLE_DIRECTORY/release"
         tar --extract --gzip --file deployment.tar.gz --directory "$BUNDLE_DIRECTORY/release"
+        install -d -m 0700 "$BUNDLE_DIRECTORY/release/secrets"
+        printf '%s' "$FIREBASE_ADMIN_CREDENTIALS_JSON" \
+          > "$BUNDLE_DIRECTORY/release/secrets/firebase-admin.json"
+        chmod 0600 "$BUNDLE_DIRECTORY/release/secrets/firebase-admin.json"
+        if ! jq -e --arg project "$FIREBASE_PROJECT_ID" \
+          '.type == "service_account" and .project_id == $project and (.private_key | length > 0)' \
+          "$BUNDLE_DIRECTORY/release/secrets/firebase-admin.json" >/dev/null; then
+          echo "::error title=Invalid Firebase credentials::The service account JSON must belong to the configured Firebase project"
+          exit 1
+        fi
         "$GITHUB_WORKSPACE/service/deploy/scripts/render-runtime-env.sh" "$BUNDLE_DIRECTORY/runtime.env"
 
         docker compose \
@@ -194,6 +204,7 @@ runs:
           "$RUNNER_TEMP/application-${{ inputs.environment-name }}/deployment.tar.gz" \
           "$RUNNER_TEMP/application-${{ inputs.environment-name }}/deployment.tar.gz.sha256" \
           "$RUNNER_TEMP/application-${{ inputs.environment-name }}/runtime.env" \
+          "$RUNNER_TEMP/application-${{ inputs.environment-name }}/release/secrets/firebase-admin.json" \
           ysn-${{ inputs.environment-name }}:"$incoming_directory/"
 
         ssh -F "$RUNNER_TEMP/ssh/config" ysn-${{ inputs.environment-name }} sh -s -- \
@@ -206,6 +217,8 @@ runs:
         sha256sum --check deployment.tar.gz.sha256
         tar --extract --gzip --file deployment.tar.gz --directory "$release_directory"
         install -m 0600 runtime.env "$release_directory/runtime.env"
+        install -d -m 0700 "$release_directory/secrets"
+        install -m 0600 firebase-admin.json "$release_directory/secrets/firebase-admin.json"
         chmod 0750 "$release_directory/scripts/"*.sh
         INSTALL_RELEASE
 

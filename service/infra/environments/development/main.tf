@@ -13,6 +13,43 @@ locals {
     (var.api_hostname) = "http://localhost:8082"
     (var.ssh_hostname) = "ssh://localhost:22"
   }
+
+  aiven_selected_plan = var.enable_aiven_postgresql ? try(one([
+    for plan in data.aiven_service_plan_list.postgresql[0].service_plans : plan
+    if plan.service_plan == var.aiven_plan
+  ]), null) : null
+  aiven_available_cloud_names = local.aiven_selected_plan == null ? [] : sort(keys(local.aiven_selected_plan.regions))
+}
+
+data "aiven_service_plan_list" "postgresql" {
+  count = var.enable_aiven_postgresql ? 1 : 0
+
+  project      = var.aiven_project_name
+  service_type = "pg"
+
+  lifecycle {
+    postcondition {
+      condition = try(
+        length(keys(one([
+          for plan in self.service_plans : plan
+          if plan.service_plan == var.aiven_plan
+        ]).regions)) > 0,
+        false,
+      )
+      error_message = "The configured Aiven PostgreSQL plan must exist and advertise at least one available cloud region."
+    }
+
+    postcondition {
+      condition = var.aiven_cloud_name == null || try(
+        contains(keys(one([
+          for plan in self.service_plans : plan
+          if plan.service_plan == var.aiven_plan
+        ]).regions), var.aiven_cloud_name),
+        false,
+      )
+      error_message = "The configured Aiven PostgreSQL cloud must be available for the selected plan."
+    }
+  }
 }
 
 module "compose_host" {
@@ -33,12 +70,13 @@ module "postgresql" {
   count  = var.enable_aiven_postgresql ? 1 : 0
   source = "../../modules/aiven-postgresql"
 
-  project_name        = var.aiven_project_name
-  service_name        = var.aiven_service_name
-  cloud_name          = var.aiven_cloud_name
-  plan                = var.aiven_plan
-  database_name       = var.aiven_database_name
-  database_user_names = var.aiven_database_user_names
+  project_name          = var.aiven_project_name
+  service_name          = var.aiven_service_name
+  cloud_name            = var.aiven_cloud_name
+  available_cloud_names = local.aiven_available_cloud_names
+  plan                  = var.aiven_plan
+  database_name         = var.aiven_database_name
+  database_user_names   = var.aiven_database_user_names
 }
 
 module "media_bucket" {

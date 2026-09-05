@@ -71,7 +71,7 @@ hcloud_ipv4_enabled = false # IPv6-only host; avoids the paid primary IPv4 charg
 # Aiven project/service options.
 aiven_project_name        = "your-say-news-development"
 aiven_service_name        = "your-say-news-development"
-aiven_cloud_name          = null # Aiven assigns the Free-tier provider and region.
+aiven_cloud_name          = null # Select the first region Aiven currently advertises for this plan.
 aiven_plan                = "free-1-1gb"
 aiven_database_name       = "your_say_news"
 aiven_database_user_names = ["ysn_migration", "ysn_runtime"]
