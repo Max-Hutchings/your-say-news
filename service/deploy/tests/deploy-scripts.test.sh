@@ -161,6 +161,7 @@ done
 fake_bin="$test_directory/fake-bin"
 mkdir -p "$fake_bin"
 command_log="$test_directory/commands.log"
+public_health_url='https://api-development.example/api/live'
 
 cat > "$fake_bin/docker" <<'FAKE_DOCKER'
 #!/usr/bin/env sh
@@ -188,6 +189,7 @@ chmod 0755 "$fake_bin/"*
 
 YSN_TEST_COMMAND_LOG="$command_log" PATH="$fake_bin:$PATH" \
   DEPLOY_ENV_FILE="$runtime_env" HEALTH_CHECK_ATTEMPTS=1 \
+  PUBLIC_HEALTH_URL="$public_health_url" \
   "$deploy_root/scripts/deploy.sh" >/dev/null
 
 expected_deploy_log="$test_directory/expected-deploy.log"
@@ -197,6 +199,7 @@ docker compose --env-file $runtime_env --file $deploy_root/compose.yaml --profil
 docker compose --env-file $runtime_env --file $deploy_root/compose.yaml --profile migration run --rm migrate
 docker compose --env-file $runtime_env --file $deploy_root/compose.yaml up --detach --remove-orphans post-service alloy
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8082/api/live
+curl --fail --silent --show-error --max-time 10 $public_health_url
 docker compose --env-file $runtime_env --file $deploy_root/compose.yaml ps
 EXPECTED_DEPLOY
 cmp "$expected_deploy_log" "$command_log" || fail 'deploy.sh command order changed'
