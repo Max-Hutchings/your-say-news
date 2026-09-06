@@ -84,8 +84,14 @@ install -d -m 0750 -o deploy -g deploy /opt/your-say-news
 install -d -m 0750 -o root -g cloudflared /etc/cloudflared
 install -d -m 0750 -o cloudflared -g cloudflared /var/lib/cloudflared
 
+install -d -m 0755 /run/sshd
 sshd -t
-systemctl reload ssh.service
+systemctl daemon-reload
+if systemctl is-active --quiet ssh.socket; then
+  systemctl restart ssh.socket
+else
+  systemctl reload-or-restart ssh.service
+fi
 
 # Provider and host firewalls both deny public ingress. Loopback remains available to the local
 # Tunnel connector and the API continues to bind only to 127.0.0.1.
@@ -94,7 +100,6 @@ ufw default allow outgoing
 ufw allow in on lo
 ufw --force enable
 
-systemctl daemon-reload
 systemctl enable cloudflared-ysn.service
 systemctl restart apt-daily-upgrade.timer
 
