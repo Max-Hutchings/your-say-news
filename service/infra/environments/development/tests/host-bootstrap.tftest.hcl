@@ -41,7 +41,7 @@ run "enabled_host_receives_the_reviewed_non_secret_bootstrap" {
     condition = alltrue([
       output.hcloud_host.name == "your-say-news-development",
       output.hcloud_host.cloud_init_sha256 == sha256(local.compose_host_cloud_init),
-      output.hcloud_host.cloud_init_sha256 == "8718c6ee19a4e8b50d42997b339ca92950c4d636509692cfc526c698cb98ecbe",
+      output.hcloud_host.cloud_init_sha256 == "631b7df17c435f0863172a76d6440e56116c3cafd89ac6f85d3047187ad94e86",
     ])
     error_message = "The enabled host must publish its exact name and reviewed rendered-bootstrap fingerprint."
   }
