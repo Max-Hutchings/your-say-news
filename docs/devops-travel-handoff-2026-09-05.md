@@ -1,5 +1,7 @@
 # DevOps travel handoff
 
+> Superseded by [`development-deployment-handover-2026-09-06.md`](./development-deployment-handover-2026-09-06.md), which records the applied infrastructure, working SSH path, Expo setup and current CI blocker.
+
 Date: 2026-09-05  
 Repository: `Max-Hutchings/your-say-news`  
 Branch: `feat/add-infra`  
