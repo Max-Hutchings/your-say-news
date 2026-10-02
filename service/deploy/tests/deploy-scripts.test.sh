@@ -198,6 +198,7 @@ cat > "$fake_bin/docker" <<'FAKE_DOCKER'
 printf 'docker %s\n' "$*" >> "$YSN_TEST_COMMAND_LOG"
 case "$*" in
   *' up '*) [ "${YSN_TEST_FAIL_UP:-}" != true ] ;;
+  *' logs '*) echo 'cp: cannot stat /source/firebase-admin.json' ;;
 esac
 FAKE_DOCKER
 
@@ -237,19 +238,36 @@ docker compose --env-file $runtime_env --file $deploy_root/compose.yaml ps
 EXPECTED_DEPLOY
 cmp "$expected_deploy_log" "$command_log" || fail 'deploy.sh command order changed'
 
-# A failed setup container only reports "exit 1" over SSH, so deploy.sh must print its output.
+# A failed setup container only reports "exit 1" over SSH, so deploy.sh must print its output to
+# stderr - and nothing else, because CI logs are public.
 failed_up_log="$test_directory/failed-up-commands.log"
+failed_up_stdout="$test_directory/failed-up.out"
+failed_up_stderr="$test_directory/failed-up.err"
 if YSN_TEST_COMMAND_LOG="$failed_up_log" YSN_TEST_FAIL_UP=true PATH="$fake_bin:$PATH" \
   DEPLOY_ENV_FILE="$runtime_env" HEALTH_CHECK_ATTEMPTS=1 \
-  "$deploy_root/scripts/deploy.sh" >/dev/null 2>&1; then
+  "$deploy_root/scripts/deploy.sh" >"$failed_up_stdout" 2>"$failed_up_stderr"; then
   fail 'deploy.sh succeeded although compose up failed'
 fi
-tail -n 1 "$failed_up_log" | grep -Fqx -- \
-  "docker compose --env-file $runtime_env --file $deploy_root/compose.yaml logs --no-color firebase-credentials" \
-  || fail 'deploy.sh did not print firebase-credentials output after compose up failed'
-if grep -Fq -- 'curl ' "$failed_up_log"; then
-  fail 'deploy.sh ran health checks after compose up failed'
-fi
+
+expected_failed_up_log="$test_directory/expected-failed-up.log"
+cat > "$expected_failed_up_log" <<EXPECTED_FAILED_UP
+docker compose --env-file $runtime_env --file $deploy_root/compose.yaml pull post-service alloy
+docker compose --env-file $runtime_env --file $deploy_root/compose.yaml --profile migration pull migrate
+docker compose --env-file $runtime_env --file $deploy_root/compose.yaml --profile migration run --rm migrate
+docker compose --env-file $runtime_env --file $deploy_root/compose.yaml up --detach --remove-orphans post-service alloy
+docker compose --env-file $runtime_env --file $deploy_root/compose.yaml logs --no-color firebase-credentials
+EXPECTED_FAILED_UP
+cmp "$expected_failed_up_log" "$failed_up_log" \
+  || fail 'deploy.sh must print only firebase-credentials logs and stop after compose up fails'
+
+expected_failed_up_stderr="$test_directory/expected-failed-up.err"
+cat > "$expected_failed_up_stderr" <<'EXPECTED_FAILED_UP_STDERR'
+Compose startup failed. firebase-credentials output:
+cp: cannot stat /source/firebase-admin.json
+EXPECTED_FAILED_UP_STDERR
+cmp "$expected_failed_up_stderr" "$failed_up_stderr" \
+  || fail 'deploy.sh did not write the startup failure and firebase-credentials output to stderr'
+[ ! -s "$failed_up_stdout" ] || fail 'deploy.sh wrote startup failure output to stdout'
 
 status_directory="$test_directory/bootstrap-status"
 mkdir -p "$status_directory"
