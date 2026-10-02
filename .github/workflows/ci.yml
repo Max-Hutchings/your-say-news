@@ -64,8 +64,8 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # The Expo app is delivered via EAS Build, not from CI — so this job verifies
-  # (typecheck + lint + jest) rather than producing a native binary.
+  # Verifies the Expo app (typecheck + lint + jest). The native binary is built on EAS by
+  # release-android below, not on this runner.
   frontend:
     name: frontend
     runs-on: ubuntu-latest
@@ -134,3 +134,50 @@ jobs:
       packages: write
     uses: ./.github/workflows/dev-app.yml
     secrets: inherit
+
+  # Ships the dev Android app with the server deployment: only after deploy-development succeeds,
+  # and only when the push changed the Expo app. EAS builds on its own servers, then submits to the
+  # Play internal track using the service account key stored in EAS (ADR-057, ADR-059).
+  release-android:
+    name: release android
+    needs: [deploy-development]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/mobile/your-say-news
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Expo app changes
+        id: changes
+        run: |
+          if git diff --quiet "${{ github.event.before }}" "${{ github.sha }}" -- .; then
+            echo "mobile=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Bun
+        if: steps.changes.outputs.mobile == 'true'
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up EAS
+        if: steps.changes.outputs.mobile == 'true'
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: bun
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # Config plugins in app.json resolve from node_modules when eas loads the app config.
+      - name: Install dependencies
+        if: steps.changes.outputs.mobile == 'true'
+        run: bun install --frozen-lockfile
+
+      # --no-wait: the runner only queues the build; EAS builds and submits it asynchronously.
+      - name: Build and submit to Google Play
+        if: steps.changes.outputs.mobile == 'true'
+        run: eas build -p android --profile development-store --auto-submit --no-wait --non-interactive

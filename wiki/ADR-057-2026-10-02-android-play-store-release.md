@@ -65,7 +65,7 @@ Option 2 now. Option 3 once the first release has worked by hand.
 
 - Every `eas` command loads `app.config.js` locally and EAS ignores `.env`.
 - Without `APP_ENV`, `app.config.dev.js` needs `EXPO_PUBLIC_POST_SERVICE_HOST` and `_PORT`.
-- With the `development-store` profile, `app.config.prod.js` needs `GOOGLE_SERVICES_JSON` as a
+- With the `development-store` profile, `app.config.prod.js` (now `app.config.hosted.js`) needed `GOOGLE_SERVICES_JSON` as a
   local file path. EAS does not download file variables locally, even sensitive ones.
 - Working command:
 
@@ -102,8 +102,7 @@ Option 2 now. Option 3 once the first release has worked by hand.
 - Roll out the draft release in Play Console > Test and release > Internal testing, and add testers.
 - Add Play's app signing key SHA-1 and SHA-256 (Play Console > App integrity) to the Firebase
   Android app, or Google Sign-In fails with `DEVELOPER_ERROR` on Play-installed builds.
-- Change `app.config.prod.js` to require `GOOGLE_SERVICES_JSON` only on the EAS builder
-  (`EAS_BUILD=true`), so local `eas` commands need no file or placeholder variables.
+- Done in ADR-059: `app.config.hosted.js` requires `GOOGLE_SERVICES_JSON` only on the EAS builder.
 - Complete the Play store listing, content rating, Data safety, privacy policy and reviewer
   sign-in access before promoting beyond internal testing.
 - Add an EAS Workflow to build and submit automatically.
