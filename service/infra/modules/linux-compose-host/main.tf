@@ -32,7 +32,10 @@ resource "hcloud_server" "this" {
   rebuild_protection = true
   labels             = var.labels
 
+  # Cloud-init only runs on first boot, so a user_data edit can never reach a running host; it would
+  # only force a replacement. Bootstrap changes apply to newly created hosts; patch live hosts by hand.
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [user_data]
   }
 }
