@@ -45,7 +45,7 @@ deletions. The deployment-relevant differences are:
 
 - Terraform now selects an Aiven Free-compatible DigitalOcean/UpCloud region and pins development
   to `do-lon`.
-- The Hetzner host is IPv6-only and its bootstrap repairs SSH socket startup, installs Docker and
+- The Hetzner host has a primary IPv4 for outbound traffic (ADR-058) and its bootstrap repairs SSH socket startup, installs Docker and
   creates the dormant host-level Tunnel service.
 - Remote authentication uses Firebase Admin credentials rather than the old transitional auth
   inputs.
@@ -90,7 +90,7 @@ Operator/GitHub Actions
 ssh-dev.yoursaynews.com -> Tunnel -> VM localhost:22 -> deploy user
 ```
 
-The VM has no purchased public IPv4 and both Hetzner and UFW deny public inbound traffic. Normal
+The VM has a public IPv4 for outbound traffic only (ADR-058); both Hetzner and UFW deny public inbound traffic. Normal
 API and SSH access must use Cloudflare Tunnel. The Hetzner browser console is the break-glass path.
 
 ## Resource inventory

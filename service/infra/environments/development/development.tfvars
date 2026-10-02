@@ -66,7 +66,7 @@ hcloud_ssh_key_names = [
   "TheoHutchings908-your-say-news-development",
   "github-actions-your-say-news-development",
 ]
-hcloud_ipv4_enabled = false # IPv6-only host; avoids the paid primary IPv4 charge.
+hcloud_ipv4_enabled = true # Outbound IPv4 is required: ghcr.io and other dependencies have no IPv6 (ADR-058). Inbound stays firewalled.
 
 # Aiven project/service options.
 aiven_project_name        = "your-say-news-development"
