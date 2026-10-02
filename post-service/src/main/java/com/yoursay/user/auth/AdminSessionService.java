@@ -11,7 +11,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Duration;
 
 @ApplicationScoped
-@IfBuildProfile("dev")
+@IfBuildProfile("local")
 public class AdminSessionService {
 
     private final FirebaseTokenVerifier verifier;

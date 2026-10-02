@@ -23,6 +23,12 @@ sourceSets {
     }
 }
 
+// quarkusDev only ever runs on a laptop, so it always uses the `local` profile (ADR-055). A system
+// property beats QUARKUS_PROFILE, so a stray env var can never start dev mode as the hosted `dev`.
+tasks.quarkusDev {
+    jvmArguments.add("-Dquarkus.profile=local")
+}
+
 dependencies {
     implementation(enforcedPlatform("$quarkusPlatformGroupId:$quarkusPlatformArtifactId:$quarkusPlatformVersion"))
     implementation(enforcedPlatform("$quarkusPlatformGroupId:quarkus-amazon-services-bom:$quarkusPlatformVersion"))
@@ -41,7 +47,8 @@ dependencies {
     implementation("io.quarkus:quarkus-micrometer-opentelemetry")
     implementation("io.quarkus:quarkus-logging-json")
     implementation("io.quarkus:quarkus-arc")
-    implementation("io.quarkus:quarkus-oidc")
+    // Firebase ID tokens are verified by FirebaseAuthenticationMechanism (Firebase Admin SDK), not OIDC.
+    implementation("io.quarkus:quarkus-security")
     implementation("io.quarkus:quarkus-hibernate-validator")
     implementation("io.quarkus:quarkus-scheduler")
     implementation("io.quarkiverse.quinoa:quarkus-quinoa:2.8.3")

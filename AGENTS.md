@@ -86,6 +86,33 @@ alias.
 Seed data is injected automatically on Compose startup (see DB section). The Firebase Emulator
 comes up with test users reconciled from `firebase/test-accounts.json`.
 
+## Environments
+
+Use these three words exactly. They name where the code runs, not a framework profile.
+
+- **local** - a developer machine. `bun run dev`: Compose infra (Postgres, Firebase Auth Emulator,
+  LocalStack, LGTM), `post-service` on `localhost:8082`, Expo on `localhost:5173`, admin SPA on
+  `localhost:8083/admin`. Use "local" for anything that runs on a laptop.
+- **dev** - always the hosted development server we have set up: the Hetzner VM behind Cloudflare
+  Tunnel at `https://dev.yoursaynews.com/api`, deployed by `.github/workflows/dev-app.yml` from
+  `service/deploy/` using GHCR snapshot images (ADR-035, ADR-036, ADR-037). "dev" never means a
+  laptop.
+- **prod** - not built yet. Reserved for `https://yoursaynews.com/api` and the release image
+  channel. Do not add prod config, workflows or infrastructure unless asked.
+
+The backend's Quarkus profiles use these exact names (ADR-055). The admin SPA and Expo do not yet -
+translate when reading their config:
+
+| Our environment | Backend (Quarkus) | Admin SPA (Quinoa/Vite) | Expo app |
+|---|---|---|---|
+| local | `%local` profile (every `quarkusDev` run) | Vite dev server, `VITE_*` env (emulator defaults) | `APP_ENV=dev` (default) -> `app.config.dev.js` |
+| dev | `%dev` profile, `QUARKUS_PROFILE=dev` + secrets from `runtime.env` | built but not served (base `quarkus.quinoa.just-build=true`) | no config yet (see `docs/plans/deferred-mobile-api-base-url.md`) |
+| prod | `%prod` reserved and empty | not built | `app.config.prod.js` is stale Keycloak config - do not use |
+
+Backend config rules (ADR-055): base `application.properties` must be safe on a server; laptop
+values go under `%local.`; secrets are env vars only with no defaults; `%dev.`/`%prod.` hold runtime
+properties only because the same image is promoted from dev to prod (ADR-037).
+
 ## Architecture decision records
 
 Core product and architecture decisions live as ADRs in `wiki/`. Any AI agent working on this

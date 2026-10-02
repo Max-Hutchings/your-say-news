@@ -18,7 +18,7 @@ public class AiTokenMetrics {
     @Inject
     public AiTokenMetrics(
             MeterRegistry registry,
-            @ConfigProperty(name = "quarkus.profile", defaultValue = "prod") String environment
+            @ConfigProperty(name = "app.environment") String environment
     ) {
         this.registry = registry;
         this.environment = environment;

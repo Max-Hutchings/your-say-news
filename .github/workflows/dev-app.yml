@@ -170,10 +170,8 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.DEV_OPENAI_API_KEY }}
       GRAFANA_CLOUD_OTLP_ENDPOINT: ${{ secrets.DEV_GRAFANA_CLOUD_OTLP_ENDPOINT }}
       GRAFANA_CLOUD_OTLP_AUTHORIZATION: ${{ secrets.DEV_GRAFANA_CLOUD_OTLP_AUTHORIZATION }}
-      S3_ENDPOINT: https://9538d45e127bdb7d6b1bf1ecf9020146.eu.r2.cloudflarestorage.com
-      S3_REGION: auto
-      POSTS_MEDIA_BUCKET: your-say-news-media-development
-      VOTE_SUPPRESSION_THRESHOLD: "5"
+      # ADR-055: selects the image's %dev. config. Non-secret dev values live in application.properties.
+      QUARKUS_PROFILE: dev
     steps:
       - name: Check out the selected workflow revision
         uses: actions/checkout@v6

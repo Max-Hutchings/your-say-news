@@ -31,7 +31,7 @@ import java.util.Set;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 @RunOnVirtualThread
-@IfBuildProfile("dev")
+@IfBuildProfile("local")
 public class AdminSessionController {
 
     @Inject

@@ -23,7 +23,7 @@ public class UnwrappedFeatureFlags {
     boolean enabled;
     @ConfigProperty(name = "unwrapped.features.unwrap-button", defaultValue = "true")
     boolean unwrapButton;
-    @ConfigProperty(name = "quarkus.profile", defaultValue = "prod")
+    @ConfigProperty(name = "app.environment")
     String environment;
     @Inject
     MeterRegistry registry;

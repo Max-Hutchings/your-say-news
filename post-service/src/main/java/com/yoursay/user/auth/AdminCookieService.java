@@ -12,7 +12,7 @@ import java.time.Duration;
 import java.util.Base64;
 
 @ApplicationScoped
-@IfBuildProfile("dev")
+@IfBuildProfile("local")
 public class AdminCookieService {
 
     static final String CSRF_COOKIE_NAME = "ysn_admin_csrf";

@@ -20,6 +20,7 @@ assert_file_contains() {
   grep -Fqx -- "$expected" "$file" || fail "$file does not contain: $expected"
 }
 
+export QUARKUS_PROFILE='dev'
 export POST_SERVICE_IMAGE='ghcr.io/max-hutchings/your-say-news-post-service-snapshot@sha256:1111111111111111111111111111111111111111111111111111111111111111'
 export MIGRATION_IMAGE='ghcr.io/max-hutchings/your-say-news-migrations-snapshot@sha256:2222222222222222222222222222222222222222222222222222222222222222'
 export ALLOY_IMAGE='grafana/alloy@sha256:3333333333333333333333333333333333333333333333333333333333333333'
@@ -33,10 +34,8 @@ export FIREBASE_PROJECT_ID='your-say-news-development'
 export FIREBASE_ADMIN_CREDENTIALS_FILE="$test_directory/firebase-admin.json"
 printf '%s\n' '{"type":"service_account","project_id":"your-say-news-development"}' \
   > "$FIREBASE_ADMIN_CREDENTIALS_FILE"
-export S3_ENDPOINT='https://9538d45e127bdb7d6b1bf1ecf9020146.eu.r2.cloudflarestorage.com'
 export S3_ACCESS_KEY_ID='development-r2-access-key'
 export S3_SECRET_ACCESS_KEY="representative'r2\$secret"
-export POSTS_MEDIA_BUCKET='your-say-news-media-development'
 export AGENT_PROVIDER='openai'
 export OPENAI_API_KEY='openai-representative-development-key'
 export OPENAI_MODEL='gpt-5.6-custom'
@@ -62,13 +61,21 @@ if grep -Fq -- 'XAI_API_KEY=' "$runtime_env" \
   || grep -Fq -- 'xai-unselected-development-key' "$runtime_env"; then
   fail 'runtime.env exposes provider-specific or unselected AI credentials'
 fi
-assert_file_contains "$runtime_env" 'VOTE_SUPPRESSION_THRESHOLD=5'
+assert_file_contains "$runtime_env" 'QUARKUS_PROFILE=dev'
 docker compose --env-file "$runtime_env" --file "$deploy_root/compose.yaml" config --quiet
 compose_config="$test_directory/compose-config.yaml"
 docker compose --env-file "$runtime_env" --file "$deploy_root/compose.yaml" \
   --profile migration config > "$compose_config"
-grep -Fq -- 'QUARKUS_HTTP_ROOT_PATH: /api' "$compose_config" \
-  || fail 'Compose does not expose the remote API below /api'
+grep -Fq -- 'QUARKUS_PROFILE: dev' "$compose_config" \
+  || fail 'Compose does not select the hosted dev profile'
+# ADR-055: post-service receives the profile, its secrets and the Firebase SDK's credential path
+# only. Any other variable (a Quarkus property mapping, a feature flag, a threshold) would silently
+# override application.properties.
+post_service_environment=$(docker compose --env-file "$runtime_env" --file "$deploy_root/compose.yaml" \
+  config --format json | jq -r '.services["post-service"].environment | keys | sort | join(" ")')
+expected_post_service_environment='AGENT_API_KEY AGENT_MODEL AGENT_PROVIDER DB_PASSWORD DB_REACTIVE_URL DB_URL DB_USERNAME FIREBASE_PROJECT_ID GOOGLE_APPLICATION_CREDENTIALS QUARKUS_PROFILE S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY'
+[[ "$post_service_environment" == "$expected_post_service_environment" ]] \
+  || fail "post-service environment must be exactly the ADR-055 allowlist, was: $post_service_environment"
 grep -Fq -- "image: $POST_SERVICE_IMAGE" "$compose_config" \
   || fail 'Compose does not use the exact post-service snapshot digest'
 grep -Fq -- "image: $MIGRATION_IMAGE" "$compose_config" \
@@ -143,10 +150,33 @@ if POST_SERVICE_IMAGE='mutable-image:latest' \
   fail 'render-runtime-env accepted a mutable application image'
 fi
 
-if VOTE_SUPPRESSION_THRESHOLD=4 \
-  "$deploy_root/scripts/render-runtime-env.sh" "$test_directory/unsafe-threshold.env" >/dev/null 2>&1; then
-  fail 'render-runtime-env accepted a privacy suppression threshold below 5'
+prod_runtime_env="$test_directory/prod-runtime.env"
+QUARKUS_PROFILE='prod' "$deploy_root/scripts/render-runtime-env.sh" "$prod_runtime_env"
+assert_file_contains "$prod_runtime_env" 'QUARKUS_PROFILE=prod'
+prod_compose_config="$test_directory/prod-compose-config.yaml"
+# Unset the exported test value so Compose reads the profile from the rendered file, as on the VM.
+env -u QUARKUS_PROFILE docker compose --env-file "$prod_runtime_env" --file "$deploy_root/compose.yaml" \
+  config > "$prod_compose_config"
+grep -Fq -- 'QUARKUS_PROFILE: prod' "$prod_compose_config" \
+  || fail 'Compose does not pass the prod profile through'
+
+for laptop_profile in local test; do
+  if QUARKUS_PROFILE="$laptop_profile" \
+    "$deploy_root/scripts/render-runtime-env.sh" "$test_directory/laptop-profile.env" \
+    2>"$test_directory/laptop-profile.err" >/dev/null; then
+    fail "render-runtime-env accepted non-hosted profile '$laptop_profile'"
+  fi
+  grep -Fqx -- 'QUARKUS_PROFILE must be either dev or prod.' "$test_directory/laptop-profile.err" \
+    || fail "render-runtime-env rejected '$laptop_profile' for the wrong reason"
+done
+
+if QUARKUS_PROFILE='' \
+  "$deploy_root/scripts/render-runtime-env.sh" "$test_directory/missing-profile.env" \
+  2>"$test_directory/missing-profile.err" >/dev/null; then
+  fail 'render-runtime-env accepted a missing profile'
 fi
+grep -Fqx -- 'Missing deployment values: QUARKUS_PROFILE' "$test_directory/missing-profile.err" \
+  || fail 'render-runtime-env did not report the missing profile'
 
 for mutable_variable in POST_SERVICE_IMAGE MIGRATION_IMAGE ALLOY_IMAGE; do
   mutable_runtime_env="$test_directory/mutable-${mutable_variable}.env"

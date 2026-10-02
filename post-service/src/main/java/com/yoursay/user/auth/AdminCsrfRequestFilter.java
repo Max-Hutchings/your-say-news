@@ -14,7 +14,7 @@ import java.util.Set;
 
 @ApplicationScoped
 @Priority(Priorities.AUTHORIZATION + 10)
-@IfBuildProfile("dev")
+@IfBuildProfile("local")
 public class AdminCsrfRequestFilter implements ContainerRequestFilter {
 
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS");

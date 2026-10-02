@@ -10,6 +10,7 @@ cleanup() {
 trap cleanup EXIT
 
 required_variables=(
+  QUARKUS_PROFILE
   POST_SERVICE_IMAGE
   MIGRATION_IMAGE
   ALLOY_IMAGE
@@ -20,10 +21,8 @@ required_variables=(
   DB_USERNAME
   DB_PASSWORD
   FIREBASE_PROJECT_ID
-  S3_ENDPOINT
   S3_ACCESS_KEY_ID
   S3_SECRET_ACCESS_KEY
-  POSTS_MEDIA_BUCKET
   GRAFANA_CLOUD_OTLP_ENDPOINT
   GRAFANA_CLOUD_OTLP_AUTHORIZATION
 )
@@ -106,15 +105,20 @@ assert_digest POST_SERVICE_IMAGE
 assert_digest MIGRATION_IMAGE
 assert_digest ALLOY_IMAGE
 
-vote_suppression_threshold=${VOTE_SUPPRESSION_THRESHOLD:-5}
-if [[ ! "$vote_suppression_threshold" =~ ^[0-9]+$ ]] || (( vote_suppression_threshold < 5 )); then
-  echo 'VOTE_SUPPRESSION_THRESHOLD must be an integer of at least 5.' >&2
-  exit 1
-fi
+# ADR-055: the profile picks the image's %dev./%prod. config. Laptop and test profiles never run
+# from a deployment bundle.
+case "$QUARKUS_PROFILE" in
+  dev|prod) ;;
+  *)
+    echo 'QUARKUS_PROFILE must be either dev or prod.' >&2
+    exit 1
+    ;;
+esac
 
 umask 077
 : > "$temporary_file"
 
+write_literal QUARKUS_PROFILE "$QUARKUS_PROFILE"
 write_literal POST_SERVICE_IMAGE "$POST_SERVICE_IMAGE"
 write_literal MIGRATION_IMAGE "$MIGRATION_IMAGE"
 write_literal ALLOY_IMAGE "$ALLOY_IMAGE"
@@ -125,21 +129,15 @@ write_quoted MIGRATION_DB_USERNAME "$MIGRATION_DB_USERNAME"
 write_quoted MIGRATION_DB_PASSWORD "$MIGRATION_DB_PASSWORD"
 write_quoted DB_USERNAME "$DB_USERNAME"
 write_quoted DB_PASSWORD "$DB_PASSWORD"
-write_literal DB_JDBC_MAX_SIZE "${DB_JDBC_MAX_SIZE:-4}"
-write_literal DB_REACTIVE_MAX_SIZE "${DB_REACTIVE_MAX_SIZE:-8}"
 write_literal FIREBASE_PROJECT_ID "$FIREBASE_PROJECT_ID"
 write_quoted FIREBASE_ADMIN_CREDENTIALS_FILE "${FIREBASE_ADMIN_CREDENTIALS_FILE:-./secrets/firebase-admin.json}"
-write_quoted S3_ENDPOINT "$S3_ENDPOINT"
-write_literal S3_REGION "${S3_REGION:-auto}"
 write_quoted S3_ACCESS_KEY_ID "$S3_ACCESS_KEY_ID"
 write_quoted S3_SECRET_ACCESS_KEY "$S3_SECRET_ACCESS_KEY"
-write_quoted POSTS_MEDIA_BUCKET "$POSTS_MEDIA_BUCKET"
 write_literal AGENT_PROVIDER "$agent_provider"
 write_quoted AGENT_API_KEY "$selected_agent_api_key"
 write_literal AGENT_MODEL "$selected_agent_model"
 write_quoted GRAFANA_CLOUD_OTLP_ENDPOINT "$GRAFANA_CLOUD_OTLP_ENDPOINT"
 write_quoted GRAFANA_CLOUD_OTLP_AUTHORIZATION "$GRAFANA_CLOUD_OTLP_AUTHORIZATION"
-write_literal VOTE_SUPPRESSION_THRESHOLD "$vote_suppression_threshold"
 
 chmod 0600 "$temporary_file"
 mv "$temporary_file" "$output_file"

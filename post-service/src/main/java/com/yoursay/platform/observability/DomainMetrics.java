@@ -26,7 +26,7 @@ public class DomainMetrics {
     @Inject
     MeterRegistry registry;
 
-    @ConfigProperty(name = "quarkus.profile", defaultValue = "prod")
+    @ConfigProperty(name = "app.environment")
     String environment;
 
     public void recordRequest(String domain, String operation, int status, long durationNanos) {
