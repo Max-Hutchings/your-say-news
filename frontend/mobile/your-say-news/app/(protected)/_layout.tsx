@@ -42,6 +42,7 @@ export default function ProtectedLayout() {
                 }}
             />
             <Stack.Screen name="posts/[postId]/unwrapped" />
+            <Stack.Screen name="posts/[postId]/results" />
             <Stack.Screen name="account" options={{ presentation: "modal" }} />
             <Stack.Screen name="settings" />
             <Stack.Screen

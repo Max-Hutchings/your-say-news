@@ -8,11 +8,16 @@ import { useVote } from "../hooks/use-vote";
 import type { VoteErrorKind } from "../types";
 import { MultipleChoiceVoteSheet } from "./MultipleChoiceVoteSheet";
 
-export function VoteControls({ postId, votingType, options, supportQuestion }: {
+/**
+ * `resultsHref` is where a successful vote and "See how others voted" lead. The caller chooses it
+ * from the Unwrapped feature flags, so this domain never depends on Unwrapped.
+ */
+export function VoteControls({ postId, votingType, options, supportQuestion, resultsHref }: {
   postId: number;
   votingType: VotingType;
   options: VoteOption[];
   supportQuestion: string;
+  resultsHref: Href;
   onNextPost?: () => void;
 }) {
   const { isDark } = useTheme();
@@ -25,7 +30,7 @@ export function VoteControls({ postId, votingType, options, supportQuestion }: {
   const record = async (optionId: number) => {
     if (await vote(optionId)) {
       setChoiceOpen(false);
-      router.push(`/posts/${postId}/unwrapped` as Href);
+      router.push(resultsHref);
     }
   };
 
@@ -65,7 +70,7 @@ export function VoteControls({ postId, votingType, options, supportQuestion }: {
 
       {locked && (
         <Pressable testID="see-results" accessibilityRole="button"
-          onPress={() => router.push(`/posts/${postId}/unwrapped` as Href)}
+          onPress={() => router.push(resultsHref)}
           style={[styles.resultsBtn, { borderColor: e.border, backgroundColor: e.surface }]}>
           <Ionicons name="stats-chart" size={16} color={e.teal} />
           <Text style={[styles.resultsText, { color: e.ink }]}>See how others voted</Text>

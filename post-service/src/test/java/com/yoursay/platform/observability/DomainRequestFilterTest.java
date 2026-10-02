@@ -100,6 +100,15 @@ class DomainRequestFilterTest {
     }
 
     @Test
+    void namesTheUnwrappedFeatureAndReaderGenerationRoutes() {
+        assertEquals("unwrapped", DomainRequestFilter.domainFromPath("/unwrapped/features"));
+        assertEquals("GET.unwrapped.features",
+                DomainRequestFilter.operationFrom("GET", "/unwrapped/features"));
+        assertEquals("POST.posts.{id}.unwrapped.generate",
+                DomainRequestFilter.operationFrom("POST", "/posts/2007/unwrapped/generate"));
+    }
+
+    @Test
     void reportsAnUnmappedRouteAsUnknownSoItSurfacesOnTheOverviewDashboard() {
         assertEquals("unknown", DomainRequestFilter.domainFromPath("/something-new"));
         assertEquals("unknown", DomainRequestFilter.domainFromPath("/api/admin/auto-postevil/runs"));

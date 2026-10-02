@@ -9,6 +9,18 @@ public class UnwrappedApiException extends ApiException {
         super("unwrapped", code, status, message);
     }
 
+    private UnwrappedApiException(String code, Response.Status status, String message,
+                                  String publicMessage) {
+        super("unwrapped", code, status, message, publicMessage, true);
+    }
+
+    /** The kill switch is off; refusing is the contract working, so it is an expected rejection. */
+    public static UnwrappedApiException disabled() {
+        return new UnwrappedApiException("UNWRAPPED_DISABLED", Response.Status.CONFLICT,
+                "Post Unwrapped is disabled by unwrapped.features.enabled",
+                "Post Unwrapped is turned off.");
+    }
+
     public static UnwrappedApiException storyMissing(UUID storyId) {
         return new UnwrappedApiException("UNWRAPPED_STORY_NOT_FOUND", Response.Status.NOT_FOUND,
                 "Unwrapped story was not found: storyId=" + storyId);

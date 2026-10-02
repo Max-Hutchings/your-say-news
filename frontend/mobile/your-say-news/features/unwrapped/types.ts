@@ -61,3 +61,17 @@ export interface FollowUpResponse {
   changed: boolean;
   createdAt: string;
 }
+
+/** Post Unwrapped feature flags served by GET /unwrapped/features (ADR-054). */
+export interface UnwrappedFeatures {
+  /** False hides Unwrapped completely. */
+  enabled: boolean;
+  /** True sends a voter to the results with an Unwrap button rather than straight into Unwrapped. */
+  unwrapButton: boolean;
+}
+
+export interface UnwrapRequest {
+  postId: number;
+  /** False while the post is below the vote count needed to queue generation. */
+  queued: boolean;
+}

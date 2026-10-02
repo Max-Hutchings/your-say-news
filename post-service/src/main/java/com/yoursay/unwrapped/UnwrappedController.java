@@ -5,6 +5,7 @@ import com.yoursay.unwrapped.dto.FollowUpRequest;
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 
 import com.yoursay.unwrapped.dto.FollowUpResponseDto;
+import com.yoursay.unwrapped.dto.UnwrapRequestDto;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -40,6 +41,16 @@ public class UnwrappedController {
     public UnwrappedResponseDto get(@PathParam("postId") Long postId,
                                     @HeaderParam("Authorization") String authorization) {
         return service.get(postId, identity.getPrincipal().getName(), authorization);
+    }
+
+    /** A voter tapped Unwrap: queues generation once the post has enough votes. */
+    @POST
+    @Path("/generate")
+    @Consumes(MediaType.WILDCARD)
+    @ResponseStatus(202)
+    public UnwrapRequestDto requestGeneration(@PathParam("postId") Long postId,
+                                              @HeaderParam("Authorization") String authorization) {
+        return service.requestGeneration(postId, identity.getPrincipal().getName(), authorization);
     }
 
     @POST

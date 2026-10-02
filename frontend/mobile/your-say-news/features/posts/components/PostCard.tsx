@@ -13,6 +13,7 @@ import * as Linking from "expo-linking";
 import { useRouter, type Href } from "expo-router";
 import { useTheme, getEditorial, EditorialFont, feedMediaHeight } from "@/constants/theme";
 import { VoteControls } from "@/features/votes";
+import { postVoteHref, useUnwrappedFeatures } from "@/features/unwrapped";
 import type { Post } from "../types";
 import { PostSources } from "./PostSources";
 import { PostVideo } from "./PostVideo";
@@ -54,6 +55,7 @@ export function PostCard({
   const router = useRouter();
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
+  const unwrappedFeatures = useUnwrappedFeatures();
   const window = useWindowDimensions();
   const cardHeight = height ?? window.height;
 
@@ -159,9 +161,11 @@ export function PostCard({
     </View>
   ) : null;
 
-  // The vote — always visible. The votes domain owns the interaction, locked state and errors.
+  // The vote — always visible. The votes domain owns the interaction, locked state and errors;
+  // the Unwrapped flags decide whether a vote opens the results page or Unwrapped itself.
   const voteRow = <VoteControls postId={post.id} votingType={post.votingType}
-    options={post.voteOptions} supportQuestion={post.supportQuestion} onNextPost={onNextPost} />;
+    options={post.voteOptions} supportQuestion={post.supportQuestion}
+    resultsHref={postVoteHref(post.id, unwrappedFeatures)} onNextPost={onNextPost} />;
   // The author's public handle, served with the post. A post whose author the service cannot
   // resolve still reads, so the pill falls back to a neutral label rather than an empty chip.
   const authorLabel = post.authorUsername ? `@${post.authorUsername}` : "Unknown author";

@@ -19,6 +19,8 @@ import com.yoursay.unwrapped.dto.UnwrappedBenchmarkPromptDto;
 import com.yoursay.unwrapped.dto.UnwrappedBenchmarkResponseDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminPostDto;
 import com.yoursay.unwrapped.dto.UnwrappedAdminVoteOptionDto;
+import com.yoursay.unwrapped.dto.UnwrappedFeaturesDto;
+import com.yoursay.unwrapped.dto.UnwrapRequestDto;
 import com.yoursay.unwrapped.dto.UnwrappedResearchDraftV1;
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 import com.yoursay.unwrapped.UnwrappedService;
@@ -44,8 +46,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -90,9 +94,19 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     EntityManager entityManager;
     @Inject
     AiConfig aiConfig;
+    @Inject
+    UnwrappedFeatureFlags featureFlags;
+    @ConfigProperty(name = "unwrapped.reader-generation.minimum-votes", defaultValue = "500")
+    long readerGenerationMinimumVotes;
+
+    @Override
+    public UnwrappedFeaturesDto features() {
+        return new UnwrappedFeaturesDto(featureFlags.enabled(), featureFlags.unwrapButton());
+    }
 
     @Override
     public UnwrappedResponseDto get(Long postId, String callerEmail, String authorization) {
+        featureFlags.assertEnabled();
         voteService.assertResultsUnlocked(postId, callerEmail, authorization);
         Long originalOptionId = voteService.getMyVote(postId, callerEmail, authorization)
                 .orElseThrow()
@@ -170,6 +184,7 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     @Transactional
     public FollowUpResponseDto followUp(Long postId, UUID storyId, Long optionId,
                                         String callerEmail, String authorization) {
+        featureFlags.assertEnabled();
         voteService.assertResultsUnlocked(postId, callerEmail, authorization);
         Long userId = userId(callerEmail);
         Optional<UnwrappedFollowUp> existing = followUpRepository.findByUserAndPost(userId, postId);
@@ -194,6 +209,7 @@ public class UnwrappedServiceImpl implements UnwrappedService {
     @Override
     @Transactional
     public UnwrappedGenerationTriggerDto triggerGeneration(Long postId) {
+        featureFlags.assertEnabled();
         postService.findByPostId(postId)
                 .orElseThrow(() -> UnwrappedApiException.postMissing(postId));
         // Reusing the existing failed job keeps the attempt history for the milestone; only when
@@ -202,6 +218,24 @@ public class UnwrappedServiceImpl implements UnwrappedService {
             milestoneService.markForReconciliation(postId);
         }
         return new UnwrappedGenerationTriggerDto(postId, "RECONCILIATION_QUEUED");
+    }
+
+    @Override
+    @Transactional
+    public UnwrapRequestDto requestGeneration(Long postId, String callerEmail, String authorization) {
+        featureFlags.assertEnabled();
+        voteService.assertResultsUnlocked(postId, callerEmail, authorization);
+        boolean queued = hasReaderGenerationVotes(postId);
+        if (queued) {
+            milestoneService.markForReconciliation(postId);
+        }
+        Log.infof("Unwrapped generation requested by voter: domain=unwrapped operation=reader_generation_request postId=%d queued=%s",
+                postId, queued);
+        return new UnwrapRequestDto(postId, queued);
+    }
+
+    private boolean hasReaderGenerationVotes(Long postId) {
+        return voteService.countForPost(postId) >= readerGenerationMinimumVotes;
     }
 
     private boolean retryFailedJobAtCurrentMilestone(Long postId) {
@@ -233,6 +267,7 @@ public class UnwrappedServiceImpl implements UnwrappedService {
 
     @Override
     public UnwrappedBenchmarkResponseDto generateBenchmark(Long postId, List<String> systemPrompts) {
+        featureFlags.assertEnabled();
         PostVotingConfigurationDto post = postService.findByPostId(postId)
                 .orElseThrow(() -> UnwrappedApiException.postMissing(postId));
         var variants = benchmarkRunner.run(postId, systemPrompts);

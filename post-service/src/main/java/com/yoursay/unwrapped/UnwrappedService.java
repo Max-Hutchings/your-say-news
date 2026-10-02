@@ -6,6 +6,8 @@ import com.yoursay.unwrapped.dto.UnwrappedGenerationTriggerDto;
 import com.yoursay.unwrapped.dto.UnwrappedGenerationMonitorDto;
 import com.yoursay.unwrapped.dto.UnwrappedBenchmarkPromptDto;
 import com.yoursay.unwrapped.dto.UnwrappedBenchmarkResponseDto;
+import com.yoursay.unwrapped.dto.UnwrappedFeaturesDto;
+import com.yoursay.unwrapped.dto.UnwrapRequestDto;
 
 import com.yoursay.unwrapped.dto.UnwrappedResponseDto;
 
@@ -29,8 +31,9 @@ import java.util.UUID;
  *
  * <p>The methods participate in the journey in this order:</p>
  * <ol>
- *     <li>An administrator explicitly calls {@link #triggerGeneration(Long)}. Only that action
- *     places a post into background reconciliation and generation.</li>
+ *     <li>An administrator calls {@link #triggerGeneration(Long)}, or a voter who has voted taps
+ *     Unwrap and the voter API calls {@link #requestGeneration(Long, String, String)}. Only these
+ *     two actions place a post into background reconciliation and generation.</li>
  *     <li>The admin API calls {@link #reviewQueue()} to find drafts and
  *     {@link #reviewStory(UUID)} to inspect one.</li>
  *     <li>The admin API calls either {@link #approve(UUID, String)} or
@@ -44,9 +47,14 @@ import java.util.UUID;
  * </ol>
  *
  * <p>No other domain currently imports this interface. Casting a vote never queues Unwrapped
- * generation.</p>
+ * generation. When the {@code unwrapped.features.enabled} kill switch is off, every method that
+ * generates, queues or serves Unwrapped content refuses with {@code UNWRAPPED_DISABLED}
+ * (ADR-054).</p>
  */
 public interface UnwrappedService {
+    /** Returns the feature flags the app uses to choose a voter's post-vote journey. */
+    UnwrappedFeaturesDto features();
+
     /**
      * Returns the newest approved story eligible for the post's current canonical vote count.
      *
@@ -83,14 +91,29 @@ public interface UnwrappedService {
     /**
      * Explicitly requests milestone reconciliation for one post.
      *
-     * <p>This administrator-only path is the sole production entry point into generation. It does
-     * not bypass milestone eligibility. The reconciliation worker counts committed votes and
+     * <p>This administrator path, together with {@link #requestGeneration(Long, String, String)},
+     * is a production entry point into generation. It does not bypass milestone eligibility. The reconciliation worker counts committed votes and
      * idempotently creates the current milestone job only after this request.</p>
      *
      * @param postId post whose administrator-requested Unwrapped reconciliation should run
      * @return acknowledgement that reconciliation was queued
      */
     UnwrappedGenerationTriggerDto triggerGeneration(Long postId);
+
+    /**
+     * Queues milestone reconciliation when a voter taps Unwrap.
+     *
+     * <p>The caller must have voted on the post. The post is queued only once it has at least
+     * {@code unwrapped.reader-generation.minimum-votes} votes (500 by default). Unlike the admin
+     * trigger, a failed job is never retried from here, so repeated taps cannot repeat paid model
+     * calls.</p>
+     *
+     * @param postId post the voter wants unwrapped
+     * @param callerEmail authenticated caller's canonical email
+     * @param authorization caller's authorization header forwarded to the votes boundary
+     * @return whether the post was queued
+     */
+    UnwrapRequestDto requestGeneration(Long postId, String callerEmail, String authorization);
 
     /** Returns the current prompt and aggregate-only model input for the benchmark editors. */
     UnwrappedBenchmarkPromptDto benchmarkPrompt(Long postId);

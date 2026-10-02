@@ -3,6 +3,7 @@ import { act, render, screen, fireEvent, waitFor, within } from "@testing-librar
 import { ThemeProvider } from "@/constants/theme";
 import { PostCard } from "./PostCard";
 import type { Post } from "../types";
+import { resetUnwrappedFeatures } from "@/features/unwrapped/hooks/use-unwrapped-features";
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
@@ -26,6 +27,12 @@ const mockCast = jest.fn();
 jest.mock("@/features/votes/services/VoteService", () => ({
   getMyVote: (...args: unknown[]) => mockGetMine(...args),
   castVote: (...args: unknown[]) => mockCast(...args),
+}));
+
+// The card asks the Unwrapped flags where a vote should lead. Default: both flags off.
+const mockGetFeatures = jest.fn();
+jest.mock("@/features/unwrapped/services/UnwrappedService", () => ({
+  getUnwrappedFeatures: (...args: unknown[]) => mockGetFeatures(...args),
 }));
 
 // expo-video is a native module; stub the player + a testable VideoView surface.
@@ -107,6 +114,8 @@ describe("PostCard", () => {
     mockPush.mockReset();
     mockGetMine.mockReset().mockResolvedValue(null);
     mockCast.mockReset();
+    mockGetFeatures.mockReset().mockResolvedValue({ enabled: true, unwrapButton: true });
+    resetUnwrappedFeatures();
     mockUseVideoPlayer.mockReset();
     mockCreateUrl.mockReset().mockReturnValue("yoursaynews://posts/7");
     mockSetStringAsync.mockReset().mockResolvedValue(undefined);
@@ -197,6 +206,23 @@ describe("PostCard", () => {
     // …and the support question + case cards are still shown alongside it.
     expect(screen.getByText(/Do you agree the cycle lane should go ahead\?/)).toBeOnTheScreen();
     expect(screen.getByText("THE CASE FOR")).toBeOnTheScreen();
+  });
+
+  it.each([
+    [{ enabled: true, unwrapButton: false }, "/posts/7/unwrapped"],
+    [{ enabled: true, unwrapButton: true }, "/posts/7/results"],
+    [{ enabled: false, unwrapButton: false }, "/posts/7/results"],
+  ])("with Unwrapped flags %j a vote opens %s", async (features, href) => {
+    mockGetFeatures.mockResolvedValue(features);
+    mockCast.mockResolvedValue({ id: 1, postId: basePost.id, optionId: 71 });
+    renderWithTheme(<PostCard post={basePost} />);
+    await waitFor(() => expect(mockGetFeatures).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByTestId("vote-agree").props.accessibilityState.disabled).toBe(false)
+    );
+    fireEvent.press(screen.getByTestId("vote-agree"));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith(href));
   });
 
   it("renders an image from its presigned url", () => {

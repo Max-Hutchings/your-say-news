@@ -1,4 +1,4 @@
-import { getUnwrapped, submitFollowUp } from "./UnwrappedService";
+import { getUnwrapped, getUnwrappedFeatures, requestUnwrap, submitFollowUp } from "./UnwrappedService";
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -67,4 +67,18 @@ test("propagates a gated or unavailable response instead of manufacturing a stor
   mockPost.mockRejectedValue(conflict);
   await expect(submitFollowUp(7, "4e11bdba-3ae0-4c76-963a-d5b3b2db597f", 72))
     .rejects.toBe(conflict);
+});
+
+test("reads the Unwrapped feature flags from the backend", async () => {
+  mockGet.mockResolvedValue({ data: { enabled: true, unwrapButton: false } });
+
+  await expect(getUnwrappedFeatures()).resolves.toEqual({ enabled: true, unwrapButton: false });
+  expect(mockGet).toHaveBeenCalledWith("http://posts.local:8082/unwrapped/features");
+});
+
+test("asks the backend to unwrap one post", async () => {
+  mockPost.mockResolvedValue({ data: { postId: 7, queued: true } });
+
+  await expect(requestUnwrap(7)).resolves.toEqual({ postId: 7, queued: true });
+  expect(mockPost).toHaveBeenCalledWith("http://posts.local:8082/posts/7/unwrapped/generate");
 });
