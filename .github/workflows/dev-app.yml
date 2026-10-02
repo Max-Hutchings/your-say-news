@@ -1,7 +1,8 @@
 name: Application Development
 
-# Called only by CI (ci.yml) after every test job passes on a push to main. Tests, builds,
-# publishes and deploys that exact commit to development; no branch or manual trigger can deploy.
+# Called only by CI (ci.yml) after every test job passes on a push to main. Packages the jar CI
+# already built and tested, then publishes and deploys that exact commit to development; no branch
+# or manual trigger can deploy.
 on:
   workflow_call:
 
@@ -24,21 +25,12 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 10
     outputs:
       short-sha: ${{ steps.test.outputs.short-sha }}
     steps:
       - name: Check out the exact source revision
         uses: actions/checkout@v6
-
-      - name: Set up GraalVM 25
-        uses: graalvm/setup-graalvm@v1
-        with:
-          distribution: graalvm
-          java-version: 25
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
 
       - name: Test the commit snapshot
         id: test
@@ -53,18 +45,10 @@ jobs:
       - name: Check out the exact source revision
         uses: actions/checkout@v6
 
-      - name: Set up GraalVM 25
-        uses: graalvm/setup-graalvm@v1
-        with:
-          distribution: graalvm
-          java-version: 25
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Build the post-service image
         uses: ./.github/templates/application/build/post-service
         with:
+          app-artifact: post-service-quarkus-app-${{ github.sha }}
           image-artifact: post-service-snapshot-image-${{ needs.test.outputs.short-sha }}
           image-name: ${{ env.POST_SERVICE_SNAPSHOT_IMAGE }}
           short-sha: ${{ needs.test.outputs.short-sha }}

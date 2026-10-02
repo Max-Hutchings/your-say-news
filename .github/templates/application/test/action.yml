@@ -1,5 +1,7 @@
 name: Test application snapshot
-description: Test the backend and deployment contract without building or publishing image archives.
+description: >-
+  Test the deployment contract and resolve the snapshot revision. post-service itself is already
+  built and tested by the CI backend job that gates this workflow.
 
 outputs:
   short-sha:
@@ -20,14 +22,6 @@ runs:
         fi
         echo "short-sha=$short_sha" >> "$GITHUB_OUTPUT"
         echo "::notice title=Snapshot revision::Commit snapshot names will use $short_sha"
-
-    - name: Test post-service
-      shell: bash
-      run: |
-        echo "::group::Testing post-service"
-        ./gradlew :post-service:check
-        echo "::endgroup::"
-        echo "::notice title=Application tests passed::post-service was tested with GraalVM 25"
 
     - name: Test the deployment contract
       shell: bash
