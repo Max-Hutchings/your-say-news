@@ -43,6 +43,8 @@ class UnwrappedServiceImplTest {
         service.followUpRepository = followUps;
         service.userService = users;
         service.jobRepository = jobs;
+        service.featureFlags = new UnwrappedFeatureFlags();
+        service.featureFlags.enabled = true;
 
         UnwrappedResponseDto response = service.get(
                 42L, "voter@example.com", "Bearer token");

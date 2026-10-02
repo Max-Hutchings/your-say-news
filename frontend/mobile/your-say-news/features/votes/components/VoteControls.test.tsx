@@ -25,7 +25,8 @@ const multipleOptions = [
 function renderControls(votingType: "BINARY" | "MULTIPLE_CHOICE" = "BINARY") {
   return render(<ThemeProvider><VoteControls postId={7} votingType={votingType}
     options={votingType === "BINARY" ? binaryOptions : multipleOptions}
-    supportQuestion="Which transport change should happen first?" /></ThemeProvider>);
+    supportQuestion="Which transport change should happen first?"
+    resultsHref="/posts/7/results" /></ThemeProvider>);
 }
 beforeEach(() => jest.clearAllMocks());
 
@@ -38,10 +39,10 @@ describe("VoteControls", () => {
     fireEvent.press(screen.getByTestId("vote-agree"));
     await waitFor(() => expect(screen.getByText("You voted — Agree")).toBeOnTheScreen());
     expect(mockCast).toHaveBeenCalledWith(7, 71);
-    expect(mockPush).toHaveBeenCalledWith("/posts/7/unwrapped");
+    expect(mockPush).toHaveBeenCalledWith("/posts/7/results");
   });
 
-  it("maps Disagree to its immutable option id and opens Unwrapped only after success", async () => {
+  it("maps Disagree to its immutable option id and opens the results only after success", async () => {
     mockGetMine.mockResolvedValue(null);
     mockCast.mockResolvedValue({ id: 3, postId: 7, optionId: 72 });
     renderControls();
@@ -51,7 +52,7 @@ describe("VoteControls", () => {
 
     await waitFor(() => expect(mockCast).toHaveBeenCalledWith(7, 72));
     expect(screen.getByText("You voted — Disagree")).toBeOnTheScreen();
-    expect(mockPush).toHaveBeenCalledWith("/posts/7/unwrapped");
+    expect(mockPush).toHaveBeenCalledWith("/posts/7/results");
   });
 
   it("does not navigate when the canonical vote write fails", async () => {
@@ -78,7 +79,7 @@ describe("VoteControls", () => {
     fireEvent.press(screen.getByRole("button", { name: "Submit choice" }));
     await waitFor(() => expect(mockCast).toHaveBeenCalledWith(7, 74));
     expect(await screen.findByText("You chose — Protected cycle lanes")).toBeOnTheScreen();
-    expect(mockPush).toHaveBeenCalledWith("/posts/7/unwrapped");
+    expect(mockPush).toHaveBeenCalledWith("/posts/7/results");
   });
 
   it("shows the truthful stored choice on an already-voted card", async () => {
@@ -88,6 +89,6 @@ describe("VoteControls", () => {
     fireEvent.press(screen.getByTestId("vote-multiple-choice"));
     expect(mockCast).not.toHaveBeenCalled();
     fireEvent.press(screen.getByTestId("see-results"));
-    expect(mockPush).toHaveBeenCalledWith("/posts/7/unwrapped");
+    expect(mockPush).toHaveBeenCalledWith("/posts/7/results");
   });
 });

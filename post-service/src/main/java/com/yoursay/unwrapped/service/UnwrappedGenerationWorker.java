@@ -27,12 +27,14 @@ public class UnwrappedGenerationWorker {
     DomainMetrics metrics;
     @Inject
     AiConfig aiConfig;
+    @Inject
+    UnwrappedFeatureFlags featureFlags;
 
     @Scheduled(identity = "unwrapped-generation-worker",
             every = "${unwrapped.jobs.poll-interval:2s}", concurrentExecution = SKIP)
     @RunOnVirtualThread
     public void processNext() {
-        if (!aiConfig.unwrapped().configured()) {
+        if (!featureFlags.enabled() || !aiConfig.unwrapped().configured()) {
             return;
         }
         Optional<UnwrappedJobProcessor.JobWork> claimed = processor.claimNext();

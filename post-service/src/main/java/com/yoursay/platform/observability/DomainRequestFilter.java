@@ -35,6 +35,7 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
             new DomainRoute("api/admin/users", "user"),
             new DomainRoute("api/auth/admin", "user"),
             new DomainRoute("topic-tags", "topics"),
+            new DomainRoute("unwrapped", "unwrapped"),
             new DomainRoute("posts", "posts"),
             new DomainRoute("votes", "votes"),
             new DomainRoute("feed", "feed"),
@@ -62,7 +63,7 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
      */
     private static final Set<String> ROUTE_LITERALS = Set.of(
             "access", "active", "admin", "agent", "api", "approve", "auth", "auto-post", "benchmark",
-            "candidates", "consent", "context", "count", "data", "drafts", "email", "events", "feed",
+            "candidates", "consent", "context", "count", "data", "drafts", "email", "events", "features", "feed",
             "follow-up", "followers", "following",
             "follows", "generate", "generation-status", "id", "income-options", "latest", "live",
             "me", "media", "mine", "onboarding", "options", "posts", "presign", "profiles", "q",

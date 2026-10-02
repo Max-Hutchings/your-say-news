@@ -23,6 +23,8 @@ public class UnwrappedReconciliationWorker {
     EntityManager entityManager;
     @Inject
     UnwrappedAnalysisJobRepository jobs;
+    @Inject
+    UnwrappedFeatureFlags featureFlags;
     @ConfigProperty(name = "unwrapped.jobs.retry-enabled", defaultValue = "false")
     boolean retryEnabled;
 
@@ -34,12 +36,16 @@ public class UnwrappedReconciliationWorker {
      * because Unwrapped must not import the votes domain's internal entities or repositories.
      * Panache would not remove either database-specific operation, so native SQL keeps the queue
      * semantics explicit while Panache remains responsible for ordinary analysis-job persistence.</p>
+     *
+     * <p>While the kill switch is off nothing is claimed, so queued posts wait untouched until
+     * Unwrapped is enabled again.</p>
      */
     @Scheduled(identity = "unwrapped-milestone-reconciliation",
             every = "${unwrapped.jobs.reconcile-interval:2s}", concurrentExecution = SKIP)
     @RunOnVirtualThread
     @Transactional
     public void reconcileOne() {
+        if (!featureFlags.enabled()) return;
         @SuppressWarnings("unchecked")
         List<Number> postIds = entityManager.createNativeQuery("""
                 select post_id from unwrapped_reconciliation
