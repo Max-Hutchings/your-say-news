@@ -3,7 +3,13 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
 import type { SessionRestoreResult, User, UserState } from "../types";
-import { hasFirebaseSession, logoutFirebase, signInWithTestAccount } from "./firebaseService";
+import {
+    hasFirebaseSession,
+    logoutFirebase,
+    signInWithGoogle,
+    signInWithTestAccount,
+    usesHostedGoogleAuth,
+} from "./firebaseService";
 import { getOnboardingStatus, getUser, verifySession } from "./UserService";
 
 const isWeb = Platform.OS === "web";
@@ -56,7 +62,10 @@ export const useAuthStore = create(
 );
 
 async function login(email: string, password: string): Promise<boolean> {
-    if (!await signInWithTestAccount(email, password)) {
+    const authenticated = usesHostedGoogleAuth()
+        ? await signInWithGoogle()
+        : await signInWithTestAccount(email, password);
+    if (!authenticated) {
         return false;
     }
     return completeLogin();

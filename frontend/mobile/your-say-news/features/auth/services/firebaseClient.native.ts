@@ -11,11 +11,13 @@ const extra = Constants.expoConfig?.extra ?? {};
 const config = firebaseClientConfig(extra);
 const app = getApps().find(({ name }) => name === FIREBASE_AUTH_APP_NAME)
     ?? initializeApp(config.options, FIREBASE_AUTH_APP_NAME);
-const emulatorUrl = config.emulatorUrl
-    .replace("localhost", "10.0.2.2")
-    .replace("127.0.0.1", "10.0.2.2");
 
 export const firebaseAuth = initializeAuth(app, {
     persistence: getReactNativePersistence(AsyncStorage),
 });
-connectAuthEmulator(firebaseAuth, emulatorUrl, { disableWarnings: true });
+if (config.emulatorUrl) {
+    const emulatorUrl = config.emulatorUrl
+        .replace("localhost", "10.0.2.2")
+        .replace("127.0.0.1", "10.0.2.2");
+    connectAuthEmulator(firebaseAuth, emulatorUrl, { disableWarnings: true });
+}

@@ -9,7 +9,7 @@ const DEFAULT_EMULATOR_URL = "http://localhost:9099";
 
 export function firebaseClientConfig(extra: Record<string, unknown>): {
     options: FirebaseOptions;
-    emulatorUrl: string;
+    emulatorUrl: string | null;
 } {
     const projectId = configuredString(extra.FIREBASE_PROJECT_ID, DEFAULT_PROJECT_ID);
     return {
@@ -19,7 +19,9 @@ export function firebaseClientConfig(extra: Record<string, unknown>): {
             projectId,
             appId: configuredString(extra.FIREBASE_APP_ID, DEFAULT_APP_ID),
         },
-        emulatorUrl: configuredString(extra.FIREBASE_AUTH_EMULATOR_URL, DEFAULT_EMULATOR_URL),
+        emulatorUrl: extra.AUTH_MODE === "google"
+            ? null
+            : configuredString(extra.FIREBASE_AUTH_EMULATOR_URL, DEFAULT_EMULATOR_URL),
     };
 }
 

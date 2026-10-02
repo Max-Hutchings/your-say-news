@@ -64,13 +64,14 @@ hcloud_server_type = "cx23"
 hcloud_image       = "ubuntu-24.04"
 hcloud_ssh_key_names = [
   "TheoHutchings908-your-say-news-development",
+  "github-actions-your-say-news-development",
 ]
 hcloud_ipv4_enabled = false # IPv6-only host; avoids the paid primary IPv4 charge.
 
 # Aiven project/service options.
 aiven_project_name        = "your-say-news-development"
 aiven_service_name        = "your-say-news-development"
-aiven_cloud_name          = null # Aiven assigns the Free-tier provider and region.
+aiven_cloud_name          = "do-lon" # Free creation is restricted to DigitalOcean or UpCloud; keep development near UK users.
 aiven_plan                = "free-1-1gb"
 aiven_database_name       = "your_say_news"
 aiven_database_user_names = ["ysn_migration", "ysn_runtime"]

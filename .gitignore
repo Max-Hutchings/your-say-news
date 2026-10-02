@@ -67,6 +67,9 @@ nb-configuration.xml
 !.env.example
 *.local
 service/deploy/runtime.env
+google-services*.json
+# EAS must be run from the mobile project; ignore the empty config it creates at the monorepo root.
+/app.json
 
 # Terraform working data and local backend configuration
 **/.terraform/

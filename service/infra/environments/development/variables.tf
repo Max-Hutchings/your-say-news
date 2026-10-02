@@ -155,7 +155,7 @@ variable "aiven_service_name" {
 }
 
 variable "aiven_cloud_name" {
-  description = "Optional Aiven cloud identifier. Null lets Aiven assign the Free-tier provider and region."
+  description = "Optional Aiven cloud identifier. Null selects the first advertised DigitalOcean or UpCloud region accepted for Free creation."
   type        = string
   default     = null
 }

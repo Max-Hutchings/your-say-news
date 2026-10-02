@@ -2,6 +2,7 @@
   "expo": {
     "name": "your-say-news",
     "slug": "your-say-news",
+    "owner": "your-say-news",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,6 +13,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.yoursaynews.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -40,8 +42,21 @@
         }
       ],
       "expo-secure-store",
-      "expo-video"
+      "expo-video",
+      "@react-native-google-signin/google-signin",
+      "expo-updates"
     ],
+    "extra": {
+      "eas": {
+        "projectId": "4e62f40e-0837-4caf-9e26-e3d33e77e4ad"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4e62f40e-0837-4caf-9e26-e3d33e77e4ad"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

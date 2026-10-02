@@ -9,6 +9,7 @@ Architecture designs and reference material for Your Say News.
   - [`plans/feed-ranking.md`](plans/feed-ranking.md) — the swappable `FeedRanker` contract.
 - **[`plans/`](./plans)** — individual feature implementation plans written before building.
 - **[`test-accounts.md`](./test-accounts.md)** - seeded Firebase Emulator/DB login accounts for dev.
+- **[`development-deployment-handover-2026-09-06.md`](./development-deployment-handover-2026-09-06.md)** — current development cloud, SSH, Expo and deployment handover.
 
 ## Conventions
 
