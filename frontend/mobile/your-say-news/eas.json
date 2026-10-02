@@ -35,6 +35,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "development-store": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
   }
 }
