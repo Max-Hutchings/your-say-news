@@ -17,12 +17,15 @@ services:
     image: ${POST_SERVICE_IMAGE:?POST_SERVICE_IMAGE must be an immutable image digest}
     user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
+    # chmod must run while root still owns the file: without CAP_FOWNER, root cannot change the mode
+    # of a file it has handed to 185. rm -f gives a redeploy a fresh root-owned copy for the same reason.
     command:
       - >-
         umask 077 &&
+        rm -f /credentials/firebase-admin.json &&
         cp /source/firebase-admin.json /credentials/firebase-admin.json &&
-        chown 185:185 /credentials/firebase-admin.json &&
-        chmod 0400 /credentials/firebase-admin.json
+        chmod 0400 /credentials/firebase-admin.json &&
+        chown 185:185 /credentials/firebase-admin.json
     read_only: true
     cap_drop:
       - ALL

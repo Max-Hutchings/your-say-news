@@ -63,6 +63,29 @@ if grep -Fq -- 'XAI_API_KEY=' "$runtime_env" \
 fi
 assert_file_contains "$runtime_env" 'QUARKUS_PROFILE=dev'
 docker compose --env-file "$runtime_env" --file "$deploy_root/compose.yaml" config --quiet
+
+# Runs the real firebase-credentials service with its real capabilities, on the post-service base
+# image, for a first deploy and a redeploy. The host file is 0600 and owned by the deploy user, as
+# on the VM. post-service (UID 185) must end up with a read-only copy it owns.
+credential_base_image='ubuntu:24.04@sha256:019e8eb29a85e74d64925745884f2ec79aa27e3feab36353d24656f4d6b89467'
+credential_project="ysn-credentials-test-$$"
+credential_source="$test_directory/host-secrets/firebase-admin.json"
+install -d -m 0700 "$(dirname "$credential_source")"
+install -m 0600 "$FIREBASE_ADMIN_CREDENTIALS_FILE" "$credential_source"
+credential_compose() {
+  POST_SERVICE_IMAGE="$credential_base_image" FIREBASE_ADMIN_CREDENTIALS_FILE="$credential_source" \
+    docker compose --project-name "$credential_project" --env-file "$runtime_env" \
+    --file "$deploy_root/compose.yaml" "$@"
+}
+trap 'credential_compose down --volumes >/dev/null 2>&1 || true; cleanup' EXIT
+for deploy_attempt in first redeploy; do
+  credential_compose run --rm firebase-credentials >/dev/null \
+    || fail "firebase-credentials failed on the $deploy_attempt deploy"
+done
+credential_copy=$(docker run --rm --volume "${credential_project}_firebase-credentials:/credentials:ro" \
+  "$credential_base_image" sh -c 'stat -c "%u:%g %a" /credentials/firebase-admin.json && cat /credentials/firebase-admin.json')
+[[ "$credential_copy" == "185:185 400"$'\n'"$(cat "$credential_source")" ]] \
+  || fail "firebase-credentials must leave a 0400 copy owned by 185:185, was: $(head -n 1 <<<"$credential_copy")"
 compose_config="$test_directory/compose-config.yaml"
 docker compose --env-file "$runtime_env" --file "$deploy_root/compose.yaml" \
   --profile migration config > "$compose_config"
