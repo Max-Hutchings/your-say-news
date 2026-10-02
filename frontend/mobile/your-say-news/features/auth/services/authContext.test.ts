@@ -6,7 +6,9 @@ jest.mock("expo-secure-store", () => ({
 jest.mock("./firebaseService", () => ({
     hasFirebaseSession: jest.fn(),
     logoutFirebase: jest.fn(),
+    signInWithGoogle: jest.fn(),
     signInWithTestAccount: jest.fn(),
+    usesHostedGoogleAuth: jest.fn(() => false),
 }));
 jest.mock("./UserService", () => ({
     getOnboardingStatus: jest.fn(),
@@ -14,7 +16,13 @@ jest.mock("./UserService", () => ({
     verifySession: jest.fn(),
 }));
 
-import { hasFirebaseSession, logoutFirebase, signInWithTestAccount } from "./firebaseService";
+import {
+    hasFirebaseSession,
+    logoutFirebase,
+    signInWithGoogle,
+    signInWithTestAccount,
+    usesHostedGoogleAuth,
+} from "./firebaseService";
 import { getOnboardingStatus, getUser, verifySession } from "./UserService";
 import { useAuthStore } from "./authContext";
 
@@ -74,6 +82,27 @@ test("invalid Firebase credentials do not call the backend", async () => {
 
     expect(getUser).not.toHaveBeenCalled();
     expect(useAuthStore.getState().isLoggedIn).toBe(false);
+});
+
+test("hosted builds sign in through Google instead of the test-account password", async () => {
+    jest.mocked(usesHostedGoogleAuth).mockReturnValueOnce(true);
+    jest.mocked(signInWithGoogle).mockResolvedValue(true);
+
+    await expect(useAuthStore.getState().login("", "")).resolves.toBe(true);
+
+    expect(signInWithTestAccount).not.toHaveBeenCalled();
+    expect(useAuthStore.getState()).toMatchObject({ ...user, isLoggedIn: true });
+});
+
+test("a Google account with no Your Say user is signed back out of Firebase", async () => {
+    jest.mocked(usesHostedGoogleAuth).mockReturnValueOnce(true);
+    jest.mocked(signInWithGoogle).mockResolvedValue(true);
+    jest.mocked(getUser).mockResolvedValue(null);
+
+    await expect(useAuthStore.getState().login("", "")).resolves.toBe(false);
+
+    expect(logoutFirebase).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState()).toMatchObject({ id: null, email: null, isLoggedIn: false });
 });
 
 test("Firebase session restores after a web reload", async () => {
