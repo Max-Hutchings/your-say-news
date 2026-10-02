@@ -1,43 +1,14 @@
 name: Application Development
-run-name: Application development · ${{ github.ref_name }} · ${{ github.sha }}
 
+# Called only by CI (ci.yml) after every test job passes on a push to main. Tests, builds,
+# publishes and deploys that exact commit to development; no branch or manual trigger can deploy.
 on:
-  push:
-    branches: ["**"]
-    paths:
-      - .github/workflows/dev-app.yml
-      - .github/templates/application/**
-      - build.gradle.kts
-      - gradle.properties
-      - settings.gradle.kts
-      - gradle/**
-      - gradlew
-      - liquibase/**
-      - post-service/**
-      - service/deploy/**
-  workflow_dispatch:
-    inputs:
-      snapshot_run_id:
-        description: Run ID of the successful commit snapshot workflow
-        required: true
-        type: string
-      commit_sha:
-        description: Full 40-character SHA shown in that snapshot summary
-        required: true
-        type: string
-      confirmation:
-        description: Type "deploy development" after reviewing the snapshots and bundle
-        required: true
-        type: string
+  workflow_call:
 
 permissions:
   actions: read
   contents: read
   packages: read
-
-concurrency:
-  group: application-development
-  cancel-in-progress: false
 
 env:
   POST_SERVICE_SNAPSHOT_IMAGE: ghcr.io/max-hutchings/your-say-news-post-service-snapshot
@@ -52,7 +23,6 @@ env:
 jobs:
   test:
     name: Test
-    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     outputs:
@@ -77,7 +47,6 @@ jobs:
   build-post-service-image:
     name: Build · Post-service image
     needs: test
-    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -103,7 +72,6 @@ jobs:
   build-migration-image:
     name: Build · Migration image
     needs: test
-    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -123,7 +91,6 @@ jobs:
       - test
       - build-post-service-image
       - build-migration-image
-    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -147,8 +114,14 @@ jobs:
           alloy-image: ${{ env.ALLOY_IMAGE }}
 
   deploy:
-    name: Deploy · Explicit manual deployment
-    if: github.event_name == 'workflow_dispatch'
+    name: Deploy · Development
+    needs:
+      - test
+      - publish
+    # Deployments queue rather than cancel, so a newer main push never interrupts a half-applied release.
+    concurrency:
+      group: application-development
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -173,26 +146,15 @@ jobs:
       # ADR-055: selects the image's %dev. config. Non-secret dev values live in application.properties.
       QUARKUS_PROFILE: dev
     steps:
-      - name: Check out the selected workflow revision
+      - name: Check out the exact source revision
         uses: actions/checkout@v6
 
-      - name: Authorize the reviewed development snapshot
-        uses: ./.github/templates/application/authorize-deploy
-        with:
-          environment-name: development
-          snapshot-run-id: ${{ inputs.snapshot_run_id }}
-          expected-commit: ${{ inputs.commit_sha }}
-          confirmation: ${{ inputs.confirmation }}
-          confirmation-phrase: deploy development
-          expected-workflow-path: .github/workflows/dev-app.yml
-          github-token: ${{ github.token }}
-
-      - name: Deploy the reviewed development snapshot
+      - name: Deploy the tested development snapshot
         uses: ./.github/templates/application/deploy
         with:
           environment-name: development
-          snapshot-run-id: ${{ inputs.snapshot_run_id }}
-          commit-sha: ${{ inputs.commit_sha }}
+          snapshot-run-id: ${{ github.run_id }}
+          commit-sha: ${{ github.sha }}
           artifact-prefix: application-development-snapshot
           github-token: ${{ github.token }}
           deployment-root: ${{ env.DEPLOYMENT_ROOT }}

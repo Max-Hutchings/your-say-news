@@ -17,23 +17,23 @@ Liquibase is a one-shot release step. Seed data is deliberately not deployed.
 
 ## Application workflow
 
-`.github/workflows/dev-app.yml` is the concrete development application pipeline. On every
-relevant branch push it:
+`.github/workflows/dev-app.yml` is the concrete development application pipeline. It is a reusable
+workflow called only by CI (`.github/workflows/ci.yml`) on a push to `main`, after the backend,
+frontend and admin frontend test jobs all pass (ADR-056). In that same run it:
 
 1. tests `post-service` with GraalVM 25 and tests this deployment contract;
 2. builds the post-service and migration image archives in separate parallel jobs without pushing;
-3. publishes both commit snapshots to the development GHCR packages; and
-4. records their immutable digests in a checksum-sealed, one-day deployment artifact.
+3. publishes both commit snapshots to the development GHCR packages;
+4. records their immutable digests in a checksum-sealed, one-day deployment artifact; and
+5. deploys that exact commit to development.
 
-The workflow shows `Test`, parallel `Build · Post-service image` and `Build · Migration image`,
-`Publish · Commit snapshot`, and `Deploy · Explicit manual deployment` as separate jobs. The build
-jobs create archives but cannot push; only the publish job writes GHCR and seals the two digests.
-Supply the successful snapshot run ID, its full commit SHA and the exact phrase
-`deploy development`. The selected branch must still
-resolve to that SHA. The deployment job verifies the source run and artifact, connects to the
-`deploy` user through Cloudflare Access SSH, runs the migration, starts the application and Alloy,
-checks the private and public health routes, then activates the release symlink. The VM never
-checks out this repository.
+No other branch, pull request or manual dispatch can deploy. The build jobs create archives but
+cannot push; only the publish job writes GHCR and seals the two digests. `Deploy · Development`
+verifies the artifact came from the same run, connects to the `deploy` user through Cloudflare
+Access SSH, runs the migration, starts the application and Alloy, checks the private and public
+health routes, then activates the release symlink. Deployments queue rather than cancel, so a newer
+push never interrupts a release in progress. To retry a failed deployment, re-run the failed jobs
+of that CI run; to roll back, revert the change on `main`. The VM never checks out this repository.
 
 GitHub's workflow token publishes and temporarily pulls the two private snapshot packages; no
 Nexus server or long-lived registry token is needed. The first successful push creates
@@ -42,8 +42,8 @@ private and inherit access from this repository. The unsuffixed package names ar
 future production workflow driven only by approved version tags (ADR-037).
 
 Snapshot image tags and Actions artifacts use the seven-character commit form, for example
-`sha-a1b2c3d` and `application-development-snapshot-a1b2c3d`. OCI labels, sealed metadata and manual
-authorization retain the full 40-character SHA, and the VM deploys the exact image digest.
+`sha-a1b2c3d` and `application-development-snapshot-a1b2c3d`. OCI labels and sealed metadata retain
+the full 40-character SHA, and the VM deploys the exact image digest.
 
 ### Repository secrets
 
