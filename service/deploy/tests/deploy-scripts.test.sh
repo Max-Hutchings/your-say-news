@@ -196,6 +196,9 @@ public_health_url='https://api-development.example/api/live'
 cat > "$fake_bin/docker" <<'FAKE_DOCKER'
 #!/usr/bin/env sh
 printf 'docker %s\n' "$*" >> "$YSN_TEST_COMMAND_LOG"
+case "$*" in
+  *' up '*) [ "${YSN_TEST_FAIL_UP:-}" != true ] ;;
+esac
 FAKE_DOCKER
 
 cat > "$fake_bin/curl" <<'FAKE_CURL'
@@ -233,6 +236,20 @@ curl --fail --silent --show-error --max-time 10 $public_health_url
 docker compose --env-file $runtime_env --file $deploy_root/compose.yaml ps
 EXPECTED_DEPLOY
 cmp "$expected_deploy_log" "$command_log" || fail 'deploy.sh command order changed'
+
+# A failed setup container only reports "exit 1" over SSH, so deploy.sh must print its output.
+failed_up_log="$test_directory/failed-up-commands.log"
+if YSN_TEST_COMMAND_LOG="$failed_up_log" YSN_TEST_FAIL_UP=true PATH="$fake_bin:$PATH" \
+  DEPLOY_ENV_FILE="$runtime_env" HEALTH_CHECK_ATTEMPTS=1 \
+  "$deploy_root/scripts/deploy.sh" >/dev/null 2>&1; then
+  fail 'deploy.sh succeeded although compose up failed'
+fi
+tail -n 1 "$failed_up_log" | grep -Fqx -- \
+  "docker compose --env-file $runtime_env --file $deploy_root/compose.yaml logs --no-color firebase-credentials" \
+  || fail 'deploy.sh did not print firebase-credentials output after compose up failed'
+if grep -Fq -- 'curl ' "$failed_up_log"; then
+  fail 'deploy.sh ran health checks after compose up failed'
+fi
 
 status_directory="$test_directory/bootstrap-status"
 mkdir -p "$status_directory"

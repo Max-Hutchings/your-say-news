@@ -35,7 +35,13 @@ compose() {
 compose pull post-service alloy
 compose --profile migration pull migrate
 compose --profile migration run --rm migrate
-compose up --detach --remove-orphans post-service alloy
+# Only the credential setup container's output is printed: CI logs are public, and it emits nothing
+# but copy/permission errors. post-service logs stay on the host.
+if ! compose up --detach --remove-orphans post-service alloy; then
+  echo "Compose startup failed. firebase-credentials output:" >&2
+  compose logs --no-color firebase-credentials >&2 || true
+  exit 1
+fi
 
 PRIVATE_HEALTH_URL="${PRIVATE_HEALTH_URL:-http://127.0.0.1:8082/api/live}" \
   PUBLIC_HEALTH_URL="${PUBLIC_HEALTH_URL:-}" \
