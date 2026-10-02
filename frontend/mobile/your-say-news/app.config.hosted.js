@@ -1,12 +1,15 @@
-// app.config.prod.js
+// app.config.hosted.js - config for builds that call a hosted backend (APP_ENV=development or prod)
 import { readFileSync } from "node:fs";
 
 const selected = process.env.APP_ENV === "development" || process.env.APP_ENV === "prod";
+// EAS sets EAS_BUILD=true on its build servers. Only there must the Firebase file exist; eas CLI
+// commands on a laptop or in CI load this config first without the EAS file variable.
+const onEasBuilder = process.env.EAS_BUILD === "true";
 const apiBaseUrl = selected
     ? requiredEnv("EXPO_PUBLIC_API_BASE_URL").replace(/\/$/, "")
     : "https://invalid.local";
-const googleServicesFile = selected ? requiredEnv("GOOGLE_SERVICES_JSON") : "google-services.json";
-const firebase = selected ? readFirebaseConfig(googleServicesFile) : {};
+const googleServicesFile = selected ? googleServicesFilePath() : "google-services.json";
+const firebase = selected && googleServicesFile ? readFirebaseConfig(googleServicesFile) : {};
 
 export default {
     android: {
@@ -33,6 +36,10 @@ function requiredEnv(name) {
         throw new Error(`Missing required Expo environment variable: ${name}`);
     }
     return value;
+}
+
+function googleServicesFilePath() {
+    return onEasBuilder ? requiredEnv("GOOGLE_SERVICES_JSON") : process.env.GOOGLE_SERVICES_JSON;
 }
 
 function readFirebaseConfig(file) {

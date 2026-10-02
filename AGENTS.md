@@ -106,8 +106,8 @@ translate when reading their config:
 | Our environment | Backend (Quarkus) | Admin SPA (Quinoa/Vite) | Expo app |
 |---|---|---|---|
 | local | `%local` profile (every `quarkusDev` run) | Vite dev server, `VITE_*` env (emulator defaults) | `APP_ENV=dev` (default) -> `app.config.dev.js` |
-| dev | `%dev` profile, `QUARKUS_PROFILE=dev` + secrets from `runtime.env` | built but not served (base `quarkus.quinoa.just-build=true`) | no config yet (see `docs/plans/deferred-mobile-api-base-url.md`) |
-| prod | `%prod` reserved and empty | not built | `app.config.prod.js` is stale Keycloak config - do not use |
+| dev | `%dev` profile, `QUARKUS_PROFILE=dev` + secrets from `runtime.env` | built but not served (base `quarkus.quinoa.just-build=true`) | `APP_ENV=development` (eas.json `development-store`) -> `app.config.hosted.js` |
+| prod | `%prod` reserved and empty | not built | `APP_ENV=prod` would select `app.config.hosted.js`, but no prod build profile exists yet |
 
 Backend config rules (ADR-055): base `application.properties` must be safe on a server; laptop
 values go under `%local.`; secrets are env vars only with no defaults; `%dev.`/`%prod.` hold runtime
@@ -226,7 +226,7 @@ app/                 <- expo-router: FILE-BASED ROUTING ONLY. Every file = a rou
                         (e.g. (protected) for auth-gated routes)
 assets/              <- static images / fonts referenced by the app
 app.json             <- base Expo config
-app.config.js        <- merges app.config.dev.js / app.config.prod.js by APP_ENV
+app.config.js        <- merges app.config.dev.js (local) / app.config.hosted.js (dev, prod) by APP_ENV
 metro.config.js, babel.config.js, tailwind.config.js, global.css, tsconfig.json,
 eslint.config.js, *-env.d.ts, scripts/        <- toolchain config, lives at the root
 ```
