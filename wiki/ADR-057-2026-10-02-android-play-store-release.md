@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted on 2026-10-02. First release in progress: build `a78ecd64-1ee0-4414-a8ee-d17d799c52d4`
-(versionCode 2) is building, not yet submitted to Play.
+Accepted on 2026-10-02. First release: build `a78ecd64-1ee0-4414-a8ee-d17d799c52d4` (versionCode 2)
+submitted to the Play internal track as a draft (submission `61338ab1`).
 
 ## Situation
 
@@ -93,10 +93,13 @@ Option 2 now. Option 3 once the first release has worked by hand.
 - Enable the **Google Play Android Developer API** in the service account's Google Cloud project.
   The first `eas submit` failed with `PERMISSION_DENIED: Google Play Android Developer API has not
   been used in project ... or it is disabled` until it was enabled.
+- In Play Console > Users and permissions, give the service account app permissions (release to
+  testing tracks, manage testing tracks, view app information) and press Save. Without this the
+  submit fails with `The service account is missing the necessary permissions`.
 
 ## Follow-up work
 
-- Submit the build: `eas submit -p android --profile development-store --latest`.
+- Roll out the draft release in Play Console > Test and release > Internal testing, and add testers.
 - Add Play's app signing key SHA-1 and SHA-256 (Play Console > App integrity) to the Firebase
   Android app, or Google Sign-In fails with `DEVELOPER_ERROR` on Play-installed builds.
 - Change `app.config.prod.js` to require `GOOGLE_SERVICES_JSON` only on the EAS builder
