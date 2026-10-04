@@ -1,6 +1,32 @@
+// Alloy reports on itself through the same pipeline as post-service, so a broken telemetry path is
+// visible in Grafana: its own logs carry export errors, and its metrics count records received from
+// post-service (otelcol_receiver_accepted_*) and records Grafana Cloud rejected
+// (otelcol_exporter_send_failed_*). No Alloy data at all means the Grafana Cloud leg is down.
 logging {
-  level  = "info"
-  format = "json"
+  level    = "info"
+  format   = "json"
+  write_to = [otelcol.receiver.loki.alloy.receiver]
+}
+
+otelcol.receiver.loki "alloy" {
+  output {
+    logs = [otelcol.processor.batch.default.input]
+  }
+}
+
+prometheus.exporter.self "alloy" {}
+
+prometheus.scrape "alloy" {
+  targets         = prometheus.exporter.self.alloy.targets
+  job_name        = "alloy"
+  scrape_interval = "60s"
+  forward_to      = [otelcol.receiver.prometheus.alloy.receiver]
+}
+
+otelcol.receiver.prometheus "alloy" {
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+  }
 }
 
 otelcol.receiver.otlp "post_service" {
