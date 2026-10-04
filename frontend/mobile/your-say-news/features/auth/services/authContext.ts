@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
-import type { SessionRestoreResult, User, UserState } from "../types";
+import type { LoginResult, SessionRestoreResult, User, UserState } from "../types";
 import {
     hasFirebaseSession,
     logoutFirebase,
@@ -61,14 +61,24 @@ export const useAuthStore = create(
     ),
 );
 
-async function login(email: string, password: string): Promise<boolean> {
-    const authenticated = usesHostedGoogleAuth()
+async function login(email: string, password: string): Promise<LoginResult> {
+    const result = usesHostedGoogleAuth()
         ? await signInWithGoogle()
-        : await signInWithTestAccount(email, password);
-    if (!authenticated) {
-        return false;
+        : await signInWithPassword(email, password);
+    if (result.status !== "signed-in") {
+        return result;
     }
-    return completeLogin();
+    if (!await completeLogin()) {
+        console.warn("Sign-in failed: stage=server code=user_unavailable");
+        return { status: "failed", stage: "server", code: "user_unavailable" };
+    }
+    return result;
+}
+
+async function signInWithPassword(email: string, password: string): Promise<LoginResult> {
+    return await signInWithTestAccount(email, password)
+        ? { status: "signed-in" }
+        : { status: "failed", stage: "firebase", code: "invalid_credentials" };
 }
 
 async function completeLogin(): Promise<boolean> {

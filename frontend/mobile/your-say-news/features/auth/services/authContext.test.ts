@@ -40,6 +40,7 @@ const user = {
 
 beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
     useAuthStore.setState({
         id: null,
         email: null,
@@ -65,7 +66,8 @@ beforeEach(() => {
 test("seeded Firebase account signs in and loads the application user", async () => {
     jest.mocked(signInWithTestAccount).mockResolvedValue(true);
 
-    await expect(useAuthStore.getState().login(user.email, "password123")).resolves.toBe(true);
+    await expect(useAuthStore.getState().login(user.email, "password123"))
+        .resolves.toEqual({ status: "signed-in" });
 
     expect(useAuthStore.getState()).toMatchObject({
         ...user,
@@ -78,7 +80,8 @@ test("seeded Firebase account signs in and loads the application user", async ()
 test("invalid Firebase credentials do not call the backend", async () => {
     jest.mocked(signInWithTestAccount).mockResolvedValue(false);
 
-    await expect(useAuthStore.getState().login(user.email, "wrong")).resolves.toBe(false);
+    await expect(useAuthStore.getState().login(user.email, "wrong"))
+        .resolves.toEqual({ status: "failed", stage: "firebase", code: "invalid_credentials" });
 
     expect(getUser).not.toHaveBeenCalled();
     expect(useAuthStore.getState().isLoggedIn).toBe(false);
@@ -86,20 +89,42 @@ test("invalid Firebase credentials do not call the backend", async () => {
 
 test("hosted builds sign in through Google instead of the test-account password", async () => {
     jest.mocked(usesHostedGoogleAuth).mockReturnValueOnce(true);
-    jest.mocked(signInWithGoogle).mockResolvedValue(true);
+    jest.mocked(signInWithGoogle).mockResolvedValue({ status: "signed-in" });
 
-    await expect(useAuthStore.getState().login("", "")).resolves.toBe(true);
+    await expect(useAuthStore.getState().login("", "")).resolves.toEqual({ status: "signed-in" });
 
     expect(signInWithTestAccount).not.toHaveBeenCalled();
     expect(useAuthStore.getState()).toMatchObject({ ...user, isLoggedIn: true });
 });
 
+test("a cancelled Google sign-in never calls the backend or signs in", async () => {
+    jest.mocked(usesHostedGoogleAuth).mockReturnValueOnce(true);
+    jest.mocked(signInWithGoogle).mockResolvedValue({ status: "cancelled" });
+
+    await expect(useAuthStore.getState().login("", "")).resolves.toEqual({ status: "cancelled" });
+
+    expect(getUser).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().isLoggedIn).toBe(false);
+});
+
+test("a failed Google sign-in is returned as-is and never calls the backend", async () => {
+    const failure = { status: "failed", stage: "google", code: "10" } as const;
+    jest.mocked(usesHostedGoogleAuth).mockReturnValueOnce(true);
+    jest.mocked(signInWithGoogle).mockResolvedValue(failure);
+
+    await expect(useAuthStore.getState().login("", "")).resolves.toEqual(failure);
+
+    expect(getUser).not.toHaveBeenCalled();
+});
+
 test("a Google account with no Your Say user is signed back out of Firebase", async () => {
     jest.mocked(usesHostedGoogleAuth).mockReturnValueOnce(true);
-    jest.mocked(signInWithGoogle).mockResolvedValue(true);
+    jest.mocked(signInWithGoogle).mockResolvedValue({ status: "signed-in" });
     jest.mocked(getUser).mockResolvedValue(null);
 
-    await expect(useAuthStore.getState().login("", "")).resolves.toBe(false);
+    await expect(useAuthStore.getState().login("", ""))
+        .resolves.toEqual({ status: "failed", stage: "server", code: "user_unavailable" });
+    expect(console.warn).toHaveBeenCalledWith("Sign-in failed: stage=server code=user_unavailable");
 
     expect(logoutFirebase).toHaveBeenCalledTimes(1);
     expect(useAuthStore.getState()).toMatchObject({ id: null, email: null, isLoggedIn: false });

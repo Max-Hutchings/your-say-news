@@ -34,6 +34,8 @@ const googleConfigureCallsAtImport = jest.mocked(GoogleSignin.configure).mock.ca
 
 beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    jest.mocked(GoogleSignin.hasPlayServices).mockReset();
     auth.authStateReady = jest.fn().mockResolvedValue(undefined);
     auth.currentUser = null;
 });
@@ -89,7 +91,7 @@ test("exchanges the Google ID token for a Firebase session", async () => {
     jest.mocked(GoogleAuthProvider.credential).mockReturnValue(credential);
     jest.mocked(signInWithCredential).mockResolvedValue({} as never);
 
-    await expect(signInWithGoogle()).resolves.toBe(true);
+    await expect(signInWithGoogle()).resolves.toEqual({ status: "signed-in" });
 
     expect(GoogleSignin.hasPlayServices).toHaveBeenCalledWith({ showPlayServicesUpdateDialog: true });
     expect(GoogleAuthProvider.credential).toHaveBeenCalledWith("google-id-token");
@@ -99,7 +101,7 @@ test("exchanges the Google ID token for a Firebase session", async () => {
 test("a cancelled Google sign-in never reaches Firebase", async () => {
     jest.mocked(GoogleSignin.signIn).mockResolvedValue({ type: "cancelled", data: null });
 
-    await expect(signInWithGoogle()).resolves.toBe(false);
+    await expect(signInWithGoogle()).resolves.toEqual({ status: "cancelled" });
 
     expect(GoogleAuthProvider.credential).not.toHaveBeenCalled();
     expect(signInWithCredential).not.toHaveBeenCalled();
@@ -108,16 +110,46 @@ test("a cancelled Google sign-in never reaches Firebase", async () => {
 test("a Google account without an ID token never reaches Firebase", async () => {
     jest.mocked(GoogleSignin.signIn).mockResolvedValue({ type: "success", data: { idToken: null } } as never);
 
-    await expect(signInWithGoogle()).resolves.toBe(false);
+    await expect(signInWithGoogle()).resolves
+        .toEqual({ status: "failed", stage: "google", code: "missing_id_token" });
 
-    expect(GoogleAuthProvider.credential).not.toHaveBeenCalled();
     expect(signInWithCredential).not.toHaveBeenCalled();
 });
 
-test("reports a Firebase-rejected Google credential as a failed sign-in", async () => {
+test("reports and logs Google's native error code when Google rejects the app", async () => {
+    // Android DEVELOPER_ERROR: the installed app's signing certificate or client ID is not registered.
+    jest.mocked(GoogleSignin.signIn).mockRejectedValue(
+        Object.assign(new Error("DEVELOPER_ERROR: Follow troubleshooting instruction"), { code: "10" }),
+    );
+
+    await expect(signInWithGoogle()).resolves.toEqual({ status: "failed", stage: "google", code: "10" });
+
+    expect(jest.mocked(console.warn).mock.calls).toEqual([["Sign-in failed: stage=google code=10"]]);
+    expect(signInWithCredential).not.toHaveBeenCalled();
+});
+
+test("reports Firebase's error code when Firebase rejects the Google credential", async () => {
     jest.mocked(GoogleSignin.signIn)
         .mockResolvedValue({ type: "success", data: { idToken: "revoked-id-token" } } as never);
-    jest.mocked(signInWithCredential).mockRejectedValue(new Error("auth/invalid-credential"));
+    jest.mocked(signInWithCredential).mockRejectedValue(
+        Object.assign(new Error("Firebase: Error (auth/invalid-credential)."), { code: "auth/invalid-credential" }),
+    );
 
-    await expect(signInWithGoogle()).resolves.toBe(false);
+    await expect(signInWithGoogle()).resolves
+        .toEqual({ status: "failed", stage: "firebase", code: "auth/invalid-credential" });
+    // Firebase errors carry customData such as the email; only the code may reach the device log.
+    expect(jest.mocked(console.warn).mock.calls)
+        .toEqual([["Sign-in failed: stage=firebase code=auth/invalid-credential"]]);
+});
+
+test("a numeric Google status code is reported as its string form", async () => {
+    jest.mocked(GoogleSignin.signIn).mockRejectedValue(Object.assign(new Error("DEVELOPER_ERROR"), { code: 10 }));
+
+    await expect(signInWithGoogle()).resolves.toEqual({ status: "failed", stage: "google", code: "10" });
+});
+
+test("an error without a code is reported as unknown", async () => {
+    jest.mocked(GoogleSignin.hasPlayServices).mockRejectedValue(new Error("boom"));
+
+    await expect(signInWithGoogle()).resolves.toEqual({ status: "failed", stage: "google", code: "unknown" });
 });

@@ -8,7 +8,7 @@ import { useState } from "react";
 import Constants from "expo-constants";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuthStore } from "@/features/auth";
+import { signInErrorMessage, useAuthStore } from "@/features/auth";
 import { getEditorial, EditorialFont } from "@/constants/theme";
 
 // The login screen is a fixed dark brand moment regardless of system theme.
@@ -26,11 +26,7 @@ export default function SignInScreen() {
         try {
             setBusy(true);
             setError(null);
-            if (!await login(email.trim(), password)) {
-                setError(hostedGoogleAuth
-                    ? "Google sign-in was cancelled or this account is not permitted."
-                    : "That test account could not be signed in.");
-            }
+            setError(signInErrorMessage(await login(email.trim(), password), hostedGoogleAuth));
         } catch {
             setError("The authentication service is not available.");
         } finally {

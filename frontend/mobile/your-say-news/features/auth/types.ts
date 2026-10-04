@@ -22,6 +22,15 @@ export type OnboardingStatus = {
     onboarded: boolean;
 };
 
+/**
+ * How a sign-in attempt ended. A failure names the stage that stopped it - Google's native sign-in,
+ * Firebase's credential exchange, or loading the Your Say user - and that provider's error code.
+ */
+export type LoginResult =
+    | { status: "signed-in" }
+    | { status: "cancelled" }
+    | { status: "failed"; stage: "google" | "firebase" | "server"; code: string };
+
 // Use interface if you want to "extend"
 export interface UserState extends User {
     _stateHydrated: boolean;
@@ -31,7 +40,7 @@ export interface UserState extends User {
     // user who has filled the wizard is never sent back through it.
     hasCharacteristics: boolean;
 
-    login: (email: string, password: string) => Promise<boolean>;
+    login: (email: string, password: string) => Promise<LoginResult>;
     completeLogin: () => Promise<boolean>;
     /**
      * Validate a session restored from storage on startup.
