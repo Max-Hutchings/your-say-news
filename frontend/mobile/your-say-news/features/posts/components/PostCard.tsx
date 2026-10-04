@@ -19,6 +19,7 @@ import { PostSources } from "./PostSources";
 import { PostVideo } from "./PostVideo";
 import { PostImageCarousel } from "./PostImageCarousel";
 import { ScrollableSummary } from "./ScrollableSummary";
+import { trackAction } from "@/features/telemetry";
 
 const VIDEO_SOUND_BOTTOM_INSET = 52;
 const SHARE_FEEDBACK_DURATION_MS = 1800;
@@ -74,6 +75,7 @@ export function PostCard({
   const [mediaBox, setMediaBox] = useState({ w: 0, h: 0 });
   const reveal = useMemo(() => new Animated.Value(0), []);
   const toggle = (next: boolean) => {
+    trackAction("post.summary_toggle", next ? "expand" : "collapse");
     setExpanded(next);
     Animated.timing(reveal, { toValue: next ? 1 : 0, duration: 260, useNativeDriver: true }).start();
   };
@@ -91,6 +93,7 @@ export function PostCard({
   };
 
   const copyShareLink = async () => {
+    trackAction("post.share", post.id);
     try {
       const postUrl = Linking.createURL(`/posts/${post.id}`);
       await Clipboard.setStringAsync(postUrl);
@@ -151,7 +154,10 @@ export function PostCard({
           key={topicTag.id}
           accessibilityRole="button"
           accessibilityLabel={`Show ${topicTag.label} stories`}
-          onPress={() => onSelectTopic?.(topicTag.id)}
+          onPress={() => {
+            trackAction("post.topic_select", topicTag.id);
+            onSelectTopic?.(topicTag.id);
+          }}
           disabled={!onSelectTopic}
           style={[styles.topicChip, { borderColor: e.border, backgroundColor: e.surface }]}
         >
@@ -179,7 +185,10 @@ export function PostCard({
           backgroundColor: overMedia ? e.mediaScrim : e.surface,
         },
       ]}
-      onPress={() => router.push(`/profiles/${post.userId}` as Href)}
+      onPress={() => {
+        trackAction("post.author_open", post.id);
+        router.push(`/profiles/${post.userId}` as Href);
+      }}
       accessibilityRole="button"
       accessibilityLabel="Open author profile"
     >

@@ -10,6 +10,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { signInErrorMessage, useAuthStore } from "@/features/auth";
 import { getEditorial, EditorialFont } from "@/constants/theme";
+import { trackAction } from "@/features/telemetry";
 
 // The login screen is a fixed dark brand moment regardless of system theme.
 const e = getEditorial(true);
@@ -23,6 +24,7 @@ export default function SignInScreen() {
     const [error, setError] = useState<string | null>(null);
 
     const onContinue = async () => {
+        trackAction("auth.sign_in");
         try {
             setBusy(true);
             setError(null);

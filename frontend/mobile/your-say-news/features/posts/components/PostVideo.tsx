@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
 import { getEditorial, useTheme, EditorialFont } from "@/constants/theme";
+import { trackAction } from "@/features/telemetry";
 
 /**
  * A post's video in the immersive feed. It autoplays (muted, looping) as soon as
@@ -85,7 +86,10 @@ export function PostVideo({
       )}
 
       <Pressable
-        onPress={() => setMuted((m) => !m)}
+        onPress={() => {
+          trackAction("post.video_mute_toggle", muted ? "unmute" : "mute");
+          setMuted((m) => !m);
+        }}
         accessibilityRole="button"
         accessibilityLabel={muted ? "Unmute video" : "Mute video"}
         testID="video-sound-control"

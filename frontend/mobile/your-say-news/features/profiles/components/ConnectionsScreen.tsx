@@ -17,6 +17,7 @@ import {
   unfollowUser,
 } from "../services/ProfileService";
 import type { ConnectionsTab, FollowUser } from "../types";
+import { trackAction } from "@/features/telemetry";
 
 const TABS: { key: ConnectionsTab; label: string }[] = [
   { key: "followers", label: "Followers" },
@@ -80,6 +81,7 @@ export function ConnectionsScreen({
 
   const onToggleFollow = useCallback(
     async (target: FollowUser) => {
+      trackAction(target.followedByViewer ? "profile.unfollow" : "profile.follow");
       const optimistic = !target.followedByViewer;
       setUsers((prev) =>
         prev.map((u) => (u.id === target.id ? { ...u, followedByViewer: optimistic } : u)),
@@ -114,7 +116,10 @@ export function ConnectionsScreen({
           return (
             <Pressable
               key={key}
-              onPress={() => setTab(key)}
+              onPress={() => {
+                trackAction("connections.tab_select", key);
+                setTab(key);
+              }}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               style={[styles.tab, selected && { borderBottomColor: e.lime }]}

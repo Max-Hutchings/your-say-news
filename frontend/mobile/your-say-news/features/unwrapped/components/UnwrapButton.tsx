@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { EditorialFont, getEditorial, useTheme } from "@/constants/theme";
 import { requestUnwrap } from "../services/UnwrappedService";
+import { trackAction } from "@/features/telemetry";
 
 /**
  * The large lime Unwrap call to action. Tapping asks the backend to queue generation (it only does
@@ -16,6 +17,7 @@ export function UnwrapButton({ postId }: { postId: number }) {
   const [opening, setOpening] = useState(false);
 
   const unwrap = async () => {
+    trackAction("unwrapped.unwrap", postId);
     setOpening(true);
     try {
       await requestUnwrap(postId);

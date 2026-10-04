@@ -1,0 +1,56 @@
+/**
+ * Wire format of POST /telemetry/mobile (MobileTelemetryBatchDto in post-service).
+ *
+ * Never put a user id, email, vote choice or characteristic answer in any field: the server logs
+ * these events next to a session id.
+ */
+export type TelemetryEventType =
+    | "app_start"
+    | "app_state"
+    | "screen_enter"
+    | "screen_exit"
+    | "action"
+    | "api_call"
+    | "error";
+
+export interface TelemetryEvent {
+    type: TelemetryEventType;
+    timestampMs: number;
+    endTimestampMs?: number;
+    screen: string;
+    target?: string;
+    traceId?: string;
+    spanId?: string;
+    parentSpanId?: string;
+    action?: string;
+    method?: string;
+    path?: string;
+    status?: number;
+    /** api_call: network | timeout | cancelled. error: render | global. */
+    errorKind?: string;
+    errorName?: string;
+    errorMessage?: string;
+    fatal?: boolean;
+    appState?: "active" | "background";
+}
+
+export interface TelemetryClientInfo {
+    platform: string;
+    osVersion: string;
+    appVersion: string;
+}
+
+export interface TelemetryBatch {
+    sessionId: string;
+    client: TelemetryClientInfo;
+    events: TelemetryEvent[];
+}
+
+/** One open screen. Every action and API call made on it joins this trace. */
+export interface ScreenContext {
+    screen: string;
+    target?: string;
+    traceId: string;
+    spanId: string;
+    startedAtMs: number;
+}

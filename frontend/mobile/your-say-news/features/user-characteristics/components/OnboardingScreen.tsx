@@ -47,6 +47,7 @@ import { WizardScale } from "./WizardScale";
 import { SearchableSelect } from "./SearchableSelect";
 import { SearchableMultiSelect } from "./SearchableMultiSelect";
 import { NewsSourceSlider } from "./NewsSourceSlider";
+import { trackAction } from "@/features/telemetry";
 
 const STEP_META = [
     { title: "Where in the world?", subtitle: "Used to compare regions — never to locate you." },
@@ -342,11 +343,14 @@ export function OnboardingScreen() {
         }
     };
 
+    // Steps are not routes, so the step number is the target that shows wizard progress in a journey.
     const goNext = async () => {
         if (step === TOTAL_STEPS - 1) {
+            trackAction("onboarding.submit", step);
             await handleSubmit();
             return;
         }
+        trackAction("onboarding.next", step + 1);
         setPersisting(true);
         try {
             if (userId != null) {
@@ -359,7 +363,11 @@ export function OnboardingScreen() {
             setPersisting(false);
         }
     };
-    const goBack = () => step > 0 && animateTo(step - 1);
+    const goBack = () => {
+        if (step === 0) return;
+        trackAction("onboarding.back", step - 1);
+        animateTo(step - 1);
+    };
 
     const isLast = step === TOTAL_STEPS - 1;
     const meta = STEP_META[step];

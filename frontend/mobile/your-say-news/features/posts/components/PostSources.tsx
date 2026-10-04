@@ -2,6 +2,7 @@ import React from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { EditorialFont, getEditorial, useTheme } from "@/constants/theme";
 import type { PostSource } from "../types";
+import { trackAction } from "@/features/telemetry";
 
 export function PostSources({ sources }: { sources: PostSource[] }) {
   const { isDark } = useTheme();
@@ -16,7 +17,10 @@ export function PostSources({ sources }: { sources: PostSource[] }) {
           key={`${source.url}-${index}`}
           accessibilityRole="link"
           accessibilityLabel={`Open source ${source.title}`}
-          onPress={() => void Linking.openURL(source.url)}
+          onPress={() => {
+            trackAction("post.source_open", index + 1);
+            void Linking.openURL(source.url);
+          }}
           style={styles.source}
         >
           <Text style={[styles.number, { color: e.teal }]}>{index + 1}</Text>

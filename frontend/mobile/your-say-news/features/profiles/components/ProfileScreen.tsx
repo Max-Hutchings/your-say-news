@@ -14,6 +14,7 @@ import { getEditorial, EditorialFont, useTheme } from "@/constants/theme";
 import { PostCard, listByUser, type Post } from "@/features/posts";
 import { followUser, getMyProfile, getProfile, unfollowUser } from "../services/ProfileService";
 import type { PublicProfile } from "../types";
+import { trackAction } from "@/features/telemetry";
 
 export function ProfileScreen({ userId }: { userId?: number }) {
   const router = useRouter();
@@ -44,8 +45,10 @@ export function ProfileScreen({ userId }: { userId?: number }) {
     load();
   }, [load]);
 
+  // Profile ids are another member's identity, so follow taps carry no target.
   const toggleFollow = async () => {
     if (!profile) return;
+    trackAction(profile.followedByViewer ? "profile.unfollow" : "profile.follow");
     const next = profile.followedByViewer
       ? await unfollowUser(profile.id)
       : await followUser(profile.id);
@@ -106,16 +109,18 @@ export function ProfileScreen({ userId }: { userId?: number }) {
             <Stat
               label="Followers"
               value={profile.followerCount}
-              onPress={() =>
-                router.push(`/profiles/${profile.id}/connections?tab=followers` as Href)
-              }
+              onPress={() => {
+                trackAction("profile.connections_open", "followers");
+                router.push(`/profiles/${profile.id}/connections?tab=followers` as Href);
+              }}
             />
             <Stat
               label="Following"
               value={profile.followingCount}
-              onPress={() =>
-                router.push(`/profiles/${profile.id}/connections?tab=following` as Href)
-              }
+              onPress={() => {
+                trackAction("profile.connections_open", "following");
+                router.push(`/profiles/${profile.id}/connections?tab=following` as Href);
+              }}
             />
           </View>
 

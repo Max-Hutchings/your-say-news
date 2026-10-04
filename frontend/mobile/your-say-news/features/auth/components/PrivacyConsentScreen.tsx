@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { useAuthStore } from "../services/authContext";
 import { recordConsent } from "../services/ConsentService";
+import { trackAction } from "@/features/telemetry";
 
 const PROMISES: { kind: "do" | "never"; text: string }[] = [
     { kind: "do", text: "We collect characteristics in bands — age range, region, leaning — never exact details." },
@@ -29,6 +30,7 @@ export function PrivacyConsentScreen() {
     const [submitting, setSubmitting] = useState(false);
 
     const onAgree = async () => {
+        trackAction("consent.accept");
         setSubmitting(true);
         try {
             const consentedAt = await recordConsent();

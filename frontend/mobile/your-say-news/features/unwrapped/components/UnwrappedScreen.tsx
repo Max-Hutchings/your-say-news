@@ -19,6 +19,7 @@ import type {
   UnwrappedSource,
   UnwrappedStory,
 } from "../types";
+import { trackAction } from "@/features/telemetry";
 
 export function UnwrappedScreen({ postId }: { postId: number }) {
   const router = useRouter();
@@ -66,7 +67,9 @@ export function UnwrappedScreen({ postId }: { postId: number }) {
   const totalPages = finalPage + 1;
   const currentArgument = page < finalPage ? story.argumentPages[page] : null;
 
+  // The follow-up answer is voting data, so only the fact that one was given is tracked.
   const continueFromFinal = async () => {
+    trackAction("unwrapped.follow_up");
     if (data.existingFollowUpOptionId != null) {
       setShowResults(true);
       return;
@@ -107,7 +110,10 @@ export function UnwrappedScreen({ postId }: { postId: number }) {
 
       <View style={[styles.navigation, { borderTopColor: e.border, backgroundColor: e.surface }]}>
         <Pressable accessibilityRole="button" disabled={page === 0}
-          onPress={() => setPage((value) => value - 1)}
+          onPress={() => {
+            trackAction("unwrapped.page_back", page - 1);
+            setPage((value) => value - 1);
+          }}
           style={[styles.secondaryButton, { borderColor: e.border, opacity: page === 0 ? 0.35 : 1 }]}>
           <Text style={[styles.secondaryButtonText, { color: e.ink }]}>Back</Text>
         </Pressable>
@@ -115,9 +121,14 @@ export function UnwrappedScreen({ postId }: { postId: number }) {
           accessibilityLabel={page === finalPage ? "See live results" : "Next argument"}
           disabled={submitting || (page === finalPage && selected == null
             && data.existingFollowUpOptionId == null)}
-          onPress={() => page === finalPage
-            ? void continueFromFinal()
-            : setPage((value) => value + 1)}
+          onPress={() => {
+            if (page === finalPage) {
+              void continueFromFinal();
+              return;
+            }
+            trackAction("unwrapped.page_next", page + 1);
+            setPage((value) => value + 1);
+          }}
           style={[styles.primaryButton, { backgroundColor: e.lime,
             opacity: submitting || (page === finalPage && selected == null
               && data.existingFollowUpOptionId == null) ? 0.45 : 1 }]}>
@@ -222,7 +233,10 @@ function SourceRow({ index, source }: { index: number; source: UnwrappedSource }
   const { isDark } = useTheme();
   const e = getEditorial(isDark);
   return (
-    <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(source.url)}
+    <Pressable accessibilityRole="link" onPress={() => {
+      trackAction("unwrapped.source_open", index);
+      void Linking.openURL(source.url);
+    }}
       style={styles.sourceRow}>
       <Text style={[styles.sourceNumber, { color: e.teal }]}>{index.toString().padStart(2, "0")}</Text>
       <View style={styles.sourceCopy}>

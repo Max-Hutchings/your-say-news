@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getEditorial, EditorialFont, useTheme } from "@/constants/theme";
+import { trackAction } from "@/features/telemetry";
 
 /**
  * Settings — for now a single Appearance section that lets the reader pin the app
@@ -37,7 +38,10 @@ export function SettingsScreen() {
           icon="sunny-outline"
           selected={colorScheme === "light"}
           palette={e}
-          onPress={() => setColorScheme("light")}
+          onPress={() => {
+            trackAction("settings.theme_select", "light");
+            setColorScheme("light");
+          }}
         />
         <View style={[styles.divider, { backgroundColor: e.border }]} />
         <ThemeOption
@@ -45,7 +49,10 @@ export function SettingsScreen() {
           icon="moon-outline"
           selected={colorScheme === "dark"}
           palette={e}
-          onPress={() => setColorScheme("dark")}
+          onPress={() => {
+            trackAction("settings.theme_select", "dark");
+            setColorScheme("dark");
+          }}
         />
       </View>
     </SafeAreaView>

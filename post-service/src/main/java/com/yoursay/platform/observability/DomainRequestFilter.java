@@ -45,6 +45,7 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
             new DomainRoute("social", "social"),
             new DomainRoute("agent", "postagent"),
             new DomainRoute("live", "platform"),
+            new DomainRoute("telemetry", "platform"),
             new DomainRoute("q", "platform"));
 
     /** Post Unwrapped hangs off a post's URL but is its own domain, so it is matched separately. */
@@ -66,8 +67,8 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
             "candidates", "consent", "context", "count", "data", "drafts", "email", "events", "features", "feed",
             "follow-up", "followers", "following",
             "follows", "generate", "generation-status", "id", "income-options", "latest", "live",
-            "me", "media", "mine", "onboarding", "options", "posts", "presign", "profiles", "q",
-            "csrf", "logout", "reject", "retry-draft", "review", "runs", "save", "select", "sentiment", "session", "social", "topic-tags", "unwrapped", "user",
+            "me", "media", "mine", "mobile", "onboarding", "options", "posts", "presign", "profiles", "q",
+            "csrf", "logout", "reject", "retry-draft", "review", "runs", "save", "select", "sentiment", "session", "social", "telemetry", "topic-tags", "unwrapped", "user",
             "user-characteristics", "users", "votes", "your-say-user");
 
     private static final String PLACEHOLDER = "{id}";
@@ -97,7 +98,8 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
         return start instanceof Long started ? System.nanoTime() - started : 0L;
     }
 
-    static String domainFromPath(String path) {
+    /** Also used to label the API calls the mobile app reports, so both sides share one vocabulary. */
+    public static String domainFromPath(String path) {
         if (path == null) {
             return "unknown";
         }
@@ -117,13 +119,22 @@ public class DomainRequestFilter implements ContainerRequestFilter, ContainerRes
      * segment is caller-supplied and collapses to a placeholder, so a metric tag can never carry a
      * post id, story id, email address, characteristic axis or scanner probe path.
      */
-    static String operationFrom(String method, String path) {
+    public static String operationFrom(String method, String path) {
         // A leading slash would otherwise become an empty segment, producing names like "GET..feed".
         String normalized = path == null ? "" : path.replaceAll("^/+", "");
         if (normalized.isBlank()) {
             return method + ".root";
         }
         return method + "." + templateOf(normalized);
+    }
+
+    /**
+     * The path with every caller-supplied segment collapsed, e.g. {@code /profiles/17} becomes
+     * {@code /profiles/{id}}. Safe to store next to a session id because it can never carry a member id.
+     */
+    public static String routeTemplateOf(String path) {
+        String normalized = path == null ? "" : path.replaceAll("^/+", "");
+        return normalized.isBlank() ? "/" : "/" + templateOf(normalized).replace('.', '/');
     }
 
     private static String templateOf(String normalizedPath) {

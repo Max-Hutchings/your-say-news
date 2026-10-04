@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, type Href } from "expo-router";
 import { getEditorial, EditorialFont, useTheme } from "@/constants/theme";
 import { useAuthStore } from "@/features/auth";
+import { trackAction } from "@/features/telemetry";
 
 /**
  * The account hub — opened from the masthead avatar. A small menu to jump to the
@@ -25,6 +26,7 @@ export function AccountScreen() {
   const avatarLabel = (firstName ?? email ?? "?").charAt(0).toUpperCase();
 
   const onLogout = async () => {
+    trackAction("auth.sign_out");
     await logout();
   };
 
@@ -63,14 +65,20 @@ export function AccountScreen() {
           icon="person-outline"
           label="Profile"
           palette={e}
-          onPress={() => router.push("/profiles/me" as Href)}
+          onPress={() => {
+            trackAction("account.profile_open");
+            router.push("/profiles/me" as Href);
+          }}
         />
         <View style={[styles.divider, { backgroundColor: e.border }]} />
         <MenuRow
           icon="settings-outline"
           label="Settings"
           palette={e}
-          onPress={() => router.push("/settings" as Href)}
+          onPress={() => {
+            trackAction("account.settings_open");
+            router.push("/settings" as Href);
+          }}
         />
       </View>
 

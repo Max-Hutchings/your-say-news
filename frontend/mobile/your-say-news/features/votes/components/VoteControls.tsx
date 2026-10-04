@@ -7,6 +7,7 @@ import type { VoteOption, VotingType } from "@/features/posts";
 import { useVote } from "../hooks/use-vote";
 import type { VoteErrorKind } from "../types";
 import { MultipleChoiceVoteSheet } from "./MultipleChoiceVoteSheet";
+import { trackAction } from "@/features/telemetry";
 
 /**
  * `resultsHref` is where a successful vote and "See how others voted" lead. The caller chooses it
@@ -27,7 +28,9 @@ export function VoteControls({ postId, votingType, options, supportQuestion, res
   const [choiceOpen, setChoiceOpen] = useState(false);
   const selected = options.find((option) => option.id === myVote);
 
+  // The chosen option is voting data and is never sent; the story id is enough for the journey.
   const record = async (optionId: number) => {
+    trackAction("vote.cast", postId);
     if (await vote(optionId)) {
       setChoiceOpen(false);
       router.push(resultsHref);
@@ -43,7 +46,10 @@ export function VoteControls({ postId, votingType, options, supportQuestion, res
           accessibilityLabel={locked ? selected ? `You chose ${selected.label}` : "Vote already recorded" : "Have your say"}
           accessibilityState={{ disabled: loading || submitting || locked }}
           disabled={loading || submitting || locked}
-          onPress={() => setChoiceOpen(true)}
+          onPress={() => {
+            trackAction("vote.choice_open", postId);
+            setChoiceOpen(true);
+          }}
           style={[styles.multipleButton, { backgroundColor: e.voteAgreeFill, opacity: locked ? 0.72 : 1 }]}
         >
           {submitting && <ActivityIndicator size="small" color={e.voteAgreeOnFill} />}
@@ -70,7 +76,10 @@ export function VoteControls({ postId, votingType, options, supportQuestion, res
 
       {locked && (
         <Pressable testID="see-results" accessibilityRole="button"
-          onPress={() => router.push(resultsHref)}
+          onPress={() => {
+            trackAction("vote.results_open", postId);
+            router.push(resultsHref);
+          }}
           style={[styles.resultsBtn, { borderColor: e.border, backgroundColor: e.surface }]}>
           <Ionicons name="stats-chart" size={16} color={e.teal} />
           <Text style={[styles.resultsText, { color: e.ink }]}>See how others voted</Text>

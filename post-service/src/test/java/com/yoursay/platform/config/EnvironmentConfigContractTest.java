@@ -58,6 +58,7 @@ class EnvironmentConfigContractTest {
     private static final Set<String> HOSTED_RUNTIME_PROPERTIES = Set.of(
             "app.environment",
             "quarkus.otel.exporter.otlp.endpoint",
+            "mobile-telemetry.otlp.endpoint",
             "firebase.auth.project-id",
             "quarkus.datasource.username",
             "quarkus.datasource.password",
@@ -98,7 +99,8 @@ class EnvironmentConfigContractTest {
                         effective("dev", "quarkus.s3.endpoint-override")),
                 () -> assertEquals("your-say-news-media-development", effective("dev", "posts.media.bucket")),
                 // Quarkus defaults the OTLP endpoint to localhost:4317, so a missing line is invisible to the scan.
-                () -> assertEquals("http://alloy:4317", effective("dev", "quarkus.otel.exporter.otlp.endpoint")));
+                () -> assertEquals("http://alloy:4317", effective("dev", "quarkus.otel.exporter.otlp.endpoint")),
+                () -> assertEquals("http://alloy:4318", effective("dev", "mobile-telemetry.otlp.endpoint")));
     }
 
     @Test

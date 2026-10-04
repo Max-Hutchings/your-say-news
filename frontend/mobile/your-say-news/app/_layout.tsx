@@ -1,5 +1,6 @@
 import {SplashScreen, Stack} from "expo-router";
-import {useAuthStore} from "@/features/auth";
+import {useAuthStore, YsnHttpClient} from "@/features/auth";
+import {startTelemetry, useScreenTracking} from "@/features/telemetry";
 import {useEffect} from "react";
 import {Platform} from "react-native";
 import {SafeAreaProvider} from "react-native-safe-area-context";
@@ -30,9 +31,19 @@ if (!isWeb) {
     SplashScreen.preventAutoHideAsync();
 }
 
+// Before any screen mounts, so the first API calls are already traced.
+startTelemetry({
+    http: YsnHttpClient.getSecure(),
+    canUpload: () => useAuthStore.getState().isLoggedIn,
+});
+
+// Render crashes anywhere in the app are reported, then offer a retry.
+export {ScreenErrorBoundary as ErrorBoundary} from "@/features/telemetry";
+
 export default function RootLayout(){
 
     const {isLoggedIn, _stateHydrated} = useAuthStore();
+    useScreenTracking();
 
     // Editorial type system: Newsreader (serif), Schibsted Grotesk (UI), Spline Sans Mono (data).
     const [fontsLoaded] = useFonts({

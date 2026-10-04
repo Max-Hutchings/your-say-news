@@ -14,6 +14,7 @@ import { SentimentCounts } from "./SentimentCounts";
 import { SentimentBars } from "./SentimentBars";
 import { SentimentTable } from "./SentimentTable";
 import { SentimentColumns } from "./SentimentColumns";
+import { trackAction } from "@/features/telemetry";
 
 const NEXT_POST_SWIPE_DISTANCE = 48;
 const BOTTOM_TOLERANCE = 24;
@@ -101,13 +102,19 @@ export function SentimentResults({ postId, onNextPost }: { postId: number; onNex
             key={a.field}
             label={a.label}
             selected={a.field === axis}
-            onPress={() => setAxis(a.field)}
+            onPress={() => {
+              trackAction("results.axis_select", a.field);
+              setAxis(a.field);
+            }}
           />
         ))}
       </ScrollView>
 
       <Eyebrow text="View as" />
-      <ViewSelector view={view} onSelect={setView} />
+      <ViewSelector view={view} onSelect={(next) => {
+        trackAction("results.view_select", next);
+        setView(next);
+      }} />
 
       <View style={styles.chart}>
         {renderBreakdown({ breakdown, loading, error, retry, view, axisLabel, caption, e })}
@@ -203,7 +210,10 @@ function ErrorRow({
   return (
     <View style={styles.errorRow}>
       <Text style={[styles.empty, { color: e.coral }]}>{messageFor(kind)}</Text>
-      <Pressable accessibilityRole="button" onPress={onRetry} style={[styles.retry, { borderColor: e.border }]}>
+      <Pressable accessibilityRole="button" onPress={() => {
+        trackAction("results.retry");
+        onRetry();
+      }} style={[styles.retry, { borderColor: e.border }]}>
         <Text style={[styles.retryText, { color: e.ink }]}>Try again</Text>
       </Pressable>
     </View>

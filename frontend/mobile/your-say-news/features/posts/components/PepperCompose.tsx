@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useTheme, getEditorial, EditorialFont } from "@/constants/theme";
 import { usePepperDraft } from "../hooks/use-pepper-draft";
 import type { PepperDraftRecord, PepperPostDraft } from "../types";
+import { trackAction } from "@/features/telemetry";
 
 export function PepperCompose({
   onDraftChange,
@@ -62,7 +63,10 @@ export function PepperCompose({
             accessibilityLabel="Research and write"
             accessibilityState={{ disabled: loading || !prompt.trim() }}
             disabled={loading || !prompt.trim()}
-            onPress={() => void generate(prompt)}
+            onPress={() => {
+              trackAction("create_post.pepper_generate");
+              void generate(prompt);
+            }}
             style={[
               styles.cta,
               { backgroundColor: e.lime, opacity: loading || !prompt.trim() ? 0.45 : 1 },

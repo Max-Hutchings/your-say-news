@@ -19,6 +19,7 @@ import { PostCard } from "./PostCard";
 import { Masthead } from "./Masthead";
 import { FeedTabs } from "./FeedTabs";
 import { FeedTypeFilters } from "./FeedTypeFilters";
+import { trackAction } from "@/features/telemetry";
 
 // A post counts as on-screen (and autoplays its video) once 80% visible. Kept module-level
 // so its identity is stable — FlatList rejects a viewability config that changes between renders.
@@ -86,6 +87,7 @@ export function HomeFeed() {
 
   const loadMore = useCallback(async () => {
     if (loadingMoreRef.current || reachedEnd.current) return;
+    trackAction("feed.load_more");
     const generation = feedGeneration.current;
     loadingMoreRef.current = true;
     setLoadingMore(true);
@@ -126,6 +128,7 @@ export function HomeFeed() {
   }, [posts.length]);
 
   const onRefresh = useCallback(() => {
+    trackAction("feed.refresh");
     setRefreshing(true);
     cursor.current = null;
     reachedEnd.current = false;
@@ -142,6 +145,12 @@ export function HomeFeed() {
     []
   );
 
+  // Swiping is how the feed is read, so each post that settles on screen is part of the journey.
+  const activePostId = posts[activeIndex]?.id;
+  useEffect(() => {
+    if (activePostId != null) trackAction("feed.post_view", activePostId);
+  }, [activePostId]);
+
   const onLayout = (ev: LayoutChangeEvent) => setViewportH(ev.nativeEvent.layout.height);
   const avatarLabel = email?.[0]?.toUpperCase();
   const resetFeed = () => {
@@ -157,10 +166,12 @@ export function HomeFeed() {
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
   };
   const changePostType = (next: FeedPostType | null) => {
+    trackAction("feed.type_filter", next ?? "all");
     resetFeed();
     setPostType(next);
   };
   const changeTopic = (next: string | null) => {
+    trackAction("feed.topic_select", next ?? "for_you");
     resetFeed();
     setTopicId(next);
   };
@@ -177,7 +188,10 @@ export function HomeFeed() {
   return (
     <View style={[styles.container, { backgroundColor: e.bg }]}>
       <View style={[styles.masthead, { backgroundColor: e.bg, borderBottomColor: e.border }]}>
-        <Masthead avatarLabel={avatarLabel} onPressAvatar={() => router.push("/account" as Href)} />
+        <Masthead avatarLabel={avatarLabel} onPressAvatar={() => {
+          trackAction("feed.account_open");
+          router.push("/account" as Href);
+        }} />
         <View style={styles.tabs}>
           <FeedTabs value={topicId} onChange={changeTopic} />
         </View>
@@ -242,7 +256,10 @@ export function HomeFeed() {
 
       {canPublish ? (
         <Pressable
-          onPress={() => router.push("/create-post")}
+          onPress={() => {
+            trackAction("feed.compose_open");
+            router.push("/create-post");
+          }}
           accessibilityRole="button"
           accessibilityLabel="New post"
           style={[styles.fab, { backgroundColor: e.lime }]}

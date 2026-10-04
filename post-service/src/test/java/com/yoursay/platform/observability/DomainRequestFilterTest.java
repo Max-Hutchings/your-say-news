@@ -13,6 +13,7 @@ class DomainRequestFilterTest {
     void buildsOperationNamesWithoutAnEmptyLeadingSegment() {
         assertEquals("GET.feed", DomainRequestFilter.operationFrom("GET", "/feed"));
         assertEquals("POST.votes", DomainRequestFilter.operationFrom("POST", "/votes"));
+        assertEquals("POST.telemetry.mobile", DomainRequestFilter.operationFrom("POST", "/telemetry/mobile"));
         assertEquals("GET.api.admin.users", DomainRequestFilter.operationFrom("GET", "/api/admin/users"));
         assertEquals("POST.api.admin.auto-post.runs.{id}.retry-draft",
                 DomainRequestFilter.operationFrom("POST",
@@ -67,6 +68,7 @@ class DomainRequestFilterTest {
         assertEquals("feed", DomainRequestFilter.domainFromPath("/feed"));
         assertEquals("posts", DomainRequestFilter.domainFromPath("/posts/2007"));
         assertEquals("votes", DomainRequestFilter.domainFromPath("/votes/2007/count"));
+        assertEquals("platform", DomainRequestFilter.domainFromPath("/telemetry/mobile"));
         assertEquals("topics", DomainRequestFilter.domainFromPath("/topic-tags"));
         assertEquals("user", DomainRequestFilter.domainFromPath("/profiles/me"));
         assertEquals("user", DomainRequestFilter.domainFromPath("/your-say-user/onboarding"));

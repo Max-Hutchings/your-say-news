@@ -19,9 +19,10 @@ import { ComposeHeader } from "./ComposeHeader";
 import { ComposeModeToggle, type ComposeMode } from "./ComposeModeToggle";
 import { ComposeMediaField } from "./ComposeMediaField";
 import { PepperCompose } from "./PepperCompose";
-import type { PepperDraftRecord, VotingType } from "../types";
+import type { MediaType, PepperDraftRecord, VotingType } from "../types";
 import { OptionReorderHandle } from "./OptionReorderHandle";
 import { TopicTagPicker } from "@/features/topics";
+import { trackAction } from "@/features/telemetry";
 
 /**
  * The create-post experience in the editorial design language (design handoff).
@@ -40,6 +41,10 @@ export function CreatePostScreen() {
   const e = getEditorial(isDark);
   const { picked, progress, submitting, error, fieldErrors, pickMedia, removeMedia, submit } =
     useCreatePost();
+  const pickTrackedMedia = (kind: MediaType) => {
+    trackAction("create_post.media_pick", kind);
+    return pickMedia(kind);
+  };
 
   const [mode, setMode] = useState<ComposeMode>("manual");
   const [summary, setSummary] = useState("");
@@ -53,6 +58,7 @@ export function CreatePostScreen() {
   const [pepperDraft, setPepperDraft] = useState<PepperDraftRecord | null>(null);
 
   const handlePublish = async () => {
+    trackAction("create_post.submit", mode);
     const content = pepperDraft?.content;
     const created = mode === "pepper" && content
       ? await submit({
@@ -88,7 +94,10 @@ export function CreatePostScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <ComposeModeToggle mode={mode} onChange={setMode} />
+          <ComposeModeToggle mode={mode} onChange={(next) => {
+            trackAction("create_post.mode_select", next);
+            setMode(next);
+          }} />
 
           {mode === "pepper" ? (
             <>
@@ -101,7 +110,7 @@ export function CreatePostScreen() {
                       media={picked}
                       progress={progress}
                       uploading={submitting && picked.length > 0}
-                      onPick={pickMedia}
+                      onPick={pickTrackedMedia}
                       onRemove={removeMedia}
                     />
                   </View>
@@ -258,7 +267,7 @@ export function CreatePostScreen() {
                   media={picked}
                   progress={progress}
                   uploading={submitting && picked.length > 0}
-                  onPick={pickMedia}
+                  onPick={pickTrackedMedia}
                   onRemove={removeMedia}
                 />
               </View>

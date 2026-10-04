@@ -1,0 +1,1867 @@
+{
+ "uid": "ysn-mobile-app",
+ "title": "Your Say News - Mobile app",
+ "description": "What people do in the Expo app: screens, taps, API calls, crashes and per-session click journeys.",
+ "tags": [
+  "your-say-news",
+  "mobile"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": true,
+ "graphTooltip": 1,
+ "refresh": "30s",
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "timepicker": {},
+ "links": [
+  {
+   "type": "dashboards",
+   "title": "Your Say News",
+   "tags": [
+    "your-say-news"
+   ],
+   "asDropdown": true,
+   "includeVars": false,
+   "keepTime": true,
+   "icon": "external link",
+   "targetBlank": false
+  }
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "environment",
+    "label": "Environment",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": {
+     "query": "label_values(yoursay_mobile_sessions_total, environment)",
+     "refId": "environment"
+    },
+    "refresh": 2,
+    "includeAll": true,
+    "multi": true,
+    "allValue": ".*",
+    "current": {
+     "text": "All",
+     "value": "$__all",
+     "selected": true
+    }
+   },
+   {
+    "name": "platform",
+    "label": "Platform",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "prometheus"
+    },
+    "query": {
+     "query": "label_values(yoursay_mobile_sessions_total, platform)",
+     "refId": "platform"
+    },
+    "refresh": 2,
+    "includeAll": true,
+    "multi": true,
+    "allValue": ".*",
+    "current": {
+     "text": "All",
+     "value": "$__all",
+     "selected": true
+    }
+   },
+   {
+    "name": "user",
+    "label": "User id",
+    "type": "textbox",
+    "query": ".*",
+    "current": {
+     "text": ".*",
+     "value": ".*",
+     "selected": false
+    },
+    "description": "Internal account id (YourSayUser.id). .* shows every user. Logs and traces only - never a metric label (ADR-060)."
+   },
+   {
+    "name": "session",
+    "label": "Session",
+    "type": "textbox",
+    "query": "",
+    "current": {
+     "text": "",
+     "value": "",
+     "selected": false
+    },
+    "description": "A session.id from the Recent sessions panel. Shows that launch's full click journey."
+   }
+  ]
+ },
+ "annotations": {
+  "list": []
+ },
+ "panels": [
+  {
+   "id": 1,
+   "type": "row",
+   "title": "Overview",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 0
+   },
+   "panels": []
+  },
+  {
+   "id": 2,
+   "type": "stat",
+   "title": "Sessions in selected period",
+   "description": "App launches. One session id per launch, never linked to an account.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 0,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(increase(yoursay_mobile_sessions_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range]))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "links": [],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 3,
+   "type": "stat",
+   "title": "Screen views in selected period",
+   "description": "Every route opened, counted once per visit.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 4,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(increase(yoursay_mobile_screen_views_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range]))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "links": [],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 4,
+   "type": "stat",
+   "title": "Taps in selected period",
+   "description": "Named taps from the core flows (vote, share, follow, compose...).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 8,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(increase(yoursay_mobile_actions_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range]))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "links": [],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 5,
+   "type": "stat",
+   "title": "API calls per second",
+   "description": "post-service calls made by the app, timed on the device.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 12,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(rate(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval]))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "links": [],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "decimals": 2,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 6,
+   "type": "stat",
+   "title": "API errors in selected period",
+   "description": "Handled 4xx outcomes and cancelled calls.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 16,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(increase(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\", outcome=\"error\"}[$__range]))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "links": [],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "orange",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 7,
+   "type": "stat",
+   "title": "API faults + crashes in selected period",
+   "description": "5xx responses, dropped connections, timeouts and app crashes. Faults are counted apart from errors.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 4,
+    "w": 4,
+    "x": 20,
+    "y": 1
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "(sum(increase(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\", outcome=\"fault\"}[$__range])) or vector(0)) + (sum(increase(yoursay_mobile_app_faults_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range])) or vector(0))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true
+    }
+   ],
+   "links": [],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 8,
+   "type": "timeseries",
+   "title": "Screen views per second by screen",
+   "description": "Which pages people are on right now.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (screen) (rate(yoursay_mobile_screen_views_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval]))",
+     "legendFormat": "{{screen}}",
+     "editorMode": "code",
+     "range": true,
+     "instant": false
+    }
+   ],
+   "links": [],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 12,
+      "showPoints": "never",
+      "spanNulls": true,
+      "axisSoftMin": 0
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 9,
+   "type": "timeseries",
+   "title": "API calls per second by outcome",
+   "description": "success / error / fault from the app's point of view.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (outcome) (rate(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval]))",
+     "legendFormat": "{{outcome}}",
+     "editorMode": "code",
+     "range": true,
+     "instant": false
+    }
+   ],
+   "links": [],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 12,
+      "showPoints": "never",
+      "spanNulls": true,
+      "axisSoftMin": 0
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 10,
+   "type": "timeseries",
+   "title": "API error and fault percentage",
+   "description": "Separate lines: errors are handled, faults are not.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 13
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * sum(rate(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\", outcome=\"error\"}[$__rate_interval])) / clamp_min(sum(rate(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval])), 1e-9)",
+     "legendFormat": "error %",
+     "editorMode": "code",
+     "range": true,
+     "instant": false
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * sum(rate(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\", outcome=\"fault\"}[$__rate_interval])) / clamp_min(sum(rate(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval])), 1e-9)",
+     "legendFormat": "fault %",
+     "editorMode": "code",
+     "range": true,
+     "instant": false
+    }
+   ],
+   "links": [],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 12,
+      "showPoints": "never",
+      "spanNulls": true,
+      "axisSoftMin": 0
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 11,
+   "type": "timeseries",
+   "title": "API latency on the device p50 / p95 / p99",
+   "description": "Includes the network, so it is always slower than the post-service request latency.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 13
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(yoursay_mobile_operation_duration_milliseconds_bucket{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval])))",
+     "legendFormat": "p50",
+     "editorMode": "code",
+     "range": true,
+     "instant": false
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(yoursay_mobile_operation_duration_milliseconds_bucket{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval])))",
+     "legendFormat": "p95",
+     "editorMode": "code",
+     "range": true,
+     "instant": false
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "histogram_quantile(0.99, sum by (le) (rate(yoursay_mobile_operation_duration_milliseconds_bucket{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval])))",
+     "legendFormat": "p99",
+     "editorMode": "code",
+     "range": true,
+     "instant": false
+    }
+   ],
+   "links": [],
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "bottom",
+     "calcs": [
+      "mean",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "ms",
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 12,
+      "showPoints": "never",
+      "spanNulls": true,
+      "axisSoftMin": 0
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 12,
+   "type": "table",
+   "title": "Top 10 screens",
+   "description": "Most visited screens in the selected period.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 0,
+    "y": 21
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "topk(10, sum by (screen) (increase(yoursay_mobile_screen_views_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range])))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "links": [],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "desc": true,
+      "displayName": "Value"
+     }
+    ]
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "align": "auto",
+      "filterable": true
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 13,
+   "type": "table",
+   "title": "Top 10 taps",
+   "description": "Most used controls in the selected period.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 8,
+    "y": 21
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "topk(10, sum by (action) (increase(yoursay_mobile_actions_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range])))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "links": [],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "desc": true,
+      "displayName": "Value"
+     }
+    ]
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "align": "auto",
+      "filterable": true
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 14,
+   "type": "table",
+   "title": "Top 10 API errors",
+   "description": "Grouped by stable operation and error code.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 8,
+    "x": 16,
+    "y": 21
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "topk(10, sum by (operation, error_code) (increase(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\", outcome=\"error\"}[$__range])))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "links": [
+    {
+     "title": "Open failing app traces",
+     "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22your-say-news-mobile%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+     "targetBlank": true
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "desc": true,
+      "displayName": "Value"
+     }
+    ]
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "align": "auto",
+      "filterable": true
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 15,
+   "type": "table",
+   "title": "Top 10 API faults",
+   "description": "Grouped by stable operation and fault code.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 0,
+    "y": 29
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "topk(10, sum by (operation, fault_code) (increase(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\", outcome=\"fault\"}[$__range])))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "links": [
+    {
+     "title": "Open failing app traces",
+     "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22your-say-news-mobile%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+     "targetBlank": true
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "desc": true,
+      "displayName": "Value"
+     }
+    ]
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "align": "auto",
+      "filterable": true
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 16,
+   "type": "table",
+   "title": "Top 10 app crashes",
+   "description": "render_error = an error boundary caught it; global_error = nothing did.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 12,
+    "x": 12,
+    "y": 29
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "topk(10, sum by (screen, fault_code, fatal) (increase(yoursay_mobile_app_faults_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range])))",
+     "legendFormat": "__auto",
+     "editorMode": "code",
+     "range": false,
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "links": [
+    {
+     "title": "Open failing app traces",
+     "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22your-say-news-mobile%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+     "targetBlank": true
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "desc": true,
+      "displayName": "Value"
+     }
+    ]
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "align": "auto",
+      "filterable": true
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 17,
+   "type": "row",
+   "title": "Click journeys",
+   "collapsed": false,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 37
+   },
+   "panels": []
+  },
+  {
+   "id": 18,
+   "type": "logs",
+   "title": "Recent sessions",
+   "description": "App launches in the selected period, newest first, as 'session id - user id - device'. Type a user id into the User id box to see only that person's sessions, then copy a session id into the Session box to replay that journey.",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "gridPos": {
+    "h": 14,
+    "w": 8,
+    "x": 0,
+    "y": 38
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "{service_name=\"your-say-news-mobile\"} | event_name=\"app_start\" | user_id=~\"$user\" | line_format `{{.session_id}} - user {{or .user_id \"none\"}} - {{__line__}}`",
+     "queryType": "range"
+    }
+   ],
+   "links": [],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Descending",
+    "enableLogDetails": true,
+    "dedupStrategy": "none",
+    "prettifyLogMessage": false,
+    "showLabels": false
+   }
+  },
+  {
+   "id": 19,
+   "type": "logs",
+   "title": "Session journey",
+   "description": "Every screen, tap, API call, background and crash for the chosen session, oldest first. Expand a line and use its trace id to open the screen's trace, including the post-service spans.",
+   "datasource": {
+    "type": "loki",
+    "uid": "loki"
+   },
+   "gridPos": {
+    "h": 14,
+    "w": 16,
+    "x": 8,
+    "y": 38
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "expr": "{service_name=\"your-say-news-mobile\"} | session_id=\"$session\"",
+     "queryType": "range"
+    }
+   ],
+   "links": [
+    {
+     "title": "Open this session's journey in Explore",
+     "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22loki%22%7D%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22your-say-news-mobile%5C%22%7D%20%7C%20session_id%3D%5C%22%24session%5C%22%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+     "targetBlank": true
+    }
+   ],
+   "options": {
+    "showTime": true,
+    "wrapLogMessage": true,
+    "sortOrder": "Ascending",
+    "enableLogDetails": true,
+    "dedupStrategy": "none",
+    "prettifyLogMessage": false,
+    "showLabels": false
+   }
+  },
+  {
+   "id": 20,
+   "type": "table",
+   "title": "Session screen traces",
+   "description": "One trace per screen view: the screen span, its taps and API calls, and the post-service work each call caused.",
+   "datasource": {
+    "type": "tempo",
+    "uid": "tempo"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 24,
+    "x": 0,
+    "y": 52
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "tempo",
+      "uid": "tempo"
+     },
+     "queryType": "traceql",
+     "query": "{ resource.service.name = \"your-say-news-mobile\" && span.session.id = \"$session\" && name =~ \"screen.*\" }",
+     "limit": 50
+    }
+   ],
+   "options": {
+    "showHeader": true
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "id": 23,
+   "type": "row",
+   "title": "Screens",
+   "collapsed": true,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 60
+   },
+   "panels": [
+    {
+     "id": 21,
+     "type": "timeseries",
+     "title": "Time on screen p50 / p95 by screen",
+     "description": "A long dwell on results is engagement; a long dwell on a loading screen is a problem.",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 24,
+      "x": 0,
+      "y": 61
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "histogram_quantile(0.5, sum by (le, screen) (rate(yoursay_mobile_screen_duration_milliseconds_bucket{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval])))",
+       "legendFormat": "p50 {{screen}}",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      },
+      {
+       "refId": "B",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "histogram_quantile(0.95, sum by (le, screen) (rate(yoursay_mobile_screen_duration_milliseconds_bucket{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval])))",
+       "legendFormat": "p95 {{screen}}",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      }
+     ],
+     "links": [],
+     "options": {
+      "legend": {
+       "displayMode": "table",
+       "placement": "bottom",
+       "calcs": [
+        "mean",
+        "max"
+       ]
+      },
+      "tooltip": {
+       "mode": "multi",
+       "sort": "desc"
+      }
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "ms",
+       "custom": {
+        "drawStyle": "line",
+        "lineWidth": 1,
+        "fillOpacity": 12,
+        "showPoints": "never",
+        "spanNulls": true,
+        "axisSoftMin": 0
+       }
+      },
+      "overrides": []
+     }
+    },
+    {
+     "id": 22,
+     "type": "table",
+     "title": "Screen views by platform",
+     "description": "Where each screen is used.",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 24,
+      "x": 0,
+      "y": 69
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum by (screen, platform) (increase(yoursay_mobile_screen_views_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range]))",
+       "legendFormat": "__auto",
+       "editorMode": "code",
+       "range": false,
+       "instant": true,
+       "format": "table"
+      }
+     ],
+     "links": [],
+     "transformations": [
+      {
+       "id": "organize",
+       "options": {
+        "excludeByName": {
+         "Time": true
+        }
+       }
+      }
+     ],
+     "options": {
+      "showHeader": true,
+      "sortBy": [
+       {
+        "desc": true,
+        "displayName": "Value"
+       }
+      ]
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "short",
+       "custom": {
+        "align": "auto",
+        "filterable": true
+       }
+      },
+      "overrides": []
+     }
+    }
+   ]
+  },
+  {
+   "id": 26,
+   "type": "row",
+   "title": "Taps",
+   "collapsed": true,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 61
+   },
+   "panels": [
+    {
+     "id": 24,
+     "type": "timeseries",
+     "title": "Taps per second by action",
+     "description": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 24,
+      "x": 0,
+      "y": 62
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum by (action) (rate(yoursay_mobile_actions_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval]))",
+       "legendFormat": "{{action}}",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      }
+     ],
+     "links": [],
+     "options": {
+      "legend": {
+       "displayMode": "table",
+       "placement": "bottom",
+       "calcs": [
+        "mean",
+        "max"
+       ]
+      },
+      "tooltip": {
+       "mode": "multi",
+       "sort": "desc"
+      }
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "reqps",
+       "custom": {
+        "drawStyle": "line",
+        "lineWidth": 1,
+        "fillOpacity": 12,
+        "showPoints": "never",
+        "spanNulls": true,
+        "axisSoftMin": 0
+       }
+      },
+      "overrides": []
+     }
+    },
+    {
+     "id": 25,
+     "type": "table",
+     "title": "Taps by screen and action",
+     "description": "Which control was used on which screen.",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 24,
+      "x": 0,
+      "y": 70
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum by (screen, action) (increase(yoursay_mobile_actions_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range]))",
+       "legendFormat": "__auto",
+       "editorMode": "code",
+       "range": false,
+       "instant": true,
+       "format": "table"
+      }
+     ],
+     "links": [],
+     "transformations": [
+      {
+       "id": "organize",
+       "options": {
+        "excludeByName": {
+         "Time": true
+        }
+       }
+      }
+     ],
+     "options": {
+      "showHeader": true,
+      "sortBy": [
+       {
+        "desc": true,
+        "displayName": "Value"
+       }
+      ]
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "short",
+       "custom": {
+        "align": "auto",
+        "filterable": true
+       }
+      },
+      "overrides": []
+     }
+    }
+   ]
+  },
+  {
+   "id": 30,
+   "type": "row",
+   "title": "API calls from the app",
+   "collapsed": true,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 62
+   },
+   "panels": [
+    {
+     "id": 27,
+     "type": "timeseries",
+     "title": "Calls per second by domain and outcome",
+     "description": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 0,
+      "y": 63
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum by (domain, outcome) (rate(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval]))",
+       "legendFormat": "{{domain}} · {{outcome}}",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      }
+     ],
+     "links": [],
+     "options": {
+      "legend": {
+       "displayMode": "table",
+       "placement": "bottom",
+       "calcs": [
+        "mean",
+        "max"
+       ]
+      },
+      "tooltip": {
+       "mode": "multi",
+       "sort": "desc"
+      }
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "reqps",
+       "custom": {
+        "drawStyle": "line",
+        "lineWidth": 1,
+        "fillOpacity": 12,
+        "showPoints": "never",
+        "spanNulls": true,
+        "axisSoftMin": 0
+       }
+      },
+      "overrides": []
+     }
+    },
+    {
+     "id": 28,
+     "type": "timeseries",
+     "title": "p95 latency by operation",
+     "description": "Device-measured, so it includes the network.",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 12,
+      "y": 63
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(yoursay_mobile_operation_duration_milliseconds_bucket{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval])))",
+       "legendFormat": "{{operation}}",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      }
+     ],
+     "links": [],
+     "options": {
+      "legend": {
+       "displayMode": "table",
+       "placement": "bottom",
+       "calcs": [
+        "mean",
+        "max"
+       ]
+      },
+      "tooltip": {
+       "mode": "multi",
+       "sort": "desc"
+      }
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "ms",
+       "custom": {
+        "drawStyle": "line",
+        "lineWidth": 1,
+        "fillOpacity": 12,
+        "showPoints": "never",
+        "spanNulls": true,
+        "axisSoftMin": 0
+       }
+      },
+      "overrides": []
+     }
+    },
+    {
+     "id": 29,
+     "type": "table",
+     "title": "Calls by operation and outcome",
+     "description": "Same operation names as the post-service domain dashboards.",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 24,
+      "x": 0,
+      "y": 71
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum by (domain, operation, outcome, error_code, fault_code) (increase(yoursay_mobile_operations_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range]))",
+       "legendFormat": "__auto",
+       "editorMode": "code",
+       "range": false,
+       "instant": true,
+       "format": "table"
+      }
+     ],
+     "links": [],
+     "transformations": [
+      {
+       "id": "organize",
+       "options": {
+        "excludeByName": {
+         "Time": true
+        }
+       }
+      }
+     ],
+     "options": {
+      "showHeader": true,
+      "sortBy": [
+       {
+        "desc": true,
+        "displayName": "Value"
+       }
+      ]
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "short",
+       "custom": {
+        "align": "auto",
+        "filterable": true
+       }
+      },
+      "overrides": []
+     }
+    }
+   ]
+  },
+  {
+   "id": 34,
+   "type": "row",
+   "title": "Crashes and pipeline health",
+   "collapsed": true,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 63
+   },
+   "panels": [
+    {
+     "id": 31,
+     "type": "timeseries",
+     "title": "App crashes per second by screen",
+     "description": "",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 0,
+      "y": 64
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum by (screen, fault_code) (rate(yoursay_mobile_app_faults_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval]))",
+       "legendFormat": "{{screen}} · {{fault_code}}",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      }
+     ],
+     "links": [
+      {
+       "title": "Open failing app traces",
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22your-say-news-mobile%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+       "targetBlank": true
+      }
+     ],
+     "options": {
+      "legend": {
+       "displayMode": "table",
+       "placement": "bottom",
+       "calcs": [
+        "mean",
+        "max"
+       ]
+      },
+      "tooltip": {
+       "mode": "multi",
+       "sort": "desc"
+      }
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "reqps",
+       "custom": {
+        "drawStyle": "line",
+        "lineWidth": 1,
+        "fillOpacity": 12,
+        "showPoints": "never",
+        "spanNulls": true,
+        "axisSoftMin": 0
+       }
+      },
+      "overrides": []
+     }
+    },
+    {
+     "id": 32,
+     "type": "timeseries",
+     "title": "Telemetry pipeline failures",
+     "description": "Events post-service refused, and spans or logs the collector did not accept. If these rise, an empty dashboard does not mean a quiet app.",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 12,
+      "y": 64
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum(rate(yoursay_mobile_events_dropped_total{environment=~\"$environment\"}[$__rate_interval]))",
+       "legendFormat": "dropped events",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      },
+      {
+       "refId": "B",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum by (signal) (rate(yoursay_mobile_telemetry_export_failures_total{environment=~\"$environment\"}[$__rate_interval]))",
+       "legendFormat": "export failures {{signal}}",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      }
+     ],
+     "links": [],
+     "options": {
+      "legend": {
+       "displayMode": "table",
+       "placement": "bottom",
+       "calcs": [
+        "mean",
+        "max"
+       ]
+      },
+      "tooltip": {
+       "mode": "multi",
+       "sort": "desc"
+      }
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "reqps",
+       "custom": {
+        "drawStyle": "line",
+        "lineWidth": 1,
+        "fillOpacity": 12,
+        "showPoints": "never",
+        "spanNulls": true,
+        "axisSoftMin": 0
+       }
+      },
+      "overrides": []
+     }
+    },
+    {
+     "id": 33,
+     "type": "logs",
+     "title": "Warning and error logs from the app",
+     "description": "API errors, faults and crashes, newest first.",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "gridPos": {
+      "h": 10,
+      "w": 24,
+      "x": 0,
+      "y": 72
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "loki",
+        "uid": "loki"
+       },
+       "expr": "{service_name=\"your-say-news-mobile\"} |~ \"(?i)( error | fault |crash|unhandled)\"",
+       "queryType": "range"
+      }
+     ],
+     "links": [],
+     "options": {
+      "showTime": true,
+      "wrapLogMessage": true,
+      "sortOrder": "Descending",
+      "enableLogDetails": true,
+      "dedupStrategy": "none",
+      "prettifyLogMessage": false,
+      "showLabels": false
+     }
+    }
+   ]
+  }
+ ]
+}
