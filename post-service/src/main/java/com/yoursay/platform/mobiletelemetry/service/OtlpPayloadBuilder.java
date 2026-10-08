@@ -119,10 +119,21 @@ class OtlpPayloadBuilder {
         if (event.type() == MobileEventType.ERROR) {
             return SEVERITY_ERROR;
         }
+        if (event.type() == MobileEventType.LOG) {
+            return logSeverity(event.log().level());
+        }
         if (event.type() == MobileEventType.API_CALL && !event.apiCall().outcome().isSuccess()) {
             return event.apiCall().outcome().isFault() ? SEVERITY_ERROR : SEVERITY_WARN;
         }
         return SEVERITY_INFO;
+    }
+
+    private static int logSeverity(String level) {
+        return switch (level) {
+            case "error" -> SEVERITY_ERROR;
+            case "warn" -> SEVERITY_WARN;
+            default -> SEVERITY_INFO;
+        };
     }
 
     private static boolean isFailure(MobileEvent event) {
@@ -161,6 +172,10 @@ class OtlpPayloadBuilder {
                     .string("app.outcome", "fault")
                     .string("app.fault_code", error.source() + "_error")
                     .bool("app.error.fatal", error.fatal());
+        }
+        if (event.log() != null) {
+            attributes.string("app.log.name", event.log().name());
+            event.log().attributes().forEach((key, value) -> attributes.string("app.log." + key, value));
         }
         return attributes;
     }

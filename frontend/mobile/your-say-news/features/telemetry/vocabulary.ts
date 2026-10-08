@@ -47,3 +47,20 @@ export const TELEMETRY_ACTIONS = [
 ] as const;
 
 export type TelemetryAction = (typeof TELEMETRY_ACTIONS)[number];
+
+/**
+ * Diagnostic log names (MobileVocabulary.LOG_NAMES). "console" is a captured console.warn/error line;
+ * every other name is a structured record sent with logEvent.
+ */
+export const TELEMETRY_LOG_NAMES = ["console", "auth.sign_in_failed"] as const;
+
+export type TelemetryLogName = (typeof TELEMETRY_LOG_NAMES)[number];
+
+/**
+ * The only attributes a log record may carry (MobileVocabulary.LOG_ATTRIBUTE_KEYS). Values must be
+ * short codes such as "google" or "auth/invalid-credential" - never an email, name or message.
+ */
+export interface TelemetryLogAttributes {
+    stage?: string;
+    code?: string;
+}

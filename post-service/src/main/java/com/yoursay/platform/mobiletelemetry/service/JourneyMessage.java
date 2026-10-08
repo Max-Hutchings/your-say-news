@@ -24,6 +24,7 @@ final class JourneyMessage {
             case ACTION -> "Tapped %s on %s%s".formatted(event.action(), event.screen(), targetSuffix(event));
             case API_CALL -> apiCall(event);
             case ERROR -> crash(event);
+            case LOG -> log(event);
         };
     }
 
@@ -41,6 +42,17 @@ final class JourneyMessage {
         String kind = error.fatal() ? "Fatal crash" : "render".equals(error.source()) ? "Screen crash" : "Unhandled error";
         String message = error.message().isEmpty() ? "" : ": " + error.message();
         return "%s %s on %s%s".formatted(kind, error.name(), event.screen(), message);
+    }
+
+    /** "auth.sign_in_failed on /sign-in stage=google code=10" or "console on /: Profile load failed". */
+    private static String log(MobileEvent event) {
+        MobileEvent.AppLog log = event.log();
+        StringBuilder line = new StringBuilder(log.name()).append(" on ").append(event.screen());
+        log.attributes().forEach((key, value) -> line.append(' ').append(key).append('=').append(value));
+        if (!log.message().isEmpty()) {
+            line.append(": ").append(log.message());
+        }
+        return line.toString();
     }
 
     private static String targetSuffix(MobileEvent event) {

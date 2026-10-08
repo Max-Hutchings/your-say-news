@@ -1,5 +1,6 @@
 package com.yoursay.platform.mobiletelemetry.service;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -72,6 +73,17 @@ final class MobileVocabulary {
             "account.settings_open",
             "settings.theme_select");
 
+    /** Diagnostic log names. {@code console} is a captured console.warn / console.error line. */
+    static final Set<String> LOG_NAMES = Set.of(
+            "console",
+            "auth.sign_in_failed");
+
+    /**
+     * The only attribute keys a log record may carry, in the order they are printed. Values must also
+     * look like a code (see MobileEventSanitizer), so free text such as an email never gets through.
+     */
+    static final List<String> LOG_ATTRIBUTE_KEYS = List.of("stage", "code");
+
     private MobileVocabulary() {
     }
 
@@ -81,5 +93,9 @@ final class MobileVocabulary {
 
     static String action(String value) {
         return ACTIONS.contains(value) ? value : OTHER;
+    }
+
+    static String logName(String value) {
+        return LOG_NAMES.contains(value) ? value : OTHER;
     }
 }

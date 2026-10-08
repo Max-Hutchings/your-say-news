@@ -29,7 +29,6 @@ describe("TelemetryRecorder", () => {
             upload: async (batch) => {
                 uploads.push(batch);
             },
-            canUpload: () => true,
             client: CLIENT,
             now: () => clock,
             flushIntervalMs: 60_000,
@@ -113,16 +112,38 @@ describe("TelemetryRecorder", () => {
         expect(events[5].traceId).not.toBe(events[1].traceId);
     });
 
-    it("holds events until someone is signed in", async () => {
-        let signedIn = false;
-        await start({ canUpload: () => signedIn });
+    it("uploads before anyone signs in and links a sign-in failure to the screen it happened on", async () => {
+        await start();
         recorder.enterScreen("/sign-in", undefined);
+        clock = 2_000;
+        recorder.log({ level: "warn", name: "auth.sign_in_failed", attributes: { stage: "google", code: "10" } });
         await recorder.flush();
+
+        const [, enter, log] = uploads[0].events;
+        expect(log).toEqual({
+            type: "log", timestampMs: 2_000, screen: "/sign-in", traceId: enter.traceId, spanId: enter.spanId,
+            log: { level: "warn", name: "auth.sign_in_failed", attributes: { stage: "google", code: "10" } },
+        });
+    });
+
+    it("sends a structured diagnostic at once but leaves console lines for the next timed flush", async () => {
+        await start();
+        recorder.log({ level: "error", name: "console", message: "Render warning" });
+        await new Promise((resolve) => setTimeout(resolve, 0));
         expect(uploads).toHaveLength(0);
 
-        signedIn = true;
+        recorder.log({ level: "warn", name: "auth.sign_in_failed", attributes: { stage: "firebase", code: "auth/x" } });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(uploads.flatMap((b) => b.events).map((e) => e.log?.name ?? e.type))
+            .toEqual(["app_start", "console", "auth.sign_in_failed"]);
+    });
+
+    it("cuts a console line to the server's message limit", async () => {
+        await start();
+        recorder.log({ level: "warn", name: "console", message: "z".repeat(5_000) });
         await recorder.flush();
-        expect(uploads[0].events.map((e) => e.type)).toEqual(["app_start", "screen_enter"]);
+
+        expect(uploads[0].events[1].log?.message).toHaveLength(300);
     });
 
     it("re-queues a failed upload in its original order and sends it next time", async () => {
@@ -165,10 +186,16 @@ describe("TelemetryRecorder", () => {
     });
 
     it("keeps only the newest 500 events while uploads are impossible", async () => {
-        let signedIn = false;
-        await start({ canUpload: () => signedIn });
+        let online = false;
+        await start({
+            upload: async (batch) => {
+                if (!online) throw new Error("offline");
+                uploads.push(batch);
+            },
+        });
         for (let i = 0; i < 600; i++) recorder.trackAction("post.share", i);
-        signedIn = true;
+        await recorder.flush();
+        online = true;
         await recorder.flush();
 
         const events = uploads.flatMap((batch) => batch.events);
@@ -221,7 +248,7 @@ describe("TelemetryRecorder", () => {
 
     it("saves unsent events and uploads them on the next launch under the old session id", async () => {
         const storage = memoryStorage();
-        await start({ canUpload: () => false, storage });
+        await start({ upload: async () => { throw new Error("offline"); }, storage });
         recorder.enterScreen("/posts/[postId]", "42");
         recorder.reportError(new Error("boom"), "global", true);
         await recorder.flush();

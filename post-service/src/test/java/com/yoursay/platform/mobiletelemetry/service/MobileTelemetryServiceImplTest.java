@@ -54,6 +54,7 @@ class MobileTelemetryServiceImplTest {
         service.userService = userService;
         Mockito.when(userService.getAccessByEmail(CALLER)).thenReturn(new UserAccessDto(1207L, null, null, false));
         service.environment = "test";
+        service.anonymousBatchesPerMinute = 2;
         service.init();
     }
 
@@ -86,13 +87,13 @@ class MobileTelemetryServiceImplTest {
     @Test
     void batchWithOnlyInvalidEventsExportsNothingAndCountsTheDrops() {
         MobileTelemetryEventDto unknown = new MobileTelemetryEventDto("keystroke", System.currentTimeMillis(), null,
-                "/", null, null, null, null, null, null, null, null, null, null, null, null, null);
+                "/", null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         MobileTelemetryReceiptDto receipt = service.record(batch(List.of(unknown, unknown)), CALLER);
 
         assertEquals(new MobileTelemetryReceiptDto(0, 2), receipt);
         assertEquals(List.of(), exportedSignals);
-        assertEquals(2.0, registry.get("yoursay.mobile.events.dropped.total").counter().count());
+        assertEquals(2.0, registry.get("yoursay.mobile.events.dropped.total").tags("reason", "invalid").counter().count());
     }
 
     @Test
@@ -118,6 +119,53 @@ class MobileTelemetryServiceImplTest {
         service.record(batch(List.of(appStart(System.currentTimeMillis()))), "new.signup@example.com");
 
         assertEquals(List.of(), userIdsIn(exportedPayloads.getFirst()));
+    }
+
+    @Test
+    void appLogIsCountedByLevelAndName() {
+        long now = System.currentTimeMillis();
+
+        service.record(batch(List.of(
+                log("warn", "auth.sign_in_failed", null, Map.of("stage", "google", "code", "10"), now),
+                log("error", "console", "boom", null, now))), CALLER);
+
+        assertEquals(1.0, registry.get("yoursay.mobile.logs.total")
+                .tags("platform", "ios", "level", "warn", "log_name", "auth.sign_in_failed").counter().count());
+        assertEquals(1.0, registry.get("yoursay.mobile.logs.total")
+                .tags("level", "error", "log_name", "console").counter().count());
+        assertEquals(List.of("logs"), exportedSignals);
+    }
+
+    @Test
+    void callerWhoHasNotSignedInIsRecordedWithoutAUserIdOrAnAccountLookup() {
+        MobileTelemetryReceiptDto receipt = service.record(batch(List.of(
+                log("warn", "auth.sign_in_failed", null, Map.of("stage", "google", "code", "10"),
+                        System.currentTimeMillis()))), null);
+
+        assertEquals(new MobileTelemetryReceiptDto(1, 0), receipt);
+        assertEquals(List.of(), userIdsIn(exportedPayloads.getFirst()));
+        Mockito.verifyNoInteractions(userService);
+    }
+
+    @Test
+    void anonymousBatchesBeyondTheBudgetAreDroppedButSignedInCallersAreNot() {
+        long now = System.currentTimeMillis();
+        MobileTelemetryBatchDto twoEvents = batch(List.of(appStart(now), appState("background", now)));
+
+        service.record(twoEvents, CALLER);
+        service.record(twoEvents, CALLER);
+        MobileTelemetryReceiptDto firstAnonymous = service.record(twoEvents, null);
+        MobileTelemetryReceiptDto secondAnonymous = service.record(twoEvents, null);
+        MobileTelemetryReceiptDto overBudget = service.record(twoEvents, null);
+        MobileTelemetryReceiptDto signedIn = service.record(twoEvents, CALLER);
+
+        assertEquals(new MobileTelemetryReceiptDto(2, 0), firstAnonymous);
+        assertEquals(new MobileTelemetryReceiptDto(2, 0), secondAnonymous);
+        assertEquals(new MobileTelemetryReceiptDto(0, 2), overBudget);
+        assertEquals(new MobileTelemetryReceiptDto(2, 0), signedIn);
+        assertEquals(2.0, registry.get("yoursay.mobile.events.dropped.total")
+                .tags("reason", "anonymous_rate_limited").counter().count());
+        assertEquals(List.of("logs", "logs", "logs", "logs", "logs"), exportedSignals);
     }
 
     /** Every {@code user.id} attribute value anywhere in an OTLP payload, in document order. */

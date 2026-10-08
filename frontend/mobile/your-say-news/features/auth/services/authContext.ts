@@ -11,6 +11,7 @@ import {
     usesHostedGoogleAuth,
 } from "./firebaseService";
 import { getOnboardingStatus, getUser, verifySession } from "./UserService";
+import { logEvent } from "@/features/telemetry";
 
 const isWeb = Platform.OS === "web";
 
@@ -69,7 +70,7 @@ async function login(email: string, password: string): Promise<LoginResult> {
         return result;
     }
     if (!await completeLogin()) {
-        console.warn("Sign-in failed: stage=server code=user_unavailable");
+        logEvent("warn", "auth.sign_in_failed", { stage: "server", code: "user_unavailable" });
         return { status: "failed", stage: "server", code: "user_unavailable" };
     }
     return result;

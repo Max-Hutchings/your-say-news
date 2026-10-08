@@ -3,15 +3,18 @@ package com.yoursay.platform.mobiletelemetry;
 import com.yoursay.platform.mobiletelemetry.dto.MobileClientDto;
 import com.yoursay.platform.mobiletelemetry.dto.MobileTelemetryBatchDto;
 import com.yoursay.platform.mobiletelemetry.dto.MobileTelemetryEventDto;
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.search.Search;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
-import jakarta.inject.Inject;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static com.yoursay.platform.mobiletelemetry.MobileTelemetryFixtures.*;
@@ -22,25 +25,38 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * The relay end to end: auth, validation and the Prometheus counters the Mobile dashboard reads.
  * Each test uses its own platform/screen labels' delta, because the registry is shared by the suite.
+ *
+ * <p>The test profile disables OpenTelemetry, so Quarkus registers no child under Micrometer's global
+ * composite registry and every counter it hands out is a no-op that always reads 0. An in-memory
+ * registry is attached for this class so the counters the relay increments can be read back.
  */
 @QuarkusTest
 class MobileTelemetryControllerTest {
 
-    @Inject
-    MeterRegistry registry;
+    private static final SimpleMeterRegistry METERS = new SimpleMeterRegistry();
+
+    @BeforeAll
+    static void recordMetersInMemory() {
+        Metrics.globalRegistry.add(METERS);
+    }
+
+    @AfterAll
+    static void detachInMemoryMeters() {
+        Metrics.globalRegistry.remove(METERS);
+    }
 
     @Test
     @TestSecurity(user = "reader@yoursay.com", roles = "user")
     void recordsAJourneyAndDropsTheInvalidEvent() {
         long now = System.currentTimeMillis();
-        double screenViewsBefore = count(registry.find("yoursay.mobile.screen.views.total")
+        double screenViewsBefore = count(METERS.find("yoursay.mobile.screen.views.total")
                 .tags("platform", "android", "screen", "/posts/[postId]"));
-        double votesBefore = count(registry.find("yoursay.mobile.actions.total")
+        double votesBefore = count(METERS.find("yoursay.mobile.actions.total")
                 .tags("platform", "android", "action", "vote.cast"));
-        double conflictsBefore = count(registry.find("yoursay.mobile.operations.total")
+        double conflictsBefore = count(METERS.find("yoursay.mobile.operations.total")
                 .tags("platform", "android", "domain", "votes", "operation", "POST.votes",
                         "outcome", "error", "error_code", "http_409"));
-        double droppedBefore = count(registry.find("yoursay.mobile.events.dropped.total"));
+        double droppedBefore = count(METERS.find("yoursay.mobile.events.dropped.total").tags("reason", "invalid"));
 
         given().contentType("application/json")
                 .body(batch("android", List.of(
@@ -48,21 +64,21 @@ class MobileTelemetryControllerTest {
                         action("/posts/[postId]", "vote.cast", "42", now + 5),
                         apiCall("POST", "/votes", 409, null, now + 6, now + 90),
                         new MobileTelemetryEventDto("keystroke", now, null, "/", null, null, null, null,
-                                null, null, null, null, null, null, null, null, null))))
+                                null, null, null, null, null, null, null, null, null, null))))
                 .when().post("/telemetry/mobile")
                 .then()
                 .statusCode(202)
                 .body("accepted", is(3))
                 .body("dropped", is(1));
 
-        assertEquals(screenViewsBefore + 1, count(registry.find("yoursay.mobile.screen.views.total")
+        assertEquals(screenViewsBefore + 1, count(METERS.find("yoursay.mobile.screen.views.total")
                 .tags("platform", "android", "screen", "/posts/[postId]")));
-        assertEquals(votesBefore + 1, count(registry.find("yoursay.mobile.actions.total")
+        assertEquals(votesBefore + 1, count(METERS.find("yoursay.mobile.actions.total")
                 .tags("platform", "android", "action", "vote.cast")));
-        assertEquals(conflictsBefore + 1, count(registry.find("yoursay.mobile.operations.total")
+        assertEquals(conflictsBefore + 1, count(METERS.find("yoursay.mobile.operations.total")
                 .tags("platform", "android", "domain", "votes", "operation", "POST.votes",
                         "outcome", "error", "error_code", "http_409")));
-        assertEquals(droppedBefore + 1, count(registry.find("yoursay.mobile.events.dropped.total")));
+        assertEquals(droppedBefore + 1, count(METERS.find("yoursay.mobile.events.dropped.total").tags("reason", "invalid")));
     }
 
     @Test
@@ -103,23 +119,24 @@ class MobileTelemetryControllerTest {
                 .statusCode(400);
     }
 
+    /** A Google sign-in that fails on the device never gets a Firebase token, so its diagnostics arrive anonymously. */
     @Test
-    void rejectsAnAnonymousCaller() {
-        given().contentType("application/json")
-                .body(batch("ios", List.of(appStart(System.currentTimeMillis()))))
-                .when().post("/telemetry/mobile")
-                .then()
-                .statusCode(401);
-    }
+    void acceptsTheSignInFailureOfACallerWhoHasNotSignedIn() {
+        long now = System.currentTimeMillis();
+        double signInFailuresBefore = count(METERS.find("yoursay.mobile.logs.total")
+                .tags("platform", "android", "level", "warn", "log_name", "auth.sign_in_failed"));
 
-    @Test
-    @TestSecurity(user = "admin@yoursay.com", roles = "admin")
-    void rejectsACallerWithoutTheUserRole() {
         given().contentType("application/json")
-                .body(batch("ios", List.of(appStart(System.currentTimeMillis()))))
+                .body(batch("android", List.of(appStart(now),
+                        log("warn", "auth.sign_in_failed", null, Map.of("stage", "google", "code", "10"), now + 1))))
                 .when().post("/telemetry/mobile")
                 .then()
-                .statusCode(403);
+                .statusCode(202)
+                .body("accepted", is(2))
+                .body("dropped", is(0));
+
+        assertEquals(signInFailuresBefore + 1, count(METERS.find("yoursay.mobile.logs.total")
+                .tags("platform", "android", "level", "warn", "log_name", "auth.sign_in_failed")));
     }
 
     private static MobileTelemetryBatchDto batch(String platform, List<MobileTelemetryEventDto> events) {

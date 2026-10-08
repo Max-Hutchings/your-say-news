@@ -4,6 +4,7 @@ import type {
     TelemetryBatch,
     TelemetryClientInfo,
     TelemetryEvent,
+    TelemetryLog,
 } from "../types";
 import { newSessionId, newSpanId, newTraceId } from "./ids";
 
@@ -17,9 +18,11 @@ export interface KeyValueStorage {
 }
 
 export interface TelemetryOptions {
+    /**
+     * Sends with the user's Firebase token when there is one and without it otherwise: post-service
+     * accepts batches from people who have not signed in, so a failed sign-in still reaches Grafana.
+     */
     upload: TelemetryUpload;
-    /** Uploads need a Firebase token, so events wait in memory until someone is signed in. */
-    canUpload: () => boolean;
     client: TelemetryClientInfo;
     storage?: KeyValueStorage;
     now?: () => number;
@@ -234,6 +237,28 @@ export class TelemetryRecorder {
     }
 
     /**
+     * Records a diagnostic log on the current screen's trace. Structured records (a sign-in failure)
+     * are sent at once, because the person may close the app straight after; console lines wait for
+     * the next timed flush so a chatty screen cannot turn into a stream of requests.
+     */
+    log(entry: TelemetryLog): void {
+        const parent = this.screen;
+        this.push({
+            type: "log",
+            timestampMs: this.now(),
+            screen: this.screenName(),
+            traceId: parent?.traceId,
+            spanId: parent?.spanId,
+            log: entry.message === undefined
+                ? entry
+                : { ...entry, message: entry.message.slice(0, MAX_ERROR_MESSAGE_LENGTH) },
+        });
+        if (entry.name !== "console") {
+            void this.flush();
+        }
+    }
+
+    /**
      * Sends earlier launches first, then this launch. One upload loop runs at a time; a flush asked
      * for mid-loop (for example right after sign-in) runs again once it ends, unless an upload just
      * failed, so an offline device does not retry in a tight loop.
@@ -260,8 +285,7 @@ export class TelemetryRecorder {
     /** Returns true when an upload failed and the events went back on the queue. */
     private async uploadQueued(): Promise<boolean> {
         const options = this.options;
-        if (!options || !options.canUpload()) {
-            await this.persist();
+        if (!options) {
             return false;
         }
         let uploadFailed = false;

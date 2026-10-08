@@ -2,6 +2,7 @@ package com.yoursay.platform.mobiletelemetry.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * A validated app event. Only {@link MobileEventSanitizer} creates these, so every string here has
@@ -19,7 +20,8 @@ record MobileEvent(
         String action,
         ApiCall apiCall,
         AppError error,
-        String appState
+        String appState,
+        AppLog log
 ) {
 
     Duration duration() {
@@ -40,5 +42,13 @@ record MobileEvent(
 
     /** A crash. {@code source} is render (an error boundary caught it) or global (nothing did). */
     record AppError(String name, String message, boolean fatal, String source) {
+    }
+
+    /**
+     * A diagnostic log record. {@code name} is from {@link MobileVocabulary#LOG_NAMES}, {@code attributes}
+     * only hold allowlisted keys with short code-like values, and {@code message} is scrubbed console text
+     * (empty when the record is structured only).
+     */
+    record AppLog(String level, String name, String message, Map<String, String> attributes) {
     }
 }

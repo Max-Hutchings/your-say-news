@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { logEvent } from "@/features/telemetry";
 import type { LoginResult } from "../types";
 import { firebaseAuth } from "./firebaseClient";
 
@@ -47,10 +48,10 @@ export async function signInWithGoogle(): Promise<LoginResult> {
     }
 }
 
-// Written to the device log (logcat tag ReactNativeJS), which is the only place a client-side
-// sign-in failure is recorded. Only the bounded provider code is logged, never the message.
+// Sent to Grafana (Loki: app_log_name="auth.sign_in_failed") even though nobody is signed in, and
+// printed to the device log. Only the bounded provider code is recorded, never the message.
 function signInFailed(stage: "google" | "firebase", code: string): LoginResult {
-    console.warn(`Sign-in failed: stage=${stage} code=${code}`);
+    logEvent("warn", "auth.sign_in_failed", { stage, code });
     return { status: "failed", stage, code };
 }
 

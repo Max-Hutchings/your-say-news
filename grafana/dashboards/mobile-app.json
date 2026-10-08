@@ -1757,7 +1757,7 @@
      "id": 32,
      "type": "timeseries",
      "title": "Telemetry pipeline failures",
-     "description": "Events post-service refused, and spans or logs the collector did not accept. If these rise, an empty dashboard does not mean a quiet app.",
+     "description": "Events post-service refused (reason=invalid: schema drift; reason=anonymous_rate_limited: the pre-sign-in budget was spent), and spans or logs the collector did not accept. If these rise, an empty dashboard does not mean a quiet app.",
      "datasource": {
       "type": "prometheus",
       "uid": "prometheus"
@@ -1775,8 +1775,8 @@
         "type": "prometheus",
         "uid": "prometheus"
        },
-       "expr": "sum(rate(yoursay_mobile_events_dropped_total{environment=~\"$environment\"}[$__rate_interval]))",
-       "legendFormat": "dropped events",
+       "expr": "sum by (reason) (rate(yoursay_mobile_events_dropped_total{environment=~\"$environment\"}[$__rate_interval]))",
+       "legendFormat": "dropped events {{reason}}",
        "editorMode": "code",
        "range": true,
        "instant": false
@@ -1828,7 +1828,7 @@
      "id": 33,
      "type": "logs",
      "title": "Warning and error logs from the app",
-     "description": "API errors, faults and crashes, newest first.",
+     "description": "API errors, faults, crashes, sign-in failures and console warnings/errors, newest first. Includes sessions that never signed in.",
      "datasource": {
       "type": "loki",
       "uid": "loki"
@@ -1846,7 +1846,221 @@
         "type": "loki",
         "uid": "loki"
        },
-       "expr": "{service_name=\"your-say-news-mobile\"} |~ \"(?i)( error | fault |crash|unhandled)\"",
+       "expr": "{service_name=\"your-say-news-mobile\"} | severity_text=~\"WARN|ERROR\" | user_id=~\"$user\"",
+       "queryType": "range"
+      }
+     ],
+     "links": [],
+     "options": {
+      "showTime": true,
+      "wrapLogMessage": true,
+      "sortOrder": "Descending",
+      "enableLogDetails": true,
+      "dedupStrategy": "none",
+      "prettifyLogMessage": false,
+      "showLabels": false
+     }
+    }
+   ]
+  },
+  {
+   "id": 35,
+   "type": "row",
+   "title": "App logs and sign-in failures",
+   "collapsed": true,
+   "gridPos": {
+    "h": 1,
+    "w": 24,
+    "x": 0,
+    "y": 64
+   },
+   "panels": [
+    {
+     "id": 36,
+     "type": "timeseries",
+     "title": "App log records per second by name and level",
+     "description": "Structured diagnostics and captured console.warn / console.error lines, counted on post-service. Names are allowlisted, so this stays low-cardinality.",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 0,
+      "y": 65
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "sum by (log_name, level) (rate(yoursay_mobile_logs_total{environment=~\"$environment\", platform=~\"$platform\"}[$__rate_interval]))",
+       "legendFormat": "{{log_name}} · {{level}}",
+       "editorMode": "code",
+       "range": true,
+       "instant": false
+      }
+     ],
+     "links": [],
+     "options": {
+      "legend": {
+       "displayMode": "table",
+       "placement": "bottom",
+       "calcs": [
+        "mean",
+        "max"
+       ]
+      },
+      "tooltip": {
+       "mode": "multi",
+       "sort": "desc"
+      }
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "reqps",
+       "custom": {
+        "drawStyle": "line",
+        "lineWidth": 1,
+        "fillOpacity": 12,
+        "showPoints": "never",
+        "spanNulls": true,
+        "axisSoftMin": 0
+       }
+      },
+      "overrides": []
+     }
+    },
+    {
+     "id": 37,
+     "type": "table",
+     "title": "Top 10 app log records",
+     "description": "Log records in the selected period by name and level, counted from Prometheus. auth.sign_in_failed includes attempts that never reached post-service.",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 12,
+      "y": 65
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       },
+       "expr": "topk(10, sum by (log_name, level) (increase(yoursay_mobile_logs_total{environment=~\"$environment\", platform=~\"$platform\"}[$__range])))",
+       "legendFormat": "__auto",
+       "editorMode": "code",
+       "range": false,
+       "instant": true,
+       "format": "table"
+      }
+     ],
+     "links": [
+      {
+       "title": "Open failing app traces",
+       "url": "/explore?schemaVersion=1&orgId=1&panes=%7B%22ysn%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22tempo%22%2C%22uid%22%3A%22tempo%22%7D%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22your-say-news-mobile%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22%24%7B__from%7D%22%2C%22to%22%3A%22%24%7B__to%7D%22%7D%7D%7D",
+       "targetBlank": true
+      }
+     ],
+     "transformations": [
+      {
+       "id": "organize",
+       "options": {
+        "excludeByName": {
+         "Time": true
+        }
+       }
+      }
+     ],
+     "options": {
+      "showHeader": true,
+      "sortBy": [
+       {
+        "desc": true,
+        "displayName": "Value"
+       }
+      ]
+     },
+     "fieldConfig": {
+      "defaults": {
+       "unit": "short",
+       "custom": {
+        "align": "auto",
+        "filterable": true
+       }
+      },
+      "overrides": []
+     }
+    },
+    {
+     "id": 38,
+     "type": "logs",
+     "title": "Sign-in failures",
+     "description": "Every failed sign-in with its stage (google, firebase, server) and the provider error code, including people who never signed in (no user id).",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "gridPos": {
+      "h": 10,
+      "w": 24,
+      "x": 0,
+      "y": 73
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "loki",
+        "uid": "loki"
+       },
+       "expr": "{service_name=\"your-say-news-mobile\"} | app_log_name=\"auth.sign_in_failed\"",
+       "queryType": "range"
+      }
+     ],
+     "links": [],
+     "options": {
+      "showTime": true,
+      "wrapLogMessage": true,
+      "sortOrder": "Descending",
+      "enableLogDetails": true,
+      "dedupStrategy": "none",
+      "prettifyLogMessage": false,
+      "showLabels": false
+     }
+    },
+    {
+     "id": 39,
+     "type": "logs",
+     "title": "Console warnings and errors",
+     "description": "console.warn and console.error lines from the app. Objects are never serialised; emails, opaque ids and long numbers are scrubbed on post-service.",
+     "datasource": {
+      "type": "loki",
+      "uid": "loki"
+     },
+     "gridPos": {
+      "h": 10,
+      "w": 24,
+      "x": 0,
+      "y": 83
+     },
+     "targets": [
+      {
+       "refId": "A",
+       "datasource": {
+        "type": "loki",
+        "uid": "loki"
+       },
+       "expr": "{service_name=\"your-say-news-mobile\"} | app_log_name=\"console\" | user_id=~\"$user\"",
        "queryType": "range"
       }
      ],

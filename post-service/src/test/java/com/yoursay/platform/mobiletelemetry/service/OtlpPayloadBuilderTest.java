@@ -156,6 +156,49 @@ class OtlpPayloadBuilderTest {
     }
 
     @Test
+    void signInFailureBecomesAWarnLogWithQueryableAttributesAndNoSpan() {
+        List<MobileEvent> events = events(log("warn", "auth.sign_in_failed", null,
+                Map.of("stage", "google", "code", "10"), NOW_MS));
+
+        Map<String, Object> record = logRecords(builder.logs(SESSION.withUserId(null), events)).getFirst();
+
+        assertFalse(OtlpPayloadBuilder.hasSpans(events));
+        assertEquals("WARN", record.get("severityText"));
+        assertEquals(13, record.get("severityNumber"));
+        assertEquals("auth.sign_in_failed on /sign-in stage=google code=10",
+                ((Map<String, String>) record.get("body")).get("stringValue"));
+        Map<String, String> attributes = attributes(record);
+        assertEquals("log", attributes.get("event.name"));
+        assertEquals("auth.sign_in_failed", attributes.get("app.log.name"));
+        assertEquals("google", attributes.get("app.log.stage"));
+        assertEquals("10", attributes.get("app.log.code"));
+        assertEquals(SESSION_ID, attributes.get("session.id"));
+        assertFalse(attributes.containsKey("user.id"));
+        assertEquals(TRACE_ID, record.get("traceId"));
+        assertEquals(SCREEN_SPAN_ID, record.get("spanId"));
+    }
+
+    @Test
+    void infoLogIsFiledAsInfo() {
+        Map<String, Object> record = logRecords(builder.logs(SESSION, events(
+                log("info", "console", "cache warmed", null, NOW_MS)))).getFirst();
+
+        assertEquals("INFO", record.get("severityText"));
+        assertEquals(9, record.get("severityNumber"));
+    }
+
+    @Test
+    void consoleErrorBecomesAnErrorLogCarryingItsScrubbedMessage() {
+        Map<String, Object> record = logRecords(builder.logs(SESSION, events(
+                log("error", "console", "Profile load failed for jane@example.com", null, NOW_MS)))).getFirst();
+
+        assertEquals("ERROR", record.get("severityText"));
+        assertEquals("console on /sign-in: Profile load failed for [email]",
+                ((Map<String, String>) record.get("body")).get("stringValue"));
+        assertEquals("console", attributes(record).get("app.log.name"));
+    }
+
+    @Test
     void resourceNamesTheMobileServiceAndEnvironment() {
         Map<String, Object> resourceLogs = ((List<Map<String, Object>>) builder.logs(SESSION, events(appStart(NOW_MS)))
                 .get("resourceLogs")).getFirst();

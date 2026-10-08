@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Map;
 
 import static com.yoursay.platform.mobiletelemetry.MobileTelemetryFixtures.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,11 +84,11 @@ class MobileEventSanitizerTest {
     @Test
     void spanEventsWithoutUsableTraceContextAreDropped() {
         MobileTelemetryEventDto noTrace = new MobileTelemetryEventDto("action", NOW_MS, null, "/", null,
-                null, CHILD_SPAN_ID, null, "feed.refresh", null, null, null, null, null, null, null, null);
+                null, CHILD_SPAN_ID, null, "feed.refresh", null, null, null, null, null, null, null, null, null);
         MobileTelemetryEventDto zeroTrace = new MobileTelemetryEventDto("action", NOW_MS, null, "/", null,
-                "0".repeat(32), CHILD_SPAN_ID, null, "feed.refresh", null, null, null, null, null, null, null, null);
+                "0".repeat(32), CHILD_SPAN_ID, null, "feed.refresh", null, null, null, null, null, null, null, null, null);
         MobileTelemetryEventDto shortSpan = new MobileTelemetryEventDto("action", NOW_MS, null, "/", null,
-                TRACE_ID, "abc", null, "feed.refresh", null, null, null, null, null, null, null, null);
+                TRACE_ID, "abc", null, "feed.refresh", null, null, null, null, null, null, null, null, null);
 
         assertTrue(sanitizer.sanitize(noTrace).isEmpty());
         assertTrue(sanitizer.sanitize(zeroTrace).isEmpty());
@@ -121,7 +122,7 @@ class MobileEventSanitizerTest {
     @Test
     void unknownEventTypeIsDropped() {
         MobileTelemetryEventDto unknown = new MobileTelemetryEventDto("keystroke", NOW_MS, null, "/", null,
-                null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertTrue(sanitizer.sanitize(unknown).isEmpty());
     }
@@ -155,6 +156,46 @@ class MobileEventSanitizerTest {
         assertEquals("global", error.source());
         assertEquals("", error.message());
         assertTrue(error.fatal());
+    }
+
+    @Test
+    void signInFailureLogKeepsItsNameLevelAndOnlyAllowlistedAttributes() {
+        MobileEvent.AppLog log = sanitizer.sanitize(log("warn", "auth.sign_in_failed", null,
+                Map.of("code", "10", "stage", "google", "email", "jane@example.com"), NOW_MS)).orElseThrow().log();
+
+        assertEquals(new MobileEvent.AppLog("warn", "auth.sign_in_failed", "",
+                Map.of("stage", "google", "code", "10")), log);
+    }
+
+    @Test
+    void logAttributeValuesThatCouldHoldFreeTextAreDropped() {
+        MobileEvent.AppLog log = sanitizer.sanitize(log("warn", "auth.sign_in_failed", null,
+                Map.of("stage", "google", "code", "jane doe@example.com"), NOW_MS)).orElseThrow().log();
+
+        assertEquals(Map.of("stage", "google"), log.attributes());
+    }
+
+    @Test
+    void consoleMessageIsScrubbedAndAnUnknownLogNameCollapsesToOther() {
+        MobileEvent.AppLog console = sanitizer.sanitize(log("error", "console",
+                "Profile load failed for jane@example.com", null, NOW_MS)).orElseThrow().log();
+        MobileEvent.AppLog invented = sanitizer.sanitize(log("warn", "user.jane_doe_logged_in", null, null, NOW_MS))
+                .orElseThrow().log();
+
+        assertEquals("console", console.name());
+        assertEquals("Profile load failed for [email]", console.message());
+        assertEquals("other", invented.name());
+        assertEquals(Map.of(), invented.attributes());
+    }
+
+    @Test
+    void logWithAnUnknownLevelOrNoLogBodyIsDropped() {
+        MobileTelemetryEventDto noBody = new MobileTelemetryEventDto("log", NOW_MS, null, "/sign-in", null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null);
+
+        assertTrue(sanitizer.sanitize(log("debug", "console", "hello", null, NOW_MS)).isEmpty());
+        assertTrue(sanitizer.sanitize(noBody).isEmpty());
+        assertTrue(sanitizer.sanitize(log("info", "console", "hello", null, NOW_MS)).isPresent());
     }
 
     @Test

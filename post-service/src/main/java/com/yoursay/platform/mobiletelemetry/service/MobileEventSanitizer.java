@@ -7,6 +7,8 @@ import com.yoursay.platform.observability.DomainRequestFilter;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -28,6 +30,8 @@ class MobileEventSanitizer {
     private static final Pattern TARGET = Pattern.compile("[A-Za-z0-9_.-]{1,64}");
     private static final Pattern VERSION = Pattern.compile("[A-Za-z0-9_.+-]{1,32}");
     private static final Pattern ERROR_NAME = Pattern.compile("[A-Za-z0-9_.$]{1,64}");
+    /** A log attribute value must look like a code ("google", "10", "auth/invalid-credential"), never prose. */
+    private static final Pattern LOG_ATTRIBUTE_VALUE = Pattern.compile("[A-Za-z0-9_./:-]{1,64}");
     private static final Pattern EMAIL = Pattern.compile("[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+");
     private static final Pattern LONG_NUMBER = Pattern.compile("\\d{5,}");
     /** Firebase UIDs, tokens and similar opaque ids: 20+ characters with no spaces. */
@@ -38,6 +42,7 @@ class MobileEventSanitizer {
     private static final Set<String> METHODS = Set.of("GET", "POST", "PUT", "PATCH", "DELETE");
     private static final Set<String> APP_STATES = Set.of("active", "background");
     private static final Set<String> ERROR_SOURCES = Set.of("render", "global");
+    private static final Set<String> LOG_LEVELS = Set.of("info", "warn", "error");
 
     private final Clock clock;
 
@@ -56,7 +61,8 @@ class MobileEventSanitizer {
 
     Optional<MobileEvent> sanitize(MobileTelemetryEventDto dto) {
         Optional<MobileEventType> type = MobileEventType.fromWireName(dto.type());
-        if (type.isEmpty() || !hasValidTiming(dto) || !hasValidTraceContext(type.get(), dto)) {
+        if (type.isEmpty() || !hasValidTiming(dto) || !hasValidTraceContext(type.get(), dto)
+                || type.get() == MobileEventType.LOG && !hasValidLog(dto)) {
             return Optional.empty();
         }
         return Optional.of(toEvent(type.get(), dto));
@@ -77,7 +83,8 @@ class MobileEventSanitizer {
                 type == MobileEventType.ACTION ? MobileVocabulary.action(dto.action()) : null,
                 type == MobileEventType.API_CALL ? apiCall(dto) : null,
                 type == MobileEventType.ERROR ? appError(dto) : null,
-                type == MobileEventType.APP_STATE && APP_STATES.contains(dto.appState()) ? dto.appState() : null);
+                type == MobileEventType.APP_STATE && APP_STATES.contains(dto.appState()) ? dto.appState() : null,
+                type == MobileEventType.LOG ? appLog(dto) : null);
     }
 
     private boolean hasValidTiming(MobileTelemetryEventDto dto) {
@@ -98,6 +105,11 @@ class MobileEventSanitizer {
             return true;
         }
         return isTraceId(dto.traceId()) && dto.spanId() != null && SPAN_ID.matcher(dto.spanId()).matches();
+    }
+
+    /** A log record needs a known level: without it there is no severity to file it under. */
+    private static boolean hasValidLog(MobileTelemetryEventDto dto) {
+        return dto.log() != null && LOG_LEVELS.contains(dto.log().level());
     }
 
     private static boolean isTraceId(String value) {
@@ -136,6 +148,29 @@ class MobileEventSanitizer {
         String source = ERROR_SOURCES.contains(dto.errorKind()) ? dto.errorKind() : "global";
         return new MobileEvent.AppError(name, scrubbedMessage(dto.errorMessage()),
                 Boolean.TRUE.equals(dto.fatal()), source);
+    }
+
+    private static MobileEvent.AppLog appLog(MobileTelemetryEventDto dto) {
+        return new MobileEvent.AppLog(
+                dto.log().level(),
+                MobileVocabulary.logName(dto.log().name()),
+                scrubbedMessage(dto.log().message()),
+                allowlistedLogAttributes(dto.log().attributes()));
+    }
+
+    /** Keeps known keys with code-like values, in vocabulary order, so a log line always reads the same way. */
+    private static Map<String, String> allowlistedLogAttributes(Map<String, String> attributes) {
+        Map<String, String> kept = new LinkedHashMap<>();
+        if (attributes == null) {
+            return kept;
+        }
+        for (String key : MobileVocabulary.LOG_ATTRIBUTE_KEYS) {
+            String value = matchesOrNull(LOG_ATTRIBUTE_VALUE, attributes.get(key));
+            if (value != null) {
+                kept.put(key, value);
+            }
+        }
+        return kept;
     }
 
     /** Crash text is for debugging only, but an interpolated email or id must still never be stored. */

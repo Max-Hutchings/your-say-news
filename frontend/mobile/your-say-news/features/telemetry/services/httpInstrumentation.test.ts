@@ -36,7 +36,6 @@ describe("instrumentHttpClient", () => {
             upload: async (batch) => {
                 uploads.push(batch);
             },
-            canUpload: () => true,
             client: { platform: "android", osVersion: "15", appVersion: "1.0.0" },
             flushIntervalMs: 60_000,
         });

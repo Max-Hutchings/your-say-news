@@ -26,7 +26,8 @@ and Grafana Cloud's OTLP credentials must not ship inside a public app.
    would live outside Grafana, could not join post-service traces, and adds a new processor of user
    behaviour data.
 3. **A small in-app recorder that uploads typed events to post-service, which relays them as OTLP.**
-   Uploads use the existing Firebase auth. The server checks every value against allowlists before
+   Uploads use the existing Firebase auth (since ADR-061 also accepted before sign-in, without a
+   user id). The server checks every value against allowlists before
    anything becomes a metric label or a log line.
 
 ## Decision
@@ -120,6 +121,8 @@ Under GDPR an internal user id is still personal data, so the link is allowed on
 - API call paths are templated twice: on the device (`/social/follows/{id}`) and again by the server
   route allowlist. Raw paths are never stored.
 - Crash messages are scrubbed of emails and long numbers and cut to 300 characters before logging.
+- App log records (`log` events, ADR-061) follow the same rules: allowlisted names and attribute keys,
+  code-shaped attribute values, scrubbed console text.
 - Metric labels never carry a session id, story id or target. Those appear only in logs and traces.
 
 ## Consequences

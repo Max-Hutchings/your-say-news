@@ -31,11 +31,9 @@ if (!isWeb) {
     SplashScreen.preventAutoHideAsync();
 }
 
-// Before any screen mounts, so the first API calls are already traced.
-startTelemetry({
-    http: YsnHttpClient.getSecure(),
-    canUpload: () => useAuthStore.getState().isLoggedIn,
-});
+// Before any screen mounts, so the first API calls are already traced. Uploads start before sign-in,
+// so a failed sign-in still reaches Grafana.
+startTelemetry({ http: YsnHttpClient.getSecure() });
 
 // Render crashes anywhere in the app are reported, then offer a retry.
 export {ScreenErrorBoundary as ErrorBoundary} from "@/features/telemetry";

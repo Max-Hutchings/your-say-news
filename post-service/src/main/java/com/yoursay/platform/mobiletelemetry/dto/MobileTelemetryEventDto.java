@@ -1,5 +1,6 @@
 package com.yoursay.platform.mobiletelemetry.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -12,6 +13,7 @@ import jakarta.validation.constraints.Size;
  *   <li>{@code action} - a named tap such as {@code vote.cast}.</li>
  *   <li>{@code api_call} - one request to post-service, timed on the device.</li>
  *   <li>{@code error} - a render crash or an unhandled JavaScript error.</li>
+ *   <li>{@code log} - a diagnostic log record (sign-in failure, console warning or error); see {@link MobileLogDto}.</li>
  * </ul>
  *
  * <p>No field may carry a user id, email, vote choice or characteristic answer.
@@ -33,6 +35,7 @@ public record MobileTelemetryEventDto(
         @Size(max = 128) String errorName,
         @Size(max = 2000) String errorMessage,
         Boolean fatal,
-        @Size(max = 16) String appState
+        @Size(max = 16) String appState,
+        @Valid MobileLogDto log
 ) {
 }

@@ -25,6 +25,7 @@ import {
 } from "./firebaseService";
 import { getOnboardingStatus, getUser, verifySession } from "./UserService";
 import { useAuthStore } from "./authContext";
+import { recorder } from "@/features/telemetry/services/telemetry";
 
 const user = {
     id: 8,
@@ -121,10 +122,13 @@ test("a Google account with no Your Say user is signed back out of Firebase", as
     jest.mocked(usesHostedGoogleAuth).mockReturnValueOnce(true);
     jest.mocked(signInWithGoogle).mockResolvedValue({ status: "signed-in" });
     jest.mocked(getUser).mockResolvedValue(null);
+    const queued = jest.spyOn(recorder, "log");
 
     await expect(useAuthStore.getState().login("", ""))
         .resolves.toEqual({ status: "failed", stage: "server", code: "user_unavailable" });
-    expect(console.warn).toHaveBeenCalledWith("Sign-in failed: stage=server code=user_unavailable");
+    expect(console.warn).toHaveBeenCalledWith("auth.sign_in_failed stage=server code=user_unavailable");
+    expect(queued).toHaveBeenCalledWith(
+        { level: "warn", name: "auth.sign_in_failed", attributes: { stage: "server", code: "user_unavailable" } });
 
     expect(logoutFirebase).toHaveBeenCalledTimes(1);
     expect(useAuthStore.getState()).toMatchObject({ id: null, email: null, isLoggedIn: false });

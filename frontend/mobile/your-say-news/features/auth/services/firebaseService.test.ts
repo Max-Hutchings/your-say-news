@@ -14,6 +14,7 @@ jest.mock("expo-constants", () => ({
 
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { recorder } from "@/features/telemetry/services/telemetry";
 import { firebaseAuth } from "./firebaseClient";
 import {
     getFirebaseIdToken,
@@ -122,9 +123,14 @@ test("reports and logs Google's native error code when Google rejects the app", 
         Object.assign(new Error("DEVELOPER_ERROR: Follow troubleshooting instruction"), { code: "10" }),
     );
 
+    const queued = jest.spyOn(recorder, "log");
+
     await expect(signInWithGoogle()).resolves.toEqual({ status: "failed", stage: "google", code: "10" });
 
-    expect(jest.mocked(console.warn).mock.calls).toEqual([["Sign-in failed: stage=google code=10"]]);
+    expect(queued.mock.calls).toEqual([[
+        { level: "warn", name: "auth.sign_in_failed", attributes: { stage: "google", code: "10" } },
+    ]]);
+    expect(jest.mocked(console.warn).mock.calls).toEqual([["auth.sign_in_failed stage=google code=10"]]);
     expect(signInWithCredential).not.toHaveBeenCalled();
 });
 
@@ -132,14 +138,21 @@ test("reports Firebase's error code when Firebase rejects the Google credential"
     jest.mocked(GoogleSignin.signIn)
         .mockResolvedValue({ type: "success", data: { idToken: "revoked-id-token" } } as never);
     jest.mocked(signInWithCredential).mockRejectedValue(
-        Object.assign(new Error("Firebase: Error (auth/invalid-credential)."), { code: "auth/invalid-credential" }),
+        Object.assign(new Error("Firebase: Error (auth/invalid-credential)."), {
+            code: "auth/invalid-credential", customData: { email: "riley.reader@example.com" },
+        }),
     );
+    const queued = jest.spyOn(recorder, "log");
 
     await expect(signInWithGoogle()).resolves
         .toEqual({ status: "failed", stage: "firebase", code: "auth/invalid-credential" });
     // Firebase errors carry customData such as the email; only the code may reach the device log.
     expect(jest.mocked(console.warn).mock.calls)
-        .toEqual([["Sign-in failed: stage=firebase code=auth/invalid-credential"]]);
+        .toEqual([["auth.sign_in_failed stage=firebase code=auth/invalid-credential"]]);
+    expect(queued.mock.calls).toEqual([[
+        { level: "warn", name: "auth.sign_in_failed", attributes: { stage: "firebase", code: "auth/invalid-credential" } },
+    ]]);
+    expect(JSON.stringify(queued.mock.calls)).not.toContain("riley.reader@example.com");
 });
 
 test("a numeric Google status code is reported as its string form", async () => {

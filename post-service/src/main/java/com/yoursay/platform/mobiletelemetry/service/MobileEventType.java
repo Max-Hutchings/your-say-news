@@ -10,7 +10,8 @@ public enum MobileEventType {
     SCREEN_EXIT("screen_exit"),
     ACTION("action"),
     API_CALL("api_call"),
-    ERROR("error");
+    ERROR("error"),
+    LOG("log");
 
     private final String wireName;
 

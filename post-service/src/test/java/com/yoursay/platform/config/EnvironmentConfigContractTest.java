@@ -174,6 +174,8 @@ class EnvironmentConfigContractTest {
                 .toList();
 
         assertTrue(publicPaths.contains("live"), "the deploy health check calls /api/live: " + publicPaths);
+        assertTrue(publicPaths.contains("telemetry/mobile"),
+                "a failed sign-in has no token, so its app diagnostics must reach the relay: " + publicPaths);
         // Quarkus only prefixes quarkus.http.root-path onto relative permission paths.
         publicPaths.forEach(path -> assertTrue(!path.startsWith("/"),
                 path + " is absolute, so it would not move under /api on hosted environments"));

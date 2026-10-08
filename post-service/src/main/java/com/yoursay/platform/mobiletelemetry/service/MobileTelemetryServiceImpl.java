@@ -31,26 +31,35 @@ class MobileTelemetryServiceImpl implements MobileTelemetryService {
     @ConfigProperty(name = "app.environment")
     String environment;
 
+    @ConfigProperty(name = "mobile-telemetry.anonymous.max-batches-per-minute")
+    int anonymousBatchesPerMinute;
+
     private MobileEventSanitizer sanitizer;
     private OtlpPayloadBuilder payloadBuilder;
+    private AnonymousUploadBudget anonymousBudget;
 
     @PostConstruct
     void init() {
         Clock clock = Clock.systemUTC();
         sanitizer = new MobileEventSanitizer(clock);
         payloadBuilder = new OtlpPayloadBuilder(environment, clock);
+        anonymousBudget = new AnonymousUploadBudget(anonymousBatchesPerMinute, clock);
     }
 
     @Override
     public MobileTelemetryReceiptDto record(MobileTelemetryBatchDto batch, String callerEmail) {
+        boolean anonymous = callerEmail == null;
+        if (anonymous && !anonymousBudget.tryAcquire()) {
+            return rejectOverBudgetAnonymousBatch(batch.events().size());
+        }
         MobileSession session = sanitizer.session(batch.sessionId(), batch.client())
-                .withUserId(internalUserId(callerEmail));
+                .withUserId(anonymous ? null : internalUserId(callerEmail));
         List<MobileEvent> events = sanitizeEvents(batch.events());
         int dropped = batch.events().size() - events.size();
 
         events.forEach(event -> recordMetrics(session, event));
         exportJourney(session, events);
-        reportDroppedEvents(dropped);
+        reportInvalidEvents(dropped);
         return new MobileTelemetryReceiptDto(events.size(), dropped);
     }
 
@@ -58,6 +67,17 @@ class MobileTelemetryServiceImpl implements MobileTelemetryService {
     private Long internalUserId(String callerEmail) {
         UserAccessDto access = userService.getAccessByEmail(callerEmail);
         return access == null ? null : access.userId();
+    }
+
+    /**
+     * Accepted (202) but not kept: the app treats the batch as delivered instead of retrying it into
+     * the same flood. Counted and logged so a spent budget is visible on the Mobile dashboard.
+     */
+    private MobileTelemetryReceiptDto rejectOverBudgetAnonymousBatch(int eventCount) {
+        metrics.recordDroppedEvents(eventCount, MobileTelemetryMetrics.DROP_ANONYMOUS_RATE_LIMITED);
+        Log.warnf("domain=platform operation=record_mobile_telemetry outcome=error "
+                + "error_code=anonymous_rate_limited dropped=%d", eventCount);
+        return new MobileTelemetryReceiptDto(0, eventCount);
     }
 
     private List<MobileEvent> sanitizeEvents(List<MobileTelemetryEventDto> events) {
@@ -75,6 +95,7 @@ class MobileTelemetryServiceImpl implements MobileTelemetryService {
             case ACTION -> metrics.recordAction(session, event);
             case API_CALL -> metrics.recordApiCall(session, event);
             case ERROR -> metrics.recordAppFault(session, event);
+            case LOG -> metrics.recordLog(session, event);
             case APP_STATE -> {
                 // Lifecycle changes are journey context for logs only; there is nothing to count.
             }
@@ -92,11 +113,11 @@ class MobileTelemetryServiceImpl implements MobileTelemetryService {
     }
 
     /** Dropped events mean the app and this service disagree on the schema - worth a warning, not a fault. */
-    private void reportDroppedEvents(int dropped) {
+    private void reportInvalidEvents(int dropped) {
         if (dropped == 0) {
             return;
         }
-        metrics.recordDroppedEvents(dropped);
+        metrics.recordDroppedEvents(dropped, MobileTelemetryMetrics.DROP_INVALID);
         Log.warnf("domain=platform operation=record_mobile_telemetry outcome=error error_code=invalid_events dropped=%d",
                 dropped);
     }

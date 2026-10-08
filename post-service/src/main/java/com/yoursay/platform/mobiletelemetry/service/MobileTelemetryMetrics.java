@@ -15,6 +15,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @ApplicationScoped
 class MobileTelemetryMetrics {
 
+    static final String DROP_INVALID = "invalid";
+    static final String DROP_ANONYMOUS_RATE_LIMITED = "anonymous_rate_limited";
+
     @Inject
     MeterRegistry registry;
 
@@ -67,9 +70,17 @@ class MobileTelemetryMetrics {
                 "fatal", Boolean.toString(error.fatal()))).increment();
     }
 
-    void recordDroppedEvents(int count) {
-        registry.counter("yoursay.mobile.events.dropped.total", Tags.of("environment", environment))
-                .increment(count);
+    /** Log name and level are allowlisted, so this stays bounded; attributes and messages stay in Loki. */
+    void recordLog(MobileSession session, MobileEvent event) {
+        MobileEvent.AppLog log = event.log();
+        registry.counter("yoursay.mobile.logs.total",
+                baseTags(session).and("level", log.level(), "log_name", log.name())).increment();
+    }
+
+    /** {@code reason} is {@link #DROP_INVALID} or {@link #DROP_ANONYMOUS_RATE_LIMITED}. */
+    void recordDroppedEvents(int count, String reason) {
+        registry.counter("yoursay.mobile.events.dropped.total",
+                Tags.of("environment", environment, "reason", reason)).increment(count);
     }
 
     /** A broken pipeline must be visible, otherwise an empty dashboard reads as a quiet app. */

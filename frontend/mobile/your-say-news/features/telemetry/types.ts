@@ -1,3 +1,5 @@
+import type { TelemetryLogAttributes, TelemetryLogName } from "./vocabulary";
+
 /**
  * Wire format of POST /telemetry/mobile (MobileTelemetryBatchDto in post-service).
  *
@@ -11,7 +13,21 @@ export type TelemetryEventType =
     | "screen_exit"
     | "action"
     | "api_call"
-    | "error";
+    | "error"
+    | "log";
+
+export type TelemetryLogLevel = "info" | "warn" | "error";
+
+/**
+ * A diagnostic log record. attributes are bounded codes only (TelemetryLogAttributes); message is
+ * console text, which the server scrubs of emails and ids again before it reaches Loki.
+ */
+export interface TelemetryLog {
+    level: TelemetryLogLevel;
+    name: TelemetryLogName;
+    message?: string;
+    attributes?: TelemetryLogAttributes;
+}
 
 export interface TelemetryEvent {
     type: TelemetryEventType;
@@ -32,6 +48,7 @@ export interface TelemetryEvent {
     errorMessage?: string;
     fatal?: boolean;
     appState?: "active" | "background";
+    log?: TelemetryLog;
 }
 
 export interface TelemetryClientInfo {
