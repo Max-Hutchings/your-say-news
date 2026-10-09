@@ -15,6 +15,8 @@ import java.time.LocalDate;
 @Table(name="your_say_user")
 public class YourSayUser extends PanacheEntityBase {
 
+    public static final int MAX_HANDLE_LENGTH = 40;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
@@ -31,7 +33,7 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name = "display_name", nullable = false, length = 120)
     private String displayName;
 
-    @Column(name = "handle", nullable = false, unique = true, length = 40)
+    @Column(name = "handle", nullable = false, unique = true, length = MAX_HANDLE_LENGTH)
     private String handle;
 
     @Column(name = "avatar_url", length = 512)
@@ -126,8 +128,8 @@ public class YourSayUser extends PanacheEntityBase {
             if (handle.isBlank()) {
                 handle = "user";
             }
-            if (handle.length() > 40) {
-                handle = handle.substring(0, 40);
+            if (handle.length() > MAX_HANDLE_LENGTH) {
+                handle = handle.substring(0, MAX_HANDLE_LENGTH);
             }
         }
     }

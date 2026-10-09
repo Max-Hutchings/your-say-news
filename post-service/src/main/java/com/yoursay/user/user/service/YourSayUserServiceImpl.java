@@ -36,13 +36,13 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     @Override
     public YourSayUserDto getOrCreateFromIdentity(String email, String firstName, String lastName) {
         try {
-            if (firstName == null || lastName == null || email == null) {
+            if (firstName == null || email == null) {
                 throw UserApiException.missingIdentity(email, firstName, lastName);
             }
 
             YourSayUser user = yourSayUserRepository.findByEmail(email);
             if (user == null) {
-                user = yourSayUserRepository.saveYourSayUser(new YourSayUser(email, firstName, lastName));
+                user = saveNewUser(new YourSayUser(email, firstName, surnameOrBlank(lastName)));
             }
             recordMetric("getOrCreateFromIdentity", true);
             return toDto(user);
@@ -55,13 +55,37 @@ public class YourSayUserServiceImpl implements YourSayUserService {
     @Override
     public YourSayUserDto save(String email, String firstName, String lastName, LocalDate birthDate) {
         try {
-            YourSayUser user = yourSayUserRepository.saveYourSayUser(new YourSayUser(email, birthDate, firstName, lastName));
+            YourSayUser user = saveNewUser(new YourSayUser(email, birthDate, firstName, surnameOrBlank(lastName)));
             recordMetric("save", true);
             return toDto(user);
         } catch (RuntimeException e) {
             recordMetric("save", false);
             throw e;
         }
+    }
+
+    /** Some Google accounts have a single name; the account is still created, with no surname. */
+    private static String surnameOrBlank(String lastName) {
+        return lastName == null ? "" : lastName;
+    }
+
+    private YourSayUser saveNewUser(YourSayUser user) {
+        user.setHandle(firstUnusedHandle(user.getHandle()));
+        return yourSayUserRepository.saveYourSayUser(user);
+    }
+
+    /**
+     * Handles come from the person's name and must be unique, so the second "max.hutchings" becomes
+     * "max.hutchings.2" rather than failing sign-up on the unique constraint.
+     */
+    private String firstUnusedHandle(String preferredHandle) {
+        String candidate = preferredHandle;
+        for (int suffix = 2; yourSayUserRepository.findByHandle(candidate) != null; suffix++) {
+            String tail = "." + suffix;
+            int keep = Math.min(preferredHandle.length(), YourSayUser.MAX_HANDLE_LENGTH - tail.length());
+            candidate = preferredHandle.substring(0, keep) + tail;
+        }
+        return candidate;
     }
 
     @Override

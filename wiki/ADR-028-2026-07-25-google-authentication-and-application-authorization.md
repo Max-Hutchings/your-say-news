@@ -8,6 +8,8 @@ The application-owned authorisation boundary is accepted, with Firebase Authenti
 the managed Google-compatible identity and session broker. Keycloak may be removed from the remote
 implementation after migration tests pass.
 
+The invitation-only admission rule is superseded by ADR-062 (open sign-up, admin deactivation).
+
 ## Situation
 
 The production-like development environment has a £20 monthly infrastructure budget and fewer than
@@ -79,7 +81,8 @@ the external issuer/subject mapping required for a future broker migration. Emai
 profile/contact data, not a primary key or sole authorisation check.
 
 An authenticated Google account is admitted only when it matches an active application invitation
-or existing active application identity. Account activity, application permission, `AccountType`
+or existing active application identity. *(Superseded by ADR-062: any verified account is admitted
+unless an administrator has deactivated it.)* Account activity, application permission, `AccountType`
 and `PublisherStatus` are PostgreSQL facts.
 
 Introduce an application permission model independent of publisher classification:

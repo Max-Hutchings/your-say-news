@@ -16,9 +16,13 @@ class DatabaseFirebaseRoleResolver implements FirebaseRoleResolver {
         this.userService = userService;
     }
 
+    /**
+     * Open sign-up (ADR-062): any verified Firebase account is a user, so its first request can
+     * provision its row. Only an account an administrator has deactivated is refused.
+     */
     @Override
     public boolean hasActiveUserAccess(String email) {
-        return userService.getAccessByEmail(email) != null && !userService.isInactive(email);
+        return !userService.isInactive(email);
     }
 
     @Override

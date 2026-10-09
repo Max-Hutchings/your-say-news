@@ -16,6 +16,7 @@ import java.sql.ResultSet;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -65,6 +66,63 @@ public class YourSayUserControllerTest {
             // your_say_user is shared by every test in the JVM, so the account this test creates
             // has to go back out again — otherwise whichever test runs next sees an extra row.
             deleteUserByEmail("max@gmail.com");
+        }
+    }
+
+    @Test
+    @TestSecurity(user="first.sign.in@example.com", roles={"user"}, attributes = {@SecurityAttribute(key = "given_name", value="Ada"), @SecurityAttribute(key="family_name", value="Lovelace")})
+    public void firstSignInProvisionsAnActiveUserAccount() throws Exception {
+        try {
+            int firstId = given()
+                    .when()
+                    .get(BASE_URL)
+                    .then()
+                    .statusCode(200)
+                    .body("email", equalTo("first.sign.in@example.com"))
+                    .body("firstName", equalTo("Ada"))
+                    .body("lastName", equalTo("Lovelace"))
+                    .body("active", equalTo(true))
+                    .body("accountType", equalTo("USER"))
+                    .body("canPublish", equalTo(false))
+                    .extract().path("id");
+
+            // A second sign-in finds the saved row rather than creating another.
+            given().when().get(BASE_URL).then().statusCode(200).body("id", equalTo(firstId));
+            assertEquals(List.of("Ada Lovelace true"), persistedUsersWithEmail("first.sign.in@example.com"));
+        } finally {
+            deleteUserByEmail("first.sign.in@example.com");
+        }
+    }
+
+    @Test
+    @TestSecurity(user="mononym@example.com", roles={"user"}, attributes = {@SecurityAttribute(key = "given_name", value="Zendaya")})
+    public void firstSignInWithoutASurnameStillProvisionsTheAccount() throws Exception {
+        try {
+            given()
+                    .when()
+                    .get(BASE_URL)
+                    .then()
+                    .statusCode(200)
+                    .body("email", equalTo("mononym@example.com"))
+                    .body("firstName", equalTo("Zendaya"))
+                    .body("lastName", equalTo(""))
+                    .body("handle", equalTo("zendaya"));
+        } finally {
+            deleteUserByEmail("mononym@example.com");
+        }
+    }
+
+    @Test
+    public void secondPersonWithTheSameNameGetsTheNextFreeHandle() throws Exception {
+        try {
+            String firstHandle = userService.getOrCreateFromIdentity("ada.one@example.com", "Ada", "Lovelace").handle();
+            String secondHandle = userService.getOrCreateFromIdentity("ada.two@example.com", "Ada", "Lovelace").handle();
+
+            assertEquals("ada.lovelace", firstHandle);
+            assertEquals("ada.lovelace.2", secondHandle);
+        } finally {
+            deleteUserByEmail("ada.one@example.com");
+            deleteUserByEmail("ada.two@example.com");
         }
     }
 
@@ -324,6 +382,22 @@ public class YourSayUserControllerTest {
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
                 return result.getLong(1);
+            }
+        }
+    }
+
+    private List<String> persistedUsersWithEmail(String email) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "select first_name, last_name, active from your_say_user where email = ?")) {
+            statement.setString(1, email);
+            try (ResultSet result = statement.executeQuery()) {
+                List<String> users = new ArrayList<>();
+                while (result.next()) {
+                    users.add(result.getString("first_name") + " " + result.getString("last_name")
+                            + " " + result.getBoolean("active"));
+                }
+                return users;
             }
         }
     }

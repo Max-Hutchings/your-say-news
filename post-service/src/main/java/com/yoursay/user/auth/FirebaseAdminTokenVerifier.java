@@ -106,7 +106,7 @@ class FirebaseAdminTokenVerifier implements FirebaseTokenVerifier {
         String[] names = displayName.trim().split("\\s+", 2);
         return names.length == 2
                 ? names
-                : new String[]{names[0], names[0]};
+                : new String[]{names[0], null};
     }
 
     private static String textClaim(Map<String, Object> claims, String name) {

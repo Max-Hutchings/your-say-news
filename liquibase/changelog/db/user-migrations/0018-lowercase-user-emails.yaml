@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20261009-0018-1
+      author: claude
+      logicalFilePath: db/migrations/0018-lowercase-user-emails.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - sql:
+            sql: >-
+              UPDATE your_say_user
+              SET email = lower(email)
+              WHERE email <> lower(email);
+              ALTER TABLE your_say_user
+              ADD CONSTRAINT ck_your_say_user_email_lowercase
+              CHECK (email = lower(email));

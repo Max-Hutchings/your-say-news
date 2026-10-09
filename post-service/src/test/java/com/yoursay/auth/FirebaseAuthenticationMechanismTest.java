@@ -55,6 +55,24 @@ class FirebaseAuthenticationMechanismTest {
     }
 
     @Test
+    void mixedCaseEmailIsLowercasedBeforeRoleChecksAndBecomingThePrincipal() {
+        verifier.identity = new VerifiedFirebaseIdentity(
+                "firebase-jane-smith",
+                "Jane.Smith@Example.com",
+                true,
+                "Jane",
+                "Smith");
+        roleResolver.user = true;
+
+        SecurityIdentity identity = mechanism.authenticateCredential(
+                new FirebaseCredential(FirebaseCredential.Type.BEARER, "signed-id-token"));
+
+        assertEquals("jane.smith@example.com", identity.getPrincipal().getName());
+        assertEquals("jane.smith@example.com", identity.getAttribute("email"));
+        assertEquals("jane.smith@example.com", roleResolver.lastEmail);
+    }
+
+    @Test
     void sessionCookieUsesTheCookieVerifierAndDatabaseAdminRole() {
         verifier.identity = new VerifiedFirebaseIdentity(
                 "firebase-yoursay-admin",
