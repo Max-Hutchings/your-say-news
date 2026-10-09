@@ -221,7 +221,10 @@ cat > "$fake_bin/docker" <<'FAKE_DOCKER'
 printf 'docker %s\n' "$*" >> "$YSN_TEST_COMMAND_LOG"
 case "$*" in
   *' up '*) [ "${YSN_TEST_FAIL_UP:-}" != true ] ;;
+  *' logs '*alloy) echo 'Error: /etc/alloy/config.alloy:5:3: unrecognized attribute name' ;;
   *' logs '*) echo 'cp: cannot stat /source/firebase-admin.json' ;;
+  *' ps --all --quiet alloy') [ "${YSN_TEST_ALLOY_MISSING:-}" = true ] || echo 'alloy-container-id' ;;
+  'inspect '*) echo "${YSN_TEST_ALLOY_STATE:-0 running}" ;;
 esac
 FAKE_DOCKER
 
@@ -257,9 +260,57 @@ docker compose --env-file $runtime_env --file $deploy_root/compose.yaml --profil
 docker compose --env-file $runtime_env --file $deploy_root/compose.yaml up --detach --remove-orphans post-service alloy
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8082/api/live
 curl --fail --silent --show-error --max-time 10 $public_health_url
+docker compose --env-file $runtime_env --file $deploy_root/compose.yaml ps --all --quiet alloy
+docker inspect --format {{.RestartCount}} {{.State.Status}} alloy-container-id
 docker compose --env-file $runtime_env --file $deploy_root/compose.yaml ps
 EXPECTED_DEPLOY
 cmp "$expected_deploy_log" "$command_log" || fail 'deploy.sh command order changed'
+
+# A crash-looping Alloy must fail the deploy with its own output on stderr, otherwise telemetry
+# stops while every health check still passes.
+crashing_alloy_log="$test_directory/crashing-alloy-commands.log"
+crashing_alloy_stdout="$test_directory/crashing-alloy.out"
+crashing_alloy_stderr="$test_directory/crashing-alloy.err"
+if YSN_TEST_COMMAND_LOG="$crashing_alloy_log" YSN_TEST_ALLOY_STATE='3 restarting' \
+  PATH="$fake_bin:$PATH" DEPLOY_ENV_FILE="$runtime_env" HEALTH_CHECK_ATTEMPTS=1 \
+  "$deploy_root/scripts/deploy.sh" >"$crashing_alloy_stdout" 2>"$crashing_alloy_stderr"; then
+  fail 'deploy.sh succeeded although Alloy is crash-looping'
+fi
+tail -n 1 "$crashing_alloy_log" | grep -Fqx -- \
+  "docker compose --env-file $runtime_env --file $deploy_root/compose.yaml logs --no-color --tail 50 alloy" \
+  || fail 'deploy.sh must stop after printing the crash-looping Alloy logs'
+
+expected_crashing_alloy_stderr="$test_directory/expected-crashing-alloy.err"
+cat > "$expected_crashing_alloy_stderr" <<'EXPECTED_CRASHING_ALLOY_STDERR'
+Alloy is not running cleanly (restarts, status: 3 restarting). Alloy output:
+Error: /etc/alloy/config.alloy:5:3: unrecognized attribute name
+EXPECTED_CRASHING_ALLOY_STDERR
+cmp "$expected_crashing_alloy_stderr" "$crashing_alloy_stderr" \
+  || fail 'deploy.sh did not write the Alloy failure and its output to stderr'
+
+# Restarts with a currently running container still mean the pipeline flapped since compose up.
+restarted_alloy_stderr="$test_directory/restarted-alloy.err"
+if YSN_TEST_COMMAND_LOG="$test_directory/restarted-alloy-commands.log" YSN_TEST_ALLOY_STATE='1 running' \
+  PATH="$fake_bin:$PATH" DEPLOY_ENV_FILE="$runtime_env" HEALTH_CHECK_ATTEMPTS=1 \
+  "$deploy_root/scripts/deploy.sh" >/dev/null 2>"$restarted_alloy_stderr"; then
+  fail 'deploy.sh succeeded although Alloy restarted after compose up'
+fi
+grep -Fqx -- 'Alloy is not running cleanly (restarts, status: 1 running). Alloy output:' \
+  "$restarted_alloy_stderr" || fail 'deploy.sh did not report the Alloy restart'
+
+# A removed Alloy container has no state to inspect; the deploy must still explain the failure.
+missing_alloy_log="$test_directory/missing-alloy-commands.log"
+missing_alloy_stderr="$test_directory/missing-alloy.err"
+if YSN_TEST_COMMAND_LOG="$missing_alloy_log" YSN_TEST_ALLOY_MISSING=true \
+  PATH="$fake_bin:$PATH" DEPLOY_ENV_FILE="$runtime_env" HEALTH_CHECK_ATTEMPTS=1 \
+  "$deploy_root/scripts/deploy.sh" >/dev/null 2>"$missing_alloy_stderr"; then
+  fail 'deploy.sh succeeded although no Alloy container exists'
+fi
+grep -Fqx -- 'Alloy is not running cleanly (restarts, status: no container). Alloy output:' \
+  "$missing_alloy_stderr" || fail 'deploy.sh did not report the missing Alloy container'
+if grep -Fq -- 'docker inspect' "$missing_alloy_log"; then
+  fail 'deploy.sh inspected an empty Alloy container id'
+fi
 
 # A failed setup container only reports "exit 1" over SSH, so deploy.sh must print its output to
 # stderr - and nothing else, because CI logs are public.

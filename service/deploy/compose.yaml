@@ -98,6 +98,9 @@ services:
   alloy:
     <<: *service-defaults
     image: ${ALLOY_IMAGE:?ALLOY_IMAGE must be pinned}
+    # The image runs as root but its storage dir /var/lib/alloy is 473:473 mode 770. With cap_drop ALL,
+    # root loses CAP_DAC_OVERRIDE and cannot write there, so Alloy exits 1. Run as the image's alloy user.
+    user: "473:473"
     environment:
       GRAFANA_CLOUD_OTLP_ENDPOINT: ${GRAFANA_CLOUD_OTLP_ENDPOINT:?GRAFANA_CLOUD_OTLP_ENDPOINT is required}
       GRAFANA_CLOUD_OTLP_AUTHORIZATION: ${GRAFANA_CLOUD_OTLP_AUTHORIZATION:?GRAFANA_CLOUD_OTLP_AUTHORIZATION is required}

@@ -47,4 +47,19 @@ PRIVATE_HEALTH_URL="${PRIVATE_HEALTH_URL:-http://127.0.0.1:8082/api/live}" \
   PUBLIC_HEALTH_URL="${PUBLIC_HEALTH_URL:-}" \
   "$script_dir/health-check.sh"
 
+# A crash-looping Alloy silently drops all telemetry while post-service stays healthy, so check it
+# after the health checks have given it time to fail. Its logs carry config and export errors only;
+# the OTLP endpoint and credentials are GitHub secrets, which Actions masks in the public log.
+alloy_container=$(compose ps --all --quiet alloy)
+if [ -n "$alloy_container" ]; then
+  alloy_state=$(docker inspect --format '{{.RestartCount}} {{.State.Status}}' "$alloy_container")
+else
+  alloy_state='no container'
+fi
+if [ "$alloy_state" != '0 running' ]; then
+  echo "Alloy is not running cleanly (restarts, status: $alloy_state). Alloy output:" >&2
+  compose logs --no-color --tail 50 alloy >&2 || true
+  exit 1
+fi
+
 compose ps
