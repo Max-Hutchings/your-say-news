@@ -66,6 +66,8 @@ class EnvironmentConfigContractTest {
             "quarkus.datasource.reactive.url",
             "quarkus.datasource.jdbc.max-size",
             "quarkus.datasource.reactive.max-size",
+            "quarkus.datasource.reactive.trust-certificate-pem.certs",
+            "quarkus.datasource.reactive.hostname-verification-algorithm",
             "agent.provider",
             "agent.api-key",
             "agent.model",
