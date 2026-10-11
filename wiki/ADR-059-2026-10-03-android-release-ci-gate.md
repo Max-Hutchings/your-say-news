@@ -45,8 +45,10 @@ Supporting changes:
 
 ## Consequences
 
-- Releases still land as Play **drafts** (ADR-057) until the app is published once; then switch
-  the `development-store` submit profile to `releaseStatus: completed`.
+- Releases land on the internal track as `releaseStatus: completed`, so Play rolls them out to
+  internal testers without a manual step. The first release (versionCode 8) was rolled out by
+  hand in Play Console, because Google accepts only draft releases until the app has been
+  released once (ADR-057).
 - Each release uses one EAS build from the organisation's plan allowance.
 - `--no-wait` means a failed EAS build or submit does not fail CI. Check the EAS dashboard.
 - The path check compares against `github.event.before`; a force-push to `main` that rewrites
