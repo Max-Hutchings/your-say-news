@@ -85,14 +85,18 @@ class AdminCsrfProtectionTest {
         return browser().cookie("ysn_admin_csrf", "csrf-token").header("X-CSRF-Token", "csrf-token");
     }
 
+    /**
+     * Keys carry the %test prefix: test/resources/application.properties sets these as %test.*, and a
+     * profile-prefixed key outranks an unprefixed override from any config source.
+     */
     public static final class HostedCsrfProfile implements QuarkusTestProfile {
         @Override
         public Map<String, String> getConfigOverrides() {
             return Map.of(
-                    "quarkus.http.root-path", "/api",
-                    "firebase.auth.csrf-enforced", "true",
-                    "firebase.auth.allowed-origins", ADMIN_ORIGIN,
-                    "quarkus.http.cors.origins", ADMIN_ORIGIN);
+                    "%test.quarkus.http.root-path", "/api",
+                    "%test.firebase.auth.csrf-enforced", "true",
+                    "%test.firebase.auth.allowed-origins", ADMIN_ORIGIN,
+                    "%test.quarkus.http.cors.origins", ADMIN_ORIGIN);
         }
     }
 }
