@@ -24,6 +24,7 @@
     "axios": "^1.17.0",
     "expo": "~57.0.26",
     "expo-auth-session": "~57.0.13",
+    "expo-build-properties": "~57.0.22",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.20",
     "expo-dev-client": "~57.0.19",
