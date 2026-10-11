@@ -82,6 +82,9 @@ the API container through a root-owned initialization volume.
 
 The API and migration images must be references by digest. Alloy must use a reviewed, pinned
 version before the first deployment. Never commit populated credentials.
+`certs/aiven-dev-ca.pem` is the Aiven project CA certificate (Aiven console -> service ->
+Connection information -> CA certificate). It is public, ships in the bundle and is mounted read-only
+into `post-service` so the reactive datasource can verify the database server (ADR-063).
 Compose maps the runtime file into per-service allowlists. The host Tunnel token is installed
 separately as `/etc/cloudflared/tunnel.env` with root ownership and is never written to the
 application runtime file.

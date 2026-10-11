@@ -113,6 +113,8 @@ grep -Fq -- 'FIREBASE_PROJECT_ID: your-say-news-development' "$compose_config" \
   || fail 'Compose does not configure the Firebase project'
 grep -Fq -- 'GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-admin.json' "$compose_config" \
   || fail 'Compose does not configure the protected Firebase credential file'
+grep -Fq -- 'target: /etc/your-say-news/certs/aiven-dev-ca.pem' "$compose_config" \
+  || fail 'Compose does not mount the Aiven CA the reactive datasource trusts'
 if grep -Fq -- 'XAI_API_KEY:' "$compose_config" \
   || grep -Fq -- 'OPENAI_API_KEY:' "$compose_config" \
   || grep -Fq -- 'xai-unselected-development-key' "$compose_config"; then

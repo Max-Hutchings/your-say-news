@@ -94,6 +94,8 @@ services:
         condition: service_started
     volumes:
       - firebase-credentials:/run/secrets:ro
+      # ADR-063: the Aiven project CA the reactive datasource trusts. Public, so it ships in the bundle.
+      - ./certs/aiven-dev-ca.pem:/etc/your-say-news/certs/aiven-dev-ca.pem:ro
 
   alloy:
     <<: *service-defaults

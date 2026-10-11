@@ -117,7 +117,7 @@ runs:
           --gzip \
           --file "$bundle_directory/deployment.tar.gz" \
           --directory service/deploy \
-          alloy compose.yaml scripts
+          alloy certs compose.yaml scripts
 
         printf '%s  %s\n' \
           "$(sha256sum "$bundle_directory/deployment.tar.gz" | cut -d ' ' -f 1)" \
