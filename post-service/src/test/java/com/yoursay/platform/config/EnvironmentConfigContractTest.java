@@ -47,6 +47,7 @@ class EnvironmentConfigContractTest {
     private static final Pattern RENDERED_ENV_KEY = Pattern.compile("write_(?:literal|quoted) ([A-Z0-9_]+)");
     private static final Pattern BUILD_PROFILE_ANNOTATION = Pattern.compile("(@(?:If|Unless)BuildProfile\\([^)]*\\))");
     // Laptop-only beans and beans excluded from tests are fine; nothing may tell dev from prod.
+    // The admin session beans are excluded from tests only: hosted images serve the admin UI (ADR-064).
     private static final Set<String> ALLOWED_BUILD_PROFILE_ANNOTATIONS = Set.of(
             "@IfBuildProfile(\"local\")",
             "@UnlessBuildProfile(\"test\")");
@@ -60,6 +61,9 @@ class EnvironmentConfigContractTest {
             "quarkus.otel.exporter.otlp.endpoint",
             "mobile-telemetry.otlp.endpoint",
             "firebase.auth.project-id",
+            "firebase.auth.allowed-origins",
+            "firebase.web.api-key",
+            "firebase.web.app-id",
             "quarkus.datasource.username",
             "quarkus.datasource.password",
             "quarkus.datasource.jdbc.url",
@@ -119,12 +123,27 @@ class EnvironmentConfigContractTest {
                 () -> assertEquals("true", effective("local", "quarkus.http.cors.enabled")),
                 () -> assertEquals("false", config.getProperty("quarkus.liquibase.migrate-at-start")),
                 () -> assertEquals("true", effective("local", "quarkus.liquibase.migrate-at-start")),
-                () -> assertEquals("true", config.getProperty("quarkus.quinoa.just-build")),
-                () -> assertEquals("false", effective("local", "quarkus.quinoa.just-build")),
+                () -> assertEquals("true", config.getProperty("firebase.auth.secure-cookies")),
+                () -> assertEquals("true", config.getProperty("firebase.auth.csrf-enforced")),
+                () -> assertEquals("true", effective("local", "firebase.auth.csrf-enforced")),
+                () -> assertEquals("false", effective("local", "firebase.auth.secure-cookies")),
+                () -> assertEquals("GOOGLE", config.getProperty("firebase.web.sign-in-method")),
+                () -> assertEquals("PASSWORD", effective("local", "firebase.web.sign-in-method")),
                 () -> assertEquals("/api", config.getProperty("quarkus.http.root-path")),
                 () -> assertEquals("/", effective("local", "quarkus.http.root-path")),
                 () -> assertEquals("false", config.getProperty("agent.log-full-failed-response")),
                 () -> assertEquals("true", effective("local", "agent.log-full-failed-response")));
+    }
+
+    @Test
+    void hostedImagesServeTheAdminUiWithSessionsBoundToTheDevOrigin() {
+        assertAll(
+                () -> assertEquals("false", config.getProperty("quarkus.quinoa.just-build")),
+                () -> assertEquals("/admin", config.getProperty("quarkus.quinoa.ui-root-path")),
+                () -> assertEquals("https://dev.yoursaynews.com", effective("dev", "firebase.auth.allowed-origins")),
+                // No base value: an environment that never names its admin origin fails startup.
+                () -> assertNull(config.getProperty("firebase.auth.allowed-origins")),
+                () -> assertNull(config.getProperty("firebase.web.api-key")));
     }
 
     @Test
@@ -176,6 +195,8 @@ class EnvironmentConfigContractTest {
                 .toList();
 
         assertTrue(publicPaths.contains("live"), "the deploy health check calls /api/live: " + publicPaths);
+        assertTrue(publicPaths.containsAll(List.of("admin", "admin/*", "api/auth/admin/config")),
+                "the admin SPA and its Firebase settings load before sign-in: " + publicPaths);
         assertTrue(publicPaths.contains("telemetry/mobile"),
                 "a failed sign-in has no token, so its app diagnostics must reach the relay: " + publicPaths);
         // Quarkus only prefixes quarkus.http.root-path onto relative permission paths.

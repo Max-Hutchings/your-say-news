@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { AuthProvider, useAdminAuth } from "../features/auth";
+import { AuthProvider, GoogleAdminSignIn, useAdminAuth } from "../features/auth";
 import { UsersPage } from "../pages/users";
 
 export function App() {
@@ -11,7 +11,7 @@ export function App() {
 }
 
 function AuthenticatedApplication() {
-  const { status, error, login } = useAdminAuth();
+  const { status, error, signInMethod, login, loginWithGoogle } = useAdminAuth();
 
   if (status === "loading") {
     return (
@@ -34,7 +34,9 @@ function AuthenticatedApplication() {
   }
 
   if (status === "unauthenticated") {
-    return <LocalAdminSignIn error={error} login={login} />;
+    return signInMethod === "GOOGLE"
+      ? <GoogleAdminSignIn error={error} loginWithGoogle={loginWithGoogle} />
+      : <LocalAdminSignIn error={error} login={login} />;
   }
 
   return <UsersPage />;

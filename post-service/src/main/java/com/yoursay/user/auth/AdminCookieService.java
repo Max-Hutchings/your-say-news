@@ -1,6 +1,6 @@
 package com.yoursay.user.auth;
 
-import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import io.vertx.core.http.Cookie;
 import io.vertx.core.http.CookieSameSite;
 import io.vertx.core.http.HttpServerResponse;
@@ -12,7 +12,7 @@ import java.time.Duration;
 import java.util.Base64;
 
 @ApplicationScoped
-@IfBuildProfile("local")
+@UnlessBuildProfile("test")
 public class AdminCookieService {
 
     static final String CSRF_COOKIE_NAME = "ysn_admin_csrf";
@@ -20,13 +20,16 @@ public class AdminCookieService {
     private final SecureRandom random = new SecureRandom();
     private final String sessionCookieName;
     private final long maxAgeSeconds;
+    private final boolean secure;
 
     AdminCookieService(
             @ConfigProperty(name = "firebase.auth.session-cookie-name") String sessionCookieName,
-            @ConfigProperty(name = "firebase.auth.session-duration") Duration sessionDuration
+            @ConfigProperty(name = "firebase.auth.session-duration") Duration sessionDuration,
+            @ConfigProperty(name = "firebase.auth.secure-cookies") boolean secure
     ) {
         this.sessionCookieName = sessionCookieName;
         this.maxAgeSeconds = sessionDuration.toSeconds();
+        this.secure = secure;
     }
 
     public String issueCsrfCookie(HttpServerResponse response) {
@@ -45,11 +48,11 @@ public class AdminCookieService {
         response.addCookie(cookie(sessionCookieName, "", true, 0));
     }
 
-    private static Cookie cookie(String name, String value, boolean httpOnly, long maxAgeSeconds) {
+    private Cookie cookie(String name, String value, boolean httpOnly, long maxAgeSeconds) {
         return Cookie.cookie(name, value)
                 .setPath("/")
                 .setHttpOnly(httpOnly)
-                .setSecure(false)
+                .setSecure(secure)
                 .setSameSite(CookieSameSite.STRICT)
                 .setMaxAge(maxAgeSeconds);
     }

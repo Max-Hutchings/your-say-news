@@ -5,7 +5,7 @@ import com.yoursay.user.auth.dto.AdminSessionRequest;
 import com.yoursay.user.auth.dto.CsrfTokenDto;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.user.user.dto.YourSayUserDto;
-import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.core.http.HttpServerResponse;
@@ -31,7 +31,7 @@ import java.util.Set;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 @RunOnVirtualThread
-@IfBuildProfile("local")
+@UnlessBuildProfile("test")
 public class AdminSessionController {
 
     @Inject

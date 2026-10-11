@@ -115,7 +115,9 @@ describe("UsersPage", () => {
       status: "authenticated",
       identity: { email: "john.doe@example.com", name: "John Doe" },
       error: null,
+      signInMethod: "PASSWORD",
       login,
+      loginWithGoogle: vi.fn(),
       logout,
     });
     vi.mocked(useAdminUsers).mockReturnValue({

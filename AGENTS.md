@@ -105,8 +105,8 @@ translate when reading their config:
 
 | Our environment | Backend (Quarkus) | Admin SPA (Quinoa/Vite) | Expo app |
 |---|---|---|---|
-| local | `%local` profile (every `quarkusDev` run) | Vite dev server, `VITE_*` env (emulator defaults) | `APP_ENV=dev` (default) -> `app.config.dev.js` |
-| dev | `%dev` profile, `QUARKUS_PROFILE=dev` + secrets from `runtime.env` | built but not served (base `quarkus.quinoa.just-build=true`) | `APP_ENV=development` (eas.json `development-store`) -> `app.config.hosted.js` |
+| local | `%local` profile (every `quarkusDev` run) | Vite dev server via Quinoa at `localhost:8083/admin`, emulator email/password sign-in from `%local.firebase.web.*` | `APP_ENV=dev` (default) -> `app.config.dev.js` |
+| dev | `%dev` profile, `QUARKUS_PROFILE=dev` + secrets from `runtime.env` | served by `post-service` at `https://dev.yoursaynews.com/api/admin/`, Google sign-in, Firebase web settings from `%dev.firebase.web.*` (ADR-064) | `APP_ENV=development` (eas.json `development-store`) -> `app.config.hosted.js` |
 | prod | `%prod` reserved and empty | not built | `APP_ENV=prod` would select `app.config.hosted.js`, but no prod build profile exists yet |
 
 Backend config rules (ADR-055): base `application.properties` must be safe on a server; laptop

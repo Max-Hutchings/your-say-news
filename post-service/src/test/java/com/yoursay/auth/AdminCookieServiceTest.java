@@ -18,8 +18,8 @@ import static org.mockito.Mockito.verify;
 class AdminCookieServiceTest {
 
     @Test
-    void adminSessionCookieIsHttpOnlyStrictAndLimitedToTwelveHours() {
-        AdminCookieService service = new AdminCookieService("ysn_admin_session", Duration.ofHours(12));
+    void adminSessionCookieIsHttpOnlyStrictSecureAndLimitedToTwelveHours() {
+        AdminCookieService service = new AdminCookieService("ysn_admin_session", Duration.ofHours(12), true);
         HttpServerResponse response = mock(HttpServerResponse.class);
 
         service.issueSessionCookie(response, "signed-session");
@@ -31,12 +31,25 @@ class AdminCookieServiceTest {
         assertEquals(43_200L, cookie.getMaxAge());
         assertEquals(CookieSameSite.STRICT, cookie.getSameSite());
         assertTrue(cookie.isHttpOnly());
-        assertFalse(cookie.isSecure(), "Local HTTP development cannot use a Secure cookie");
+        assertTrue(cookie.isSecure(), "Hosted admin sessions travel over HTTPS only");
+    }
+
+    @Test
+    void laptopCookiesDropTheSecureFlagSoPlainHttpLocalhostKeepsTheSession() {
+        AdminCookieService service = new AdminCookieService("ysn_admin_session", Duration.ofHours(12), false);
+        HttpServerResponse sessionResponse = mock(HttpServerResponse.class);
+        HttpServerResponse csrfResponse = mock(HttpServerResponse.class);
+
+        service.issueSessionCookie(sessionResponse, "signed-session");
+        service.issueCsrfCookie(csrfResponse);
+
+        assertFalse(addedCookie(sessionResponse).isSecure());
+        assertFalse(addedCookie(csrfResponse).isSecure());
     }
 
     @Test
     void csrfCookieRemainsReadableByTheAdminUi() {
-        AdminCookieService service = new AdminCookieService("ysn_admin_session", Duration.ofHours(12));
+        AdminCookieService service = new AdminCookieService("ysn_admin_session", Duration.ofHours(12), true);
         HttpServerResponse response = mock(HttpServerResponse.class);
 
         String csrf = service.issueCsrfCookie(response);
@@ -46,6 +59,9 @@ class AdminCookieServiceTest {
         assertEquals(csrf, cookie.getValue());
         assertEquals(AdminCookieService.CSRF_COOKIE_NAME, cookie.getName());
         assertFalse(cookie.isHttpOnly());
+        assertTrue(cookie.isSecure());
+        assertEquals("/", cookie.getPath());
+        assertEquals(43_200L, cookie.getMaxAge(), "the CSRF token must outlive no less than the session it guards");
         assertEquals(CookieSameSite.STRICT, cookie.getSameSite());
 
         HttpServerResponse secondResponse = mock(HttpServerResponse.class);
@@ -54,7 +70,7 @@ class AdminCookieServiceTest {
 
     @Test
     void clearedSessionCookieExpiresImmediatelyAndRemainsHttpOnly() {
-        AdminCookieService service = new AdminCookieService("ysn_admin_session", Duration.ofHours(12));
+        AdminCookieService service = new AdminCookieService("ysn_admin_session", Duration.ofHours(12), true);
         HttpServerResponse response = mock(HttpServerResponse.class);
 
         service.clearSessionCookie(response);
@@ -65,6 +81,7 @@ class AdminCookieServiceTest {
         assertEquals(0, cookie.getMaxAge());
         assertEquals("/", cookie.getPath());
         assertTrue(cookie.isHttpOnly());
+        assertTrue(cookie.isSecure(), "browsers ignore a non-Secure Set-Cookie that would overwrite a Secure one");
         assertEquals(CookieSameSite.STRICT, cookie.getSameSite());
     }
 

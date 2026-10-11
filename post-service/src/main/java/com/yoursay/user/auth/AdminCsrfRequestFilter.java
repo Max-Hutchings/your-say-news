@@ -1,6 +1,5 @@
 package com.yoursay.user.auth;
 
-import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.Priorities;
@@ -14,7 +13,6 @@ import java.util.Set;
 
 @ApplicationScoped
 @Priority(Priorities.AUTHORIZATION + 10)
-@IfBuildProfile("local")
 public class AdminCsrfRequestFilter implements ContainerRequestFilter {
 
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS");
@@ -22,10 +20,13 @@ public class AdminCsrfRequestFilter implements ContainerRequestFilter {
     @ConfigProperty(name = "firebase.auth.allowed-origins")
     Set<String> allowedOrigins;
 
+    /** Always true outside %test, where @TestSecurity admin tests send no browser CSRF tokens. */
+    @ConfigProperty(name = "firebase.auth.csrf-enforced")
+    boolean enforced;
+
     @Override
     public void filter(ContainerRequestContext request) {
-        String path = request.getUriInfo().getPath();
-        if (!path.startsWith("api/admin/") || SAFE_METHODS.contains(request.getMethod())) {
+        if (!enforced || !isAdminApiPath(request.getUriInfo().getPath()) || SAFE_METHODS.contains(request.getMethod())) {
             return;
         }
 
@@ -38,5 +39,10 @@ public class AdminCsrfRequestFilter implements ContainerRequestFilter {
                 || !csrfHeader.equals(csrfCookie.getValue())) {
             throw new WebApplicationException("CSRF validation failed.", 403);
         }
+    }
+
+    /** JAX-RS reports the path with a leading slash, e.g. {@code /api/admin/users/11}. */
+    private static boolean isAdminApiPath(String path) {
+        return path.replaceFirst("^/+", "").startsWith("api/admin/");
     }
 }

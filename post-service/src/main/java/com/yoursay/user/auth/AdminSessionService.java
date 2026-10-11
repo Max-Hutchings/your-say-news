@@ -2,7 +2,7 @@ package com.yoursay.user.auth;
 
 import com.yoursay.platform.observability.DomainMetrics;
 import com.yoursay.user.auth.dto.AdminIdentityDto;
-import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.arc.profile.UnlessBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.ForbiddenException;
@@ -11,7 +11,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.time.Duration;
 
 @ApplicationScoped
-@IfBuildProfile("local")
+@UnlessBuildProfile("test")
 public class AdminSessionService {
 
     private final FirebaseTokenVerifier verifier;

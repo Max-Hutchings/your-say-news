@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { initializeAdminSession, loginAdmin, logoutAdmin } from "../services/adminSession";
-import type { AdminAuthState, AdminIdentity } from "../types";
+import {
+  initializeAdminSession,
+  loadAdminWebConfig,
+  loginAdmin,
+  loginAdminWithGoogle,
+  logoutAdmin,
+} from "../services/adminSession";
+import type { AdminAuthState, AdminIdentity, AdminSignInMethod } from "../types";
 
 const AdminAuthContext = createContext<AdminAuthState | null>(null);
 
@@ -8,15 +14,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AdminAuthState["status"]>("loading");
   const [identity, setIdentity] = useState<AdminIdentity | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [signInMethod, setSignInMethod] = useState<AdminSignInMethod | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    initializeAdminSession()
-      .then((sessionIdentity) => {
+    Promise.all([initializeAdminSession(), loadAdminWebConfig()])
+      .then(([sessionIdentity, webConfig]) => {
         if (!mounted) {
           return;
         }
+        setSignInMethod(webConfig.signInMethod);
         if (!sessionIdentity) {
           setStatus("unauthenticated");
           return;
@@ -37,10 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const completeSignIn = async (signIn: () => Promise<AdminIdentity>) => {
     setError(null);
     try {
-      const sessionIdentity = await loginAdmin(email, password);
+      const sessionIdentity = await signIn();
       setIdentity(sessionIdentity);
       setStatus("authenticated");
     } catch (reason) {
@@ -48,6 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("unauthenticated");
     }
   };
+
+  const login = (email: string, password: string) => completeSignIn(() => loginAdmin(email, password));
+  const loginWithGoogle = () => completeSignIn(loginAdminWithGoogle);
 
   const logout = async () => {
     await logoutAdmin();
@@ -59,9 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     status,
     identity,
     error,
+    signInMethod,
     login,
+    loginWithGoogle,
     logout,
-  }), [error, identity, status]);
+  }), [error, identity, signInMethod, status]);
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;
 }

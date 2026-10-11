@@ -266,7 +266,7 @@ echo "Starting post-service..."
     QUARKUS_S3_ENDPOINT_OVERRIDE="http://localhost:${storage_port}" \
     VITE_API_ORIGIN="http://localhost:${backend_port}" \
     VITE_ADMIN_PORT="$admin_port" \
-    VITE_FIREBASE_AUTH_EMULATOR_URL="$authentication_url" \
+    FIREBASE_WEB_AUTH_EMULATOR_URL="$authentication_url" \
     ./gradlew :post-service:quarkusDev --console=plain
 ) >"$service_logs_dir/post-service.log" 2>&1 &
 backend_pid=$!

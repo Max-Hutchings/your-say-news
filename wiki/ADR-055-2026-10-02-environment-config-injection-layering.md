@@ -141,5 +141,6 @@ if ops needs to change a value without a new image).
   credential path.
 - The admin web UI and its cookie session stay laptop-only (`@IfBuildProfile("local")`). Serving it
   on dev is a separate decision.
+  Superseded by ADR-064: every image now serves the admin UI and its cookie session.
 - Admin SPA and Expo environment naming are not covered here.
 - Creating `%prod.` config waits until prod is built.

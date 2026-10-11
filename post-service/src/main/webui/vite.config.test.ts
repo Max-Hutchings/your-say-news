@@ -67,7 +67,7 @@ describe("admin development routing", () => {
     );
   });
 
-  it("loads production environment overrides through Vite loadEnv", () => {
+  it("reads overrides from the process environment through the default Vite loadEnv", () => {
     vi.stubEnv("VITE_API_ORIGIN", "http://localhost:58084");
     vi.stubEnv("VITE_ADMIN_PORT", "58085");
 
@@ -78,6 +78,12 @@ describe("admin development routing", () => {
       "/api/auth": "http://localhost:58084",
     });
     expect(config.server.port).toBe(58085);
+  });
+
+  it("builds with page-relative asset URLs so one bundle loads under /admin/ and /api/admin/", () => {
+    const config = resolveAdminViteConfig({ mode: "production", command: "build" }, () => ({}));
+
+    expect(config.base).toBe("./");
   });
 
   it("uses local development defaults when environment overrides are absent", () => {
