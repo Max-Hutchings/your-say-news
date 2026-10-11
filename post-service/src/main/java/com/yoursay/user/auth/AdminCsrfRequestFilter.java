@@ -7,10 +7,13 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.Cookie;
+import jakarta.ws.rs.ext.Provider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.Set;
 
+/** Registered with JAX-RS through @Provider; without it the filter is never invoked. */
+@Provider
 @ApplicationScoped
 @Priority(Priorities.AUTHORIZATION + 10)
 public class AdminCsrfRequestFilter implements ContainerRequestFilter {
