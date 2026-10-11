@@ -560,10 +560,41 @@ class AutoPostControllerTest {
     }
 
     @Test
+    void officialAccountWithPublishingOffCannotReceiveASelectedStory() throws Exception {
+        Mockito.when(discoveryAgent.discover(Mockito.any(), Mockito.any()))
+                .thenAnswer(invocation -> discoveryResult(invocation.getArgument(0), invocation.getArgument(1)));
+        String runId = startRun();
+        worker.processNext();
+        String candidateId = given().when().get("/api/admin/auto-post/runs/" + runId)
+                .then().statusCode(200).extract().path("candidates[0].id");
+        long officialUserId = officialAccountId();
+        setPublishingEnabled(officialUserId, false);
+        try {
+            given().when().post("/api/admin/auto-post/runs/" + runId + "/candidates/" + candidateId + "/select")
+                    .then().statusCode(503)
+                    .body("code", equalTo("AUTO_POST_OFFICIAL_ACCOUNT_UNAVAILABLE"));
+            Mockito.verify(postAgentService, Mockito.never())
+                    .startForPublisher(Mockito.anyLong(), Mockito.anyString());
+        } finally {
+            setPublishingEnabled(officialUserId, true);
+        }
+    }
+
+    private void setPublishingEnabled(long userId, boolean enabled) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "update your_say_user set publishing_enabled = ? where id = ?")) {
+            statement.setBoolean(1, enabled);
+            statement.setLong(2, userId);
+            assertEquals(1, statement.executeUpdate());
+        }
+    }
+
+    @Test
     void seedContainsDedicatedActiveOfficialYourSayNewsAccount() throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                     select display_name, handle, active, account_type, publisher_status
+                     select display_name, handle, active, account_type, publishing_enabled
                      from your_say_user where email = 'official@yoursay.com'
                      """); ResultSet result = statement.executeQuery()) {
             assertTrue(result.next());
@@ -571,7 +602,7 @@ class AutoPostControllerTest {
             assertEquals("yoursay", result.getString("handle"));
             assertTrue(result.getBoolean("active"));
             assertEquals("OFFICIAL", result.getString("account_type"));
-            assertEquals("ACTIVE", result.getString("publisher_status"));
+            assertEquals(true, result.getBoolean("publishing_enabled"));
             assertFalse(result.next());
         }
     }

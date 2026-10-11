@@ -52,7 +52,7 @@ class MobileTelemetryServiceImplTest {
         service.metrics = metrics;
         service.exporter = exporter;
         service.userService = userService;
-        Mockito.when(userService.getAccessByEmail(CALLER)).thenReturn(new UserAccessDto(1207L, null, null, false));
+        Mockito.when(userService.getAccessByEmail(CALLER)).thenReturn(new UserAccessDto(1207L, null, false));
         service.environment = "test";
         service.anonymousBatchesPerMinute = 2;
         service.init();

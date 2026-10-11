@@ -21,17 +21,18 @@ public class AgentUserClient {
         return access == null ? null : new UserAccess(
                 access.userId(),
                 access.accountType().name(),
-                access.publisherStatus().name(),
                 access.canPublish());
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record UserAccess(Long userId, String accountType, String publisherStatus, boolean canPublish) {
+    public record UserAccess(Long userId, String accountType, boolean canPublish) {
 
-        public boolean isActiveOfficialPublisher() {
-            return "OFFICIAL".equals(accountType)
-                    && "ACTIVE".equals(publisherStatus)
-                    && canPublish;
+        /**
+         * Publishing is a permission an admin grants (ADR-066). A USER account is refused even if
+         * the flag says otherwise, so one contradictory value cannot open publishing.
+         */
+        public boolean isPermittedPublisher() {
+            return canPublish && ("OFFICIAL".equals(accountType) || "ADMIN".equals(accountType));
         }
     }
 }

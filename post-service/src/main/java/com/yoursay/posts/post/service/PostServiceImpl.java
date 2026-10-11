@@ -377,7 +377,7 @@ public class PostServiceImpl implements PostService {
                 .onItem().ifNull().failWith(() ->
                         PostApiException.unknownAuthor(authorEmail))
                 .invoke(access -> {
-                    if (!access.isActiveOfficialPublisher()) {
+                    if (!access.isPermittedPublisher()) {
                         throw PostApiException.publishingForbidden(access.userId());
                     }
                 });

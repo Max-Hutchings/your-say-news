@@ -31,7 +31,7 @@ class UnwrappedServiceImplTest {
         when(followUps.findByUserAndPost(17L, 42L)).thenReturn(Optional.empty());
         YourSayUserService users = mock(YourSayUserService.class);
         when(users.getAccessByEmail("voter@example.com"))
-                .thenReturn(new UserAccessDto(17L, null, null, false));
+                .thenReturn(new UserAccessDto(17L, null, false));
         UnwrappedAnalysisJobRepository jobs = mock(UnwrappedAnalysisJobRepository.class);
         when(jobs.count("postId = ?1 and status in ('PENDING','GENERATING','DRAFT_READY')", 42L))
                 .thenReturn(0L);

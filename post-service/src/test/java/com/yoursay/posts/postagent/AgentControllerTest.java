@@ -56,10 +56,10 @@ class AgentControllerTest {
         Mockito.reset(userClient, generator);
         Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
                 .thenReturn(new AgentUserClient.UserAccess(
-                        EDITOR_ID, "OFFICIAL", "ACTIVE", true));
+                        EDITOR_ID, "OFFICIAL", true));
         Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(OTHER_AUTH)))
                 .thenReturn(new AgentUserClient.UserAccess(
-                        OTHER_ID, "OFFICIAL", "ACTIVE", true));
+                        OTHER_ID, "OFFICIAL", true));
         Mockito.when(generator.generate(Mockito.anyString())).thenReturn(generatedResult());
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
@@ -290,7 +290,7 @@ class AgentControllerTest {
     @Test
     void standardAccountCannotGenerate() throws Exception {
         Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
-                .thenReturn(new AgentUserClient.UserAccess(EDITOR_ID, "USER", "NONE", false));
+                .thenReturn(new AgentUserClient.UserAccess(EDITOR_ID, "USER", false));
 
         given().header("Authorization", EDITOR_AUTH).accept("text/event-stream")
                 .contentType("application/json")
@@ -318,16 +318,23 @@ class AgentControllerTest {
                 .body(containsString("VALIDATION_FAILED"));
 
         Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
-                .thenReturn(new AgentUserClient.UserAccess(EDITOR_ID, "USER", "NONE", true));
+                .thenReturn(new AgentUserClient.UserAccess(EDITOR_ID, "USER", true));
         given().header("Authorization", EDITOR_AUTH).accept("text/event-stream")
                 .contentType("application/json").body("{\"request\":\"Research this.\"}")
                 .when().post("/agent/drafts").then().statusCode(403)
                 .body(containsString("AGENT_PUBLISHING_FORBIDDEN"));
 
         Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
-                .thenReturn(new AgentUserClient.UserAccess(EDITOR_ID, "OFFICIAL", "ACTIVE", false));
+                .thenReturn(new AgentUserClient.UserAccess(EDITOR_ID, "OFFICIAL", false));
         given().header("Authorization", EDITOR_AUTH).accept("text/event-stream")
                 .contentType("application/json").body("{\"request\":\"Research this too.\"}")
+                .when().post("/agent/drafts").then().statusCode(403)
+                .body(containsString("AGENT_PUBLISHING_FORBIDDEN"));
+
+        Mockito.when(userClient.getCurrentUserAccess(Mockito.eq(EDITOR_AUTH)))
+                .thenReturn(new AgentUserClient.UserAccess(EDITOR_ID, "ADMIN", false));
+        given().header("Authorization", EDITOR_AUTH).accept("text/event-stream")
+                .contentType("application/json").body("{\"request\":\"An admin without publishing.\"}")
                 .when().post("/agent/drafts").then().statusCode(403)
                 .body(containsString("AGENT_PUBLISHING_FORBIDDEN"));
 

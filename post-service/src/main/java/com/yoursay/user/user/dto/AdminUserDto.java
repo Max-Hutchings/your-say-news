@@ -17,6 +17,7 @@ public record AdminUserDto(
         String displayName,
         LocalDate createdDate,
         boolean active,
-        AccountType accountType
+        AccountType accountType,
+        boolean publishingEnabled
 ) {
 }

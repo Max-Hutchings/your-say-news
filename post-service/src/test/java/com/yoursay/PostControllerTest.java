@@ -68,7 +68,7 @@ public class PostControllerTest {
         // The adapter resolves to an active official publisher and a known user id.
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
+                        AUTHOR_ID, "OFFICIAL", true)));
 
         // Posts are labelled with their author's public handle, resolved from the user domain.
         // The stub answers only for the ids it is asked about, so a page that mixes authors is
@@ -405,7 +405,7 @@ public class PostControllerTest {
         createPost("Should the desk's story be attributed to the desk " + UUID.randomUUID() + "?");
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        OTHER_AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
+                        OTHER_AUTHOR_ID, "OFFICIAL", true)));
         createPost("Should Nadia's story be attributed to Nadia " + UUID.randomUUID() + "?");
 
         // Only the page read's lookup should be counted, not the two creates before it.
@@ -466,7 +466,7 @@ public class PostControllerTest {
     public void createRejectsAStandardAccountEvenWhenAuthenticated() throws Exception {
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        AUTHOR_ID, "USER", "NONE", false)));
+                        AUTHOR_ID, "USER", false)));
         long before = countPosts();
 
         given()
@@ -481,12 +481,41 @@ public class PostControllerTest {
     }
 
     @Test
+    public void createAcceptsAnAdminWithPublishingEnabledAndRejectsOneWithout() throws Exception {
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        AUTHOR_ID, "ADMIN", false)));
+        long before = countPosts();
+        given()
+                .contentType("application/json")
+                .body(createBody("An admin without publishing.", "Should this admin be refused?"))
+                .when().post("/posts")
+                .then()
+                .statusCode(403)
+                .body("code", is("POST_PUBLISHING_FORBIDDEN"));
+        org.junit.jupiter.api.Assertions.assertEquals(before, countPosts());
+
+        Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
+                .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
+                        AUTHOR_ID, "ADMIN", true)));
+        given()
+                .contentType("application/json")
+                .body(createBody("An admin granted publishing.", "Should this admin's story go out?"))
+                .when().post("/posts")
+                .then()
+                .statusCode(201)
+                .body("userId", is((int) AUTHOR_ID))
+                .body("summary", is("An admin granted publishing."));
+        org.junit.jupiter.api.Assertions.assertEquals(before + 1, countPosts());
+    }
+
+    @Test
     public void createRejectsContradictoryAccessDataRatherThanTrustingOneFlag() throws Exception {
         long before = countPosts();
 
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        AUTHOR_ID, "USER", "NONE", true)));
+                        AUTHOR_ID, "USER", true)));
         given()
                 .contentType("application/json")
                 .body(createBody("A standard account with a bad flag.", "Should this be rejected?"))
@@ -497,7 +526,7 @@ public class PostControllerTest {
 
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        AUTHOR_ID, "OFFICIAL", "ACTIVE", false)));
+                        AUTHOR_ID, "OFFICIAL", false)));
         given()
                 .contentType("application/json")
                 .body(createBody("An official account with a denied capability.", "Should this be rejected too?"))
@@ -513,7 +542,7 @@ public class PostControllerTest {
     public void presignRejectsASuspendedOfficialBeforeMintingAnUploadUrl() {
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        AUTHOR_ID, "OFFICIAL", "SUSPENDED", false)));
+                        AUTHOR_ID, "OFFICIAL", false)));
 
         given()
                 .contentType("application/json")

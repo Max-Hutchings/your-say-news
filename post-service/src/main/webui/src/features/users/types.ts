@@ -9,6 +9,7 @@ export type AdminUser = {
   createdDate: string;
   active: boolean;
   accountType: AccountType;
+  publishingEnabled: boolean;
 };
 
-export type AdminUserUpdate = Pick<AdminUser, "accountType" | "active">;
+export type AdminUserUpdate = Pick<AdminUser, "accountType" | "active" | "publishingEnabled">;

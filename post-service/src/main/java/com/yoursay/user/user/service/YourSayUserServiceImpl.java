@@ -137,11 +137,21 @@ public class YourSayUserServiceImpl implements YourSayUserService {
             throw UserApiException.notFound(userId);
         }
 
-        if (user.getAccountType() != update.accountType()) {
-            user.setAccountType(update.accountType());
-        }
+        user.setAccountType(update.accountType());
+        applyPublishingChoice(user, update.publishingEnabled());
         user.setActive(update.active());
         return toAdminDto(user);
+    }
+
+    /** Applies an explicit publishing choice; null keeps what the account type change left. */
+    private static void applyPublishingChoice(YourSayUser user, Boolean publishingEnabled) {
+        if (publishingEnabled == null) {
+            return;
+        }
+        if (publishingEnabled && user.getAccountType() == AccountType.USER) {
+            throw UserApiException.userAccountCannotPublish(user.getId());
+        }
+        user.setPublishingEnabled(publishingEnabled);
     }
 
     @Override
@@ -177,7 +187,6 @@ public class YourSayUserServiceImpl implements YourSayUserService {
         return new UserAccessDto(
                 user.getId(),
                 user.getAccountType(),
-                user.getPublisherStatus(),
                 user.canPublish()
         );
     }
@@ -223,7 +232,8 @@ public class YourSayUserServiceImpl implements YourSayUserService {
                 user.getDisplayName(),
                 user.getCreatedDate(),
                 user.isActive(),
-                user.getAccountType()
+                user.getAccountType(),
+                user.isPublishingEnabled()
         );
     }
 
@@ -243,7 +253,6 @@ public class YourSayUserServiceImpl implements YourSayUserService {
                 user.getCreatedDate(),
                 user.isActive(),
                 user.getAccountType(),
-                user.getPublisherStatus(),
                 user.canPublish(),
                 user.getConsentedAt(),
                 user.getPrivacyPolicyVersion()

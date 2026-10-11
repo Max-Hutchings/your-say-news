@@ -138,6 +138,80 @@ class LocalUserDomainIntegrationTest {
                 .body(org.hamcrest.Matchers.containsString("AGENT_PUBLISHING_FORBIDDEN"));
     }
 
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "user")
+    void anAdminPublishesOnlyAfterPublishingIsEnabledForTheirAccount() throws Exception {
+        Integer postId = null;
+        String agentDraftId = null;
+        try {
+            given()
+                    .contentType("application/json")
+                    .body("""
+                            {
+                              "summary": "An admin without publishing must not post.",
+                              "supportQuestion": "Should this admin be refused?",
+                              "media": []
+                            }
+                            """)
+                    .when().post("/posts")
+                    .then()
+                    .statusCode(403)
+                    .body("code", is("POST_PUBLISHING_FORBIDDEN"));
+            given()
+                    .contentType("application/json")
+                    .body("{ \"request\": \"An admin without publishing must not start a Pepper draft.\" }")
+                    .when().post("/agent/drafts")
+                    .then()
+                    .statusCode(403)
+                    .body(org.hamcrest.Matchers.containsString("AGENT_PUBLISHING_FORBIDDEN"));
+
+            setPublishingEnabled(11, true);
+
+            postId = given()
+                    .contentType("application/json")
+                    .body("""
+                            {
+                              "summary": "An admin granted publishing can post.",
+                              "supportQuestion": "Should admins with publishing post?",
+                              "media": []
+                            }
+                            """)
+                    .when().post("/posts")
+                    .then()
+                    .statusCode(201)
+                    .body("userId", is(11))
+                    .extract().path("id");
+
+            String stream = given()
+                    .accept("text/event-stream")
+                    .contentType("application/json")
+                    .body("{ \"request\": \"An admin with publishing may start a Pepper draft.\" }")
+                    .when().post("/agent/drafts")
+                    .then()
+                    .statusCode(200)
+                    .extract().asString();
+            agentDraftId = extractJsonString(stream, "draftId");
+        } finally {
+            setPublishingEnabled(11, false);
+            if (agentDraftId != null) {
+                deleteAgentDraft(agentDraftId);
+            }
+            if (postId != null) {
+                deletePost(postId);
+            }
+        }
+    }
+
+    private void setPublishingEnabled(long userId, boolean enabled) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "update your_say_user set publishing_enabled = ? where id = ?")) {
+            statement.setBoolean(1, enabled);
+            statement.setLong(2, userId);
+            assertEquals(1, statement.executeUpdate());
+        }
+    }
+
     private void assertStoredVoteUsesJohnsLocalIdentityAndCharacteristics(long postId) throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""

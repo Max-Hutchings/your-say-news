@@ -10,14 +10,17 @@ type PersistedAccount = {
   createdDate: string;
   accountType: "USER" | "OFFICIAL" | "ADMIN";
   active: boolean;
+  publishingEnabled: boolean;
 };
 
-type ManagedAccount = Omit<PersistedAccount, "accountType" | "active">;
+type ManagedAccount = Omit<PersistedAccount, "accountType" | "active" | "publishingEnabled">;
 
 function expectedAccount(
   account: ManagedAccount,
   accountType: PersistedAccount["accountType"],
-  active: boolean
+  active: boolean,
+  // Each type change resets publishing to its default (ADR-066) unless the journey sets it.
+  publishingEnabled = accountType === "OFFICIAL"
 ): PersistedAccount {
   return {
     id: account.id,
@@ -28,6 +31,7 @@ function expectedAccount(
     createdDate: account.createdDate,
     accountType,
     active,
+    publishingEnabled,
   };
 }
 
@@ -72,6 +76,7 @@ export class AdminAccountsPage {
       createdDate: "2024-06-07",
       accountType: "ADMIN",
       active: true,
+      publishingEnabled: false,
     });
     expect(
       accounts.find((account) => account.email === managedAccount.email)
@@ -105,7 +110,11 @@ export class AdminAccountsPage {
     });
 
     if ((await activeSwitch.isChecked()) !== active) {
-      await row.locator(".account-toggle__track").click();
+      // Each row has an active and a publishing switch, so target the active switch's own track.
+      await row
+        .locator(".account-toggle", { has: activeSwitch })
+        .locator(".account-toggle__track")
+        .click();
     }
 
     const response = await this.save(account.id, row);
@@ -118,12 +127,42 @@ export class AdminAccountsPage {
     );
   }
 
+  async changePublishing(
+    account: ManagedAccount,
+    publishingEnabled: boolean
+  ): Promise<void> {
+    const row = this.accountRow(account.email);
+    const publishingSwitch = row.getByRole("switch", {
+      name: `Publishing for ${account.displayName}`,
+    });
+
+    if ((await publishingSwitch.isChecked()) !== publishingEnabled) {
+      await row
+        .locator(".account-toggle", { has: publishingSwitch })
+        .locator(".account-toggle__track")
+        .click();
+    }
+
+    const response = await this.save(account.id, row);
+    const accountType = await row
+      .getByLabel(`Account type for ${account.displayName}`)
+      .inputValue() as PersistedAccount["accountType"];
+    const active = await row
+      .getByRole("switch", { name: `Account active for ${account.displayName}` })
+      .isChecked();
+    await this.expectPersistedResponse(
+      response,
+      expectedAccount(account, accountType, active, publishingEnabled)
+    );
+  }
+
   async expectPersistedState(
     account: {
       displayName: string;
       email: string;
       accountType: PersistedAccount["accountType"];
       active: boolean;
+      publishingEnabled?: boolean;
     }
   ): Promise<void> {
     const accountsResponse = this.waitForAccounts();
@@ -141,6 +180,12 @@ export class AdminAccountsPage {
       })
     ).toHaveJSProperty("checked", account.active);
     await expect(row).toContainText(account.active ? "Active" : "Inactive");
+    await expect(
+      row.getByRole("switch", { name: `Publishing for ${account.displayName}` })
+    ).toHaveJSProperty(
+      "checked",
+      account.publishingEnabled ?? account.accountType === "OFFICIAL"
+    );
     await expect(row.getByRole("button", { name: "Saved" })).toBeDisabled();
   }
 

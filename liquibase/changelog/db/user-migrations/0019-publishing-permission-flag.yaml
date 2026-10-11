@@ -1,0 +1,24 @@
+databaseChangeLog:
+  # ADR-066: publishing is its own on/off permission instead of a status tied to OFFICIAL accounts.
+  # Only an ACTIVE official could publish before, so that is the only state carried over as true.
+  - changeSet:
+      id: 20261011-0019-1
+      author: claude
+      logicalFilePath: db/migrations/0019-publishing-permission-flag.yaml
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE your_say_user
+              ADD COLUMN publishing_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+              UPDATE your_say_user
+              SET publishing_enabled = (account_type = 'OFFICIAL' AND publisher_status = 'ACTIVE');
+              ALTER TABLE your_say_user
+              DROP CONSTRAINT ck_your_say_user_non_official_cannot_publish;
+              ALTER TABLE your_say_user
+              DROP CONSTRAINT ck_your_say_user_publisher_status;
+              ALTER TABLE your_say_user
+              DROP COLUMN publisher_status;
+              ALTER TABLE your_say_user
+              ADD CONSTRAINT ck_your_say_user_user_cannot_publish
+              CHECK (account_type <> 'USER' OR publishing_enabled = FALSE);

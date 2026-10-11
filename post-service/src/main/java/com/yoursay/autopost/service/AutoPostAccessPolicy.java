@@ -2,7 +2,6 @@ package com.yoursay.autopost.service;
 
 import com.yoursay.autopost.error.AutoPostApiException;
 import com.yoursay.user.user.AccountType;
-import com.yoursay.user.user.PublisherStatus;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.user.user.dto.UserAccessDto;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -33,8 +32,7 @@ public class AutoPostAccessPolicy {
     public UserAccessDto requireOfficialAccount() {
         UserAccessDto official = userService.getAccessByHandle(officialHandle);
         if (official == null || !official.canPublish()
-                || official.accountType() != AccountType.OFFICIAL
-                || official.publisherStatus() != PublisherStatus.ACTIVE) {
+                || official.accountType() != AccountType.OFFICIAL) {
             throw AutoPostApiException.officialAccountUnavailable();
         }
         return official;

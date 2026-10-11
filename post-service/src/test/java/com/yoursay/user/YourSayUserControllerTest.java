@@ -60,7 +60,6 @@ public class YourSayUserControllerTest {
                     .body("dateOfBirth", equalTo("2001-03-17"))
                     .body("active", equalTo(true))
                     .body("accountType", equalTo("USER"))
-                    .body("publisherStatus", equalTo("NONE"))
                     .body("canPublish", equalTo(false));
         } finally {
             // your_say_user is shared by every test in the JVM, so the account this test creates
@@ -250,7 +249,6 @@ public class YourSayUserControllerTest {
                 .statusCode(200)
                 .body("userId", equalTo(2))
                 .body("accountType", equalTo("OFFICIAL"))
-                .body("publisherStatus", equalTo("ACTIVE"))
                 .body("canPublish", equalTo(true))
                 .body("email", nullValue());
     }
@@ -282,7 +280,6 @@ public class YourSayUserControllerTest {
                 .statusCode(200)
                 .body("userId", equalTo(5))
                 .body("accountType", equalTo("USER"))
-                .body("publisherStatus", equalTo("NONE"))
                 .body("canPublish", equalTo(false))
                 .body("email", nullValue());
     }
@@ -297,9 +294,8 @@ public class YourSayUserControllerTest {
                 .statusCode(200)
                 .body("userId", equalTo(10))
                 .body("accountType", equalTo("USER"))
-                .body("publisherStatus", equalTo("NONE"))
                 .body("canPublish", equalTo(false))
-                .body("$", aMapWithSize(4))
+                .body("$", aMapWithSize(3))
                 .body("$", not(hasKey("email")))
                 .body("$", not(hasKey("firstName")))
                 .body("$", not(hasKey("lastName")))

@@ -35,7 +35,6 @@ const user = {
     dateOfBirth: "1991-04-12",
     consentedAt: "2026-08-01T10:00:00Z",
     accountType: "USER" as const,
-    publisherStatus: "NONE" as const,
     canPublish: false,
 };
 
@@ -50,7 +49,6 @@ beforeEach(() => {
         dateOfBirth: null,
         consentedAt: null,
         accountType: "USER",
-        publisherStatus: "NONE",
         canPublish: false,
         isLoggedIn: false,
         hasOnboarded: false,
@@ -163,7 +161,6 @@ test("missing Firebase session clears every persisted identity field", async () 
         dateOfBirth: null,
         consentedAt: null,
         accountType: "USER",
-        publisherStatus: "NONE",
         canPublish: false,
         isLoggedIn: false,
         hasOnboarded: false,

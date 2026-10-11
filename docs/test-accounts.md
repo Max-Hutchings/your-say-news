@@ -39,7 +39,7 @@ Notes:
   from the application database.
 - Official accounts map to database `account_type: OFFICIAL`; readers map to `account_type: USER`;
   and the dedicated administration account maps to `account_type: ADMIN`. Official test accounts
-  have `publisher_status: ACTIVE`; users and admins have `publisher_status: NONE`.
+  have `publishing_enabled: true`; users and admins have `publishing_enabled: false` (ADR-066).
 - `casey.morgan` is the login-ready onboarding account. Casey has no consent timestamp and no
   `user_characteristic` row, so a fresh session goes through privacy consent and then the full
   characteristics wizard. Do not add characteristics or posts for Casey.

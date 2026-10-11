@@ -42,10 +42,10 @@ class PepperPostPublicationTest {
         Mockito.reset(postUserClient, agentUserClient);
         Mockito.when(postUserClient.getCurrentUserAccess(Mockito.eq(AUTHORIZATION)))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        AUTHOR_ID, "OFFICIAL", "ACTIVE", true)));
+                        AUTHOR_ID, "OFFICIAL", true)));
         Mockito.when(agentUserClient.getCurrentUserAccess(Mockito.eq(AUTHORIZATION)))
                 .thenReturn(new AgentUserClient.UserAccess(
-                        AUTHOR_ID, "OFFICIAL", "ACTIVE", true));
+                        AUTHOR_ID, "OFFICIAL", true));
         Mockito.when(postUserClient.usernamesByIds(Mockito.anyList()))
                 .thenReturn(Uni.createFrom().item(java.util.Map.of(AUTHOR_ID, "official.desk")));
         try (Connection connection = dataSource.getConnection()) {

@@ -219,8 +219,8 @@
 .account-ledger__heading,
 .account-row {
   display: grid;
-  grid-template-columns: minmax(15rem, 1.55fr) minmax(7rem, 0.55fr) minmax(10rem, 0.8fr)
-    minmax(7.5rem, 0.62fr) minmax(7.7rem, 0.62fr);
+  grid-template-columns: minmax(15rem, 1.45fr) minmax(7rem, 0.5fr) minmax(10rem, 0.75fr)
+    minmax(7.5rem, 0.58fr) minmax(7.5rem, 0.58fr) minmax(7.7rem, 0.62fr);
   gap: 1rem;
   align-items: center;
 }

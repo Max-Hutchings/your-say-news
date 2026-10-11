@@ -1,6 +1,6 @@
 databaseChangeLog:
   # Every user referenced as an author by the post-service seed data must be able to publish.
-  # All other seeded users retain the schema defaults USER/NONE, giving local development
+  # All other seeded users retain the schema defaults (USER, publishing off), giving local development
   # representative non-official, non-publishing accounts as well.
   - changeSet:
       id: 0005-seed-official-publishers
@@ -8,6 +8,10 @@ databaseChangeLog:
       logicalFilePath: db/seeding/0005-seed-official-publishers.yaml
       context: seed
       objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      # Rewritten for the publishing_enabled column (migration 0019). Already-seeded databases keep
+      # their rows, which that migration backfills, so the edited checksum is accepted.
+      validCheckSum:
+        - "1:any"
       changes:
         - update:
             tableName: your_say_user
@@ -16,6 +20,6 @@ databaseChangeLog:
                   name: account_type
                   value: OFFICIAL
               - column:
-                  name: publisher_status
-                  value: ACTIVE
+                  name: publishing_enabled
+                  valueBoolean: true
             where: id IN (1, 2, 4, 7, 8)

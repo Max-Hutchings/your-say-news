@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AccountTypeSelect } from "./AccountTypeSelect";
 import { ActiveToggle } from "./ActiveToggle";
+import { PublishingToggle } from "./PublishingToggle";
 import type { AccountType, AdminUser, AdminUserUpdate } from "../types";
 
 export function AccountRow({
@@ -16,18 +17,28 @@ export function AccountRow({
 }) {
   const [accountType, setAccountType] = useState<AccountType>(user.accountType);
   const [active, setActive] = useState(user.active);
+  const [publishingEnabled, setPublishingEnabled] = useState(user.publishingEnabled);
 
   useEffect(() => {
     setAccountType(user.accountType);
     setActive(user.active);
-  }, [user.accountType, user.active]);
+    setPublishingEnabled(user.publishingEnabled);
+  }, [user.accountType, user.active, user.publishingEnabled]);
 
-  const dirty = accountType !== user.accountType || active !== user.active;
+  const dirty = accountType !== user.accountType
+    || active !== user.active
+    || publishingEnabled !== user.publishingEnabled;
   const name = user.displayName || `${user.firstName} ${user.lastName}`.trim() || user.email;
+
+  // Mirrors the server rule: a new account type starts from its own publishing default.
+  const changeAccountType = (nextType: AccountType) => {
+    setAccountType(nextType);
+    setPublishingEnabled(nextType === user.accountType ? user.publishingEnabled : nextType === "OFFICIAL");
+  };
 
   const save = async () => {
     try {
-      await onSave(user.id, { accountType, active });
+      await onSave(user.id, { accountType, active, publishingEnabled });
     } catch {
       // The page-level error banner gives the retry guidance; keep edits in place.
     }
@@ -59,7 +70,7 @@ export function AccountRow({
         name={name}
         value={accountType}
         disabled={saving}
-        onChange={setAccountType}
+        onChange={changeAccountType}
       />
 
       <ActiveToggle
@@ -67,6 +78,14 @@ export function AccountRow({
         active={active}
         disabled={saving}
         onChange={setActive}
+      />
+
+      <PublishingToggle
+        name={name}
+        accountType={accountType}
+        publishingEnabled={publishingEnabled}
+        disabled={saving}
+        onChange={setPublishingEnabled}
       />
 
       <button

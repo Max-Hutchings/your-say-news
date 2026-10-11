@@ -115,6 +115,9 @@ administration without forcing admin permissions into a mutually exclusive accou
 
 ## Consequences and follow-up work
 
+- Superseded in part by ADR-066: `publisher_status` is replaced by a `publishing_enabled` permission
+  that admins grant to OFFICIAL and ADMIN accounts, so an admin can also publish.
+
 - Replace the unused `UserRole` model with `AccountType`; do not extend it into a competing realm-role
   hierarchy.
 - Add Liquibase migration and seed changes for both columns, constraints and existing accounts.

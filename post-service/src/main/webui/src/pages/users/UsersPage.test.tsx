@@ -31,6 +31,7 @@ const accounts = [
     createdDate: "2024-01-10",
     active: true,
     accountType: "ADMIN" as const,
+    publishingEnabled: false,
   },
   {
     id: 10,
@@ -41,6 +42,7 @@ const accounts = [
     createdDate: "2024-06-06",
     active: true,
     accountType: "USER" as const,
+    publishingEnabled: false,
   },
   {
     id: 3,
@@ -51,6 +53,7 @@ const accounts = [
     createdDate: "2024-03-20",
     active: false,
     accountType: "USER" as const,
+    publishingEnabled: false,
   },
 ];
 
@@ -194,7 +197,83 @@ describe("UsersPage", () => {
     expect(update).toHaveBeenCalledWith(10, {
       accountType: "ADMIN",
       active: false,
+      publishingEnabled: false,
     });
+  });
+
+  it("lets an admin grant publishing to an admin account", async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+
+    const publishing = screen.getByLabelText("Publishing for John Doe");
+    expect(publishing).not.toBeChecked();
+    await user.click(publishing);
+    expect(publishing).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(update).toHaveBeenCalledWith(1, {
+      accountType: "ADMIN",
+      active: true,
+      publishingEnabled: true,
+    });
+  });
+
+  it("demoting an official to user sends publishing off, and reverting restores the saved setting", async () => {
+    const official = {
+      id: 7,
+      email: "nadia.official@example.com",
+      firstName: "Nadia",
+      lastName: "Official",
+      displayName: "Nadia Official",
+      createdDate: "2024-05-01",
+      active: true,
+      accountType: "OFFICIAL" as const,
+      // Switched off by an admin, so reverting must restore this rather than the OFFICIAL default.
+      publishingEnabled: false,
+    };
+    vi.mocked(useAdminUsers).mockReturnValue({
+      users: [...accounts, official],
+      error: null,
+      savingUserIds: new Set(),
+      load,
+      update,
+    });
+    const user = userEvent.setup();
+    render(<UsersPage />);
+    const publishing = screen.getByLabelText("Publishing for Nadia Official");
+    const accountType = screen.getByLabelText("Account type for Nadia Official");
+
+    await user.selectOptions(accountType, "USER");
+    expect(publishing).toBeDisabled();
+    expect(publishing).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(update).toHaveBeenCalledWith(7, {
+      accountType: "USER",
+      active: true,
+      publishingEnabled: false,
+    });
+
+    await user.selectOptions(accountType, "OFFICIAL");
+    expect(publishing).toBeEnabled();
+    expect(publishing).not.toBeChecked();
+    expect(screen.getAllByRole("button", { name: "Saved" })).toHaveLength(4);
+  });
+
+  it("locks publishing off for user accounts and applies each type's default", async () => {
+    const user = userEvent.setup();
+    render(<UsersPage />);
+    const publishing = screen.getByLabelText("Publishing for Riley Reader");
+
+    expect(publishing).toBeDisabled();
+    expect(publishing).not.toBeChecked();
+
+    await user.selectOptions(screen.getByLabelText("Account type for Riley Reader"), "OFFICIAL");
+    expect(publishing).toBeEnabled();
+    expect(publishing).toBeChecked();
+
+    await user.selectOptions(screen.getByLabelText("Account type for Riley Reader"), "ADMIN");
+    expect(publishing).toBeEnabled();
+    expect(publishing).not.toBeChecked();
   });
 
   it("switches from accounts to the Unwrapped publication queue", async () => {

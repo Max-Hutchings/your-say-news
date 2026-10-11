@@ -59,6 +59,9 @@ the independent operational control already used by posting endpoints.
 
 ## Consequences and follow-up
 
+- Superseded in part by ADR-066: `publisher_status` is replaced by a `publishing_enabled` permission
+  that admins grant to OFFICIAL and ADMIN accounts, so an admin can also publish.
+
 - Migrate existing `STANDARD` values to `USER`.
 - Seed one active database administrator for local bootstrap.
 - Existing code and clients must adopt the renamed `USER` enum value.

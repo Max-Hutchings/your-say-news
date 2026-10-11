@@ -21,6 +21,7 @@ describe("userAdminApi", () => {
       createdDate: "2024-06-06",
       active: true,
       accountType: "USER",
+      publishingEnabled: false,
     }];
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(users), {
       status: 200,
@@ -44,6 +45,7 @@ describe("userAdminApi", () => {
       createdDate: "2024-06-06",
       active: false,
       accountType: "ADMIN",
+      publishingEnabled: true,
     };
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(saved), {
       status: 200,
@@ -54,10 +56,11 @@ describe("userAdminApi", () => {
     await expect(updateAdminUser(10, {
       accountType: "ADMIN",
       active: false,
+      publishingEnabled: true,
     })).resolves.toEqual(saved);
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/users/10", expect.objectContaining({
       method: "PUT",
-      body: JSON.stringify({ accountType: "ADMIN", active: false }),
+      body: JSON.stringify({ accountType: "ADMIN", active: false, publishingEnabled: true }),
       headers: expect.objectContaining({ "Content-Type": "application/json" }),
     }));
   });

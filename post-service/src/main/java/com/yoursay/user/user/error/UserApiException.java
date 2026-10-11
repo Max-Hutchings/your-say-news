@@ -33,6 +33,12 @@ public class UserApiException extends ApiException {
                 "Active database administrator access is required for subject email=" + email);
     }
 
+    public static UserApiException userAccountCannotPublish(long userId) {
+        return new UserApiException("USER_ACCOUNT_CANNOT_PUBLISH", Response.Status.BAD_REQUEST,
+                "Publishing cannot be enabled for USER account id=" + userId,
+                "Publishing can only be turned on for official and admin accounts.");
+    }
+
     public static UserApiException inactive(String email) {
         return new UserApiException("USER_ACCOUNT_INACTIVE", Response.Status.FORBIDDEN,
                 "The application account is inactive for subject email=" + email,

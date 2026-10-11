@@ -49,7 +49,7 @@ class TopicTagIntegrationTest {
         Mockito.reset(userServiceClient, feedUserClient, socialClient);
         Mockito.when(userServiceClient.getCurrentUserAccess(Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new UserServiceClient.UserAccess(
-                        CREATOR_ID, "OFFICIAL", "ACTIVE", true)));
+                        CREATOR_ID, "OFFICIAL", true)));
         Mockito.when(feedUserClient.getUserByEmail(Mockito.any(), Mockito.any()))
                 .thenReturn(Uni.createFrom().item(new FeedUserClient.UserRef(CREATOR_ID)));
         Mockito.when(socialClient.getFollowing(Mockito.any()))

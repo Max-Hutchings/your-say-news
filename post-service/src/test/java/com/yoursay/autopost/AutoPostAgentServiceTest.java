@@ -51,12 +51,28 @@ class AutoPostAgentServiceTest {
     }
 
     @Test
-    void refusesTrustedHandoffForAnAdminThatIsNotAnOfficialPublisher() throws Exception {
-        AgentApiException error = assertThrows(AgentApiException.class,
-                () -> service.startForPublisher(userId("yoursay.admin"), "Story brief"));
+    void refusesTrustedHandoffForAnAdminEvenWithPublishingEnabled() throws Exception {
+        long adminId = userId("yoursay.admin");
+        setPublishingEnabled(adminId, true);
+        try {
+            AgentApiException error = assertThrows(AgentApiException.class,
+                    () -> service.startForPublisher(adminId, "Story brief"));
 
-        assertEquals("AGENT_PUBLISHING_FORBIDDEN", error.errorCode());
-        assertEquals(403, error.statusCode());
+            assertEquals("AGENT_PUBLISHING_FORBIDDEN", error.errorCode());
+            assertEquals(403, error.statusCode());
+        } finally {
+            setPublishingEnabled(adminId, false);
+        }
+    }
+
+    private void setPublishingEnabled(long userId, boolean enabled) throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "update your_say_user set publishing_enabled = ? where id = ?")) {
+            statement.setBoolean(1, enabled);
+            statement.setLong(2, userId);
+            assertEquals(1, statement.executeUpdate());
+        }
     }
 
     @Test

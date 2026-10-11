@@ -1,7 +1,6 @@
 package com.yoursay.user.user.dto;
 
 import com.yoursay.user.user.AccountType;
-import com.yoursay.user.user.PublisherStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -21,7 +20,6 @@ public record YourSayUserDto(
         LocalDate createdDate,
         boolean active,
         AccountType accountType,
-        PublisherStatus publisherStatus,
         boolean canPublish,
         Instant consentedAt,
         String privacyPolicyVersion

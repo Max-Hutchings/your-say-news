@@ -40,7 +40,7 @@ class AdminUserControllerTest {
         org.junit.jupiter.api.Assertions.assertEquals(countAccounts(), users.size());
         Set<String> exactKeys = Set.of(
                 "id", "email", "firstName", "lastName", "displayName",
-                "createdDate", "active", "accountType"
+                "createdDate", "active", "accountType", "publishingEnabled"
         );
         users.forEach(user -> org.junit.jupiter.api.Assertions.assertEquals(exactKeys, user.keySet()));
         // The repository promises newest first (createdDate desc, id desc). Asserting the ordering
@@ -55,10 +55,13 @@ class AdminUserControllerTest {
                 "displayName", "YourSay Admin",
                 "createdDate", "2024-06-07",
                 "active", true,
-                "accountType", "ADMIN"
+                "accountType", "ADMIN",
+                "publishingEnabled", false
         ), account(users, "admin@yoursay.com"));
         org.junit.jupiter.api.Assertions.assertEquals("OFFICIAL",
                 account(users, "john.doe@example.com").get("accountType"));
+        org.junit.jupiter.api.Assertions.assertEquals(true,
+                account(users, "john.doe@example.com").get("publishingEnabled"));
         org.junit.jupiter.api.Assertions.assertEquals(false,
                 account(users, "bob.johnson@example.com").get("active"));
     }
@@ -111,9 +114,9 @@ class AdminUserControllerTest {
                     .statusCode(403)
                     .body("code", equalTo("USER_ADMIN_ACCESS_REQUIRED"));
 
-            assertAccountState(9, "USER", "NONE", true);
+            assertAccountState(9, "USER", false, true);
         } finally {
-            setAccountState(9, "USER", "NONE", true);
+            setAccountState(9, "USER", false, true);
         }
     }
 
@@ -158,12 +161,159 @@ class AdminUserControllerTest {
                     "displayName", "Riley Reader",
                     "createdDate", "2024-06-06",
                     "active", true,
-                    "accountType", "ADMIN"
+                    "accountType", "ADMIN",
+                    "publishingEnabled", false
             ), updated);
 
-            assertAccountState(10, "ADMIN", "NONE", true);
+            assertAccountState(10, "ADMIN", false, true);
         } finally {
-            setAccountState(10, "USER", "NONE", true);
+            setAccountState(10, "USER", false, true);
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "user")
+    void adminCanGrantAndRevokePublishingForAnAdmin() throws Exception {
+        setAccountState(10, "ADMIN", false, true);
+        try {
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"accountType":"ADMIN","active":true,"publishingEnabled":true}
+                            """)
+                    .when().put(BASE_URL + "/10")
+                    .then()
+                    .statusCode(200)
+                    .body("accountType", equalTo("ADMIN"))
+                    .body("publishingEnabled", equalTo(true));
+            assertAccountState(10, "ADMIN", true, true);
+
+            // Leaving publishingEnabled out keeps the current setting when the type is unchanged.
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"accountType":"ADMIN","active":true}
+                            """)
+                    .when().put(BASE_URL + "/10")
+                    .then()
+                    .statusCode(200)
+                    .body("publishingEnabled", equalTo(true));
+            assertAccountState(10, "ADMIN", true, true);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"accountType":"ADMIN","active":true,"publishingEnabled":false}
+                            """)
+                    .when().put(BASE_URL + "/10")
+                    .then()
+                    .statusCode(200)
+                    .body("publishingEnabled", equalTo(false));
+            assertAccountState(10, "ADMIN", false, true);
+        } finally {
+            setAccountState(10, "USER", false, true);
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "user")
+    void changingAccountTypeResetsPublishingToTheNewTypesDefault() throws Exception {
+        setAccountState(10, "ADMIN", true, true);
+        try {
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"accountType":"OFFICIAL","active":true}
+                            """)
+                    .when().put(BASE_URL + "/10")
+                    .then()
+                    .statusCode(200)
+                    .body("publishingEnabled", equalTo(true));
+            assertAccountState(10, "OFFICIAL", true, true);
+
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"accountType":"ADMIN","active":true}
+                            """)
+                    .when().put(BASE_URL + "/10")
+                    .then()
+                    .statusCode(200)
+                    .body("publishingEnabled", equalTo(false));
+            assertAccountState(10, "ADMIN", false, true);
+
+            // An explicit value in the same request wins over the new type's default.
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"accountType":"OFFICIAL","active":true,"publishingEnabled":false}
+                            """)
+                    .when().put(BASE_URL + "/10")
+                    .then()
+                    .statusCode(200)
+                    .body("publishingEnabled", equalTo(false));
+            assertAccountState(10, "OFFICIAL", false, true);
+        } finally {
+            setAccountState(10, "USER", false, true);
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "user")
+    void publishingCannotBeEnabledForAUserAccount() throws Exception {
+        given()
+                .contentType(ContentType.JSON)
+                .body("""
+                        {"accountType":"USER","active":true,"publishingEnabled":true}
+                        """)
+                .when().put(BASE_URL + "/9")
+                .then()
+                .statusCode(400)
+                .body("code", equalTo("USER_ACCOUNT_CANNOT_PUBLISH"));
+
+        assertAccountState(9, "USER", false, true);
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "user")
+    void demotingAPublisherToUserWhileKeepingPublishingIsRefusedAndChangesNothing() throws Exception {
+        setAccountState(9, "OFFICIAL", true, true);
+        try {
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"accountType":"USER","active":true,"publishingEnabled":true}
+                            """)
+                    .when().put(BASE_URL + "/9")
+                    .then()
+                    .statusCode(400)
+                    .body("code", equalTo("USER_ACCOUNT_CANNOT_PUBLISH"));
+
+            assertAccountState(9, "OFFICIAL", true, true);
+        } finally {
+            setAccountState(9, "USER", false, true);
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "admin@yoursay.com", roles = "user")
+    void demotingAPublishingAdminToUserSwitchesPublishingOff() throws Exception {
+        setAccountState(10, "ADMIN", true, true);
+        try {
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("""
+                            {"accountType":"USER","active":true}
+                            """)
+                    .when().put(BASE_URL + "/10")
+                    .then()
+                    .statusCode(200)
+                    .body("accountType", equalTo("USER"))
+                    .body("publishingEnabled", equalTo(false));
+
+            assertAccountState(10, "USER", false, true);
+        } finally {
+            setAccountState(10, "USER", false, true);
         }
     }
 
@@ -182,9 +332,9 @@ class AdminUserControllerTest {
                     .body("accountType", equalTo("OFFICIAL"))
                     .body("active", equalTo(true));
 
-            assertAccountState(9, "OFFICIAL", "ACTIVE", true);
+            assertAccountState(9, "OFFICIAL", true, true);
         } finally {
-            setAccountState(9, "USER", "NONE", true);
+            setAccountState(9, "USER", false, true);
         }
     }
 
@@ -203,7 +353,7 @@ class AdminUserControllerTest {
                     .body("accountType", equalTo("USER"))
                     .body("active", equalTo(false));
 
-            assertAccountState(9, "USER", "NONE", false);
+            assertAccountState(9, "USER", false, false);
 
             given()
                     .contentType(ContentType.JSON)
@@ -216,9 +366,9 @@ class AdminUserControllerTest {
                     .body("accountType", equalTo("USER"))
                     .body("active", equalTo(true));
 
-            assertAccountState(9, "USER", "NONE", true);
+            assertAccountState(9, "USER", false, true);
         } finally {
-            setAccountState(9, "USER", "NONE", true);
+            setAccountState(9, "USER", false, true);
         }
     }
 
@@ -246,7 +396,7 @@ class AdminUserControllerTest {
                 .body("code", equalTo("INVALID_REQUEST_VALUE"))
                 .body("message", equalTo("Invalid request."));
 
-        assertAccountState(9, "USER", "NONE", true);
+        assertAccountState(9, "USER", false, true);
 
         given()
                 .contentType(ContentType.JSON)
@@ -262,7 +412,7 @@ class AdminUserControllerTest {
     @Test
     @TestSecurity(user = "riley.reader@example.com", roles = "user")
     void inactiveAccountIsRejectedAcrossAuthenticatedFunctionality() throws Exception {
-        setAccountState(10, "USER", "NONE", false);
+        setAccountState(10, "USER", false, false);
         try {
             given()
                     .when().get("/your-say-user/onboarding")
@@ -271,14 +421,14 @@ class AdminUserControllerTest {
                     .body("code", equalTo("USER_ACCOUNT_INACTIVE"))
                     .body("message", equalTo("This account is inactive."));
         } finally {
-            setAccountState(10, "USER", "NONE", true);
+            setAccountState(10, "USER", false, true);
         }
     }
 
     @Test
     @TestSecurity(user = "admin@yoursay.com", roles = "user")
     void inactiveAdminCannotUseTheAdminApi() throws Exception {
-        setAccountState(11, "ADMIN", "NONE", false);
+        setAccountState(11, "ADMIN", false, false);
         try {
             given()
                     .when().get(BASE_URL)
@@ -286,7 +436,7 @@ class AdminUserControllerTest {
                     .statusCode(403)
                     .body("code", equalTo("USER_ACCOUNT_INACTIVE"));
         } finally {
-            setAccountState(11, "ADMIN", "NONE", true);
+            setAccountState(11, "ADMIN", false, true);
         }
     }
 
@@ -298,11 +448,11 @@ class AdminUserControllerTest {
                 .statusCode(401);
     }
 
-    private void assertAccountState(long userId, String type, String publisherStatus, boolean active)
+    private void assertAccountState(long userId, String type, boolean publishingEnabled, boolean active)
             throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                     select account_type, publisher_status, active
+                     select account_type, publishing_enabled, active
                      from your_say_user
                      where id = ?
                      """)) {
@@ -310,23 +460,23 @@ class AdminUserControllerTest {
             try (ResultSet result = statement.executeQuery()) {
                 org.junit.jupiter.api.Assertions.assertTrue(result.next());
                 org.junit.jupiter.api.Assertions.assertEquals(type, result.getString("account_type"));
-                org.junit.jupiter.api.Assertions.assertEquals(publisherStatus, result.getString("publisher_status"));
+                org.junit.jupiter.api.Assertions.assertEquals(publishingEnabled, result.getBoolean("publishing_enabled"));
                 org.junit.jupiter.api.Assertions.assertEquals(active, result.getBoolean("active"));
                 org.junit.jupiter.api.Assertions.assertFalse(result.next());
             }
         }
     }
 
-    private void setAccountState(long userId, String type, String publisherStatus, boolean active)
+    private void setAccountState(long userId, String type, boolean publishingEnabled, boolean active)
             throws Exception {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      update your_say_user
-                     set account_type = ?, publisher_status = ?, active = ?
+                     set account_type = ?, publishing_enabled = ?, active = ?
                      where id = ?
                      """)) {
             statement.setString(1, type);
-            statement.setString(2, publisherStatus);
+            statement.setBoolean(2, publishingEnabled);
             statement.setBoolean(3, active);
             statement.setLong(4, userId);
             statement.executeUpdate();

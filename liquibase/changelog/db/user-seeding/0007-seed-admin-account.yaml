@@ -7,6 +7,10 @@ databaseChangeLog:
       logicalFilePath: db/seeding/0007-seed-admin-account.yaml
       context: seed
       objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      # Rewritten for the publishing_enabled column (migration 0019). Already-seeded databases keep
+      # their rows, which that migration backfills, so the edited checksum is accepted.
+      validCheckSum:
+        - "1:any"
       changes:
         - update:
             tableName: your_say_user
@@ -15,6 +19,6 @@ databaseChangeLog:
                   name: account_type
                   value: ADMIN
               - column:
-                  name: publisher_status
-                  value: NONE
+                  name: publishing_enabled
+                  valueBoolean: false
             where: email = 'john.doe@example.com'

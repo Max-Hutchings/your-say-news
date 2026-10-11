@@ -28,6 +28,7 @@ export function AccountLedger({
         <span>Joined</span>
         <span>Type</span>
         <span>Status</span>
+        <span>Publishing</span>
         <span>Action</span>
       </div>
       <ol>

@@ -41,7 +41,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import com.yoursay.user.user.AccountType;
-import com.yoursay.user.user.PublisherStatus;
 import com.yoursay.user.user.YourSayUserService;
 import com.yoursay.user.user.dto.UserAccessDto;
 
@@ -297,7 +296,7 @@ public class AgentServiceImpl implements AgentService, AutoPostAgentService {
             if (user == null || user.userId() == null) {
                 throw AgentApiException.userMissing();
             }
-            if (!user.isActiveOfficialPublisher()) {
+            if (!user.isPermittedPublisher()) {
                 throw AgentApiException.publishingForbidden(user.userId());
             }
             return user;
@@ -314,8 +313,7 @@ public class AgentServiceImpl implements AgentService, AutoPostAgentService {
     private void requireTrustedPublisher(long publisherUserId) {
         UserAccessDto access = yourSayUserService.getAccessById(publisherUserId);
         if (access == null || !access.canPublish()
-                || access.accountType() != AccountType.OFFICIAL
-                || access.publisherStatus() != PublisherStatus.ACTIVE) {
+                || access.accountType() != AccountType.OFFICIAL) {
             throw AgentApiException.publishingForbidden(publisherUserId);
         }
     }

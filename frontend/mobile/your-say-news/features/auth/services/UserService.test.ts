@@ -37,7 +37,6 @@ test("getUser returns the authenticated user from the configured service", async
     dateOfBirth: "1991-08-17",
     consentedAt: "2026-07-24T14:30:00Z",
     accountType: "OFFICIAL",
-    publisherStatus: "ACTIVE",
     canPublish: true,
   };
   mockGet.mockResolvedValue({ status: 200, data: user });
@@ -98,7 +97,6 @@ describe("verifySession", () => {
     dateOfBirth: "1993-09-14",
     consentedAt: "2026-07-21T09:00:00Z",
     accountType: "USER",
-    publisherStatus: "NONE",
     canPublish: false,
   };
 

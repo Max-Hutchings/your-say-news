@@ -2,7 +2,6 @@ package com.yoursay.user.user.model;
 
 
 import com.yoursay.user.user.AccountType;
-import com.yoursay.user.user.PublisherStatus;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 
@@ -52,9 +51,9 @@ public class YourSayUser extends PanacheEntityBase {
     @Column(name = "account_type", nullable = false)
     private AccountType accountType = AccountType.USER;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "publisher_status", nullable = false)
-    private PublisherStatus publisherStatus = PublisherStatus.NONE;
+    /** Publishing permission (ADR-066). Never true for a USER; the database enforces the same rule. */
+    @Column(name = "publishing_enabled", nullable = false)
+    private boolean publishingEnabled = false;
 
     /**
      * When the user gave explicit consent to the privacy promise, and the policy version they
@@ -218,30 +217,32 @@ public class YourSayUser extends PanacheEntityBase {
         return accountType;
     }
 
+    /** A changed type resets publishing to that type's default; reassigning the same type keeps it. */
     public void setAccountType(AccountType accountType) {
-        AccountType previousType = this.accountType;
+        if (this.accountType == accountType) {
+            return;
+        }
         this.accountType = accountType;
-        if (accountType == AccountType.OFFICIAL && previousType != AccountType.OFFICIAL) {
-            this.publisherStatus = PublisherStatus.ACTIVE;
-        } else if (accountType != AccountType.OFFICIAL) {
-            this.publisherStatus = PublisherStatus.NONE;
-        }
+        this.publishingEnabled = publishesByDefault(accountType);
     }
 
-    public PublisherStatus getPublisherStatus() {
-        return publisherStatus;
+    private static boolean publishesByDefault(AccountType accountType) {
+        return accountType == AccountType.OFFICIAL;
     }
 
-    public void setPublisherStatus(PublisherStatus publisherStatus) {
-        if (accountType != AccountType.OFFICIAL && publisherStatus != PublisherStatus.NONE) {
-            throw new IllegalArgumentException(accountType + " accounts cannot have publisher status " + publisherStatus);
+    public boolean isPublishingEnabled() {
+        return publishingEnabled;
+    }
+
+    public void setPublishingEnabled(boolean publishingEnabled) {
+        if (publishingEnabled && accountType == AccountType.USER) {
+            throw new IllegalArgumentException("USER accounts cannot publish");
         }
-        this.publisherStatus = publisherStatus;
+        this.publishingEnabled = publishingEnabled;
     }
 
     public boolean canPublish() {
-        return active && accountType == AccountType.OFFICIAL
-                && publisherStatus == PublisherStatus.ACTIVE;
+        return active && publishingEnabled;
     }
 
     public Instant getConsentedAt() {

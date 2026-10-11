@@ -21,6 +21,7 @@ const riley = {
   createdDate: "2024-06-06",
   active: true,
   accountType: "USER" as const,
+  publishingEnabled: false,
 };
 
 describe("useAdminUsers", () => {
@@ -37,12 +38,13 @@ describe("useAdminUsers", () => {
     await waitFor(() => expect(result.current.users).toEqual([riley]));
 
     await act(async () => {
-      await result.current.update(10, { accountType: "ADMIN", active: false });
+      await result.current.update(10, { accountType: "ADMIN", active: false, publishingEnabled: false });
     });
 
     expect(updateAdminUser).toHaveBeenCalledWith(10, {
       accountType: "ADMIN",
       active: false,
+      publishingEnabled: false,
     });
     expect(result.current.users).toEqual([promoted]);
     expect(result.current.savingUserIds).toEqual(new Set());
@@ -57,7 +59,7 @@ describe("useAdminUsers", () => {
 
     await act(async () => {
       await expect(
-        result.current.update(10, { accountType: "ADMIN", active: false }),
+        result.current.update(10, { accountType: "ADMIN", active: false, publishingEnabled: false }),
       ).rejects.toThrow("network unavailable");
     });
 

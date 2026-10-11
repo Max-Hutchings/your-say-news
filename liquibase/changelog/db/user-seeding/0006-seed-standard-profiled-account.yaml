@@ -23,7 +23,7 @@ databaseChangeLog:
               - { column: { name: created_date, value: "2024-06-06" } }
               - { column: { name: active, valueBoolean: true } }
               - { column: { name: account_type, value: "USER" } }
-              - { column: { name: publisher_status, value: "NONE" } }
+              - { column: { name: publishing_enabled, valueBoolean: false } }
               - { column: { name: consented_at, value: "2026-07-21T09:00:00Z" } }
               - { column: { name: privacy_policy_version, value: "2026-06-01" } }
 
