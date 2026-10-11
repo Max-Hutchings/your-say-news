@@ -227,6 +227,7 @@ case "$*" in
   *' logs '*) echo 'cp: cannot stat /source/firebase-admin.json' ;;
   *' ps --all --quiet alloy') [ "${YSN_TEST_ALLOY_MISSING:-}" = true ] || echo 'alloy-container-id' ;;
   'inspect '*) echo "${YSN_TEST_ALLOY_STATE:-0 running}" ;;
+  'image prune '*) [ "${YSN_TEST_FAIL_PRUNE:-}" != true ] ;;
 esac
 FAKE_DOCKER
 
@@ -448,7 +449,9 @@ SUCCESSFUL_DEPLOY
 chmod 0755 "$new_release/scripts/deploy.sh"
 cp "$new_release/scripts/deploy.sh" "$previous_release/scripts/deploy.sh"
 
-DEPLOY_ROOT="$release_test_root" "$deploy_root/scripts/release.sh" "$new_release" >/dev/null
+: > "$command_log"
+YSN_TEST_COMMAND_LOG="$command_log" PATH="$fake_bin:$PATH" RELEASES_TO_KEEP=100 \
+  DEPLOY_ROOT="$release_test_root" "$deploy_root/scripts/release.sh" "$new_release" >/dev/null
 [[ $(readlink -f "$release_test_root/current") == "$new_release" ]] \
   || fail 'successful release did not update the current symlink'
 
@@ -477,6 +480,8 @@ assert_file_contains "$command_log" \
 if grep -Fq -- '--profile migration' "$command_log"; then
   fail 'rollback attempted to reverse or rerun database migrations'
 fi
+[[ $(grep -Fxc -- 'docker image prune --all --force' "$command_log") -eq 1 ]] \
+  || fail 'a failed release pruned images after deploy, which can remove the rollback image'
 
 malicious_previous="$release_test_root/releases/malicious-previous"
 rollback_escape_marker="$test_directory/rollback-health-executed"
@@ -507,5 +512,71 @@ set -e
 if grep -Fq -- "--env-file $malicious_previous/runtime.env" "$command_log"; then
   fail 'rollback restored containers from a release with escaping required files'
 fi
+
+# Each deploy adds a release directory and a full image; without cleanup the VM disk filled and
+# activation failed with "No space left on device". Keep the newest RELEASES_TO_KEEP releases plus
+# the active and replaced ones, and never follow a symlink out of the releases directory.
+prune_root="$test_directory/prune-root"
+prune_outside="$test_directory/prune-outside"
+prune_error="$test_directory/prune-error.log"
+mkdir -p "$prune_root/releases" "$prune_outside"
+touch "$prune_outside/must-survive"
+make_release() {
+  local release=$prune_root/releases/$1
+  mkdir -p "$release/scripts"
+  cp "$deploy_root/compose.yaml" "$release/compose.yaml"
+  cp "$runtime_env" "$release/runtime.env"
+  cp "$deploy_root/scripts/health-check.sh" "$release/scripts/health-check.sh"
+  printf '#!/usr/bin/env sh\necho deploy >> "$YSN_TEST_COMMAND_LOG"\n' > "$release/scripts/deploy.sh"
+  chmod 0755 "$release/scripts/deploy.sh"
+  [[ -z ${2:-} ]] || touch -t "$2" "$release"
+}
+release_names() {
+  (cd "$prune_root/releases" && ls -1 | sort | tr '\n' ' ')
+}
+make_release active-oldest 202601010000
+make_release older 202601020000
+make_release recent 202601030000
+make_release newest-previous 202601040000
+# A redeployed commit keeps its old directory, so the incoming release can be the oldest one.
+make_release incoming 202512300000
+ln -s "$prune_outside" "$prune_root/releases/linked-outside"
+touch -h -t 202512310000 "$prune_root/releases/linked-outside"
+ln -sfn "$prune_root/releases/active-oldest" "$prune_root/current"
+: > "$command_log"
+
+# 2 is not the default, so this also proves the override is read.
+YSN_TEST_COMMAND_LOG="$command_log" PATH="$fake_bin:$PATH" RELEASES_TO_KEEP=2 \
+  DEPLOY_ROOT="$prune_root" "$deploy_root/scripts/release.sh" "$prune_root/releases/incoming" >/dev/null
+
+[[ $(readlink -f "$prune_root/current") == "$prune_root/releases/incoming" ]] \
+  || fail 'pruning release did not activate the incoming release'
+[[ $(release_names) == 'active-oldest incoming linked-outside newest-previous recent ' ]] \
+  || fail "release pruning kept the wrong directories: $(release_names)"
+[[ -f "$prune_outside/must-survive" ]] || fail 'release pruning deleted files outside the releases directory'
+[[ $(tr '\n' '|' < "$command_log") == 'docker image prune --all --force|deploy|docker image prune --all --force|' ]] \
+  || fail "images must be pruned before the pull and after activation, got: $(tr '\n' '|' < "$command_log")"
+
+# A failed image prune is only a warning: the release still activates.
+make_release prune-fails
+: > "$command_log"
+YSN_TEST_COMMAND_LOG="$command_log" PATH="$fake_bin:$PATH" YSN_TEST_FAIL_PRUNE=true RELEASES_TO_KEEP=10 \
+  DEPLOY_ROOT="$prune_root" "$deploy_root/scripts/release.sh" "$prune_root/releases/prune-fails" \
+  >/dev/null 2>"$prune_error" || fail 'a failed image prune failed the release'
+[[ $(readlink -f "$prune_root/current") == "$prune_root/releases/prune-fails" ]] \
+  || fail 'a failed image prune stopped the release from activating'
+assert_file_contains "$prune_error" 'Warning: unused Docker images were not pruned.'
+
+# A non-numeric keep count must stop before deploying or deleting anything.
+releases_before=$(release_names)
+: > "$command_log"
+if YSN_TEST_COMMAND_LOG="$command_log" PATH="$fake_bin:$PATH" RELEASES_TO_KEEP=three \
+  DEPLOY_ROOT="$prune_root" "$deploy_root/scripts/release.sh" "$prune_root/releases/recent" \
+  >/dev/null 2>"$prune_error"; then
+  fail 'release.sh accepted a non-numeric RELEASES_TO_KEEP'
+fi
+assert_file_contains "$prune_error" 'RELEASES_TO_KEEP must be a whole number, not: three'
+[[ $(release_names) == "$releases_before" ]] || fail 'an invalid RELEASES_TO_KEEP deleted releases'
+[[ ! -s "$command_log" ]] || fail 'an invalid RELEASES_TO_KEEP still ran deploy or docker'
 
 echo 'Deployment script tests passed.'
